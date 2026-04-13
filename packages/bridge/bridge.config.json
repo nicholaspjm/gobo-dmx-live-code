@@ -1,0 +1,15 @@
+{
+  "_comment": "lumen bridge config — set mode to 'artnet', 'sacn', or 'mock'",
+  "mode": "mock",
+  "artnet": {
+    "host": "255.255.255.255",
+    "port": 6454
+  },
+  "sacn": {
+    "universe": 1,
+    "priority": 100
+  },
+  "mock": {
+    "logIntervalFrames": 44
+  }
+}

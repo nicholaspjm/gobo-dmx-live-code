@@ -1,0 +1,15 @@
+{
+  "name": "lumen",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev": "concurrently \"npm:dev:*\"",
+    "dev:bridge": "npm run dev --workspace=packages/bridge",
+    "dev:ui": "npm run dev --workspace=packages/ui",
+    "build": "npm run build --workspace=packages/ui",
+    "preview": "npm run preview --workspace=packages/ui"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

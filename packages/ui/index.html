@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lumen</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #1a1714;
+        --surface: #211e1b;
+        --border: #2e2a26;
+        --text: #e8dfd0;
+        --text-muted: #8a8078;
+        --accent: #c4724a;
+        --accent2: #b8956a;
+        --sage: #7a8c6e;
+        --error: #c45a5a;
+      }
+
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+        font-size: 13px;
+        overflow: hidden;
+      }
+
+      #app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      /* Top bar */
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        height: 38px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+
+      .wordmark {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        color: var(--accent2);
+        text-transform: lowercase;
+      }
+
+      .topbar-right {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .bpm-display {
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .bpm-display span {
+        color: var(--text);
+      }
+
+      .cycle-bar {
+        width: 80px;
+        height: 3px;
+        background: var(--border);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+
+      .cycle-bar-fill {
+        height: 100%;
+        background: var(--accent);
+        width: 0%;
+        transition: none;
+      }
+
+      .ws-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+
+      .ws-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--border);
+        transition: background 0.3s;
+      }
+
+      .ws-dot.connected {
+        background: var(--sage);
+      }
+
+      .ws-dot.disconnected {
+        background: var(--error);
+      }
+
+      /* Editor */
+      .editor-wrap {
+        flex: 3;
+        min-height: 0;
+        overflow: hidden;
+        position: relative;
+      }
+
+      #editor {
+        height: 100%;
+        overflow: auto;
+      }
+
+      /* Divider */
+      .divider {
+        height: 1px;
+        background: var(--border);
+        flex-shrink: 0;
+      }
+
+      /* Visualizer */
+      .viz-wrap {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--surface);
+      }
+
+      /* Fixture sim panel */
+      .fixture-panel {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        overflow-x: auto;
+      }
+
+      .fixture-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .fixture-lights {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .fixture-unit {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .fixture-globe {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1.5px solid var(--border);
+        background: var(--bg);
+        transition: box-shadow 0.05s, background 0.05s;
+        position: relative;
+      }
+
+      .fixture-name {
+        font-size: 9px;
+        color: var(--text-muted);
+        letter-spacing: 0.06em;
+      }
+
+      #visualizer {
+        display: block;
+        width: 100%;
+        flex: 1;
+        min-height: 0;
+      }
+
+      /* Status bar */
+      .statusbar {
+        height: 26px;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        padding: 0 16px;
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+      }
+
+      #eval-status {
+        font-size: 11px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #eval-status.error {
+        color: var(--error);
+      }
+
+      #eval-status.ok {
+        color: var(--sage);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <span class="wordmark">lumen</span>
+        <div class="topbar-right">
+          <span class="bpm-display">bpm <span id="bpm-val">120</span></span>
+          <div class="cycle-bar" title="cycle position">
+            <div class="cycle-bar-fill" id="cycle-fill"></div>
+          </div>
+          <span class="ws-status">
+            <span class="ws-dot disconnected" id="ws-dot"></span>
+            <span id="ws-label">disconnected</span>
+          </span>
+        </div>
+      </header>
+
+      <div class="editor-wrap">
+        <div id="editor"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="viz-wrap">
+        <div class="fixture-panel">
+          <span class="fixture-label">sim</span>
+          <div class="fixture-lights">
+            <div class="fixture-unit">
+              <div class="fixture-globe" id="sim-wash-a"></div>
+              <span class="fixture-name">wash a</span>
+            </div>
+            <div class="fixture-unit">
+              <div class="fixture-globe" id="sim-wash-b"></div>
+              <span class="fixture-name">wash b</span>
+            </div>
+            <div class="fixture-unit">
+              <div class="fixture-globe" id="sim-spot"></div>
+              <span class="fixture-name">spot</span>
+            </div>
+            <div class="fixture-unit">
+              <div class="fixture-globe" id="sim-strobe"></div>
+              <span class="fixture-name">strobe</span>
+            </div>
+          </div>
+        </div>
+        <canvas id="visualizer"></canvas>
+      </div>
+
+      <div class="statusbar">
+        <span id="eval-status">ctrl+enter to run  ·  ctrl+. to stop</span>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
