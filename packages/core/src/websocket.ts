@@ -7,8 +7,24 @@
  *   { type: "dmx", universes: { "1": [0, 128, 255, ...], ... } }
  */
 
-// Use the server's hostname so this works from other devices on the LAN
-const BRIDGE_URL = `ws://${window.location.hostname}:3001`;
+/**
+ * Pick the bridge host:
+ *  - When served from localhost or a LAN IP (e.g. `npm run dev`), use the same host
+ *    so phones/tablets on the LAN can reach the bridge on the dev machine.
+ *  - When served from a public host (e.g. github.io), fall back to `localhost`.
+ *    Browsers allow `ws://localhost` even from https pages (loopback exception),
+ *    so the user just needs to run `npm run bridge` locally.
+ */
+function pickBridgeHost(): string {
+  const h = window.location.hostname;
+  if (h === 'localhost' || h === '127.0.0.1') return h;
+  if (/^192\.168\./.test(h)) return h;
+  if (/^10\./.test(h)) return h;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return h;
+  return 'localhost';
+}
+
+const BRIDGE_URL = `ws://${pickBridgeHost()}:3001`;
 const RECONNECT_DELAY_MS = 2000;
 
 let _ws: WebSocket | null = null;
