@@ -335,8 +335,12 @@ function renderSection(sec: DocSection): string {
       const example = e.example
         ? `<pre class="doc-example">${escapeHtml(e.example)}</pre>`
         : '';
+      // data-search holds a lowercased bag of all searchable text for this entry
+      const searchBag = [e.name, e.signature, e.description, e.example ?? '']
+        .join(' ')
+        .toLowerCase();
       return `
-        <div class="doc-entry">
+        <div class="doc-entry" data-search="${escapeHtml(searchBag)}">
           <div class="doc-sig"><span class="doc-name">${escapeHtml(e.name)}</span> <span class="doc-signature">${escapeHtml(e.signature)}</span></div>
           <div class="doc-desc">${escapeHtml(e.description)}</div>
           ${example}
@@ -344,15 +348,94 @@ function renderSection(sec: DocSection): string {
     })
     .join('');
 
+  // data-search on the section includes title + blurb so typing a section
+  // name ("patterns") keeps the whole group visible even if individual
+  // entries don't match that exact word.
+  const sectionSearch = [sec.title, sec.blurb ?? ''].join(' ').toLowerCase();
+
   return `
-    <section class="doc-section">
+    <section class="doc-section" data-search="${escapeHtml(sectionSearch)}">
       <h3 class="doc-section-title">${escapeHtml(sec.title)}</h3>
       ${blurb}
       ${entries}
     </section>`;
 }
 
+/**
+ * Filter the rendered docs against a query.
+ * Hides entries that don't match and sections left with zero visible entries.
+ * Empty query clears the filter.
+ */
+function applyFilter(body: HTMLElement, query: string, emptyMsg: HTMLElement): void {
+  const q = query.trim().toLowerCase();
+  const sections = body.querySelectorAll<HTMLElement>('.doc-section');
+
+  let totalVisible = 0;
+
+  sections.forEach((section) => {
+    const sectionText = section.getAttribute('data-search') ?? '';
+    const sectionMatches = q.length > 0 && sectionText.includes(q);
+    const entries = section.querySelectorAll<HTMLElement>('.doc-entry');
+
+    let visibleInSection = 0;
+    entries.forEach((entry) => {
+      if (q === '') {
+        entry.classList.remove('hidden');
+        visibleInSection++;
+        return;
+      }
+      const bag = entry.getAttribute('data-search') ?? '';
+      // Either the entry matches, OR the section title/blurb matches
+      // (so "patterns" shows every pattern function)
+      const hit = bag.includes(q) || sectionMatches;
+      entry.classList.toggle('hidden', !hit);
+      if (hit) visibleInSection++;
+    });
+
+    section.classList.toggle('hidden', visibleInSection === 0);
+    totalVisible += visibleInSection;
+  });
+
+  emptyMsg.classList.toggle('hidden', totalVisible > 0);
+}
+
 /** Render the docs content into the panel body. */
 export function renderDocs(body: HTMLElement): void {
-  body.innerHTML = DOCS.map(renderSection).join('');
+  const searchBar = `
+    <div class="doc-search">
+      <input type="text" id="doc-search-input" placeholder="search functions…" autocomplete="off" spellcheck="false" />
+      <button type="button" id="doc-search-clear" class="doc-search-clear" title="clear" aria-label="clear search">×</button>
+    </div>
+    <div class="doc-empty hidden" id="doc-empty">no matches — try a different word</div>`;
+
+  body.innerHTML = searchBar + DOCS.map(renderSection).join('');
+
+  const input = body.querySelector<HTMLInputElement>('#doc-search-input')!;
+  const clearBtn = body.querySelector<HTMLButtonElement>('#doc-search-clear')!;
+  const emptyMsg = body.querySelector<HTMLElement>('#doc-empty')!;
+
+  const update = (): void => {
+    applyFilter(body, input.value, emptyMsg);
+    clearBtn.classList.toggle('visible', input.value.length > 0);
+  };
+
+  input.addEventListener('input', update);
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    update();
+    input.focus();
+  });
+
+  // Focus search automatically when the panel opens
+  // (the opener sets .open on the panel; we watch for that via an observer)
+  const panel = body.closest<HTMLElement>('.docs-panel');
+  if (panel) {
+    const obs = new MutationObserver(() => {
+      if (panel.classList.contains('open')) {
+        // Defer so the slide-in transition doesn't fight the focus
+        setTimeout(() => input.focus(), 50);
+      }
+    });
+    obs.observe(panel, { attributes: true, attributeFilter: ['class'] });
+  }
 }
