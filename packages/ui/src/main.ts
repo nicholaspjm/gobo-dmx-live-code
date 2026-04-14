@@ -108,9 +108,9 @@ connectBridge();
 
 // ─── Fixture simulation globes ───────────────────────────────────────────────
 // Maps demo fixture channels to the little glowing circles in the sim panel.
-// ch1 = wash A dimmer, ch2-4 = wash A RGB
-// ch5 = wash B dimmer, ch6-8 = wash B RGB
-// ch9 = strobe, ch10 = spot
+// ch1 = wash A dim, ch2-4 = wash A RGB, ch5 = wash A white
+// ch6 = wash B dim, ch7-9 = wash B RGB, ch10 = wash B white
+// ch11 = spot, ch12-13 = strobe
 
 const simWashA = document.getElementById('sim-wash-a') as HTMLElement;
 const simWashB = document.getElementById('sim-wash-b') as HTMLElement;
@@ -141,14 +141,14 @@ function updateGlobe(
 
 setInterval(() => {
   const ch = getUniverse1Snapshot();
-  // wash A: ch1 dim, ch2-4 RGB
-  updateGlobe(simWashA, ch[0], ch[1], ch[2], ch[3]);
-  // wash B: ch5 dim, ch6-8 RGB
-  updateGlobe(simWashB, ch[4], ch[5], ch[6], ch[7]);
-  // spot: ch10, white light
-  updateGlobe(simSpot, ch[9], 255, 240, 210);
-  // strobe: ch9, white flash
-  updateGlobe(simStrobe, ch[8], 255, 255, 255);
+  // wash A: ch1 dim, ch2-4 RGB (ch5 white mixed into RGB)
+  updateGlobe(simWashA, ch[0], Math.min(255, ch[1] + ch[4]), Math.min(255, ch[2] + ch[4]), Math.min(255, ch[3] + ch[4]));
+  // wash B: ch6 dim, ch7-9 RGB (ch10 white mixed into RGB)
+  updateGlobe(simWashB, ch[5], Math.min(255, ch[6] + ch[9]), Math.min(255, ch[7] + ch[9]), Math.min(255, ch[8] + ch[9]));
+  // spot: ch11, white light
+  updateGlobe(simSpot, ch[10], 255, 240, 210);
+  // strobe: ch12 dim, white flash
+  updateGlobe(simStrobe, ch[11], 255, 255, 255);
 }, 33); // ~30fps
 
 // ─── Init ────────────────────────────────────────────────────────────────────

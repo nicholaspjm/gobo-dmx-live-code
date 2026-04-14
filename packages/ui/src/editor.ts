@@ -21,12 +21,13 @@ const INITIAL_CODE = `// lumen — live DMX coding environment
 // ─────────────────────────────────────────────────────
 
 // built-in types: generic-dimmer, generic-rgb, generic-rgbw,
-// generic-rgba, generic-dim-rgb, moving-head-basic, strobe-basic
+// generic-rgba, generic-dim-rgb, generic-dim-rgbw,
+// moving-head-basic, strobe-basic
 
-const washA = fixture(1,  'generic-rgbw')   // ch 1-4
-const washB = fixture(5,  'generic-rgbw')   // ch 5-8
-const spot  = fixture(9,  'generic-dimmer') // ch 9
-const strb  = fixture(10, 'strobe-basic')   // ch 10-11
+const washA = fixture(1,  'generic-dim-rgbw')  // ch 1-5
+const washB = fixture(6,  'generic-dim-rgbw')  // ch 6-10
+const spot  = fixture(11, 'generic-dimmer')    // ch 11
+const strb  = fixture(12, 'strobe-basic')      // ch 12-13
 
 // custom fixture — define your own channel layout:
 defineFixture('my-par', {
@@ -42,7 +43,7 @@ defineFixture('my-par', {
     { offset: 4, name: 'amber', type: 'color' },
   ]
 })
-const myPar = fixture(12, 'my-par')         // ch 12-16
+const myPar = fixture(14, 'my-par')         // ch 14-18
 
 // ─────────────────────────────────────────────────────
 // 2. write patterns

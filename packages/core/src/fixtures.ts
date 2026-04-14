@@ -105,6 +105,20 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
     ],
   },
 
+  'generic-dim-rgbw': {
+    name: 'Generic Dimmer + RGBW',
+    manufacturer: 'Generic',
+    type: 'rgbw',
+    channelCount: 5,
+    channels: [
+      { offset: 0, name: 'dim',   type: 'intensity', description: 'Master dimmer' },
+      { offset: 1, name: 'red',   type: 'color',     description: 'Red'           },
+      { offset: 2, name: 'green', type: 'color',     description: 'Green'         },
+      { offset: 3, name: 'blue',  type: 'color',     description: 'Blue'          },
+      { offset: 4, name: 'white', type: 'color',     description: 'White'         },
+    ],
+  },
+
   'moving-head-basic': {
     name: 'Moving Head (Basic 8ch)',
     manufacturer: 'Generic',
