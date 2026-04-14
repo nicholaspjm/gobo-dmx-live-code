@@ -17,17 +17,30 @@ const INITIAL_CODE = `// lumen — live DMX coding environment
 // ctrl+enter to run  ·  ctrl+. to stop
 
 // ─────────────────────────────────────────────────────
+// 0. output config (artnet / sacn / mock)
+// ─────────────────────────────────────────────────────
+
+// artnet(host, port)  — send Art-Net UDP
+// sacn(universe, priority) — send sACN E1.31
+// osc(host, port) — send OSC (great for TouchDesigner)
+// mock() — console log only (no hardware)
+
+osc('127.0.0.1', 9000)      // /lumen/<uni>/<ch> <float 0-1>
+// artnet('127.0.0.1', 6454)
+// sacn(1, 100)
+// mock()
+
+// ─────────────────────────────────────────────────────
 // 1. define your fixtures (type + DMX start address)
 // ─────────────────────────────────────────────────────
 
 // built-in types: generic-dimmer, generic-rgb, generic-rgbw,
-// generic-rgba, generic-dim-rgb, generic-dim-rgbw,
-// moving-head-basic, strobe-basic
+// generic-rgba, generic-dim-rgb, moving-head-basic, strobe-basic
 
-const washA = fixture(1,  'generic-dim-rgbw')  // ch 1-5
-const washB = fixture(6,  'generic-dim-rgbw')  // ch 6-10
-const spot  = fixture(11, 'generic-dimmer')    // ch 11
-const strb  = fixture(12, 'strobe-basic')      // ch 12-13
+const washA = fixture(1, 'generic-rgbw')   // ch 1-4
+const washB = fixture(5, 'generic-rgbw')   // ch 5-8
+const spot  = fixture(9, 'generic-dimmer') // ch 9
+const strb  = fixture(10, 'strobe-basic')  // ch 10-11
 
 // custom fixture — define your own channel layout:
 defineFixture('my-par', {
@@ -36,46 +49,44 @@ defineFixture('my-par', {
   type: 'rgba',
   channelCount: 5,
   channels: [
-    { offset: 0, name: 'dim',   type: 'intensity' },
-    { offset: 1, name: 'red',   type: 'color' },
-    { offset: 2, name: 'green', type: 'color' },
-    { offset: 3, name: 'blue',  type: 'color' },
-    { offset: 4, name: 'amber', type: 'color' },
+    { offset: 0, name: 'red',   type: 'color' },
+    { offset: 1, name: 'green', type: 'color' },
+    { offset: 2, name: 'blue',  type: 'color' },
+    { offset: 3, name: 'amber', type: 'color' },
+    { offset: 4, name: 'white', type: 'color' },
   ]
 })
-const myPar = fixture(14, 'my-par')         // ch 14-18
+const myPar = fixture(12, 'my-par')        // ch 12-16
 
 // ─────────────────────────────────────────────────────
 // 2. write patterns
 // ─────────────────────────────────────────────────────
 
-// wash A — warm amber breathe
-washA.dim(sine().slow(4))
-washA.red(0.9)
-washA.green(0.4)
-washA.blue(0.05)
+// wash A — warm amber breathe (dim via colour intensity)
+washA.red(sine().slow(4).range(0, 0.9))
+washA.green(sine().slow(4).range(0, 0.4))
+washA.blue(sine().slow(4).range(0, 0.05))
 washA.white(sine().slow(6))
 
 // wash B — cool blue, offset half a cycle
-washB.dim(sine().slow(4).add(0.5).range(0, 1))
-washB.red(0.05)
-washB.green(0.3)
-washB.blue(0.9)
+washB.red(sine().slow(4).add(0.5).range(0, 0.05))
+washB.green(sine().slow(4).add(0.5).range(0, 0.3))
+washB.blue(sine().slow(4).add(0.5).range(0, 0.9))
 washB.white(0)
 
 // spot — sharp beat pulse
-spot.dim(square().fast(1).range(0, 1))
+spot.dim(square().fast(1))
 
 // strobe — uncomment to fire
 // strb.dim(0.8)
 // strb.strobe(square().fast(16))
 
 // custom par — colour cycle
-myPar.dim(0.8)
-myPar.red(sine().slow(3))
-myPar.green(cosine().slow(3))
-myPar.blue(sine().slow(5))
-myPar.amber(saw().slow(8))
+myPar.red(sine().slow(3).range(0, 0.8))
+myPar.green(cosine().slow(3).range(0, 0.8))
+myPar.blue(sine().slow(5).range(0, 0.8))
+myPar.amber(saw().slow(8).range(0, 0.6))
+myPar.white(0.2)
 `;
 
 export type EvalHandler = (code: string) => void;

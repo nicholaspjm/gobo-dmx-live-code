@@ -20,9 +20,10 @@ import { randomBytes } from 'crypto';
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 interface BridgeConfig {
-  mode: 'artnet' | 'sacn' | 'mock';
+  mode: 'artnet' | 'sacn' | 'osc' | 'mock';
   artnet?: { host: string; port?: number };
   sacn?: { universe?: number; priority?: number };
+  osc?: { host: string; port: number };
   mock?: { logIntervalFrames?: number };
 }
 
@@ -41,7 +42,7 @@ try {
 
 let udp: Socket | null = null;
 
-if (config.mode === 'artnet' || config.mode === 'sacn') {
+if (config.mode === 'artnet' || config.mode === 'sacn' || config.mode === 'osc') {
   udp = createSocket('udp4');
   udp.bind(() => {
     udp!.setBroadcast(true);
@@ -90,6 +91,8 @@ function buildArtDmxPacket(universe: number, data: number[]): Buffer {
   return buf;
 }
 
+let _artnetSendCount = 0;
+
 function sendArtNet(universe: number, data: number[]): void {
   if (!udp) return;
   const host = config.artnet?.host ?? '255.255.255.255';
@@ -98,6 +101,11 @@ function sendArtNet(universe: number, data: number[]): void {
   udp.send(packet, port, host, (err) => {
     if (err) console.error('[bridge] ArtNet send error:', err.message);
   });
+  _artnetSendCount++;
+  if (_artnetSendCount === 1 || _artnetSendCount % 100 === 0) {
+    const active = data.filter(v => v > 0).length;
+    console.log(`[bridge] ArtNet → ${host}:${port} uni${universe} (${active} active ch, packet #${_artnetSendCount})`);
+  }
 }
 
 // ─── sACN (E1.31) ────────────────────────────────────────────────────────────
@@ -169,19 +177,64 @@ function sendSACN(universe: number, data: number[]): void {
   });
 }
 
+// ─── OSC output ──────────────────────────────────────────────────────────────
+
+/** Pad a buffer length to the next 4-byte boundary. */
+function oscPad(len: number): number {
+  return Math.ceil(len / 4) * 4;
+}
+
+/** Build a single OSC message: address + type tag + float arg. */
+function buildOscMessage(address: string, value: number): Buffer {
+  // Address string (null-terminated, padded to 4 bytes)
+  const addrBuf = Buffer.alloc(oscPad(address.length + 1), 0);
+  addrBuf.write(address, 'ascii');
+
+  // Type tag ",f\0" padded to 4 bytes
+  const tagBuf = Buffer.from([0x2c, 0x66, 0x00, 0x00]); // ",f\0\0"
+
+  // Float32 big-endian
+  const valBuf = Buffer.alloc(4);
+  valBuf.writeFloatBE(value, 0);
+
+  return Buffer.concat([addrBuf, tagBuf, valBuf]);
+}
+
+let _oscSendCount = 0;
+
+function sendOSC(universe: number, data: number[]): void {
+  if (!udp) return;
+  const host = config.osc?.host ?? '127.0.0.1';
+  const port = config.osc?.port ?? 9000;
+
+  // Send each active channel as /lumen/<uni>/<ch> <float 0-1>
+  for (let i = 0; i < data.length; i++) {
+    const raw = data[i] ?? 0;
+    if (raw === 0) continue;
+    const address = `/lumen/${universe}/${i + 1}`;
+    const msg = buildOscMessage(address, raw / 255);
+    udp.send(msg, port, host);
+  }
+
+  _oscSendCount++;
+  if (_oscSendCount === 1 || _oscSendCount % 100 === 0) {
+    const active = data.filter(v => v > 0).length;
+    console.log(`[bridge] OSC → ${host}:${port} uni${universe} (${active} active ch, packet #${_oscSendCount})`);
+  }
+}
+
 // ─── Mock output ─────────────────────────────────────────────────────────────
 
 let _mockFrame = 0;
-const LOG_INTERVAL = config.mock?.logIntervalFrames ?? 44;
 
 function sendMock(universe: number, data: number[]): void {
   _mockFrame++;
-  if (_mockFrame % LOG_INTERVAL !== 0) return;
+  // Log ~2x per second (every 7th frame at ~15hz send rate)
+  if (_mockFrame % 7 !== 0) return;
 
   const active = data
     .map((v, i) => ({ ch: i + 1, v }))
-    .filter(({ v }) => v > 0)
-    .slice(0, 12);
+    .filter(({ v }) => v > 0);
 
   if (active.length > 0) {
     const summary = active.map(({ ch, v }) => `ch${ch}=${v}`).join('  ');
@@ -189,9 +242,63 @@ function sendMock(universe: number, data: number[]): void {
   }
 }
 
+// ─── Runtime config update ───────────────────────────────────────────────────
+
+function handleConfigMessage(msg: Record<string, unknown>): void {
+  if (msg.mode && typeof msg.mode === 'string') {
+    const newMode = msg.mode as BridgeConfig['mode'];
+    const oldMode = config.mode;
+    config.mode = newMode;
+
+    if (msg.artnet && typeof msg.artnet === 'object') {
+      const a = msg.artnet as Record<string, unknown>;
+      config.artnet = {
+        host: typeof a.host === 'string' ? a.host : config.artnet?.host ?? '127.0.0.1',
+        port: typeof a.port === 'number' ? a.port : config.artnet?.port ?? 6454,
+      };
+    }
+
+    if (msg.sacn && typeof msg.sacn === 'object') {
+      const s = msg.sacn as Record<string, unknown>;
+      config.sacn = {
+        universe: typeof s.universe === 'number' ? s.universe : config.sacn?.universe ?? 1,
+        priority: typeof s.priority === 'number' ? s.priority : config.sacn?.priority ?? 100,
+      };
+    }
+
+    if (msg.osc && typeof msg.osc === 'object') {
+      const o = msg.osc as Record<string, unknown>;
+      config.osc = {
+        host: typeof o.host === 'string' ? o.host : config.osc?.host ?? '127.0.0.1',
+        port: typeof o.port === 'number' ? o.port : config.osc?.port ?? 9000,
+      };
+    }
+
+    // Create UDP socket if switching to a network mode and none exists
+    if ((newMode === 'artnet' || newMode === 'sacn' || newMode === 'osc') && !udp) {
+      udp = createSocket('udp4');
+      udp.bind(() => {
+        udp!.setBroadcast(true);
+        console.log(`[bridge] UDP socket ready (created for ${newMode})`);
+      });
+    }
+
+    console.log(`[bridge] config updated — mode: ${config.mode}` +
+      (config.mode === 'artnet' ? ` → ${config.artnet?.host}:${config.artnet?.port}` : '') +
+      (config.mode === 'sacn' ? ` → universe ${config.sacn?.universe}` : '') +
+      (config.mode === 'osc' ? ` → ${config.osc?.host}:${config.osc?.port}` : ''));
+  }
+}
+
 // ─── Route DMX message ───────────────────────────────────────────────────────
 
+let _dmxMsgCount = 0;
+
 function handleDmxMessage(universes: Record<string, number[]>): void {
+  _dmxMsgCount++;
+  if (_dmxMsgCount === 1) {
+    console.log(`[bridge] receiving DMX data (${Object.keys(universes).length} universe(s))`);
+  }
   for (const [uniStr, channels] of Object.entries(universes)) {
     const universe = parseInt(uniStr, 10);
     if (isNaN(universe) || channels.length < 1) continue;
@@ -202,6 +309,9 @@ function handleDmxMessage(universes: Record<string, number[]>): void {
         break;
       case 'sacn':
         sendSACN(universe, channels);
+        break;
+      case 'osc':
+        sendOSC(universe, channels);
         break;
       case 'mock':
       default:
@@ -224,12 +334,16 @@ wss.on('connection', (ws: WebSocket) => {
 
   ws.on('message', (raw) => {
     try {
-      const msg = JSON.parse(raw.toString()) as { type: string; universes?: Record<string, number[]> };
+      const msg = JSON.parse(raw.toString()) as Record<string, unknown>;
       if (msg.type === 'dmx' && msg.universes) {
-        handleDmxMessage(msg.universes);
+        handleDmxMessage(msg.universes as Record<string, number[]>);
+      } else if (msg.type === 'config') {
+        handleConfigMessage(msg);
+      } else {
+        console.log(`[bridge] unknown message type: ${msg.type}`);
       }
-    } catch {
-      // Ignore malformed messages
+    } catch (err) {
+      console.error('[bridge] malformed message:', (err as Error).message);
     }
   });
 

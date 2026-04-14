@@ -12,6 +12,7 @@
 import { clearDefs, ch, uni, dim, rgb, type PatternLike } from './dmx.js';
 import { setBPM } from './scheduler.js';
 import { fixture, defineFixture, listFixtures } from './fixtures.js';
+import { sendConfig } from './websocket.js';
 
 // Strudel functions, loaded once via initStrudel()
 const _strudelCtx: Record<string, unknown> = {};
@@ -85,6 +86,24 @@ function makeFallbackWaveform(fn: (t: number) => number) {
   return () => self;
 }
 
+// ─── Bridge config helpers (called from user code) ───────────────────────────
+
+function artnet(host = '127.0.0.1', port = 6454): void {
+  sendConfig({ mode: 'artnet', artnet: { host, port } });
+}
+
+function sacn(universe = 1, priority = 100): void {
+  sendConfig({ mode: 'sacn', sacn: { universe, priority } });
+}
+
+function osc(host = '127.0.0.1', port = 9000): void {
+  sendConfig({ mode: 'osc', osc: { host, port } });
+}
+
+function mock(): void {
+  sendConfig({ mode: 'mock' });
+}
+
 export interface EvalResult {
   success: boolean;
   error?: string;
@@ -106,6 +125,11 @@ export function evalCode(code: string): EvalResult {
       listFixtures,
       // Clock
       setBPM,
+      // Bridge config
+      artnet,
+      sacn,
+      osc,
+      mock,
       // Patterns (populated by initStrudel)
       ..._strudelCtx,
       // Passthrough safe globals
