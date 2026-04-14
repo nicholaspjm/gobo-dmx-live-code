@@ -22,11 +22,14 @@ import {
   initStrudel,
   connectBridge,
   onStatusChange,
+  onTDStatusChange,
   sendUniverseState,
+  sendUniverseStateTD,
 } from '@lumen/core';
 
 import { createEditor } from './editor.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
+import { renderDocs } from './docs.js';
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 
@@ -81,11 +84,15 @@ onTick((cyclePos, _delta) => {
   // 2. Push to visualizer (gets the live universe-1 buffer)
   updateVisualizer(getUniverse1Snapshot());
 
-  // 3. Send to bridge (throttled)
+  // 3. Send to bridge or direct-to-TD (throttled).
+  // Each sender internally checks the current output target and no-ops
+  // if it isn't the active one, so only one actually transmits.
   _sendCounter++;
   if (_sendCounter >= SEND_EVERY) {
     _sendCounter = 0;
-    sendUniverseState(getAllUniverses());
+    const universes = getAllUniverses();
+    sendUniverseState(universes);
+    sendUniverseStateTD(universes);
   }
 });
 
@@ -99,9 +106,33 @@ setInterval(() => {
 
 // ─── Bridge connection ───────────────────────────────────────────────────────
 
+// Combined status: either 'bridge' or 'td' can be connected (or neither).
+// We show whichever is live — TD takes precedence when both happen to be up,
+// since calling td() is an explicit opt-in to direct output.
+let _bridgeLive = false;
+let _tdLive = false;
+
+function refreshWsUi(): void {
+  if (_tdLive) {
+    wsDotEl.className = 'ws-dot connected';
+    wsLabelEl.textContent = 'td';
+  } else if (_bridgeLive) {
+    wsDotEl.className = 'ws-dot connected';
+    wsLabelEl.textContent = 'bridge';
+  } else {
+    wsDotEl.className = 'ws-dot disconnected';
+    wsLabelEl.textContent = 'disconnected';
+  }
+}
+
 onStatusChange((connected) => {
-  wsDotEl.className = `ws-dot ${connected ? 'connected' : 'disconnected'}`;
-  wsLabelEl.textContent = connected ? 'bridge' : 'disconnected';
+  _bridgeLive = connected;
+  refreshWsUi();
+});
+
+onTDStatusChange((connected) => {
+  _tdLive = connected;
+  refreshWsUi();
 });
 
 connectBridge();
@@ -151,6 +182,33 @@ setInterval(() => {
   // strobe: ch10 dim, white flash
   updateGlobe(simStrobe, ch[9], 255, 255, 255);
 }, 33); // ~30fps
+
+// ─── Docs panel ──────────────────────────────────────────────────────────────
+
+const docsToggleEl = document.getElementById('docs-toggle') as HTMLButtonElement;
+const docsCloseEl = document.getElementById('docs-close') as HTMLButtonElement;
+const docsPanelEl = document.getElementById('docs-panel') as HTMLElement;
+const docsBodyEl = document.getElementById('docs-body') as HTMLElement;
+
+renderDocs(docsBodyEl);
+
+function setDocsOpen(open: boolean): void {
+  docsPanelEl.classList.toggle('open', open);
+  docsPanelEl.setAttribute('aria-hidden', open ? 'false' : 'true');
+  docsToggleEl.classList.toggle('active', open);
+}
+
+docsToggleEl.addEventListener('click', () => {
+  setDocsOpen(!docsPanelEl.classList.contains('open'));
+});
+docsCloseEl.addEventListener('click', () => setDocsOpen(false));
+
+// Close on Escape for accessibility
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && docsPanelEl.classList.contains('open')) {
+    setDocsOpen(false);
+  }
+});
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 

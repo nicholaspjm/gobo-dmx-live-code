@@ -20,12 +20,14 @@ const INITIAL_CODE = `// lumen — live DMX coding environment
 // 0. output config (artnet / sacn / mock)
 // ─────────────────────────────────────────────────────
 
-// artnet(host, port)  — send Art-Net UDP
-// sacn(universe, priority) — send sACN E1.31
-// osc(host, port) — send OSC (great for TouchDesigner)
-// mock() — console log only (no hardware)
+// td(host, port)       — direct WebSocket to TouchDesigner (no bridge)
+// osc(host, port)      — OSC via bridge (/lumen/<uni>/<ch> <float 0-1>)
+// artnet(host, port)   — Art-Net via bridge
+// sacn(universe, prio) — sACN E1.31 via bridge
+// mock()               — console log only, no hardware
 
-osc('127.0.0.1', 9000)      // /lumen/<uni>/<ch> <float 0-1>
+td('localhost', 9980)       // point at TD WebSocket DAT
+// osc('127.0.0.1', 9000)
 // artnet('127.0.0.1', 6454)
 // sacn(1, 100)
 // mock()

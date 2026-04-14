@@ -32,12 +32,41 @@ let _connected = false;
 let _onStatusChange: ((connected: boolean) => void) | null = null;
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Direct-to-TouchDesigner WebSocket (bypasses the bridge)
+let _td_ws: WebSocket | null = null;
+let _tdConnected = false;
+let _tdUrl: string | null = null;
+let _tdReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let _onTDStatusChange: ((connected: boolean) => void) | null = null;
+
+// Which socket the scheduler's DMX data flows to.
+// Updated by user code via osc()/artnet()/sacn()/mock() → 'bridge'
+// or td() → 'td'. Prevents double-sends when both sockets happen to be open.
+export type OutputTarget = 'bridge' | 'td';
+let _outputTarget: OutputTarget = 'bridge';
+
+export function setOutputTarget(target: OutputTarget): void {
+  _outputTarget = target;
+}
+
+export function getOutputTarget(): OutputTarget {
+  return _outputTarget;
+}
+
 export function onStatusChange(fn: (connected: boolean) => void): void {
   _onStatusChange = fn;
 }
 
+export function onTDStatusChange(fn: (connected: boolean) => void): void {
+  _onTDStatusChange = fn;
+}
+
 export function isConnected(): boolean {
   return _connected;
+}
+
+export function isTDConnected(): boolean {
+  return _tdConnected;
 }
 
 export function connectBridge(url = BRIDGE_URL): void {
@@ -95,11 +124,125 @@ export function sendConfig(config: Record<string, unknown>): void {
   }
 }
 
+// ─── Direct TouchDesigner WebSocket ───────────────────────────────────────────
+// Opens a second WebSocket straight to a TouchDesigner WebSocket DAT (server).
+// TD receives the same wire format as the bridge:
+//   { "type": "dmx", "universes": { "1": [0, 128, 255, ...] } }
+// This bypasses the Node bridge entirely — useful when the only target is TD.
+
+/**
+ * Connect direct to TouchDesigner's WebSocket DAT (server mode).
+ * @param host — defaults to localhost
+ * @param port — defaults to 9980
+ */
+export function connectTD(host = 'localhost', port = 9980): void {
+  const url = `ws://${host}:${port}`;
+  _tdUrl = url;
+
+  if (_tdReconnectTimer) {
+    clearTimeout(_tdReconnectTimer);
+    _tdReconnectTimer = null;
+  }
+
+  // Tear down any previous socket so switching host/port is clean
+  if (_td_ws) {
+    _td_ws.onopen = null;
+    _td_ws.onclose = null;
+    _td_ws.onerror = null;
+    try { _td_ws.close(); } catch { /* already closed */ }
+    _td_ws = null;
+  }
+
+  try {
+    _td_ws = new WebSocket(url);
+  } catch {
+    scheduleTDReconnect();
+    return;
+  }
+
+  _td_ws.onopen = () => {
+    _tdConnected = true;
+    _onTDStatusChange?.(true);
+    console.log(`[lumen] TouchDesigner connected (${url})`);
+  };
+
+  _td_ws.onclose = () => {
+    _tdConnected = false;
+    _onTDStatusChange?.(false);
+    console.log('[lumen] TouchDesigner disconnected — reconnecting…');
+    scheduleTDReconnect();
+  };
+
+  _td_ws.onerror = () => {
+    // onclose follows; reconnect handled there
+  };
+}
+
+/** Stop direct TD output and close the socket. */
+export function disconnectTD(): void {
+  _tdUrl = null;
+  if (_tdReconnectTimer) {
+    clearTimeout(_tdReconnectTimer);
+    _tdReconnectTimer = null;
+  }
+  if (_td_ws) {
+    _td_ws.onopen = null;
+    _td_ws.onclose = null;
+    _td_ws.onerror = null;
+    try { _td_ws.close(); } catch { /* already closed */ }
+    _td_ws = null;
+  }
+  if (_tdConnected) {
+    _tdConnected = false;
+    _onTDStatusChange?.(false);
+  }
+}
+
+function scheduleTDReconnect(): void {
+  if (!_tdUrl) return;
+  _tdReconnectTimer = setTimeout(() => {
+    if (_tdUrl) connectTD(...parseUrl(_tdUrl));
+  }, RECONNECT_DELAY_MS);
+}
+
+function parseUrl(url: string): [string, number] {
+  const m = url.match(/^ws:\/\/([^:]+):(\d+)/);
+  if (!m) return ['localhost', 9980];
+  return [m[1], parseInt(m[2], 10)];
+}
+
+/**
+ * Send universe state direct to TouchDesigner.
+ * No-op when the TD socket isn't open.
+ */
+export function sendUniverseStateTD(universes: Map<number, Uint8Array>): void {
+  if (_outputTarget !== 'td') return;
+  if (!_td_ws || _td_ws.readyState !== WebSocket.OPEN) return;
+
+  // Unlike the bridge path, we always send every known universe here —
+  // even zero-only frames. TD's side caches incoming values into a table,
+  // and if we skipped empty frames a channel that dropped to 0 would
+  // latch on its last non-zero value (same bug we fixed for OSC).
+  const payload: Record<string, number[]> = {};
+  for (const [universe, buffer] of universes) {
+    payload[String(universe)] = Array.from(buffer);
+  }
+
+  if (Object.keys(payload).length === 0) return;
+
+  try {
+    _td_ws.send(JSON.stringify({ type: 'dmx', universes: payload }));
+  } catch {
+    // Socket might have closed between check and send
+  }
+}
+
 /**
  * Send universe state over the WebSocket.
  * Called on each scheduler tick.
  */
 export function sendUniverseState(universes: Map<number, Uint8Array>): void {
+  if (_outputTarget !== 'bridge') return;
   if (!_ws || _ws.readyState !== WebSocket.OPEN) return;
 
   const payload: Record<string, number[]> = {};

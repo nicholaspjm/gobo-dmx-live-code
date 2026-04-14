@@ -12,7 +12,7 @@
 import { clearDefs, ch, uni, dim, rgb, type PatternLike } from './dmx.js';
 import { setBPM } from './scheduler.js';
 import { fixture, defineFixture, listFixtures } from './fixtures.js';
-import { sendConfig } from './websocket.js';
+import { sendConfig, connectTD, disconnectTD, setOutputTarget } from './websocket.js';
 
 // Strudel functions, loaded once via initStrudel()
 const _strudelCtx: Record<string, unknown> = {};
@@ -89,19 +89,36 @@ function makeFallbackWaveform(fn: (t: number) => number) {
 // ─── Bridge config helpers (called from user code) ───────────────────────────
 
 function artnet(host = '127.0.0.1', port = 6454): void {
+  setOutputTarget('bridge');
+  disconnectTD();
   sendConfig({ mode: 'artnet', artnet: { host, port } });
 }
 
 function sacn(universe = 1, priority = 100): void {
+  setOutputTarget('bridge');
+  disconnectTD();
   sendConfig({ mode: 'sacn', sacn: { universe, priority } });
 }
 
 function osc(host = '127.0.0.1', port = 9000): void {
+  setOutputTarget('bridge');
+  disconnectTD();
   sendConfig({ mode: 'osc', osc: { host, port } });
 }
 
 function mock(): void {
+  setOutputTarget('bridge');
+  disconnectTD();
   sendConfig({ mode: 'mock' });
+}
+
+/**
+ * Direct-to-TouchDesigner output. Opens a WebSocket straight from the browser
+ * to a TD WebSocket DAT (server mode) — no bridge process required.
+ */
+function td(host = 'localhost', port = 9980): void {
+  setOutputTarget('td');
+  connectTD(host, port);
 }
 
 export interface EvalResult {
@@ -130,6 +147,7 @@ export function evalCode(code: string): EvalResult {
       sacn,
       osc,
       mock,
+      td,
       // Patterns (populated by initStrudel)
       ..._strudelCtx,
       // Passthrough safe globals

@@ -25,7 +25,8 @@ Powered by [@strudel/core](https://strudel.cc) — the same waveform and cycle s
 - **512 channels per universe** — multiple universes via `uni()`
 - **Real-time visualizer** — 512-bar channel strip + fixture simulation, 30 fps
 - **Fixture system** — built-in profiles for RGB, RGBW, moving heads, strobes, and custom definitions
-- **Hardware output** — ArtNet (Art-Net 4), sACN (E1.31), or mock mode
+- **Multiple outputs** — direct-to-TouchDesigner WebSocket, OSC, ArtNet (Art-Net 4), sACN (E1.31), or mock
+- **Reference panel** — click `docs` in the top bar for inline function reference
 - **Earth-tone UI** — warm charcoal / terracotta aesthetic, no harsh whites
 
 ---
@@ -117,13 +118,73 @@ packages/
 
 ## DMX output configuration
 
-Edit `packages/bridge/bridge.config.json`:
+Set the output from your code, at the top of the editor. Switching modes while running reconfigures on the fly:
 
-| Mode | Config |
-|------|--------|
-| **Mock** | `{ "mode": "mock" }` — logs to console, no hardware needed |
-| **ArtNet** | `{ "mode": "artnet", "artnet": { "host": "192.168.1.255", "port": 6454 } }` |
-| **sACN** | `{ "mode": "sacn", "sacn": { "universe": 1, "priority": 100 } }` |
+```js
+td('localhost', 9980)      // direct WebSocket to TouchDesigner (no bridge)
+// osc('127.0.0.1', 9000)  // OSC via bridge
+// artnet('192.168.1.50')  // Art-Net via bridge
+// sacn(1, 100)            // sACN E1.31 via bridge
+// mock()                  // console log only
+```
+
+- **`td(host, port)`** bypasses the bridge entirely — the browser opens a WebSocket straight to TouchDesigner's WebSocket DAT.
+- **`osc`, `artnet`, `sacn`, `mock`** all run through the local bridge (which speaks raw UDP). Start it with `npm run bridge`.
+
+`packages/bridge/bridge.config.json` is still read on bridge startup as a default, but the runtime calls above override it.
+
+---
+
+## TouchDesigner — direct WebSocket setup
+
+Use this when you want lumen to drive TouchDesigner with no bridge process. All values arrive as 0–1 floats, one per DMX channel.
+
+**1. WebSocket DAT (server).**
+Create `websocket1` (DAT → WebSocket). Parameters:
+
+| Parameter | Value |
+|-----------|-------|
+| Active | `On` |
+| Mode | `Server` |
+| Network Port | `9980` |
+| Format | `Text` |
+
+**2. Table DAT.** Create `table1` (DAT → Table). Leave it empty.
+
+**3. Callback script.** Create `callbacks1` (DAT → Text) and set `websocket1`'s *Callbacks DAT* parameter to it. Paste:
+
+```python
+import json
+
+def onReceiveText(dat, rowIndex, message, peer):
+    try:
+        data = json.loads(message)
+    except Exception:
+        return
+    if data.get('type') != 'dmx':
+        return
+
+    table = op('table1')
+    for uni_str, values in data.get('universes', {}).items():
+        for i, v in enumerate(values):
+            name = f'{uni_str}/{i + 1}'
+            norm = v / 255.0
+            row = table.row(name)
+            if row is None:
+                table.appendRow([name, norm])
+            else:
+                table[name, 1] = norm
+    return
+
+def onConnect(dat, peer): return
+def onDisconnect(dat, peer): return
+```
+
+**4. DAT to CHOP.** Create `datto1` (CHOP → DAT to). Set *DAT* to `table1` and *First Column is Names* to `On`. Each channel now appears as a named CHOP channel (`1/1`, `1/2`, …) with values 0–1.
+
+**5. In lumen.** Open the [live page](https://nicholaspjm.github.io/dmx-live-code/), leave the default `td('localhost', 9980)` line, and hit `Ctrl+Enter`. The status dot in the top bar should switch to `td` and channels will start appearing in `datto1`.
+
+> **Note:** `localhost` works from the hosted page because Chromium allows `ws://localhost` even from https pages. If you run TD on a different machine, substitute its IP — but the page will need to be served over http (or TD behind wss/a reverse proxy).
 
 ---
 
