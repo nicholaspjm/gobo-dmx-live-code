@@ -185,6 +185,27 @@
         position: relative;
       }
 
+      /* Pixel-strip sim — horizontal row of small rectangular "LEDs" */
+      .fixture-strip {
+        display: flex;
+        gap: 2px;
+        padding: 3px 4px;
+        border: 1.5px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg);
+        height: 36px;
+        align-items: center;
+      }
+
+      .fixture-strip-pixel {
+        width: 9px;
+        height: 26px;
+        border-radius: 1px;
+        background: #1a1714;
+        transition: background 0.05s, box-shadow 0.05s;
+        flex-shrink: 0;
+      }
+
       .fixture-name {
         font-size: 9px;
         color: var(--text-muted);
@@ -506,6 +527,10 @@
             <div class="fixture-unit">
               <div class="fixture-globe" id="sim-strobe"></div>
               <span class="fixture-name">strobe</span>
+            </div>
+            <div class="fixture-unit">
+              <div class="fixture-strip" id="sim-strip"></div>
+              <span class="fixture-name">strip</span>
             </div>
           </div>
         </div>

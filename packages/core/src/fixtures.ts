@@ -26,10 +26,16 @@ export interface ChannelDef {
   offset: number;
   /** User-facing name: 'red', 'dim', 'pan', 'tilt', etc. */
   name: string;
-  /** Semantic type hint */
-  type: 'intensity' | 'color' | 'position' | 'strobe' | 'control' | 'generic';
+  /**
+   * Semantic type hint. Most types map 1:1 to a single DMX channel; 'strip'
+   * is special — it claims `pixelCount * 3` channels starting at `offset` and
+   * exposes a nested StripInstance on the fixture under this name.
+   */
+  type: 'intensity' | 'color' | 'position' | 'strobe' | 'control' | 'generic' | 'strip';
   /** Human-readable description */
   description?: string;
+  /** For type='strip': number of RGB pixels (each consumes 3 DMX channels). */
+  pixelCount?: number;
 }
 
 export interface FixtureDef {
@@ -193,7 +199,16 @@ function resolveFixture(id: string): FixtureDef {
 
 // ─── Fixture instance ─────────────────────────────────────────────────────────
 
-/** A live fixture instance — named setters bound to real DMX channels. */
+/**
+ * A live fixture instance — named accessors bound to real DMX channels.
+ *
+ * For normal channels (intensity/color/position/strobe/control/generic), the
+ * accessor is a setter function: `fixture.red(sine())`.
+ *
+ * For channels declared with `type: 'strip'`, the accessor is a nested
+ * StripInstance: `fixture.pixels.fill(sine(), 0, 0)`.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type FixtureInstance = {
   /** The resolved fixture definition */
   readonly def: FixtureDef;
@@ -201,11 +216,13 @@ export type FixtureInstance = {
   readonly universe: number;
   /** Start channel (1-based, inclusive) */
   readonly startChannel: number;
-  /** Set any channel by name */
+  /** Set any scalar channel by name. Throws for strip channels. */
   set(channelName: string, value: PatternOrValue): void;
   /** List available channel names */
   channels(): string[];
-} & Record<string, (value: PatternOrValue) => void>;
+  // Named channels: setter function OR nested StripInstance (for type: 'strip')
+  [key: string]: unknown;
+};
 
 /**
  * Load a fixture at a DMX address and return a named-channel setter object.
@@ -242,6 +259,11 @@ export function fixture(
           `Fixture "${def.name}" has no channel "${channelName}". Available: ${def.channels.map((c) => c.name).join(', ')}`,
         );
       }
+      if (ch.type === 'strip') {
+        throw new Error(
+          `Fixture "${def.name}" channel "${channelName}" is a pixel strip segment — use .${channelName}.fill(r,g,b), .${channelName}.pixel(i, r, g, b), or .${channelName}.red(v) instead of .set().`,
+        );
+      }
       uni(universe, startChannel + ch.offset, value);
     },
 
@@ -250,10 +272,23 @@ export function fixture(
     },
   } as FixtureInstance;
 
-  // Attach named setters: par.red(v) → inst.set('red', v)
+  // Attach named accessors.
+  //   - Scalar channels become setter functions: par.red(v)
+  //   - 'strip' channels become nested StripInstance objects:
+  //         bar.pixels.fill(r, g, b)
+  //         bar.pixels.pixel(i, r, g, b)
   for (const ch of def.channels) {
-    (inst as Record<string, unknown>)[ch.name] = (value: PatternOrValue) =>
-      inst.set(ch.name, value);
+    if (ch.type === 'strip') {
+      const pixelCount = ch.pixelCount ?? 0;
+      if (pixelCount < 1) {
+        throw new Error(
+          `Fixture "${def.name}" channel "${ch.name}" is type 'strip' but has no valid pixelCount (got ${ch.pixelCount}).`,
+        );
+      }
+      inst[ch.name] = rgbStrip(startChannel + ch.offset, pixelCount, universe);
+    } else {
+      inst[ch.name] = (value: PatternOrValue) => inst.set(ch.name, value);
+    }
   }
 
   return inst;
@@ -265,4 +300,120 @@ export function listFixtures(): string[] {
     ...Object.keys(BUILT_IN_FIXTURES),
     ...Object.keys(_customFixtures),
   ];
+}
+
+// ─── RGB pixel strip ──────────────────────────────────────────────────────────
+// A variable-length fixture: N pixels × 3 channels (R, G, B).
+// Not stored as a FixtureDef because the channel count is user-specified.
+
+export interface StripInstance {
+  readonly universe: number;
+  readonly startChannel: number;
+  readonly pixelCount: number;
+  /** Total DMX channels consumed (pixelCount * 3). */
+  readonly channelCount: number;
+
+  /** Set every pixel to the same r/g/b. Each arg may be a pattern or number. */
+  fill(r: PatternOrValue, g: PatternOrValue, b: PatternOrValue): void;
+
+  /** Set a single pixel (0-indexed) to r/g/b. */
+  pixel(
+    index: number,
+    r: PatternOrValue,
+    g: PatternOrValue,
+    b: PatternOrValue,
+  ): void;
+
+  /** Set just the red channel on every pixel. */
+  red(v: PatternOrValue): void;
+  /** Set just the green channel on every pixel. */
+  green(v: PatternOrValue): void;
+  /** Set just the blue channel on every pixel. */
+  blue(v: PatternOrValue): void;
+}
+
+/**
+ * Create an RGB pixel strip starting at a DMX address.
+ *
+ * Each pixel is 3 channels (R, G, B), laid out contiguously. A 40-pixel strip
+ * occupies 120 channels. The pattern engine queries each channel on every tick,
+ * so per-pixel patterns (e.g. phase-shifted chases) work just like PARs.
+ *
+ * @param startChannel  1-based DMX channel of the first pixel's red channel
+ * @param pixelCount    Number of pixels (>= 1)
+ * @param universe      DMX universe (default 1)
+ *
+ * @example
+ *   const strip = rgbStrip(1, 40)
+ *   strip.fill(sine().slow(4), 0, cosine().slow(4))
+ *
+ *   // Per-pixel chase
+ *   for (let i = 0; i < strip.pixelCount; i++) {
+ *     strip.pixel(i, sine().slow(4).add(i / strip.pixelCount), 0, 0)
+ *   }
+ */
+export function rgbStrip(
+  startChannel: number,
+  pixelCount: number,
+  universe = 1,
+): StripInstance {
+  if (!Number.isFinite(pixelCount) || pixelCount < 1) {
+    throw new Error(`rgbStrip: pixelCount must be >= 1 (got ${pixelCount})`);
+  }
+  const channelCount = pixelCount * 3;
+  const lastChannel = startChannel + channelCount - 1;
+  if (startChannel < 1) {
+    throw new Error(`rgbStrip: startChannel must be >= 1 (got ${startChannel})`);
+  }
+  if (lastChannel > 512) {
+    throw new Error(
+      `rgbStrip: ${pixelCount} pixels starting at ${startChannel} would run to channel ${lastChannel} — exceeds 512. Split across universes.`,
+    );
+  }
+
+  return {
+    universe,
+    startChannel,
+    pixelCount,
+    channelCount,
+
+    fill(r, g, b) {
+      for (let i = 0; i < pixelCount; i++) {
+        const base = startChannel + i * 3;
+        uni(universe, base,     r);
+        uni(universe, base + 1, g);
+        uni(universe, base + 2, b);
+      }
+    },
+
+    pixel(index, r, g, b) {
+      if (!Number.isInteger(index) || index < 0 || index >= pixelCount) {
+        throw new Error(
+          `rgbStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`,
+        );
+      }
+      const base = startChannel + index * 3;
+      uni(universe, base,     r);
+      uni(universe, base + 1, g);
+      uni(universe, base + 2, b);
+    },
+
+    red(v) {
+      for (let i = 0; i < pixelCount; i++) {
+        uni(universe, startChannel + i * 3, v);
+      }
+    },
+
+    green(v) {
+      for (let i = 0; i < pixelCount; i++) {
+        uni(universe, startChannel + i * 3 + 1, v);
+      }
+    },
+
+    blue(v) {
+      for (let i = 0; i < pixelCount; i++) {
+        uni(universe, startChannel + i * 3 + 2, v);
+      }
+    },
+  };
 }

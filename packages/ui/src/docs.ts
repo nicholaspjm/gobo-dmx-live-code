@@ -102,6 +102,22 @@ const DOCS: DocSection[] = [
         description: 'Returns an array of every registered fixture id (built-in + custom).',
         example: 'console.log(listFixtures())',
       },
+      {
+        name: 'rgbStrip',
+        signature: 'rgbStrip(startChannel, pixelCount, universe=1)',
+        description:
+          'Variable-length RGB pixel strip. Each pixel = 3 channels (R,G,B) laid out contiguously, so 40 pixels = 120 channels. Returns an object with .fill(), .pixel(i, r, g, b), .red(), .green(), .blue(), plus .pixelCount / .channelCount / .startChannel.',
+        example:
+          "const strip = rgbStrip(1, 40)\nstrip.fill(sine().slow(4), 0, cosine().slow(4))\n\n// per-pixel chase\nfor (let i = 0; i < strip.pixelCount; i++) {\n  strip.pixel(i, sine().slow(4).add(i/strip.pixelCount), 0, 0)\n}",
+      },
+      {
+        name: 'strip channel (in defineFixture)',
+        signature: "{ offset, name, type: 'strip', pixelCount: N }",
+        description:
+          "Inside defineFixture(), a channel with type 'strip' claims pixelCount × 3 DMX channels starting at its offset and exposes a nested StripInstance on the fixture under that name. Scalar channels before/after it work normally, so you can mix a dimmer, strobe, and pixel segment in one fixture definition.",
+        example:
+          "defineFixture('my-bar', {\n  name: 'Custom Bar', manufacturer: 'Generic', type: 'generic',\n  channelCount: 12,\n  channels: [\n    { offset: 0,  name: 'dim',    type: 'intensity' },\n    { offset: 1,  name: 'strobe', type: 'strobe' },\n    { offset: 2,  name: 'pixels', type: 'strip', pixelCount: 3 }, // ch 3-11\n    { offset: 11, name: 'mode',   type: 'control' },\n  ],\n})\nconst bar = fixture(100, 'my-bar')\nbar.dim(0.8)\nbar.pixels.fill(sine(), 0, 0)\nbar.pixels.pixel(1, 1, 0, 0)",
+      },
     ],
   },
 

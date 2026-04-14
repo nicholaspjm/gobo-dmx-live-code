@@ -25,9 +25,10 @@ import {
   onTDStatusChange,
   sendUniverseState,
   sendUniverseStateTD,
+  sendCodeTD,
 } from '@lumen/core';
 
-import { createEditor } from './editor.js';
+import { createEditor, getEditorCode } from './editor.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
 import { renderDocs } from './docs.js';
 
@@ -48,6 +49,9 @@ function runEval(code: string): void {
   if (result.success) {
     setStatus('ok', '✓ running');
     if (!isRunning()) start();
+    // Push the exact code that just got evaluated to TD so its visual
+    // is in sync with what's actually running (not the typing-debounced copy).
+    sendCodeTD(code);
   } else {
     setStatus('error', result.error ?? 'unknown error');
   }
@@ -65,7 +69,20 @@ function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
 
 // ─── Editor ──────────────────────────────────────────────────────────────────
 
-createEditor(editorEl, runEval, runStop);
+// Debounced code-text streamer. Fires on keystrokes, paste, undo, etc.
+// Throttled so we don't flood TD with a message per keypress — ~250ms
+// feels "live" while keeping the wire quiet.
+const CODE_STREAM_DEBOUNCE_MS = 250;
+let _codeStreamTimer: ReturnType<typeof setTimeout> | null = null;
+function onCodeChange(code: string): void {
+  if (_codeStreamTimer) clearTimeout(_codeStreamTimer);
+  _codeStreamTimer = setTimeout(() => {
+    sendCodeTD(code);
+    _codeStreamTimer = null;
+  }, CODE_STREAM_DEBOUNCE_MS);
+}
+
+const editorView = createEditor(editorEl, runEval, runStop, onCodeChange);
 
 // ─── Visualizer ──────────────────────────────────────────────────────────────
 
@@ -135,54 +152,120 @@ onStatusChange((connected) => {
 onTDStatusChange((connected) => {
   _tdLive = connected;
   refreshWsUi();
+  // When TD comes online (first connect or reconnect), push the
+  // current editor contents so the text visual is populated immediately.
+  if (connected) {
+    sendCodeTD(getEditorCode(editorView));
+  }
 });
 
 connectBridge();
 
-// ─── Fixture simulation globes ───────────────────────────────────────────────
-// Maps demo fixture channels to the little glowing circles in the sim panel.
-// ch1-4 = wash A RGBW, ch5-8 = wash B RGBW
-// ch9 = spot, ch10-11 = strobe
+// ─── Fixture simulation ──────────────────────────────────────────────────────
+// Maps demo fixture channels to the little glowing elements in the sim panel.
+// Layout matches the default init code in editor.ts:
+//   ch1-4   = wash A RGBW
+//   ch5-8   = wash B RGBW
+//   ch9     = spot (single dimmer)
+//   ch10-11 = strobe (dim + strobe rate)
+//   ch12-41 = 10-pixel RGB strip
 
-const simWashA = document.getElementById('sim-wash-a') as HTMLElement;
-const simWashB = document.getElementById('sim-wash-b') as HTMLElement;
-const simSpot  = document.getElementById('sim-spot')   as HTMLElement;
+const simWashA  = document.getElementById('sim-wash-a') as HTMLElement;
+const simWashB  = document.getElementById('sim-wash-b') as HTMLElement;
+const simSpot   = document.getElementById('sim-spot')   as HTMLElement;
 const simStrobe = document.getElementById('sim-strobe') as HTMLElement;
+const simStrip  = document.getElementById('sim-strip')  as HTMLElement;
 
-function updateGlobe(
+const SIM_STRIP_START_CH = 12; // 1-indexed DMX
+const SIM_STRIP_PIXELS = 10;
+
+// Build strip pixel elements once.
+const stripPixelEls: HTMLElement[] = [];
+for (let i = 0; i < SIM_STRIP_PIXELS; i++) {
+  const p = document.createElement('div');
+  p.className = 'fixture-strip-pixel';
+  simStrip.appendChild(p);
+  stripPixelEls.push(p);
+}
+
+/**
+ * Single-dimmer globe — fixture has a fixed tint, the dimmer channel scales it.
+ * Used for spot and strobe.
+ */
+function updateGlobeDim(
   el: HTMLElement,
   dimmer: number,   // 0-255
-  r: number, g: number, b: number  // 0-255 each
+  r: number, g: number, b: number  // fixture's native tint, 0-255 each
 ): void {
-  const d = dimmer / 255;  // 0-1
+  const d = dimmer / 255;
+  if (d < 0.02) {
+    el.style.background = '#1a1714';
+    el.style.boxShadow = 'none';
+    return;
+  }
   const ri = Math.round(r * d);
   const gi = Math.round(g * d);
   const bi = Math.round(b * d);
-  const brightness = d;
-  const glowR = Math.round(ri * 1.5);
-  const glowG = Math.round(gi * 1.5);
-  const glowB = Math.round(bi * 1.5);
+  const glowR = Math.min(255, Math.round(ri * 1.5));
+  const glowG = Math.min(255, Math.round(gi * 1.5));
+  const glowB = Math.min(255, Math.round(bi * 1.5));
+  el.style.background = `rgb(${ri},${gi},${bi})`;
+  el.style.boxShadow = `0 0 ${Math.round(d * 24)}px ${Math.round(d * 12)}px rgba(${glowR},${glowG},${glowB},${(d * 0.7).toFixed(2)})`;
+}
+
+/**
+ * RGBW globe — each channel directly contributes to the output, matching how
+ * generic-rgbw actually behaves. White mixes equally into R/G/B. No master
+ * dimmer, so a sine on .red() produces an undistorted sine on screen.
+ * (The old logic multiplied by max(R,G,B,W), which double-scaled the waveform.)
+ */
+function updateGlobeRGBW(
+  el: HTMLElement,
+  r: number, g: number, b: number, w: number, // 0-255 each
+): void {
+  const rr = Math.min(255, r + w);
+  const gg = Math.min(255, g + w);
+  const bb = Math.min(255, b + w);
+  const brightness = Math.max(rr, gg, bb) / 255;
   if (brightness < 0.02) {
     el.style.background = '#1a1714';
     el.style.boxShadow = 'none';
-  } else {
-    el.style.background = `rgb(${ri},${gi},${bi})`;
-    el.style.boxShadow = `0 0 ${Math.round(brightness * 24)}px ${Math.round(brightness * 12)}px rgba(${glowR},${glowG},${glowB},${(brightness * 0.7).toFixed(2)})`;
+    return;
   }
+  const glowR = Math.min(255, Math.round(rr * 1.5));
+  const glowG = Math.min(255, Math.round(gg * 1.5));
+  const glowB = Math.min(255, Math.round(bb * 1.5));
+  el.style.background = `rgb(${rr},${gg},${bb})`;
+  el.style.boxShadow = `0 0 ${Math.round(brightness * 24)}px ${Math.round(brightness * 12)}px rgba(${glowR},${glowG},${glowB},${(brightness * 0.7).toFixed(2)})`;
+}
+
+/** Small rectangular pixel in the strip sim. No master dimmer. */
+function updateStripPixel(el: HTMLElement, r: number, g: number, b: number): void {
+  const brightness = Math.max(r, g, b) / 255;
+  if (brightness < 0.02) {
+    el.style.background = '#1a1714';
+    el.style.boxShadow = 'none';
+    return;
+  }
+  el.style.background = `rgb(${r},${g},${b})`;
+  el.style.boxShadow = `0 0 ${Math.round(brightness * 6)}px rgba(${r},${g},${b},${(brightness * 0.7).toFixed(2)})`;
 }
 
 setInterval(() => {
   const ch = getUniverse1Snapshot();
-  // wash A: ch1-4 RGBW (dimmer = max of channels)
-  const waDim = Math.max(ch[0], ch[1], ch[2], ch[3]);
-  updateGlobe(simWashA, waDim, Math.min(255, ch[0] + ch[3]), Math.min(255, ch[1] + ch[3]), Math.min(255, ch[2] + ch[3]));
-  // wash B: ch5-8 RGBW
-  const wbDim = Math.max(ch[4], ch[5], ch[6], ch[7]);
-  updateGlobe(simWashB, wbDim, Math.min(255, ch[4] + ch[7]), Math.min(255, ch[5] + ch[7]), Math.min(255, ch[6] + ch[7]));
-  // spot: ch9, white light
-  updateGlobe(simSpot, ch[8], 255, 240, 210);
-  // strobe: ch10 dim, white flash
-  updateGlobe(simStrobe, ch[9], 255, 255, 255);
+  // wash A: ch 1-4 RGBW
+  updateGlobeRGBW(simWashA, ch[0], ch[1], ch[2], ch[3]);
+  // wash B: ch 5-8 RGBW
+  updateGlobeRGBW(simWashB, ch[4], ch[5], ch[6], ch[7]);
+  // spot: ch 9, warm white tint
+  updateGlobeDim(simSpot, ch[8], 255, 240, 210);
+  // strobe: ch 10 dim (ch 11 strobe-rate isn't visualised)
+  updateGlobeDim(simStrobe, ch[9], 255, 255, 255);
+  // strip: ch 12..41 as 10 RGB pixels
+  for (let i = 0; i < SIM_STRIP_PIXELS; i++) {
+    const base = (SIM_STRIP_START_CH - 1) + i * 3; // 0-indexed into the buffer
+    updateStripPixel(stripPixelEls[i], ch[base], ch[base + 1], ch[base + 2]);
+  }
 }, 33); // ~30fps
 
 // ─── Docs panel ──────────────────────────────────────────────────────────────

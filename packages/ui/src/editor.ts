@@ -17,7 +17,7 @@ const INITIAL_CODE = `// lumen — live DMX coding environment
 // ctrl+enter to run  ·  ctrl+. to stop
 
 // ─────────────────────────────────────────────────────
-// 0. output config (artnet / sacn / mock)
+// 0. output config
 // ─────────────────────────────────────────────────────
 
 // td(host, port)       — direct WebSocket to TouchDesigner (no bridge)
@@ -44,31 +44,39 @@ const washB = fixture(5, 'generic-rgbw')   // ch 5-8
 const spot  = fixture(9, 'generic-dimmer') // ch 9
 const strb  = fixture(10, 'strobe-basic')  // ch 10-11
 
-// custom fixture — define your own channel layout:
-defineFixture('my-par', {
-  name: 'My PAR Can',
+// rgbStrip(startChannel, pixelCount) — each pixel = 3 chs (R, G, B)
+const strip = rgbStrip(12, 10)             // ch 12-41 (10 pixels × 3)
+
+// Custom fixture with an embedded pixel-strip segment:
+//   ch1 dim · ch2 strobe · ch3-11 strip(3 pixels) · ch12 mode
+// Strip channels declare { type: 'strip', pixelCount: N } and become a
+// nested object on the fixture instance (not a setter function).
+defineFixture('my-bar', {
+  name: 'Custom RGB Bar',
   manufacturer: 'Generic',
-  type: 'rgba',
-  channelCount: 5,
+  type: 'generic',
+  channelCount: 12,
   channels: [
-    { offset: 0, name: 'red',   type: 'color' },
-    { offset: 1, name: 'green', type: 'color' },
-    { offset: 2, name: 'blue',  type: 'color' },
-    { offset: 3, name: 'amber', type: 'color' },
-    { offset: 4, name: 'white', type: 'color' },
-  ]
+    { offset: 0,  name: 'dim',    type: 'intensity' },
+    { offset: 1,  name: 'strobe', type: 'strobe' },
+    { offset: 2,  name: 'pixels', type: 'strip', pixelCount: 3 },
+    { offset: 11, name: 'mode',   type: 'control' },
+  ],
 })
-const myPar = fixture(12, 'my-par')        // ch 12-16
+// const bar = fixture(100, 'my-bar')        // ch 100-111
+// bar.dim(0.8)
+// bar.pixels.fill(sine().slow(2), 0, cosine().slow(2))
+// bar.pixels.pixel(1, 1, 0, 0)
 
 // ─────────────────────────────────────────────────────
 // 2. write patterns
 // ─────────────────────────────────────────────────────
 
-// wash A — warm amber breathe (dim via colour intensity)
+// wash A — warm amber breathe
 washA.red(sine().slow(4).range(0, 0.9))
 washA.green(sine().slow(4).range(0, 0.4))
 washA.blue(sine().slow(4).range(0, 0.05))
-washA.white(sine().slow(6))
+washA.white(sine().slow(6).range(0, 0.4))
 
 // wash B — cool blue, offset half a cycle
 washB.red(sine().slow(4).add(0.5).range(0, 0.05))
@@ -83,21 +91,26 @@ spot.dim(square().fast(1))
 // strb.dim(0.8)
 // strb.strobe(square().fast(16))
 
-// custom par — colour cycle
-myPar.red(sine().slow(3).range(0, 0.8))
-myPar.green(cosine().slow(3).range(0, 0.8))
-myPar.blue(sine().slow(5).range(0, 0.8))
-myPar.amber(saw().slow(8).range(0, 0.6))
-myPar.white(0.2)
+// pixel strip — per-pixel rainbow chase
+for (let i = 0; i < strip.pixelCount; i++) {
+  const phase = i / strip.pixelCount
+  strip.pixel(i,
+    sine().slow(4).add(phase).range(0, 0.9),
+    cosine().slow(4).add(phase).range(0, 0.6),
+    sine().slow(2).add(phase).range(0, 0.4),
+  )
+}
 `;
 
 export type EvalHandler = (code: string) => void;
 export type StopHandler = () => void;
+export type ChangeHandler = (code: string) => void;
 
 export function createEditor(
   parent: HTMLElement,
   onEval: EvalHandler,
   onStop: StopHandler,
+  onChange?: ChangeHandler,
 ): EditorView {
   const evalKeybinding = Prec.highest(
     keymap.of([
@@ -118,6 +131,14 @@ export function createEditor(
     ]),
   );
 
+  // Fire the change callback on any doc edit (user typing, paste, undo…).
+  // Consumers typically debounce this before hitting the network.
+  const changeListener = EditorView.updateListener.of((update) => {
+    if (update.docChanged && onChange) {
+      onChange(update.state.doc.toString());
+    }
+  });
+
   const state = EditorState.create({
     doc: INITIAL_CODE,
     extensions: [
@@ -130,9 +151,15 @@ export function createEditor(
       lumenTheme,
       lumenHighlight,
       evalKeybinding,
+      changeListener,
       keymap.of([...defaultKeymap, ...historyKeymap]),
     ],
   });
 
   return new EditorView({ state, parent });
+}
+
+/** Read the current text contents of an editor view. */
+export function getEditorCode(view: EditorView): string {
+  return view.state.doc.toString();
 }

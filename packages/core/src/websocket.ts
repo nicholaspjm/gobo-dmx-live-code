@@ -212,6 +212,30 @@ function parseUrl(url: string): [string, number] {
 }
 
 /**
+ * Send the current editor source code to TouchDesigner as a text payload,
+ * piggybacking on the same TD WebSocket we already use for DMX.
+ *
+ * Wire format:
+ *   { "type": "code", "text": "<full editor contents>" }
+ *
+ * The TD callback script routes this into a Text DAT which a Text TOP can
+ * render as a visual. Indentation and line breaks are preserved as plain
+ * text; syntax highlighting colours are not (a Text TOP uses one colour
+ * for the whole string).
+ *
+ * No-op when the TD socket isn't open. Safe to call every keystroke; the
+ * payload is a few KB and TD handles it without fuss.
+ */
+export function sendCodeTD(text: string): void {
+  if (!_td_ws || _td_ws.readyState !== WebSocket.OPEN) return;
+  try {
+    _td_ws.send(JSON.stringify({ type: 'code', text }));
+  } catch {
+    // Socket might have closed between check and send
+  }
+}
+
+/**
  * Send universe state direct to TouchDesigner.
  * No-op when the TD socket isn't open.
  */

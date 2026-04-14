@@ -151,7 +151,9 @@ Create `websocket1` (DAT → WebSocket). Parameters:
 
 **2. Table DAT.** Create `table1` (DAT → Table). Leave it empty.
 
-**3. Callback script.** Create `callbacks1` (DAT → Text) and set `websocket1`'s *Callbacks DAT* parameter to it. Paste:
+**3. Code Text DAT.** Create `code_text` (DAT → Text). Leave it empty — lumen will push your live editor contents into it.
+
+**4. Callback script.** Create `callbacks1` (DAT → Text) and set `websocket1`'s *Callbacks DAT* parameter to it. Paste:
 
 ```python
 import json
@@ -161,28 +163,45 @@ def onReceiveText(dat, rowIndex, message, peer):
         data = json.loads(message)
     except Exception:
         return
-    if data.get('type') != 'dmx':
-        return
 
-    table = op('table1')
-    for uni_str, values in data.get('universes', {}).items():
-        for i, v in enumerate(values):
-            name = f'{uni_str}/{i + 1}'
-            norm = v / 255.0
-            row = table.row(name)
-            if row is None:
-                table.appendRow([name, norm])
-            else:
-                table[name, 1] = norm
+    msg_type = data.get('type')
+
+    if msg_type == 'dmx':
+        table = op('table1')
+        for uni_str, values in data.get('universes', {}).items():
+            for i, v in enumerate(values):
+                name = f'{uni_str}/{i + 1}'
+                norm = v / 255.0
+                row = table.row(name)
+                if row is None:
+                    table.appendRow([name, norm])
+                else:
+                    table[name, 1] = norm
+
+    elif msg_type == 'code':
+        code_dat = op('code_text')
+        if code_dat is not None:
+            code_dat.text = data.get('text', '')
+
     return
 
 def onConnect(dat, peer): return
 def onDisconnect(dat, peer): return
 ```
 
-**4. DAT to CHOP.** Create `datto1` (CHOP → DAT to). Set *DAT* to `table1` and *First Column is Names* to `On`. Each channel now appears as a named CHOP channel (`1/1`, `1/2`, …) with values 0–1.
+**5. DAT to CHOP.** Create `datto1` (CHOP → DAT to). Set *DAT* to `table1` and *First Column is Names* to `On`. Each channel now appears as a named CHOP channel (`1/1`, `1/2`, …) with values 0–1.
 
-**5. In lumen.** Open the [live page](https://nicholaspjm.github.io/dmx-live-code/), leave the default `td('localhost', 9980)` line, and hit `Ctrl+Enter`. The status dot in the top bar should switch to `td` and channels will start appearing in `datto1`.
+**6. Code visual (optional).** Create a Text TOP and set its *Text* parameter to a Python expression:
+
+```
+op('code_text').text
+```
+
+Set *Font* to a monospace face (e.g. `Consolas`, `JetBrains Mono`) so indentation lines up. The Text TOP renders the whole string in a single colour — indentation and line breaks are preserved, but syntax highlighting is not. Composite this TOP into your scene however you like.
+
+lumen pushes the current editor contents to `code_text` on every keystroke (debounced ~250 ms), on every `Ctrl+Enter`, and once on (re)connect, so the visual always reflects what's actually running.
+
+**7. In lumen.** Open the [live page](https://nicholaspjm.github.io/dmx-live-code/), leave the default `td('localhost', 9980)` line, and hit `Ctrl+Enter`. The status dot in the top bar should switch to `td` and channels will start appearing in `datto1`.
 
 > **Note:** `localhost` works from the hosted page because Chromium allows `ws://localhost` even from https pages. If you run TD on a different machine, substitute its IP — but the page will need to be served over http (or TD behind wss/a reverse proxy).
 
