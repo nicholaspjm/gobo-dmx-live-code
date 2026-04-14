@@ -201,20 +201,25 @@ function buildOscMessage(address: string, value: number): Buffer {
 }
 
 let _oscSendCount = 0;
+const _oscPrevData = new Map<number, number[]>();
 
 function sendOSC(universe: number, data: number[]): void {
   if (!udp) return;
   const host = config.osc?.host ?? '127.0.0.1';
   const port = config.osc?.port ?? 9000;
+  const prev = _oscPrevData.get(universe);
 
-  // Send each active channel as /lumen/<uni>/<ch> <float 0-1>
+  // Send any channel that is non-zero OR was non-zero last frame (so zeros get sent)
   for (let i = 0; i < data.length; i++) {
     const raw = data[i] ?? 0;
-    if (raw === 0) continue;
+    const prevRaw = prev?.[i] ?? 0;
+    if (raw === 0 && prevRaw === 0) continue;
     const address = `/lumen/${universe}/${i + 1}`;
     const msg = buildOscMessage(address, raw / 255);
     udp.send(msg, port, host);
   }
+
+  _oscPrevData.set(universe, [...data]);
 
   _oscSendCount++;
   if (_oscSendCount === 1 || _oscSendCount % 100 === 0) {

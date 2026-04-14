@@ -67,6 +67,19 @@ function scheduleReconnect(url: string): void {
 }
 
 /**
+ * Send a config update to the bridge.
+ * Reconfigures output mode, host, port, universe at runtime.
+ */
+export function sendConfig(config: Record<string, unknown>): void {
+  if (!_ws || _ws.readyState !== WebSocket.OPEN) return;
+  try {
+    _ws.send(JSON.stringify({ type: 'config', ...config }));
+  } catch {
+    // Socket might have closed
+  }
+}
+
+/**
  * Send universe state over the WebSocket.
  * Called on each scheduler tick.
  */
