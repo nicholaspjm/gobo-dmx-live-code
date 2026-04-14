@@ -73,9 +73,11 @@ initVisualizer(visualizerEl);
 
 // ─── Scheduler tick ──────────────────────────────────────────────────────────
 
-// Throttle bridge sends: every ~3 ticks ≈ 15hz is plenty for DMX
-let _sendCounter = 0;
-const SEND_EVERY = 3;
+// Cap DMX output rate at ~60 Hz so 120/144/240 Hz displays don't flood
+// the downstream over a USB DMX node or WiFi. On localhost this is
+// irrelevant, but it's polite to network gear and enough to look smooth.
+const SEND_INTERVAL_MS = 1000 / 60;
+let _lastSendMs = 0;
 
 onTick((cyclePos, _delta) => {
   // 1. Resolve patterns → DMX channel values
@@ -84,12 +86,12 @@ onTick((cyclePos, _delta) => {
   // 2. Push to visualizer (gets the live universe-1 buffer)
   updateVisualizer(getUniverse1Snapshot());
 
-  // 3. Send to bridge or direct-to-TD (throttled).
+  // 3. Send to bridge or direct-to-TD (time-throttled to ~60 Hz).
   // Each sender internally checks the current output target and no-ops
   // if it isn't the active one, so only one actually transmits.
-  _sendCounter++;
-  if (_sendCounter >= SEND_EVERY) {
-    _sendCounter = 0;
+  const now = performance.now();
+  if (now - _lastSendMs >= SEND_INTERVAL_MS) {
+    _lastSendMs = now;
     const universes = getAllUniverses();
     sendUniverseState(universes);
     sendUniverseStateTD(universes);
