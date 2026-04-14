@@ -1,0 +1,413 @@
+/**
+ * Inline editor visualizations.
+ *
+ * Users opt into these by chaining `.viz(kind)` on a fixture or strip:
+ *
+ *   const washA = fixture(1, 'generic-rgbw').viz('color')
+ *   const spot  = fixture(9, 'generic-dimmer').viz('wave')
+ *   const strip = rgbStrip(12, 10).viz('strip')
+ *
+ * How the wiring works:
+ *
+ * 1. At eval time, each `.viz()` call pushes a VizEntry into a registry in
+ *    @lumen/core. The registry contains channel layout but NOT source
+ *    location — fragile stack-trace parsing would be the only way to capture
+ *    that at runtime, so we avoid it.
+ *
+ * 2. After a successful eval, the main app calls `refreshViz(view)`. We scan
+ *    the editor doc for lines containing `.viz(` and zip those source
+ *    locations against the registry (both are walked top-to-bottom so the
+ *    orders line up). For each (line, entry) pair, we emit a line-end
+ *    Decoration.widget.
+ *
+ * 3. Each widget is a `WidgetType` subclass that, on toDOM(), registers
+ *    itself in a shared animation loop. The loop reads the live
+ *    universe-1 buffer at ~30fps and each widget updates its own DOM from
+ *    the channels it cares about.
+ *
+ * Kinds:
+ *   'color' → color swatch, mixes r/g/b/w into a glowing square
+ *   'wave'  → mini oscilloscope, scrolls recent intensity history
+ *   'strip' → row of tiny pixel dots, one per strip pixel
+ *   'meter' → vertical bar, current intensity level
+ *
+ * Multiple kinds on one line:
+ *   spot.viz('wave', 'meter')  // both widgets appear, in that order
+ */
+
+import { EditorView, WidgetType, Decoration, type DecorationSet } from '@codemirror/view';
+import { StateField, StateEffect } from '@codemirror/state';
+import {
+  getVizEntries,
+  getUniverse1Snapshot,
+  onTick,
+  type VizEntry,
+  type VizKind,
+} from '@lumen/core';
+
+// ─── Widget base class ───────────────────────────────────────────────────────
+
+/**
+ * A single inline widget instance. Subclasses provide a `build()` method
+ * that populates the root element once, and an `update()` method called
+ * from the shared animation loop with the current universe-1 buffer.
+ */
+abstract class VizWidget extends WidgetType {
+  protected dom: HTMLSpanElement | null = null;
+
+  constructor(
+    protected readonly entry: VizEntry,
+    protected readonly kind: VizKind,
+    /**
+     * Stable key so CodeMirror can reuse the same DOM across dispatches.
+     * Derived from entry index + channel so two fixtures with the same
+     * layout still compare unequal.
+     */
+    protected readonly signature: string,
+  ) {
+    super();
+  }
+
+  eq(other: WidgetType): boolean {
+    return (
+      other instanceof VizWidget &&
+      other.signature === this.signature &&
+      other.kind === this.kind
+    );
+  }
+
+  toDOM(): HTMLElement {
+    const el = document.createElement('span');
+    el.className = `lumen-viz lumen-viz-${this.kind}`;
+    // Keep the widget inert to CodeMirror's selection/click logic.
+    el.setAttribute('aria-hidden', 'true');
+    el.contentEditable = 'false';
+    this.dom = el;
+    this.build(el);
+    _activeWidgets.add(this);
+    return el;
+  }
+
+  destroy(): void {
+    _activeWidgets.delete(this);
+    this.dom = null;
+  }
+
+  /** Populate the root element once. */
+  protected abstract build(el: HTMLSpanElement): void;
+
+  /**
+   * Called once per animation frame with the live universe-1 buffer.
+   * Implementations should avoid allocations on the hot path.
+   */
+  abstract update(ch: number[]): void;
+
+  /**
+   * Derive a single 0..1 level from the fixture's channels. Used by the
+   * meter and wave widgets so RGB/RGBW/dimmer/strip fixtures all reduce
+   * to a comparable scalar.
+   */
+  protected level(ch: number[]): number {
+    const start = this.entry.startChannel - 1;
+    const { rgbw, dim, pixelCount } = this.entry;
+    if (dim !== undefined) {
+      return (ch[start + dim] ?? 0) / 255;
+    }
+    if (rgbw) {
+      let m = 0;
+      if (rgbw.r !== undefined) m = Math.max(m, ch[start + rgbw.r] ?? 0);
+      if (rgbw.g !== undefined) m = Math.max(m, ch[start + rgbw.g] ?? 0);
+      if (rgbw.b !== undefined) m = Math.max(m, ch[start + rgbw.b] ?? 0);
+      if (rgbw.w !== undefined) m = Math.max(m, ch[start + rgbw.w] ?? 0);
+      return m / 255;
+    }
+    if (pixelCount) {
+      let sum = 0;
+      for (let i = 0; i < pixelCount; i++) {
+        const base = start + i * 3;
+        sum += Math.max(ch[base] ?? 0, ch[base + 1] ?? 0, ch[base + 2] ?? 0);
+      }
+      return sum / pixelCount / 255;
+    }
+    return 0;
+  }
+}
+
+// ─── Color swatch ────────────────────────────────────────────────────────────
+
+/** Small glowing square showing the fixture's mixed output color. */
+class ColorSwatchWidget extends VizWidget {
+  protected build(el: HTMLSpanElement): void {
+    el.title = `color — ch ${this.entry.startChannel}+`;
+  }
+
+  update(ch: number[]): void {
+    if (!this.dom) return;
+    const start = this.entry.startChannel - 1;
+    const { rgbw, dim } = this.entry;
+    if (!rgbw && !dim) return;
+
+    const r = rgbw?.r !== undefined ? ch[start + rgbw.r] ?? 0 : 0;
+    const g = rgbw?.g !== undefined ? ch[start + rgbw.g] ?? 0 : 0;
+    const b = rgbw?.b !== undefined ? ch[start + rgbw.b] ?? 0 : 0;
+    const w = rgbw?.w !== undefined ? ch[start + rgbw.w] ?? 0 : 0;
+    // Dimmer (if present) scales the final RGB. No dimmer → pass through.
+    const dimScale = dim !== undefined ? (ch[start + dim] ?? 0) / 255 : 1;
+
+    const rr = Math.min(255, Math.round((r + w) * dimScale));
+    const gg = Math.min(255, Math.round((g + w) * dimScale));
+    const bb = Math.min(255, Math.round((b + w) * dimScale));
+    const brightness = Math.max(rr, gg, bb) / 255;
+
+    if (brightness < 0.03) {
+      this.dom.style.background = '#2e2a26';
+      this.dom.style.boxShadow = 'none';
+      return;
+    }
+    this.dom.style.background = `rgb(${rr},${gg},${bb})`;
+    this.dom.style.boxShadow = `0 0 ${Math.round(brightness * 10)}px rgba(${rr},${gg},${bb},${(brightness * 0.75).toFixed(2)})`;
+  }
+}
+
+// ─── Vertical meter ──────────────────────────────────────────────────────────
+
+/** Thin vertical bar filling from the bottom as intensity rises. */
+class MeterWidget extends VizWidget {
+  private fill: HTMLSpanElement | null = null;
+
+  protected build(el: HTMLSpanElement): void {
+    const fill = document.createElement('span');
+    fill.className = 'lumen-viz-meter-fill';
+    el.appendChild(fill);
+    this.fill = fill;
+    el.title = 'intensity';
+  }
+
+  update(ch: number[]): void {
+    if (!this.fill) return;
+    const v = this.level(ch);
+    this.fill.style.height = `${(v * 100).toFixed(1)}%`;
+    this.fill.style.opacity = (0.35 + v * 0.65).toFixed(2);
+  }
+}
+
+// ─── Wave scope ──────────────────────────────────────────────────────────────
+
+/**
+ * Scrolling oscilloscope of the fixture's recent intensity history. Keeps
+ * the last N samples in a ring buffer and redraws on every frame. Good for
+ * seeing the shape of square/saw/sine patterns without looking at the
+ * physical fixture.
+ */
+class WaveWidget extends VizWidget {
+  private canvas: HTMLCanvasElement | null = null;
+  private history: number[] = [];
+  private readonly SAMPLES = 80;
+
+  protected build(el: HTMLSpanElement): void {
+    const c = document.createElement('canvas');
+    // Oversample the backing store so it stays sharp on HiDPI screens.
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    c.width = 96 * dpr;
+    c.height = 22 * dpr;
+    c.style.width = '96px';
+    c.style.height = '22px';
+    c.className = 'lumen-viz-wave-canvas';
+    el.appendChild(c);
+    this.canvas = c;
+    this.history = new Array(this.SAMPLES).fill(0);
+    el.title = 'wave scope';
+  }
+
+  update(ch: number[]): void {
+    if (!this.canvas) return;
+    const v = this.level(ch);
+    this.history.push(v);
+    if (this.history.length > this.SAMPLES) this.history.shift();
+
+    const ctx = this.canvas.getContext('2d');
+    if (!ctx) return;
+    const { width, height } = this.canvas;
+    ctx.clearRect(0, 0, width, height);
+
+    // Fill under the waveform
+    ctx.beginPath();
+    for (let i = 0; i < this.history.length; i++) {
+      const x = (i / (this.SAMPLES - 1)) * width;
+      const y = height - this.history[i] * (height - 2) - 1;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(196,114,74,0.18)';
+    ctx.fill();
+
+    // Top line
+    ctx.strokeStyle = '#c4724a';
+    ctx.lineWidth = Math.max(1, Math.round(height / 22));
+    ctx.beginPath();
+    for (let i = 0; i < this.history.length; i++) {
+      const x = (i / (this.SAMPLES - 1)) * width;
+      const y = height - this.history[i] * (height - 2) - 1;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}
+
+// ─── Strip preview ───────────────────────────────────────────────────────────
+
+/** Row of tiny coloured dots, one per strip pixel. */
+class StripWidget extends VizWidget {
+  private dots: HTMLSpanElement[] = [];
+
+  protected build(el: HTMLSpanElement): void {
+    const count = this.entry.pixelCount ?? 0;
+    this.dots = [];
+    for (let i = 0; i < count; i++) {
+      const d = document.createElement('span');
+      d.className = 'lumen-viz-strip-dot';
+      el.appendChild(d);
+      this.dots.push(d);
+    }
+    el.title = `strip — ${count} px`;
+  }
+
+  update(ch: number[]): void {
+    const start = this.entry.startChannel - 1;
+    const count = this.entry.pixelCount ?? 0;
+    for (let i = 0; i < count; i++) {
+      const base = start + i * 3;
+      const r = ch[base] ?? 0;
+      const g = ch[base + 1] ?? 0;
+      const b = ch[base + 2] ?? 0;
+      const br = Math.max(r, g, b) / 255;
+      const dot = this.dots[i];
+      if (!dot) continue;
+      if (br < 0.03) {
+        dot.style.background = '#2e2a26';
+      } else {
+        dot.style.background = `rgb(${r},${g},${b})`;
+      }
+    }
+  }
+}
+
+// ─── Shared animation loop ───────────────────────────────────────────────────
+
+/**
+ * Every live widget registers itself here on toDOM(). A single subscription
+ * to the core scheduler tick iterates the set, reads the universe-1 buffer
+ * once per tick, and pokes each widget. Widgets unregister themselves on
+ * destroy().
+ *
+ * We intentionally piggy-back on `onTick` instead of using
+ * `requestAnimationFrame` — the core scheduler runs in a Web Worker so it
+ * keeps ticking even when the tab is backgrounded, and it's the same clock
+ * that drives the DMX output, so widget visuals stay phase-locked with the
+ * fixtures. rAF also gets throttled or paused in some embedded preview
+ * environments, which made widgets appear static after the initial build.
+ */
+const _activeWidgets = new Set<VizWidget>();
+
+onTick(() => {
+  if (_activeWidgets.size === 0) return;
+  const ch = getUniverse1Snapshot();
+  for (const w of _activeWidgets) {
+    try {
+      w.update(ch);
+    } catch {
+      // A misbehaving widget shouldn't take down the whole loop.
+    }
+  }
+});
+
+// ─── CodeMirror state plumbing ───────────────────────────────────────────────
+
+const setVizDecorations = StateEffect.define<DecorationSet>();
+
+/**
+ * Editor extension that stores the current set of widget decorations.
+ * Positions are mapped through doc changes so widgets track the line they
+ * were placed on until the next `refreshViz()` rebuilds the set.
+ */
+export const vizDecorationsField = StateField.define<DecorationSet>({
+  create() {
+    return Decoration.none;
+  },
+  update(deco, tr) {
+    deco = deco.map(tr.changes);
+    for (const e of tr.effects) {
+      if (e.is(setVizDecorations)) deco = e.value;
+    }
+    return deco;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+/**
+ * Rebuild widget decorations to reflect the current registry.
+ *
+ * Call after every successful eval. We:
+ *   1. Read VizEntries from @lumen/core (populated by `.viz()` calls during eval).
+ *   2. Walk the doc and record the line numbers that contain `.viz(` (in code,
+ *      not comments).
+ *   3. Zip the two lists 1:1. If the user has more `.viz(` hits in the doc
+ *      than entries (e.g. a commented-out one that regex still matched), the
+ *      extras are ignored, and vice versa.
+ *   4. For each (entry, line) pair, emit one widget per kind at line-end.
+ */
+export function refreshViz(view: EditorView): void {
+  const entries = getVizEntries();
+  const doc = view.state.doc;
+
+  // Collect source lines with a .viz( call, skipping // line comments.
+  const vizLines: number[] = [];
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i);
+    const commentIdx = line.text.indexOf('//');
+    const code = commentIdx >= 0 ? line.text.slice(0, commentIdx) : line.text;
+    if (/\.viz\s*\(/.test(code)) vizLines.push(i);
+  }
+
+  const ranges: Array<{ from: number; value: Decoration }> = [];
+  const pairs = Math.min(entries.length, vizLines.length);
+  for (let i = 0; i < pairs; i++) {
+    const entry = entries[i];
+    const line = doc.line(vizLines[i]);
+    const signature = `${i}:${entry.startChannel}:${entry.channelCount}`;
+    for (const kind of entry.kinds) {
+      const widget = makeWidget(entry, kind, signature);
+      ranges.push({
+        from: line.to,
+        value: Decoration.widget({ widget, side: 1 }),
+      });
+    }
+  }
+
+  // Ranges must be sorted by `from` for Decoration.set. They already are
+  // because we walk lines in order, but sort defensively in case a future
+  // change puts multiple entries on the same line out of order.
+  ranges.sort((a, b) => a.from - b.from);
+  const deco = Decoration.set(
+    ranges.map((r) => r.value.range(r.from)),
+    true,
+  );
+  view.dispatch({ effects: setVizDecorations.of(deco) });
+}
+
+function makeWidget(entry: VizEntry, kind: VizKind, sig: string): VizWidget {
+  switch (kind) {
+    case 'color':
+      return new ColorSwatchWidget(entry, kind, sig);
+    case 'wave':
+      return new WaveWidget(entry, kind, sig);
+    case 'strip':
+      return new StripWidget(entry, kind, sig);
+    case 'meter':
+      return new MeterWidget(entry, kind, sig);
+  }
+}

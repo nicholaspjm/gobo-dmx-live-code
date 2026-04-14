@@ -12,6 +12,7 @@ import { javascript } from '@codemirror/lang-javascript';
 import { defaultKeymap, historyKeymap, history } from '@codemirror/commands';
 import { bracketMatching, indentOnInput } from '@codemirror/language';
 import { lumenTheme, lumenHighlight } from './theme.js';
+import { vizDecorationsField } from './inline-viz.js';
 
 const INITIAL_CODE = `// lumen — live DMX coding environment
 // ctrl+enter to run  ·  ctrl+. to stop
@@ -39,13 +40,17 @@ td('localhost', 9980)       // point at TD WebSocket DAT
 // built-in types: generic-dimmer, generic-rgb, generic-rgbw,
 // generic-rgba, generic-dim-rgb, moving-head-basic, strobe-basic
 
-const washA = fixture(1, 'generic-rgbw')   // ch 1-4
-const washB = fixture(5, 'generic-rgbw')   // ch 5-8
-const spot  = fixture(9, 'generic-dimmer') // ch 9
-const strb  = fixture(10, 'strobe-basic')  // ch 10-11
+// Chain .viz(kind) to drop a live widget at the end of the line. Kinds:
+//   'color' swatch · 'wave' scope · 'meter' bar · 'strip' pixel-row.
+// Multiple kinds are allowed, e.g. .viz('wave', 'meter').
+
+const washA = fixture(1, 'generic-rgbw').viz('color')   // ch 1-4
+const washB = fixture(5, 'generic-rgbw').viz('color')   // ch 5-8
+const spot  = fixture(9, 'generic-dimmer').viz('wave')  // ch 9
+const strb  = fixture(10, 'strobe-basic').viz('meter')  // ch 10-11
 
 // rgbStrip(startChannel, pixelCount) — each pixel = 3 chs (R, G, B)
-const strip = rgbStrip(12, 10)             // ch 12-41 (10 pixels × 3)
+const strip = rgbStrip(12, 10).viz('strip')             // ch 12-41 (10 pixels × 3)
 
 // Custom fixture with an embedded pixel-strip segment:
 //   ch1 dim · ch2 strobe · ch3-11 strip(3 pixels) · ch12 mode
@@ -150,6 +155,7 @@ export function createEditor(
       javascript(),
       lumenTheme,
       lumenHighlight,
+      vizDecorationsField,
       evalKeybinding,
       changeListener,
       keymap.of([...defaultKeymap, ...historyKeymap]),

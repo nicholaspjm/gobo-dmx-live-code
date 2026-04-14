@@ -11,7 +11,13 @@
 
 import { clearDefs, ch, uni, dim, rgb, type PatternLike } from './dmx.js';
 import { setBPM } from './scheduler.js';
-import { fixture, defineFixture, listFixtures, rgbStrip } from './fixtures.js';
+import {
+  fixture,
+  defineFixture,
+  listFixtures,
+  rgbStrip,
+  clearVizRegistry,
+} from './fixtures.js';
 import { sendConfig, connectTD, disconnectTD, setOutputTarget } from './websocket.js';
 
 // Strudel functions, loaded once via initStrudel()
@@ -129,6 +135,7 @@ export interface EvalResult {
 export function evalCode(code: string): EvalResult {
   try {
     clearDefs();
+    clearVizRegistry();
 
     const ctx: Record<string, unknown> = {
       // DMX API

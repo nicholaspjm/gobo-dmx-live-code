@@ -220,6 +220,16 @@ export type FixtureInstance = {
   set(channelName: string, value: PatternOrValue): void;
   /** List available channel names */
   channels(): string[];
+  /**
+   * Opt into one or more inline editor visualizations for this fixture.
+   * The editor scans the source for `.viz(...)` call sites and drops a
+   * live widget at the end of that line. Default kind is 'color'.
+   *
+   * @example
+   *   const washA = fixture(1, 'generic-rgbw').viz('color')
+   *   const spot  = fixture(9, 'generic-dimmer').viz('wave', 'meter')
+   */
+  viz(...kinds: VizKind[]): FixtureInstance;
   // Named channels: setter function OR nested StripInstance (for type: 'strip')
   [key: string]: unknown;
 };
@@ -269,6 +279,20 @@ export function fixture(
 
     channels(): string[] {
       return def.channels.map((c) => c.name);
+    },
+
+    viz(...kinds: VizKind[]): FixtureInstance {
+      const list: VizKind[] = kinds.length > 0 ? kinds : ['color'];
+      const { rgbw, dim } = extractChannelLayout(def);
+      _vizRegistry.push({
+        kinds: list,
+        universe,
+        startChannel,
+        channelCount: def.channelCount,
+        rgbw,
+        dim,
+      });
+      return inst;
     },
   } as FixtureInstance;
 
@@ -330,6 +354,16 @@ export interface StripInstance {
   green(v: PatternOrValue): void;
   /** Set just the blue channel on every pixel. */
   blue(v: PatternOrValue): void;
+
+  /**
+   * Opt into one or more inline editor visualizations for this strip. The
+   * editor scans the source for `.viz(...)` call sites and drops a live
+   * mini-preview widget at the end of that line. Default kind is 'strip'.
+   *
+   * @example
+   *   const strip = rgbStrip(12, 10).viz('strip')
+   */
+  viz(...kinds: VizKind[]): StripInstance;
 }
 
 /**
@@ -371,7 +405,7 @@ export function rgbStrip(
     );
   }
 
-  return {
+  const inst: StripInstance = {
     universe,
     startChannel,
     pixelCount,
@@ -415,5 +449,86 @@ export function rgbStrip(
         uni(universe, startChannel + i * 3 + 2, v);
       }
     },
+
+    viz(...kinds: VizKind[]): StripInstance {
+      const list: VizKind[] = kinds.length > 0 ? kinds : ['strip'];
+      _vizRegistry.push({
+        kinds: list,
+        universe,
+        startChannel,
+        channelCount,
+        pixelCount,
+      });
+      return inst;
+    },
+  };
+  return inst;
+}
+
+// ─── Inline visualization registry ────────────────────────────────────────────
+// `.viz(kind)` on a fixture or strip opts into an inline editor widget. This
+// module only stores the runtime-derived channel layout — it has no idea
+// where in the source the call lives. The UI-side extension scans the doc
+// text for `.viz(...)` occurrences in the same top-to-bottom order the eval
+// pushes entries and zips them 1:1, which avoids fragile stack-trace parsing.
+
+/** Kinds of inline visualization a fixture/strip can opt into. */
+export type VizKind = 'color' | 'wave' | 'strip' | 'meter';
+
+/**
+ * Runtime viz metadata. `rgbw` / `dim` offsets are 0-based relative to
+ * `startChannel` so the widget can read the right bytes out of the universe
+ * buffer without re-resolving the fixture definition.
+ */
+export interface VizEntry {
+  kinds: VizKind[];
+  universe: number;
+  startChannel: number;     // 1-based DMX address
+  channelCount: number;
+  /** Relative offsets of RGB/W channels if the fixture has them. */
+  rgbw?: { r?: number; g?: number; b?: number; w?: number };
+  /** Relative offset of a dimmer/intensity channel, if present. */
+  dim?: number;
+  /** Present for rgbStrip: number of RGB pixels laid out contiguously. */
+  pixelCount?: number;
+}
+
+const _vizRegistry: VizEntry[] = [];
+
+/** Called by eval.ts before running new user code. */
+export function clearVizRegistry(): void {
+  _vizRegistry.length = 0;
+}
+
+/** UI-side: read the current registry to place editor widgets after eval. */
+export function getVizEntries(): readonly VizEntry[] {
+  return _vizRegistry;
+}
+
+/**
+ * Walk a FixtureDef and pick out the channel offsets the visualizations
+ * actually care about. Handles plain RGB/RGBW/RGBA PARs, dim-RGB(W), and
+ * moving heads with an embedded color engine.
+ */
+function extractChannelLayout(def: FixtureDef): {
+  rgbw?: { r?: number; g?: number; b?: number; w?: number };
+  dim?: number;
+} {
+  const rgbw: { r?: number; g?: number; b?: number; w?: number } = {};
+  let dim: number | undefined;
+  for (const c of def.channels) {
+    if      (c.name === 'red')   rgbw.r = c.offset;
+    else if (c.name === 'green') rgbw.g = c.offset;
+    else if (c.name === 'blue')  rgbw.b = c.offset;
+    else if (c.name === 'white') rgbw.w = c.offset;
+    // 'amber' falls through — treated as red-ish but we don't try to fake it
+    else if (c.name === 'dim')   dim = c.offset;
+  }
+  const hasAnyColor =
+    rgbw.r !== undefined || rgbw.g !== undefined ||
+    rgbw.b !== undefined || rgbw.w !== undefined;
+  return {
+    rgbw: hasAnyColor ? rgbw : undefined,
+    dim,
   };
 }

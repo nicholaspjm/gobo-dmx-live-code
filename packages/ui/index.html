@@ -475,6 +475,76 @@
         white-space: pre-wrap;
         font-family: inherit;
       }
+
+      /* ─── Inline editor visualizations (.viz) ─────────────────────────── */
+      /* Placed at line-end via CodeMirror WidgetType. They must not take
+         part in the text flow's caret positioning, so they're inline-block
+         with negative vertical alignment to sit on the baseline cleanly. */
+      .lumen-viz {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        margin-left: 12px;
+        padding: 2px 5px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.22);
+        vertical-align: middle;
+        user-select: none;
+        cursor: default;
+      }
+
+      /* Color swatch */
+      .lumen-viz-color {
+        width: 30px;
+        height: 16px;
+        padding: 0;
+        border-radius: 2px;
+        background: #2e2a26;
+        transition: background 0.05s, box-shadow 0.05s;
+      }
+
+      /* Meter */
+      .lumen-viz-meter {
+        width: 8px;
+        height: 18px;
+        padding: 1px;
+        position: relative;
+        background: #0f0d0b;
+      }
+      .lumen-viz-meter-fill {
+        position: absolute;
+        left: 1px;
+        right: 1px;
+        bottom: 1px;
+        background: linear-gradient(to top, #c4724a, #b8956a);
+        border-radius: 1px;
+        height: 0%;
+        transition: height 0.03s linear;
+      }
+
+      /* Wave scope */
+      .lumen-viz-wave {
+        padding: 1px 2px;
+        height: 24px;
+      }
+      .lumen-viz-wave-canvas {
+        display: block;
+      }
+
+      /* Pixel strip preview — mini dots */
+      .lumen-viz-strip {
+        padding: 2px 3px;
+        gap: 1px;
+      }
+      .lumen-viz-strip-dot {
+        width: 5px;
+        height: 14px;
+        border-radius: 1px;
+        background: #2e2a26;
+        flex-shrink: 0;
+        transition: background 0.05s;
+      }
     </style>
   </head>
   <body>

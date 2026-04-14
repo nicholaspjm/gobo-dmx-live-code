@@ -31,6 +31,7 @@ import {
 import { createEditor, getEditorCode } from './editor.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
 import { renderDocs } from './docs.js';
+import { refreshViz } from './inline-viz.js';
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,10 @@ function runEval(code: string): void {
     // Push the exact code that just got evaluated to TD so its visual
     // is in sync with what's actually running (not the typing-debounced copy).
     sendCodeTD(code);
+    // Rebuild inline editor visualizations to reflect any .viz() calls
+    // in the new code. Widgets animate from the live universe buffer; this
+    // call only (re)places them in the editor at the right lines.
+    refreshViz(editorView);
   } else {
     setStatus('error', result.error ?? 'unknown error');
   }

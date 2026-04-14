@@ -122,6 +122,46 @@ const DOCS: DocSection[] = [
   },
 
   {
+    title: 'inline viz',
+    blurb:
+      'Opt-in per-fixture editor visualizations. Chain .viz(kind) onto a fixture or strip and a live widget appears at the end of that line, driven from the current DMX buffer at ~60fps. Never on by default — nothing happens until you add a .viz() call.',
+    entries: [
+      {
+        name: '.viz',
+        signature: ".viz(...kinds)",
+        description:
+          "Attach one or more inline widgets to this fixture. Kinds: 'color' (mixed-output swatch), 'wave' (scrolling intensity scope), 'meter' (vertical bar), 'strip' (row of mini pixels — for rgbStrip). Multiple kinds stack side-by-side. Returns the fixture so you can keep chaining.",
+        example:
+          "const washA = fixture(1, 'generic-rgbw').viz('color')\nconst spot  = fixture(9, 'generic-dimmer').viz('wave', 'meter')\nconst strip = rgbStrip(12, 10).viz('strip')",
+      },
+      {
+        name: 'color',
+        signature: ".viz('color')",
+        description:
+          "Mixed-output colour swatch. For RGB/RGBW fixtures, mixes the red/green/blue/white channels additively and glows at the resulting colour. Best for wash fixtures.",
+      },
+      {
+        name: 'wave',
+        signature: ".viz('wave')",
+        description:
+          "Mini scrolling oscilloscope. Plots the fixture's dominant intensity over the last ~1 second. Best for dimmer and strobe fixtures where you care about the shape of the modulation — square, sine, saw, etc.",
+      },
+      {
+        name: 'meter',
+        signature: ".viz('meter')",
+        description:
+          'Vertical bar showing current intensity 0-100%. Compact — good when you want many fixtures visualised on adjacent lines without eating horizontal space.',
+      },
+      {
+        name: 'strip',
+        signature: ".viz('strip')",
+        description:
+          'Row of tiny pixel dots, one per rgbStrip pixel, each showing its current RGB colour. Only makes sense for rgbStrip — on a regular fixture it renders an empty row.',
+      },
+    ],
+  },
+
+  {
     title: 'fixture channels',
     blurb:
       'Every fixture instance has methods matching its channel names. A few common ones:',
