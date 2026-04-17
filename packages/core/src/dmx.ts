@@ -118,7 +118,24 @@ export function getAllUniverses(): Map<number, Uint8Array> {
   return _universes;
 }
 
-/** Returns a snapshot of universe 1 as a plain number array (for the visualizer). */
+/**
+ * Returns a snapshot of the primary (default) universe as a plain number array.
+ * Used by the visualizer, fixture sim, and inline editor widgets.
+ *
+ * The "primary" universe is universe 0 — the same universe that `fixture()` and
+ * `rgbStrip()` write to when no universe argument is passed. This lines up
+ * with the Art-Net / TouchDesigner convention where the first universe is
+ * numbered 0.
+ */
+export function getPrimaryUniverseSnapshot(): number[] {
+  return Array.from(getUniverse(0));
+}
+
+/**
+ * @deprecated Use `getPrimaryUniverseSnapshot()` instead. Kept for one release
+ * in case external scripts still reference the old name; it now reads the
+ * primary universe (0), not specifically universe 1.
+ */
 export function getUniverse1Snapshot(): number[] {
-  return Array.from(getUniverse(1));
+  return getPrimaryUniverseSnapshot();
 }

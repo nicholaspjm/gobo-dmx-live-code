@@ -25,11 +25,11 @@ const DOCS: DocSection[] = [
       'Pick where DMX data goes. Call exactly one of these at the top of your code. Switching while running reconfigures on the fly.',
     entries: [
       {
-        name: 'td',
-        signature: "td(host='localhost', port=9980)",
+        name: 'artnet',
+        signature: "artnet(host='127.0.0.1', port=6454)",
         description:
-          "Direct WebSocket from the browser to TouchDesigner's WebSocket DAT (server mode). No bridge process required — this is the simplest path when TD is your only target.",
-        example: "td('localhost', 9980)",
+          "Send Art-Net DMX packets via the bridge. Port defaults to the standard Art-Net port 6454, so you almost never need to pass it. Use your node's IP to unicast, or a subnet broadcast (e.g. 2.255.255.255) to hit every node. One ArtDmx packet is transmitted per universe per tick, so multi-universe is automatic — just assign fixtures to different universes.",
+        example: "artnet('2.0.0.100')",
       },
       {
         name: 'osc',
@@ -37,13 +37,6 @@ const DOCS: DocSection[] = [
         description:
           'Send every active channel as an OSC message via the bridge. Address format: /lumen/<universe>/<channel>, one float arg in [0,1]. Works great with TouchDesigner OSC In CHOP.',
         example: "osc('127.0.0.1', 9000)",
-      },
-      {
-        name: 'artnet',
-        signature: "artnet(host='127.0.0.1', port=6454)",
-        description:
-          'Broadcast ArtNet DMX packets via the bridge. Use this to drive real fixtures through a DMX node, or software receivers that speak ArtNet.',
-        example: "artnet('192.168.1.50', 6454)",
       },
       {
         name: 'sacn',
@@ -82,11 +75,11 @@ const DOCS: DocSection[] = [
     entries: [
       {
         name: 'fixture',
-        signature: "fixture(startChannel, id, universe=1)",
+        signature: "fixture(startChannel, id, universe=0)",
         description:
-          "Create a fixture instance. Returns an object with one setter per named channel (e.g. .red(), .dim(), .pan()). Built-in ids: generic-dimmer, generic-rgb, generic-rgbw, generic-rgba, generic-dim-rgb, generic-dim-rgbw, moving-head-basic, moving-head-spot, strobe-basic.",
+          "Create a fixture instance. Returns an object with one setter per named channel (e.g. .red(), .dim(), .pan()). Built-in ids: generic-dimmer, generic-rgb, generic-rgbw, generic-rgba, generic-dim-rgb, generic-dim-rgbw, moving-head-basic, moving-head-spot, strobe-basic. Universe defaults to 0 (matches Art-Net / TouchDesigner's first-universe convention). Pass 1, 2, 3, … to address additional universes — the bridge sends one Art-Net packet per written universe per tick. Note: sACN requires universe ≥ 1.",
         example:
-          "const wash = fixture(1, 'generic-rgbw')\nwash.red(sine().slow(4))\nwash.white(0.3)",
+          "const wash = fixture(1, 'generic-rgbw')\nwash.red(sine().slow(4))\nwash.white(0.3)\n\n// Second universe\nconst par2 = fixture(1, 'generic-rgbw', 1)",
       },
       {
         name: 'defineFixture',
@@ -104,17 +97,25 @@ const DOCS: DocSection[] = [
       },
       {
         name: 'rgbStrip',
-        signature: 'rgbStrip(startChannel, pixelCount, universe=1)',
+        signature: 'rgbStrip(startChannel, pixelCount, universe=0)',
         description:
           'Variable-length RGB pixel strip. Each pixel = 3 channels (R,G,B) laid out contiguously, so 40 pixels = 120 channels. Returns an object with .fill(), .pixel(i, r, g, b), .red(), .green(), .blue(), plus .pixelCount / .channelCount / .startChannel.',
         example:
           "const strip = rgbStrip(1, 40)\nstrip.fill(sine().slow(4), 0, cosine().slow(4))\n\n// per-pixel chase\nfor (let i = 0; i < strip.pixelCount; i++) {\n  strip.pixel(i, sine().slow(4).add(i/strip.pixelCount), 0, 0)\n}",
       },
       {
-        name: 'strip channel (in defineFixture)',
-        signature: "{ offset, name, type: 'strip', pixelCount: N }",
+        name: 'rgbwStrip',
+        signature: 'rgbwStrip(startChannel, pixelCount, universe=0)',
         description:
-          "Inside defineFixture(), a channel with type 'strip' claims pixelCount × 3 DMX channels starting at its offset and exposes a nested StripInstance on the fixture under that name. Scalar channels before/after it work normally, so you can mix a dimmer, strobe, and pixel segment in one fixture definition.",
+          'RGBW pixel strip. Each pixel = 4 channels (R,G,B,W) laid out contiguously, so 8 pixels = 32 channels. Same shape as rgbStrip but every setter takes an extra white arg and adds a .white(v) setter. The white channel is a separate LED emitter that adds to the colour mix, great for warm highlights or true whites.',
+        example:
+          "const bar = rgbwStrip(1, 8, 1)    // 8 px, universe 1\nbar.fill(sine().slow(4), 0, cosine().slow(4), 0.2)\nbar.pixel(0, 1, 0, 0, 0)           // pixel 0 red\nbar.white(0.1)                      // low white on every pixel",
+      },
+      {
+        name: 'strip channel (in defineFixture)',
+        signature: "{ offset, name, type: 'strip', pixelCount: N, pixelLayout?: 'rgb' | 'rgbw' }",
+        description:
+          "Inside defineFixture(), a channel with type 'strip' claims pixelCount × channelsPerPixel DMX channels starting at its offset and exposes a nested StripInstance on the fixture. pixelLayout defaults to 'rgb' (3 chs/pixel); set it to 'rgbw' for a 4-ch-per-pixel RGBW strip — you then get .fill(r,g,b,w), .pixel(i,r,g,b,w), and a .white(v) setter. Scalar channels before/after work normally, so you can mix a dimmer, strobe, and pixel segment in one fixture.",
         example:
           "defineFixture('my-bar', {\n  name: 'Custom Bar', manufacturer: 'Generic', type: 'generic',\n  channelCount: 12,\n  channels: [\n    { offset: 0,  name: 'dim',    type: 'intensity' },\n    { offset: 1,  name: 'strobe', type: 'strobe' },\n    { offset: 2,  name: 'pixels', type: 'strip', pixelCount: 3 }, // ch 3-11\n    { offset: 11, name: 'mode',   type: 'control' },\n  ],\n})\nconst bar = fixture(100, 'my-bar')\nbar.dim(0.8)\nbar.pixels.fill(sine(), 0, 0)\nbar.pixels.pixel(1, 1, 0, 0)",
       },

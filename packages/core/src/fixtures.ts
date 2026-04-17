@@ -28,14 +28,20 @@ export interface ChannelDef {
   name: string;
   /**
    * Semantic type hint. Most types map 1:1 to a single DMX channel; 'strip'
-   * is special — it claims `pixelCount * 3` channels starting at `offset` and
-   * exposes a nested StripInstance on the fixture under this name.
+   * is special — it claims `pixelCount * channelsPerPixel` channels starting
+   * at `offset` and exposes a nested StripInstance on the fixture under this name.
    */
   type: 'intensity' | 'color' | 'position' | 'strobe' | 'control' | 'generic' | 'strip';
   /** Human-readable description */
   description?: string;
-  /** For type='strip': number of RGB pixels (each consumes 3 DMX channels). */
+  /** For type='strip': number of pixels. */
   pixelCount?: number;
+  /**
+   * For type='strip': channel layout per pixel. 'rgb' (3 chs/pixel, default)
+   * or 'rgbw' (4 chs/pixel). 'rgbw' exposes a nested RgbwStripInstance with
+   * .fill(r,g,b,w), .pixel(i,r,g,b,w), and a .white(v) setter.
+   */
+  pixelLayout?: 'rgb' | 'rgbw';
 }
 
 export interface FixtureDef {
@@ -239,13 +245,18 @@ export type FixtureInstance = {
  *
  * @param startChannel  1-based DMX channel (first channel of the fixture)
  * @param fixtureId     Built-in id ('generic-rgb', 'moving-head-basic', …) or custom id
- * @param universe      DMX universe, 1-based (default: 1)
+ * @param universe      DMX universe (default: 0). Art-Net / TouchDesigner
+ *                      label the first universe as "Universe 0" — if your node
+ *                      is configured for universe 0 this works out of the box.
+ *                      Pass 1, 2, 3, … to address additional universes. Note
+ *                      sACN E1.31 requires universe ≥ 1.
  *
  * @example
  *   const par = fixture(1, 'generic-rgb')
  *   par.red(sine())
  *   par.blue(0.5)
  *
+ *   // Second universe
  *   const head = fixture(10, 'moving-head-basic', 1)
  *   head.pan(square().slow(4))
  *   head.dim(0.8)
@@ -253,7 +264,7 @@ export type FixtureInstance = {
 export function fixture(
   startChannel: number,
   fixtureId: string,
-  universe = 1,
+  universe = 0,
 ): FixtureInstance {
   const def = resolveFixture(fixtureId);
 
@@ -298,9 +309,9 @@ export function fixture(
 
   // Attach named accessors.
   //   - Scalar channels become setter functions: par.red(v)
-  //   - 'strip' channels become nested StripInstance objects:
-  //         bar.pixels.fill(r, g, b)
-  //         bar.pixels.pixel(i, r, g, b)
+  //   - 'strip' channels become nested Rgb/Rgbw StripInstance objects:
+  //         bar.pixels.fill(r, g, b)      // pixelLayout: 'rgb'  (default)
+  //         bar.pixels.fill(r, g, b, w)   // pixelLayout: 'rgbw'
   for (const ch of def.channels) {
     if (ch.type === 'strip') {
       const pixelCount = ch.pixelCount ?? 0;
@@ -309,7 +320,11 @@ export function fixture(
           `Fixture "${def.name}" channel "${ch.name}" is type 'strip' but has no valid pixelCount (got ${ch.pixelCount}).`,
         );
       }
-      inst[ch.name] = rgbStrip(startChannel + ch.offset, pixelCount, universe);
+      const stripStart = startChannel + ch.offset;
+      inst[ch.name] =
+        ch.pixelLayout === 'rgbw'
+          ? rgbwStrip(stripStart, pixelCount, universe)
+          : rgbStrip(stripStart, pixelCount, universe);
     } else {
       inst[ch.name] = (value: PatternOrValue) => inst.set(ch.name, value);
     }
@@ -375,7 +390,7 @@ export interface StripInstance {
  *
  * @param startChannel  1-based DMX channel of the first pixel's red channel
  * @param pixelCount    Number of pixels (>= 1)
- * @param universe      DMX universe (default 1)
+ * @param universe      DMX universe (default 0, matching Art-Net convention)
  *
  * @example
  *   const strip = rgbStrip(1, 40)
@@ -389,7 +404,7 @@ export interface StripInstance {
 export function rgbStrip(
   startChannel: number,
   pixelCount: number,
-  universe = 1,
+  universe = 0,
 ): StripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbStrip: pixelCount must be >= 1 (got ${pixelCount})`);
@@ -458,6 +473,127 @@ export function rgbStrip(
         startChannel,
         channelCount,
         pixelCount,
+        channelsPerPixel: 3,
+      });
+      return inst;
+    },
+  };
+  return inst;
+}
+
+// ─── RGBW pixel strip ─────────────────────────────────────────────────────────
+// Same shape as rgbStrip but 4 channels per pixel (R, G, B, W). Matches the
+// layout used by RGBW pixel bars — adds a dedicated white channel on top of
+// RGB so you can dial in true warm/cool highlights without fighting colour mix.
+
+export interface RgbwStripInstance {
+  readonly universe: number;
+  readonly startChannel: number;
+  readonly pixelCount: number;
+  /** Total DMX channels consumed (pixelCount * 4). */
+  readonly channelCount: number;
+
+  /** Set every pixel to the same r/g/b/w. */
+  fill(
+    r: PatternOrValue,
+    g: PatternOrValue,
+    b: PatternOrValue,
+    w: PatternOrValue,
+  ): void;
+
+  /** Set a single pixel (0-indexed) to r/g/b/w. */
+  pixel(
+    index: number,
+    r: PatternOrValue,
+    g: PatternOrValue,
+    b: PatternOrValue,
+    w: PatternOrValue,
+  ): void;
+
+  /** Set just the red channel on every pixel. */
+  red(v: PatternOrValue): void;
+  /** Set just the green channel on every pixel. */
+  green(v: PatternOrValue): void;
+  /** Set just the blue channel on every pixel. */
+  blue(v: PatternOrValue): void;
+  /** Set just the white channel on every pixel. */
+  white(v: PatternOrValue): void;
+
+  /** Opt into an inline editor visualization (default kind 'strip'). */
+  viz(...kinds: VizKind[]): RgbwStripInstance;
+}
+
+/**
+ * Create an RGBW pixel strip starting at a DMX address. 4 channels per pixel
+ * laid out R, G, B, W. 8 pixels = 32 channels, 16 pixels = 64 channels, etc.
+ *
+ * @param startChannel  1-based DMX channel of the first pixel's red channel
+ * @param pixelCount    Number of pixels (>= 1)
+ * @param universe      DMX universe (default 0)
+ */
+export function rgbwStrip(
+  startChannel: number,
+  pixelCount: number,
+  universe = 0,
+): RgbwStripInstance {
+  if (!Number.isFinite(pixelCount) || pixelCount < 1) {
+    throw new Error(`rgbwStrip: pixelCount must be >= 1 (got ${pixelCount})`);
+  }
+  const STRIDE = 4;
+  const channelCount = pixelCount * STRIDE;
+  const lastChannel = startChannel + channelCount - 1;
+  if (startChannel < 1) {
+    throw new Error(`rgbwStrip: startChannel must be >= 1 (got ${startChannel})`);
+  }
+  if (lastChannel > 512) {
+    throw new Error(
+      `rgbwStrip: ${pixelCount} pixels starting at ${startChannel} would run to channel ${lastChannel} — exceeds 512. Split across universes.`,
+    );
+  }
+
+  const inst: RgbwStripInstance = {
+    universe,
+    startChannel,
+    pixelCount,
+    channelCount,
+
+    fill(r, g, b, w) {
+      for (let i = 0; i < pixelCount; i++) {
+        const base = startChannel + i * STRIDE;
+        uni(universe, base,     r);
+        uni(universe, base + 1, g);
+        uni(universe, base + 2, b);
+        uni(universe, base + 3, w);
+      }
+    },
+
+    pixel(index, r, g, b, w) {
+      if (!Number.isInteger(index) || index < 0 || index >= pixelCount) {
+        throw new Error(
+          `rgbwStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`,
+        );
+      }
+      const base = startChannel + index * STRIDE;
+      uni(universe, base,     r);
+      uni(universe, base + 1, g);
+      uni(universe, base + 2, b);
+      uni(universe, base + 3, w);
+    },
+
+    red(v)   { for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE,     v); },
+    green(v) { for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE + 1, v); },
+    blue(v)  { for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE + 2, v); },
+    white(v) { for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE + 3, v); },
+
+    viz(...kinds: VizKind[]): RgbwStripInstance {
+      const list: VizKind[] = kinds.length > 0 ? kinds : ['strip'];
+      _vizRegistry.push({
+        kinds: list,
+        universe,
+        startChannel,
+        channelCount,
+        pixelCount,
+        channelsPerPixel: STRIDE,
       });
       return inst;
     },
@@ -489,8 +625,13 @@ export interface VizEntry {
   rgbw?: { r?: number; g?: number; b?: number; w?: number };
   /** Relative offset of a dimmer/intensity channel, if present. */
   dim?: number;
-  /** Present for rgbStrip: number of RGB pixels laid out contiguously. */
+  /** Present for pixel strips: number of pixels laid out contiguously. */
   pixelCount?: number;
+  /**
+   * Channels per pixel for strip viz. 3 for RGB (default), 4 for RGBW.
+   * The strip widget uses this to stride through the universe buffer.
+   */
+  channelsPerPixel?: number;
 }
 
 const _vizRegistry: VizEntry[] = [];

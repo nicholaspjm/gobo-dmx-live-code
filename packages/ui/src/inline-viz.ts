@@ -39,7 +39,7 @@ import { EditorView, WidgetType, Decoration, type DecorationSet } from '@codemir
 import { StateField, StateEffect } from '@codemirror/state';
 import {
   getVizEntries,
-  getUniverse1Snapshot,
+  getUniverseBuffer,
   onTick,
   type VizEntry,
   type VizKind,
@@ -50,13 +50,15 @@ import {
 /**
  * A single inline widget instance. Subclasses provide a `build()` method
  * that populates the root element once, and an `update()` method called
- * from the shared animation loop with the current universe-1 buffer.
+ * from the shared animation loop with the current buffer for this widget's
+ * universe (each widget can be on a different universe).
  */
 abstract class VizWidget extends WidgetType {
   protected dom: HTMLSpanElement | null = null;
 
   constructor(
-    protected readonly entry: VizEntry,
+    /** Public so the animation loop can read `entry.universe` to pick a buffer. */
+    readonly entry: VizEntry,
     protected readonly kind: VizKind,
     /**
      * Stable key so CodeMirror can reuse the same DOM across dispatches.
@@ -122,10 +124,19 @@ abstract class VizWidget extends WidgetType {
       return m / 255;
     }
     if (pixelCount) {
+      const stride = this.entry.channelsPerPixel ?? 3;
       let sum = 0;
       for (let i = 0; i < pixelCount; i++) {
-        const base = start + i * 3;
-        sum += Math.max(ch[base] ?? 0, ch[base + 1] ?? 0, ch[base + 2] ?? 0);
+        const base = start + i * stride;
+        // Mix the white channel into the peak so RGBW strips don't look dim
+        // when they're driven entirely off the W channel.
+        const w = stride >= 4 ? (ch[base + 3] ?? 0) : 0;
+        sum += Math.max(
+          ch[base] ?? 0,
+          ch[base + 1] ?? 0,
+          ch[base + 2] ?? 0,
+          w,
+        );
       }
       return sum / pixelCount / 255;
     }
@@ -260,12 +271,17 @@ class WaveWidget extends VizWidget {
 
 // ─── Strip preview ───────────────────────────────────────────────────────────
 
-/** Row of tiny coloured dots, one per strip pixel. */
+/**
+ * Row of tiny coloured dots, one per strip pixel. Works for both RGB (3
+ * chs/pixel) and RGBW (4 chs/pixel) strips — the W channel is mixed into
+ * R/G/B additively so an all-white rgbw strip still lights the dots.
+ */
 class StripWidget extends VizWidget {
   private dots: HTMLSpanElement[] = [];
 
   protected build(el: HTMLSpanElement): void {
     const count = this.entry.pixelCount ?? 0;
+    const stride = this.entry.channelsPerPixel ?? 3;
     this.dots = [];
     for (let i = 0; i < count; i++) {
       const d = document.createElement('span');
@@ -273,24 +289,32 @@ class StripWidget extends VizWidget {
       el.appendChild(d);
       this.dots.push(d);
     }
-    el.title = `strip — ${count} px`;
+    el.title = `strip — ${count} px × ${stride} ch`;
   }
 
   update(ch: number[]): void {
     const start = this.entry.startChannel - 1;
     const count = this.entry.pixelCount ?? 0;
+    const stride = this.entry.channelsPerPixel ?? 3;
     for (let i = 0; i < count; i++) {
-      const base = start + i * 3;
+      const base = start + i * stride;
       const r = ch[base] ?? 0;
       const g = ch[base + 1] ?? 0;
       const b = ch[base + 2] ?? 0;
-      const br = Math.max(r, g, b) / 255;
+      const w = stride >= 4 ? (ch[base + 3] ?? 0) : 0;
+      // Mix white into RGB additively, clamped. Matches how RGBW fixtures
+      // actually render — the white LED is a separate emitter that adds to
+      // whatever the colour LEDs are doing.
+      const rr = Math.min(255, r + w);
+      const gg = Math.min(255, g + w);
+      const bb = Math.min(255, b + w);
+      const br = Math.max(rr, gg, bb) / 255;
       const dot = this.dots[i];
       if (!dot) continue;
       if (br < 0.03) {
         dot.style.background = '#2e2a26';
       } else {
-        dot.style.background = `rgb(${r},${g},${b})`;
+        dot.style.background = `rgb(${rr},${gg},${bb})`;
       }
     }
   }
@@ -300,9 +324,8 @@ class StripWidget extends VizWidget {
 
 /**
  * Every live widget registers itself here on toDOM(). A single subscription
- * to the core scheduler tick iterates the set, reads the universe-1 buffer
- * once per tick, and pokes each widget. Widgets unregister themselves on
- * destroy().
+ * to the core scheduler tick iterates the set and pokes each widget with its
+ * own universe's buffer. Widgets unregister themselves on destroy().
  *
  * We intentionally piggy-back on `onTick` instead of using
  * `requestAnimationFrame` — the core scheduler runs in a Web Worker so it
@@ -310,13 +333,24 @@ class StripWidget extends VizWidget {
  * that drives the DMX output, so widget visuals stay phase-locked with the
  * fixtures. rAF also gets throttled or paused in some embedded preview
  * environments, which made widgets appear static after the initial build.
+ *
+ * Multi-universe: widgets can live on any universe (the four-colour bar, for
+ * example, is demo'd on universe 1). We cache one number[] snapshot per
+ * universe-in-use per tick so two widgets on the same universe don't pay
+ * for two copies of the same buffer.
  */
 const _activeWidgets = new Set<VizWidget>();
 
 onTick(() => {
   if (_activeWidgets.size === 0) return;
-  const ch = getUniverse1Snapshot();
+  const buffers = new Map<number, number[]>();
   for (const w of _activeWidgets) {
+    const uni = w.entry.universe;
+    let ch = buffers.get(uni);
+    if (!ch) {
+      ch = Array.from(getUniverseBuffer(uni));
+      buffers.set(uni, ch);
+    }
     try {
       w.update(ch);
     } catch {

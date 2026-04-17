@@ -58,32 +58,51 @@ let _sacnSeq = 0;
 
 const ARTNET_PORT = 6454;
 
+/**
+ * Build an ArtDmx packet per Art-Net 4 spec.
+ *
+ * Layout (530 bytes total = 18 header + 512 data):
+ *   0..7   ID string "Art-Net" + null terminator (8 bytes, ASCII)
+ *   8..9   OpCode  — OpOutput = 0x5000, transmitted LOW BYTE FIRST on the wire
+ *                   (so bytes are 0x00, 0x50 — writeUInt16LE(0x5000) does this)
+ *   10..11 ProtVer — 14, HIGH BYTE FIRST (big-endian)
+ *   12     Sequence (0 disables ordering enforcement on the receiver)
+ *   13     Physical input port on the sender (cosmetic, 0 is fine)
+ *   14     SubUni — low byte of the 15-bit universe address (sub-net << 4 | uni)
+ *   15     Net    — upper 7 bits of the universe address
+ *   16..17 Length — DMX data byte count, HIGH BYTE FIRST (512 for a full frame)
+ *   18..529 DMX data (start-code is implicit 0 and NOT included here)
+ *
+ * The OpCode value is the one protocol-level detail most buggy implementations
+ * get wrong: `OpOutput` is 0x5000, not 0x0050. A receiver interprets the two
+ * OpCode bytes as a little-endian uint16, so the byte pattern 0x50 0x00 reads
+ * as 0x0050 (unknown → silently dropped), while 0x00 0x50 reads as 0x5000
+ * (ArtDmx → accepted).
+ */
 function buildArtDmxPacket(universe: number, data: number[]): Buffer {
-  const buf = Buffer.alloc(530); // 18 header + 512 data
-  buf.fill(0);
+  const buf = Buffer.alloc(530);
 
   // ID: "Art-Net\0"
   buf.write('Art-Net\0', 0, 'ascii');
 
-  // OpCode: 0x0050 (ArtDmx), little-endian
-  buf.writeUInt16LE(0x0050, 8);
+  // OpCode: OpOutput / OpDmx = 0x5000, wire order is low byte first.
+  buf.writeUInt16LE(0x5000, 8);
 
-  // Protocol version 14, big-endian
+  // Protocol version 14, high byte first
   buf.writeUInt16BE(14, 10);
 
-  // Sequence (0 = don't enforce ordering)
+  // Sequence + Physical
   buf[12] = 0;
-  // Physical
   buf[13] = 0;
 
-  // Universe: SubUni (low byte) + Net (high 7 bits)
+  // Universe split into SubUni (low 8 bits) and Net (high 7 bits).
   buf[14] = universe & 0xff;
   buf[15] = (universe >> 8) & 0x7f;
 
-  // Length of DMX data, big-endian
+  // Length of DMX data, high byte first. 512 = full universe.
   buf.writeUInt16BE(512, 16);
 
-  // DMX data
+  // DMX data. Start code is implicit 0 and NOT transmitted as part of the data.
   for (let i = 0; i < 512; i++) {
     buf[18 + i] = data[i] ?? 0;
   }

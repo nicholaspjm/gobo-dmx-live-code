@@ -17,18 +17,16 @@ import {
   getCycleFraction,
   tick,
   getAllUniverses,
-  getUniverse1Snapshot,
+  getPrimaryUniverseSnapshot,
+  getUniverseBuffer,
   evalCode,
   initStrudel,
   connectBridge,
   onStatusChange,
-  onTDStatusChange,
   sendUniverseState,
-  sendUniverseStateTD,
-  sendCodeTD,
 } from '@lumen/core';
 
-import { createEditor, getEditorCode } from './editor.js';
+import { createEditor } from './editor.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
 import { renderDocs } from './docs.js';
 import { refreshViz } from './inline-viz.js';
@@ -50,9 +48,6 @@ function runEval(code: string): void {
   if (result.success) {
     setStatus('ok', '✓ running');
     if (!isRunning()) start();
-    // Push the exact code that just got evaluated to TD so its visual
-    // is in sync with what's actually running (not the typing-debounced copy).
-    sendCodeTD(code);
     // Rebuild inline editor visualizations to reflect any .viz() calls
     // in the new code. Widgets animate from the live universe buffer; this
     // call only (re)places them in the editor at the right lines.
@@ -74,20 +69,7 @@ function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
 
 // ─── Editor ──────────────────────────────────────────────────────────────────
 
-// Debounced code-text streamer. Fires on keystrokes, paste, undo, etc.
-// Throttled so we don't flood TD with a message per keypress — ~250ms
-// feels "live" while keeping the wire quiet.
-const CODE_STREAM_DEBOUNCE_MS = 250;
-let _codeStreamTimer: ReturnType<typeof setTimeout> | null = null;
-function onCodeChange(code: string): void {
-  if (_codeStreamTimer) clearTimeout(_codeStreamTimer);
-  _codeStreamTimer = setTimeout(() => {
-    sendCodeTD(code);
-    _codeStreamTimer = null;
-  }, CODE_STREAM_DEBOUNCE_MS);
-}
-
-const editorView = createEditor(editorEl, runEval, runStop, onCodeChange);
+const editorView = createEditor(editorEl, runEval, runStop);
 
 // ─── Visualizer ──────────────────────────────────────────────────────────────
 
@@ -105,18 +87,14 @@ onTick((cyclePos, _delta) => {
   // 1. Resolve patterns → DMX channel values
   tick(cyclePos);
 
-  // 2. Push to visualizer (gets the live universe-1 buffer)
-  updateVisualizer(getUniverse1Snapshot());
+  // 2. Push to visualizer (gets the live primary-universe buffer)
+  updateVisualizer(getPrimaryUniverseSnapshot());
 
-  // 3. Send to bridge or direct-to-TD (time-throttled to ~60 Hz).
-  // Each sender internally checks the current output target and no-ops
-  // if it isn't the active one, so only one actually transmits.
+  // 3. Send to bridge (time-throttled to ~60 Hz).
   const now = performance.now();
   if (now - _lastSendMs >= SEND_INTERVAL_MS) {
     _lastSendMs = now;
-    const universes = getAllUniverses();
-    sendUniverseState(universes);
-    sendUniverseStateTD(universes);
+    sendUniverseState(getAllUniverses());
   }
 });
 
@@ -130,38 +108,9 @@ setInterval(() => {
 
 // ─── Bridge connection ───────────────────────────────────────────────────────
 
-// Combined status: either 'bridge' or 'td' can be connected (or neither).
-// We show whichever is live — TD takes precedence when both happen to be up,
-// since calling td() is an explicit opt-in to direct output.
-let _bridgeLive = false;
-let _tdLive = false;
-
-function refreshWsUi(): void {
-  if (_tdLive) {
-    wsDotEl.className = 'ws-dot connected';
-    wsLabelEl.textContent = 'td';
-  } else if (_bridgeLive) {
-    wsDotEl.className = 'ws-dot connected';
-    wsLabelEl.textContent = 'bridge';
-  } else {
-    wsDotEl.className = 'ws-dot disconnected';
-    wsLabelEl.textContent = 'disconnected';
-  }
-}
-
 onStatusChange((connected) => {
-  _bridgeLive = connected;
-  refreshWsUi();
-});
-
-onTDStatusChange((connected) => {
-  _tdLive = connected;
-  refreshWsUi();
-  // When TD comes online (first connect or reconnect), push the
-  // current editor contents so the text visual is populated immediately.
-  if (connected) {
-    sendCodeTD(getEditorCode(editorView));
-  }
+  wsDotEl.className = connected ? 'ws-dot connected' : 'ws-dot disconnected';
+  wsLabelEl.textContent = connected ? 'bridge' : 'disconnected';
 });
 
 connectBridge();
@@ -180,9 +129,19 @@ const simWashB  = document.getElementById('sim-wash-b') as HTMLElement;
 const simSpot   = document.getElementById('sim-spot')   as HTMLElement;
 const simStrobe = document.getElementById('sim-strobe') as HTMLElement;
 const simStrip  = document.getElementById('sim-strip')  as HTMLElement;
+const simBar    = document.getElementById('sim-bar')    as HTMLElement;
 
 const SIM_STRIP_START_CH = 12; // 1-indexed DMX
 const SIM_STRIP_PIXELS = 10;
+
+// Four-colour moving bar sim — universe 1, RGBW pixels start at ch7.
+// (ch1 direction, ch2 speed, ch3 effect, ch4 effectSpeed, ch5 dim, ch6 strobe,
+//  ch7-38 = 8 RGBW pixels × 4 channels.)
+const SIM_BAR_UNIVERSE = 1;
+const SIM_BAR_DIM_CH = 5;            // 1-indexed
+const SIM_BAR_PIXEL_START_CH = 7;    // 1-indexed
+const SIM_BAR_PIXELS = 8;
+const SIM_BAR_STRIDE = 4;            // RGBW
 
 // Build strip pixel elements once.
 const stripPixelEls: HTMLElement[] = [];
@@ -191,6 +150,14 @@ for (let i = 0; i < SIM_STRIP_PIXELS; i++) {
   p.className = 'fixture-strip-pixel';
   simStrip.appendChild(p);
   stripPixelEls.push(p);
+}
+
+const barPixelEls: HTMLElement[] = [];
+for (let i = 0; i < SIM_BAR_PIXELS; i++) {
+  const p = document.createElement('div');
+  p.className = 'fixture-strip-pixel';
+  simBar.appendChild(p);
+  barPixelEls.push(p);
 }
 
 /**
@@ -256,8 +223,31 @@ function updateStripPixel(el: HTMLElement, r: number, g: number, b: number): voi
   el.style.boxShadow = `0 0 ${Math.round(brightness * 6)}px rgba(${r},${g},${b},${(brightness * 0.7).toFixed(2)})`;
 }
 
+/**
+ * RGBW pixel for the bar sim. White adds to R/G/B additively, and the bar's
+ * master dimmer (ch5) scales the whole output so you see the fixture go
+ * dark if dim() is dropped to 0.
+ */
+function updateBarPixel(
+  el: HTMLElement,
+  r: number, g: number, b: number, w: number,
+  dimScale: number, // 0..1
+): void {
+  const rr = Math.min(255, Math.round((r + w) * dimScale));
+  const gg = Math.min(255, Math.round((g + w) * dimScale));
+  const bb = Math.min(255, Math.round((b + w) * dimScale));
+  const brightness = Math.max(rr, gg, bb) / 255;
+  if (brightness < 0.02) {
+    el.style.background = '#1a1714';
+    el.style.boxShadow = 'none';
+    return;
+  }
+  el.style.background = `rgb(${rr},${gg},${bb})`;
+  el.style.boxShadow = `0 0 ${Math.round(brightness * 6)}px rgba(${rr},${gg},${bb},${(brightness * 0.7).toFixed(2)})`;
+}
+
 setInterval(() => {
-  const ch = getUniverse1Snapshot();
+  const ch = getPrimaryUniverseSnapshot();
   // wash A: ch 1-4 RGBW
   updateGlobeRGBW(simWashA, ch[0], ch[1], ch[2], ch[3]);
   // wash B: ch 5-8 RGBW
@@ -270,6 +260,21 @@ setInterval(() => {
   for (let i = 0; i < SIM_STRIP_PIXELS; i++) {
     const base = (SIM_STRIP_START_CH - 1) + i * 3; // 0-indexed into the buffer
     updateStripPixel(stripPixelEls[i], ch[base], ch[base + 1], ch[base + 2]);
+  }
+
+  // four-colour moving bar on universe 1 — 8 RGBW pixels, master dim at ch5.
+  const barCh = getUniverseBuffer(SIM_BAR_UNIVERSE);
+  const dimScale = (barCh[SIM_BAR_DIM_CH - 1] ?? 0) / 255;
+  for (let i = 0; i < SIM_BAR_PIXELS; i++) {
+    const base = (SIM_BAR_PIXEL_START_CH - 1) + i * SIM_BAR_STRIDE;
+    updateBarPixel(
+      barPixelEls[i],
+      barCh[base] ?? 0,
+      barCh[base + 1] ?? 0,
+      barCh[base + 2] ?? 0,
+      barCh[base + 3] ?? 0,
+      dimScale,
+    );
   }
 }, 33); // ~30fps
 
