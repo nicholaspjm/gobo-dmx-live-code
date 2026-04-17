@@ -10,16 +10,73 @@ interface DocEntry {
   signature: string;
   description: string;
   example?: string;
+  /**
+   * When present, the entry renders as a compact clickable row that
+   * switches the docs panel to the named tab when clicked. Used on the
+   * welcome page to keep the overview tight: each "step" is a one-liner
+   * that takes you to its own tab rather than duplicating content here.
+   */
+  tabLink?: DocCategory;
 }
 
 interface DocSection {
   title: string;
   blurb?: string;
   entries: DocEntry[];
+  /** Tab this section lives under. Sections without a category fall into
+   *  'reference' so nothing ever gets lost. */
+  category?: DocCategory;
 }
 
+/**
+ * Tab categories shown across the top of the docs panel. Order here is the
+ * order they appear. 'start' is intentionally the default so new users land
+ * on the walkthrough instead of the reference wall.
+ */
+type DocCategory = 'welcome' | 'patterns' | 'fixtures' | 'viz' | 'audio' | 'output' | 'reference';
+
+// Tab order mirrors Strudel's navigation (welcome · patterns · sounds · ref
+// · export · console · settings) but adapted to lights — "sounds" → fixtures
+// is our equivalent output target, and we gain viz + audio tabs for the
+// lumen-specific inline-decoration and audio-reactive features.
+const DOC_TABS: Array<{ id: DocCategory; label: string }> = [
+  { id: 'welcome',   label: 'welcome' },
+  { id: 'patterns',  label: 'patterns' },
+  { id: 'fixtures',  label: 'fixtures' },
+  { id: 'viz',       label: 'viz' },
+  { id: 'audio',     label: 'audio' },
+  { id: 'output',    label: 'output' },
+  { id: 'reference', label: 'reference' },
+];
+
+const DEFAULT_TAB: DocCategory = 'welcome';
+
 const DOCS: DocSection[] = [
+  // ─── welcome ────────────────────────────────────────────────────────────
+  // Deliberately compact. Everything actionable lives in its own tab — this
+  // page is just a one-paragraph intro plus link-list of jump-off points.
   {
+    category: 'welcome',
+    title: 'lumen',
+    blurb:
+      'Live DMX coding in the browser. JavaScript patterns drive real fixtures — Art-Net hardware, TouchDesigner via OSC, or pure simulation. Ctrl+Enter runs your code, Ctrl+. stops. Drop a track into the audio bar for bpm-locked reactivity. Hover any fixture in the sim panel for its live channel values.',
+    entries: [],
+  },
+  {
+    category: 'welcome',
+    title: 'steps',
+    entries: [
+      { name: 'pick an output',   signature: 'artnet · osc · sacn · mock',             description: '', tabLink: 'output' },
+      { name: 'define fixtures',  signature: 'fixture · rgbStrip · defineFixture',     description: '', tabLink: 'fixtures' },
+      { name: 'write patterns',   signature: 'sine · cosine · square · saw · chains',  description: '', tabLink: 'patterns' },
+      { name: 'inline viz',       signature: ".viz · .flash · .glow · .wave",          description: '', tabLink: 'viz' },
+      { name: 'sync to audio',    signature: 'audio.bass · mid · treble · rms · peak', description: '', tabLink: 'audio' },
+      { name: 'low-level DMX',    signature: 'ch · uni · dim · rgb',                   description: '', tabLink: 'reference' },
+    ],
+  },
+
+  {
+    category: 'output',
     title: 'output',
     blurb:
       'Pick where DMX data goes. Call exactly one of these at the top of your code. Switching while running reconfigures on the fly.',
@@ -56,6 +113,7 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'patterns',
     title: 'clock',
     entries: [
       {
@@ -69,6 +127,7 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'audio',
     title: 'audio',
     blurb:
       "Optional. Load a track (or enable the mic) from the audio bar at the bottom of the screen; pattern code can then react to it. When a track is playing, the scheduler's cycle position follows the track — patterns stay phase-locked through pauses and seeks. Mic mode uses the internal clock (no track position). All audio sources return 0..1 patterns you can chain with .range / .add / .mul just like sine().",
@@ -112,6 +171,7 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'fixtures',
     title: 'fixtures',
     blurb:
       'Load a fixture at a DMX start channel; you get back an object with named setters for every channel that fixture has.',
@@ -166,7 +226,38 @@ const DOCS: DocSection[] = [
   },
 
   {
-    title: 'inline viz',
+    category: 'viz',
+    title: 'pattern viz',
+    blurb:
+      "Opt-in per-pattern editor decorations. Chain .flash() / .glow() / .wave() onto any pattern (sine/square/cosine/saw/rand, fallback waveforms, or audio.bass/mid/treble/rms/peak) and the editor line lights up with live feedback. Methods return the pattern unchanged so you can still pass it into a fixture setter. Never on by default.",
+    entries: [
+      {
+        name: '.flash',
+        signature: "sine().fast(2).flash()",
+        description:
+          "Pulses the editor line's background on each rising edge above mid-scale. Best for beats, strobes, square waves — things with a clear on/off shape. Refractory ~140ms so a sustained-high value doesn't strobe the UI.",
+        example: 'spot.dim(square().fast(1).flash())',
+      },
+      {
+        name: '.glow',
+        signature: 'sine().slow(4).glow()',
+        description:
+          "Subtle left-to-right background rail whose intensity tracks the pattern's current value 0..1. Best for slow/smooth patterns (sines, envelopes) — you can literally watch the value breathe.",
+        example: 'washA.red(sine().slow(4).range(0, 0.9).glow())',
+      },
+      {
+        name: '.wave',
+        signature: 'sine().slow(6).wave()',
+        description:
+          "Tiny inline sparkline at the end of the line showing the last ~1 second of the pattern's sample values. Like .viz('wave') but attached to a specific pattern call rather than a whole fixture.",
+        example: 'washA.white(sine().slow(6).range(0, 0.4).wave())',
+      },
+    ],
+  },
+
+  {
+    category: 'viz',
+    title: 'fixture viz',
     blurb:
       'Opt-in per-fixture editor visualizations. Chain .viz(kind) onto a fixture or strip and a live widget appears at the end of that line, driven from the current DMX buffer at ~60fps. Never on by default — nothing happens until you add a .viz() call.',
     entries: [
@@ -206,6 +297,7 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'fixtures',
     title: 'fixture channels',
     blurb:
       'Every fixture instance has methods matching its channel names. A few common ones:',
@@ -249,6 +341,7 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'reference',
     title: 'low-level dmx',
     blurb:
       "Direct channel addressing — use these when a fixture abstraction isn't worth it.",
@@ -281,6 +374,7 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'patterns',
     title: 'patterns',
     blurb:
       'Strudel waveforms and pattern builders. Output is normalised to 0-1 unless stated.',
@@ -343,6 +437,7 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'patterns',
     title: 'chain methods',
     blurb:
       'Every pattern has these. Chain them left-to-right; each returns a new pattern.',
@@ -383,6 +478,7 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'patterns',
     title: 'values',
     blurb: 'Anywhere a channel value is expected you can pass:',
     entries: [
@@ -405,6 +501,7 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'welcome',
     title: 'keybindings',
     entries: [
       {
@@ -432,6 +529,20 @@ function renderSection(sec: DocSection): string {
   const blurb = sec.blurb ? `<p class="doc-blurb">${escapeHtml(sec.blurb)}</p>` : '';
   const entries = sec.entries
     .map((e) => {
+      // A tab-link entry is a compact clickable row — just the name, a
+      // signature-style subtitle, and an arrow. Full descriptions live
+      // in the target tab's own sections.
+      if (e.tabLink) {
+        const bag = [e.name, e.signature, e.tabLink].join(' ').toLowerCase();
+        return `
+          <button type="button" class="doc-link" data-tab-link="${escapeHtml(e.tabLink)}" data-search="${escapeHtml(bag)}">
+            <span class="doc-link-label">
+              <span class="doc-name">${escapeHtml(e.name)}</span>
+              <span class="doc-signature">${escapeHtml(e.signature)}</span>
+            </span>
+            <span class="doc-link-arrow" aria-hidden="true">→</span>
+          </button>`;
+      }
       const example = e.example
         ? `<pre class="doc-example">${escapeHtml(e.example)}</pre>`
         : '';
@@ -439,10 +550,13 @@ function renderSection(sec: DocSection): string {
       const searchBag = [e.name, e.signature, e.description, e.example ?? '']
         .join(' ')
         .toLowerCase();
+      const desc = e.description
+        ? `<div class="doc-desc">${escapeHtml(e.description)}</div>`
+        : '';
       return `
         <div class="doc-entry" data-search="${escapeHtml(searchBag)}">
           <div class="doc-sig"><span class="doc-name">${escapeHtml(e.name)}</span> <span class="doc-signature">${escapeHtml(e.signature)}</span></div>
-          <div class="doc-desc">${escapeHtml(e.description)}</div>
+          ${desc}
           ${example}
         </div>`;
     })
@@ -452,9 +566,10 @@ function renderSection(sec: DocSection): string {
   // name ("patterns") keeps the whole group visible even if individual
   // entries don't match that exact word.
   const sectionSearch = [sec.title, sec.blurb ?? ''].join(' ').toLowerCase();
+  const category: DocCategory = sec.category ?? 'reference';
 
   return `
-    <section class="doc-section" data-search="${escapeHtml(sectionSearch)}">
+    <section class="doc-section" data-search="${escapeHtml(sectionSearch)}" data-category="${category}">
       <h3 class="doc-section-title">${escapeHtml(sec.title)}</h3>
       ${blurb}
       ${entries}
@@ -462,20 +577,41 @@ function renderSection(sec: DocSection): string {
 }
 
 /**
- * Filter the rendered docs against a query.
- * Hides entries that don't match and sections left with zero visible entries.
- * Empty query clears the filter.
+ * Filter the rendered docs against a search query and/or an active tab.
+ *
+ * - `query` filters entries by their search bag; empty string means "no
+ *   query" and all entries pass the query filter.
+ * - `activeCategory` gates which sections are shown by category. Pass
+ *   `null` to disable the tab filter (used during active search, so the
+ *   user sees matches from every tab at once).
+ *
+ * A section is visible when it has at least one entry surviving both
+ * filters. The `no matches` message toggles when nothing at all matches.
  */
-function applyFilter(body: HTMLElement, query: string, emptyMsg: HTMLElement): void {
+function applyFilter(
+  body: HTMLElement,
+  query: string,
+  emptyMsg: HTMLElement,
+  activeCategory: DocCategory | null,
+): void {
   const q = query.trim().toLowerCase();
   const sections = body.querySelectorAll<HTMLElement>('.doc-section');
 
   let totalVisible = 0;
 
   sections.forEach((section) => {
+    const sectionCategory = (section.getAttribute('data-category') ?? 'reference') as DocCategory;
+    const passesTab = activeCategory === null || sectionCategory === activeCategory;
+    if (!passesTab) {
+      section.classList.add('hidden');
+      return;
+    }
+
     const sectionText = section.getAttribute('data-search') ?? '';
     const sectionMatches = q.length > 0 && sectionText.includes(q);
-    const entries = section.querySelectorAll<HTMLElement>('.doc-entry');
+    // Entries in a section can be either .doc-entry (full) or .doc-link
+    // (compressed welcome-style row). Both carry data-search.
+    const entries = section.querySelectorAll<HTMLElement>('.doc-entry, .doc-link');
 
     let visibleInSection = 0;
     entries.forEach((entry) => {
@@ -485,15 +621,17 @@ function applyFilter(body: HTMLElement, query: string, emptyMsg: HTMLElement): v
         return;
       }
       const bag = entry.getAttribute('data-search') ?? '';
-      // Either the entry matches, OR the section title/blurb matches
-      // (so "patterns" shows every pattern function)
       const hit = bag.includes(q) || sectionMatches;
       entry.classList.toggle('hidden', !hit);
       if (hit) visibleInSection++;
     });
 
-    section.classList.toggle('hidden', visibleInSection === 0);
-    totalVisible += visibleInSection;
+    // A welcome section with a blurb but no entries still should show when
+    // its category is active — it's informational. Only hide if there ARE
+    // entries and none are visible.
+    const wasEmpty = entries.length === 0;
+    section.classList.toggle('hidden', !wasEmpty && visibleInSection === 0);
+    totalVisible += visibleInSection + (wasEmpty ? 1 : 0);
   });
 
   emptyMsg.classList.toggle('hidden', totalVisible > 0);
@@ -506,6 +644,12 @@ export function renderDocs(body: HTMLElement): void {
       <input type="text" id="doc-search-input" placeholder="search functions…" autocomplete="off" spellcheck="false" />
       <button type="button" id="doc-search-clear" class="doc-search-clear" title="clear" aria-label="clear search">×</button>
     </div>
+    <div class="doc-tabs" id="doc-tabs" role="tablist">
+      ${DOC_TABS.map(
+        (t) =>
+          `<button type="button" class="doc-tab${t.id === DEFAULT_TAB ? ' active' : ''}" data-tab="${t.id}" role="tab">${escapeHtml(t.label)}</button>`,
+      ).join('')}
+    </div>
     <div class="doc-empty hidden" id="doc-empty">no matches — try a different word</div>`;
 
   body.innerHTML = searchBar + DOCS.map(renderSection).join('');
@@ -513,10 +657,19 @@ export function renderDocs(body: HTMLElement): void {
   const input = body.querySelector<HTMLInputElement>('#doc-search-input')!;
   const clearBtn = body.querySelector<HTMLButtonElement>('#doc-search-clear')!;
   const emptyMsg = body.querySelector<HTMLElement>('#doc-empty')!;
+  const tabsBar = body.querySelector<HTMLElement>('#doc-tabs')!;
+
+  let activeTab: DocCategory = DEFAULT_TAB;
 
   const update = (): void => {
-    applyFilter(body, input.value, emptyMsg);
-    clearBtn.classList.toggle('visible', input.value.length > 0);
+    // Search overrides the tab filter — when the user types something, show
+    // every matching result regardless of which tab they're on.
+    const query = input.value.trim();
+    applyFilter(body, query, emptyMsg, query.length > 0 ? null : activeTab);
+    clearBtn.classList.toggle('visible', query.length > 0);
+    // Hide the tab bar while searching so the results aren't being filtered
+    // by two criteria at once.
+    tabsBar.classList.toggle('hidden', query.length > 0);
   };
 
   input.addEventListener('input', update);
@@ -524,6 +677,34 @@ export function renderDocs(body: HTMLElement): void {
     input.value = '';
     update();
     input.focus();
+  });
+
+  /** Programmatically switch to a different tab. Used both by the tab bar
+   *  and by the in-body `.doc-link` buttons on the welcome page. */
+  const switchTab = (next: DocCategory): void => {
+    if (next === activeTab) return;
+    activeTab = next;
+    tabsBar.querySelectorAll<HTMLElement>('.doc-tab').forEach((b) => {
+      b.classList.toggle('active', b.dataset.tab === next);
+    });
+    body.scrollTop = 0;
+    update();
+  };
+
+  tabsBar.addEventListener('click', (ev) => {
+    const btn = (ev.target as HTMLElement).closest<HTMLElement>('.doc-tab');
+    if (!btn) return;
+    const next = btn.dataset.tab as DocCategory | undefined;
+    if (next) switchTab(next);
+  });
+
+  // Welcome-page link rows — delegate on the body since they're rebuilt
+  // whenever tabs/search change visibility.
+  body.addEventListener('click', (ev) => {
+    const link = (ev.target as HTMLElement).closest<HTMLElement>('.doc-link[data-tab-link]');
+    if (!link) return;
+    const next = link.dataset.tabLink as DocCategory | undefined;
+    if (next) switchTab(next);
   });
 
   // Focus search automatically when the panel opens
@@ -538,4 +719,7 @@ export function renderDocs(body: HTMLElement): void {
     });
     obs.observe(panel, { attributes: true, attributeFilter: ['class'] });
   }
+
+  // Initial render
+  update();
 }

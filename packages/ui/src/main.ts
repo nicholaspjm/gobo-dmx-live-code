@@ -129,20 +129,17 @@ connectBridge();
 // ─── Fixture simulation ──────────────────────────────────────────────────────
 // Maps demo fixture channels to the little glowing elements in the sim panel.
 // Layout matches the default init code in editor.ts:
-//   ch1-4   = wash A RGBW
-//   ch5-8   = wash B RGBW
-//   ch9     = spot (single dimmer)
-//   ch10-11 = strobe (dim + strobe rate)
-//   ch12-41 = 10-pixel RGB strip
+//   uni 0, ch 1-4   = wash RGBW
+//   uni 0, ch 5-6   = strobe (dim + strobe rate)
+//   uni 0, ch 7-36  = 10-pixel RGB strip
+//   uni 1, ch 1-38  = four-colour moving bar (RGBW pixel segment at ch 7+)
 
-const simWashA  = document.getElementById('sim-wash-a') as HTMLElement;
-const simWashB  = document.getElementById('sim-wash-b') as HTMLElement;
-const simSpot   = document.getElementById('sim-spot')   as HTMLElement;
+const simWash   = document.getElementById('sim-wash')   as HTMLElement;
 const simStrobe = document.getElementById('sim-strobe') as HTMLElement;
 const simStrip  = document.getElementById('sim-strip')  as HTMLElement;
 const simBar    = document.getElementById('sim-bar')    as HTMLElement;
 
-const SIM_STRIP_START_CH = 12; // 1-indexed DMX
+const SIM_STRIP_START_CH = 7; // 1-indexed DMX
 const SIM_STRIP_PIXELS = 10;
 
 // Four-colour moving bar sim — universe 1, RGBW pixels start at ch7.
@@ -259,15 +256,11 @@ function updateBarPixel(
 
 setInterval(() => {
   const ch = getPrimaryUniverseSnapshot();
-  // wash A: ch 1-4 RGBW
-  updateGlobeRGBW(simWashA, ch[0], ch[1], ch[2], ch[3]);
-  // wash B: ch 5-8 RGBW
-  updateGlobeRGBW(simWashB, ch[4], ch[5], ch[6], ch[7]);
-  // spot: ch 9, warm white tint
-  updateGlobeDim(simSpot, ch[8], 255, 240, 210);
-  // strobe: ch 10 dim (ch 11 strobe-rate isn't visualised)
-  updateGlobeDim(simStrobe, ch[9], 255, 255, 255);
-  // strip: ch 12..41 as 10 RGB pixels
+  // wash: ch 1-4 RGBW
+  updateGlobeRGBW(simWash, ch[0], ch[1], ch[2], ch[3]);
+  // strobe: ch 5 dim (ch 6 strobe-rate isn't visualised)
+  updateGlobeDim(simStrobe, ch[4], 255, 255, 255);
+  // strip: ch 7..36 as 10 RGB pixels
   for (let i = 0; i < SIM_STRIP_PIXELS; i++) {
     const base = (SIM_STRIP_START_CH - 1) + i * 3; // 0-indexed into the buffer
     updateStripPixel(stripPixelEls[i], ch[base], ch[base + 1], ch[base + 2]);
@@ -288,6 +281,139 @@ setInterval(() => {
     );
   }
 }, 33); // ~30fps
+
+// ─── Fixture sim tooltips ────────────────────────────────────────────────────
+// Hover over any fixture in the sim panel to see its name, type, universe,
+// channel range, and live DMX values. The metadata is hand-curated here
+// because the sim panel itself is hand-wired above — we don't introspect
+// the fixture registry (which only exists inside the eval sandbox).
+
+interface SimTooltipChannel {
+  name: string;
+  /** 1-based DMX channel address, absolute within the fixture's universe. */
+  ch: number;
+  /** When present, the value in the tooltip is rendered as `val (hint)` —
+   *  e.g. dim gets '48%', strobe gets '0%'. */
+  format?: 'pct' | 'raw';
+}
+
+interface SimTooltipFixture {
+  el: HTMLElement;
+  name: string;
+  type: string;
+  universe: number;
+  /** Human range shown in the tooltip header, e.g. 'ch 1-4'. */
+  chRange: string;
+  channels: SimTooltipChannel[];
+  /** Extra note shown under meta, e.g. '10 pixels × RGB'. */
+  note?: string;
+}
+
+const simTooltipFixtures: SimTooltipFixture[] = [
+  {
+    el: simWash, name: 'wash', type: 'generic-rgbw',
+    universe: 0, chRange: 'ch 1-4',
+    channels: [
+      { name: 'red',   ch: 1, format: 'pct' },
+      { name: 'green', ch: 2, format: 'pct' },
+      { name: 'blue',  ch: 3, format: 'pct' },
+      { name: 'white', ch: 4, format: 'pct' },
+    ],
+  },
+  {
+    el: simStrobe, name: 'strobe', type: 'strobe-basic',
+    universe: 0, chRange: 'ch 5-6',
+    channels: [
+      { name: 'dim',    ch: 5, format: 'pct' },
+      { name: 'strobe', ch: 6, format: 'pct' },
+    ],
+  },
+  {
+    el: simStrip, name: 'strip', type: 'rgbStrip',
+    universe: 0, chRange: 'ch 7-36',
+    note: `${SIM_STRIP_PIXELS} pixels × RGB`,
+    // For strips we surface the first pixel only — the rest is noise at
+    // tooltip scale. Channel count hint is in the note above.
+    channels: [
+      { name: 'px0.r', ch: SIM_STRIP_START_CH + 0, format: 'raw' },
+      { name: 'px0.g', ch: SIM_STRIP_START_CH + 1, format: 'raw' },
+      { name: 'px0.b', ch: SIM_STRIP_START_CH + 2, format: 'raw' },
+    ],
+  },
+  {
+    el: simBar, name: 'four-colour bar', type: 'four-color-bar (custom)',
+    universe: 1, chRange: 'ch 1-38',
+    note: `${SIM_BAR_PIXELS} pixels × RGBW · effect/strobe/dim chs`,
+    channels: [
+      { name: 'direction',   ch: 1, format: 'raw' },
+      { name: 'speed',       ch: 2, format: 'raw' },
+      { name: 'effect',      ch: 3, format: 'raw' },
+      { name: 'effectSpeed', ch: 4, format: 'raw' },
+      { name: 'dim',         ch: 5, format: 'pct' },
+      { name: 'strobe',      ch: 6, format: 'pct' },
+    ],
+  },
+];
+
+const tooltipEl = document.getElementById('fixture-tooltip') as HTMLElement;
+let _hoveredFixture: SimTooltipFixture | null = null;
+
+/** Format a 0..255 DMX value for the tooltip. */
+function formatDmx(raw: number, mode: 'pct' | 'raw' = 'raw'): string {
+  if (mode === 'pct') return `${Math.round((raw / 255) * 100)}%`;
+  return String(raw);
+}
+
+/** Build the tooltip body for a fixture. */
+function renderTooltip(f: SimTooltipFixture): void {
+  const buf = getUniverseBuffer(f.universe);
+  const rows = f.channels.map((c) => {
+    const val = buf[c.ch - 1] ?? 0;
+    return `<div class="tt-row"><span class="tt-key">${c.name}</span><span class="tt-val">${formatDmx(val, c.format)}</span></div>`;
+  }).join('');
+  tooltipEl.innerHTML =
+    `<div class="tt-name">${f.name}</div>` +
+    `<div class="tt-meta">${f.type} · uni ${f.universe} · ${f.chRange}</div>` +
+    (f.note ? `<div class="tt-meta">${f.note}</div>` : '') +
+    `<div class="tt-divider"></div>` +
+    rows;
+}
+
+function positionTooltip(rect: DOMRect): void {
+  // Anchor above the fixture by default; if there's no room up top, drop
+  // it below. Clamp horizontally to the viewport so long fixture names
+  // don't push the card offscreen.
+  const tt = tooltipEl.getBoundingClientRect();
+  const margin = 10;
+  const topPref = rect.top - tt.height - margin;
+  const top = topPref < 8 ? rect.bottom + margin : topPref;
+  let left = rect.left + rect.width / 2 - tt.width / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - tt.width - 8));
+  tooltipEl.style.top = `${top}px`;
+  tooltipEl.style.left = `${left}px`;
+}
+
+for (const f of simTooltipFixtures) {
+  f.el.addEventListener('mouseenter', () => {
+    _hoveredFixture = f;
+    renderTooltip(f);
+    tooltipEl.classList.add('open');
+    // Position after the browser has laid out the freshly-populated content.
+    requestAnimationFrame(() => positionTooltip(f.el.getBoundingClientRect()));
+  });
+  f.el.addEventListener('mouseleave', () => {
+    if (_hoveredFixture === f) {
+      _hoveredFixture = null;
+      tooltipEl.classList.remove('open');
+    }
+  });
+}
+
+// Live-refresh the tooltip values while hovered. Piggy-backs on a modest
+// 10 Hz tick — plenty fast to look live, cheap to run.
+setInterval(() => {
+  if (_hoveredFixture) renderTooltip(_hoveredFixture);
+}, 100);
 
 // ─── Audio transport ─────────────────────────────────────────────────────────
 // Wire the buttons in the audio bar. Kept deliberately small — this is an

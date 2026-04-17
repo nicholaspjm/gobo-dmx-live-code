@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>lumen</title>
+    <!-- Inline SVG favicon — a small four-pointed "spark" in the accent
+         colour. Drop-in replace this <link> later with a real icon file. -->
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2032%2032'%3E%3Cpath%20fill%3D'%23c4724a'%20d%3D'M16%202%20L18%2014%20L30%2016%20L18%2018%20L16%2030%20L14%2018%20L2%2016%20L14%2014%20Z'%2F%3E%3C%2Fsvg%3E"
+    />
     <style>
       * {
         box-sizing: border-box;
@@ -57,6 +64,16 @@
         letter-spacing: 0.12em;
         color: var(--accent2);
         text-transform: lowercase;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .wordmark-icon {
+        color: var(--accent);
+        font-size: 14px;
+        line-height: 1;
+        /* Placeholder four-pointed spark; replace later with an SVG inline
+           or an <img> if you want something more detailed. */
       }
 
       .topbar-right {
@@ -181,8 +198,72 @@
         border-radius: 50%;
         border: 1.5px solid var(--border);
         background: var(--bg);
-        transition: box-shadow 0.05s, background 0.05s;
+        transition: box-shadow 0.05s, background 0.05s, border-color 0.12s;
         position: relative;
+        cursor: help;
+      }
+      .fixture-globe:hover,
+      .fixture-strip:hover {
+        border-color: var(--accent2);
+      }
+      .fixture-strip {
+        cursor: help;
+      }
+
+      /* Hover tooltip for the fixture sim elements. Positioned absolutely
+         by JS near the hovered fixture. Hidden by default; the .open class
+         fades it in. Kept deliberately simple — no arrow, just a floating
+         card with the fixture's static metadata and live channel values. */
+      .fixture-tooltip {
+        position: fixed;
+        z-index: 200;
+        pointer-events: none;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        padding: 9px 12px;
+        font-size: 11px;
+        min-width: 160px;
+        max-width: 300px;
+        color: var(--text);
+        opacity: 0;
+        transform: translateY(-4px);
+        transition: opacity 0.1s ease, transform 0.1s ease;
+      }
+      .fixture-tooltip.open {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .fixture-tooltip .tt-name {
+        color: var(--accent2);
+        font-weight: 600;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+      }
+      .fixture-tooltip .tt-meta {
+        color: var(--text-muted);
+        font-size: 10px;
+        margin-top: 2px;
+        letter-spacing: 0.04em;
+      }
+      .fixture-tooltip .tt-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 7px 0;
+      }
+      .fixture-tooltip .tt-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.5;
+      }
+      .fixture-tooltip .tt-row .tt-key {
+        color: var(--text-muted);
+      }
+      .fixture-tooltip .tt-row .tt-val {
+        color: var(--text);
       }
 
       /* Pixel-strip sim — horizontal row of small rectangular "LEDs" */
@@ -324,8 +405,8 @@
         top: 38px;
         right: 0;
         bottom: 0;
-        width: 420px;
-        max-width: 90vw;
+        width: 520px;
+        max-width: 96vw;
         background: var(--surface);
         border-left: 1px solid var(--border);
         transform: translateX(100%);
@@ -441,6 +522,62 @@
         font-style: italic;
       }
 
+      /* Tab strip under the search bar. Strudel-style — tabs are prominent
+         and clickable, the scroll slider matches the theme. Scrolls
+         horizontally on narrow panels instead of wrapping. */
+      .doc-tabs {
+        position: sticky;
+        top: 50px;
+        z-index: 2;
+        background: var(--surface);
+        display: flex;
+        gap: 4px;
+        padding: 2px 0 12px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--accent2) transparent;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 6px;
+      }
+      .doc-tabs::-webkit-scrollbar {
+        height: 6px;
+      }
+      .doc-tabs::-webkit-scrollbar-track {
+        background: transparent;
+        margin: 0 4px;
+      }
+      .doc-tabs::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+        transition: background 0.15s;
+      }
+      .doc-tabs::-webkit-scrollbar-thumb:hover {
+        background: var(--accent2);
+      }
+
+      .doc-tab {
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--text-muted);
+        font: inherit;
+        font-size: 13px;
+        padding: 8px 14px;
+        border-radius: 0;
+        letter-spacing: 0.05em;
+        text-transform: lowercase;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: color 0.12s, border-color 0.12s;
+      }
+      .doc-tab:hover {
+        color: var(--text);
+      }
+      .doc-tab.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+      }
+
       /* Generic hide utility, used by the docs filter */
       .hidden {
         display: none !important;
@@ -485,6 +622,48 @@
         border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
       }
 
+      /* Compact link-row used on the welcome page. Each row is a button
+         that switches the docs panel to a target tab on click. Styled to
+         feel like a nav-list item — hover tints the bg and shifts the
+         arrow to the right. */
+      .doc-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 9px 12px;
+        margin-bottom: 6px;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        color: var(--text);
+        transition: border-color 0.12s, background 0.12s;
+      }
+      .doc-link:hover {
+        border-color: var(--accent2);
+        background: rgba(196, 114, 74, 0.06);
+      }
+      .doc-link:hover .doc-link-arrow {
+        color: var(--accent);
+        transform: translateX(2px);
+      }
+      .doc-link-label {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .doc-link-arrow {
+        color: var(--text-muted);
+        font-size: 14px;
+        flex-shrink: 0;
+        transition: color 0.12s, transform 0.12s;
+      }
+
       .doc-entry:last-child {
         border-bottom: none;
       }
@@ -521,6 +700,21 @@
         margin-top: 4px;
         white-space: pre-wrap;
         font-family: inherit;
+      }
+
+      /* ─── Semantic colour coding (lumen-code-highlight extension) ────── */
+      /* Commands are every lumen API name — fixture, sine, artnet, setBPM,
+         .viz, .flash, .glow, .wave, the audio.* namespace, etc. They wear
+         the accent colour so pattern chains are easy to scan. */
+      .cm-content .lumen-command {
+        color: var(--accent);
+      }
+      /* Lights are identifiers bound to a fixture via `const X =
+         fixture(…) | rgbStrip(…) | rgbwStrip(…)`. They get accent2 with a
+         touch of weight so method-chain roots like `wash.red(…)` pop. */
+      .cm-content .lumen-light {
+        color: var(--accent2);
+        font-weight: 600;
       }
 
       /* ─── Inline editor visualizations (.viz) ─────────────────────────── */
@@ -579,6 +773,45 @@
         display: block;
       }
 
+      /* ─── Pattern-level inline viz (.flash / .glow / .wave) ────────────
+         Applied to whole editor lines via Decoration.line. The tick loop
+         writes `--lumen-val` (0..1) for .glow and toggles a data attribute
+         for .flash; CSS takes it from there. .wave is an end-of-line
+         WidgetType canvas and needs nothing here beyond a small padding. */
+      .lumen-patviz {
+        position: relative;
+      }
+      /* Glow: subtle rail on the left that fills with the pattern value. */
+      .lumen-patviz-glow {
+        background: linear-gradient(
+          to right,
+          rgba(196, 114, 74, calc(var(--lumen-val, 0) * 0.22)) 0%,
+          rgba(196, 114, 74, 0) 140px
+        );
+        transition: background 60ms linear;
+      }
+      /* Flash: the tick loop maintains a decaying --lumen-flash 0..1 that we
+         multiply into the bg alpha. No keyframes, no attribute toggles, no
+         forced reflows — the previous animation-restart approach was
+         interfering with DMX tick timing enough to flicker physical lights. */
+      .lumen-patviz-flash {
+        background: rgba(196, 114, 74, calc(var(--lumen-flash, 0) * 0.32));
+      }
+      /* Wave sparkline widget (inline canvas at end of line). */
+      .lumen-patviz-wave {
+        display: inline-block;
+        margin-left: 10px;
+        padding: 1px 3px;
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        background: rgba(0, 0, 0, 0.22);
+        vertical-align: middle;
+        user-select: none;
+      }
+      .lumen-patviz-wave canvas {
+        display: block;
+      }
+
       /* Pixel strip preview — mini dots */
       .lumen-viz-strip {
         padding: 2px 3px;
@@ -597,7 +830,7 @@
   <body>
     <div id="app">
       <header class="topbar">
-        <span class="wordmark">lumen</span>
+        <span class="wordmark"><span class="wordmark-icon" aria-hidden="true">✦</span>lumen</span>
         <div class="topbar-right">
           <span class="bpm-display">bpm <span id="bpm-val">120</span></span>
           <div class="cycle-bar" title="cycle position">
@@ -630,16 +863,8 @@
           <span class="fixture-label">sim</span>
           <div class="fixture-lights">
             <div class="fixture-unit">
-              <div class="fixture-globe" id="sim-wash-a"></div>
-              <span class="fixture-name">wash a</span>
-            </div>
-            <div class="fixture-unit">
-              <div class="fixture-globe" id="sim-wash-b"></div>
-              <span class="fixture-name">wash b</span>
-            </div>
-            <div class="fixture-unit">
-              <div class="fixture-globe" id="sim-spot"></div>
-              <span class="fixture-name">spot</span>
+              <div class="fixture-globe" id="sim-wash"></div>
+              <span class="fixture-name">wash</span>
             </div>
             <div class="fixture-unit">
               <div class="fixture-globe" id="sim-strobe"></div>
@@ -671,6 +896,8 @@
         <span id="eval-status">ctrl+enter to run  ·  ctrl+. to stop</span>
       </div>
     </div>
+
+    <div class="fixture-tooltip" id="fixture-tooltip" aria-hidden="true"></div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

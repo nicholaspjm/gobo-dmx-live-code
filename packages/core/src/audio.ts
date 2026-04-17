@@ -26,6 +26,7 @@
 
 import { setBPM, setClockProvider } from './scheduler.js';
 import type { PatternLike } from './dmx.js';
+import { attachPatternVizMethods } from './pattern-viz.js';
 
 // ─── Web Audio graph ─────────────────────────────────────────────────────────
 
@@ -323,6 +324,7 @@ function makeReactive(read: () => number): PatternLike {
   self.add   = (n: number) => makeReactive(() => Math.min(1, read() + n));
   self.mul   = (n: number) => makeReactive(() => read() * n);
   self.range = (lo: number, hi: number) => makeReactive(() => lo + read() * (hi - lo));
+  attachPatternVizMethods(self);
   return self;
 }
 

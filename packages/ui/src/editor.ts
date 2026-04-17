@@ -13,118 +13,60 @@ import { defaultKeymap, historyKeymap, history } from '@codemirror/commands';
 import { bracketMatching, indentOnInput } from '@codemirror/language';
 import { lumenTheme, lumenHighlight } from './theme.js';
 import { vizDecorationsField } from './inline-viz.js';
+import { lumenCodeHighlight } from './code-highlight.js';
 
-const INITIAL_CODE = `// lumen — live DMX coding environment
-// ctrl+enter to run  ·  ctrl+. to stop
+const INITIAL_CODE = `// lumen — ctrl+enter to run · ctrl+. to stop · open 'docs' for the reference
 
-// ─────────────────────────────────────────────────────
-// 0. output config
-// ─────────────────────────────────────────────────────
+// Output target — swap in mock() for headless dev, osc() for TouchDesigner,
+// or sacn(universe, priority) for E1.31. Port defaults to 6454 for Art-Net.
+artnet('2.0.0.100')
 
-// artnet(host?, port?) — Art-Net via bridge. Port defaults to 6454 (the
-//                        standard Art-Net port — you rarely need to pass it).
-//                        Host should be your node's IP, or a broadcast addr
-//                        like '2.255.255.255' to hit every node on the subnet.
-// osc(host, port)      — OSC via bridge (/lumen/<uni>/<ch> <float 0-1>)
-// sacn(universe, prio) — sACN E1.31 via bridge
-// mock()               — console log only, no hardware
+// ── fixtures ──────────────────────────────────────────────
+// fixture(startChannel, id, universe = 0) returns an object with one setter
+// per named channel. Chain .viz('kind') to drop a live widget at line-end.
+const wash  = fixture(1, 'generic-rgbw').viz('color')  // uni 0, ch 1-4
+const strb  = fixture(5, 'strobe-basic').viz('meter')  // uni 0, ch 5-6
 
-artnet('2.0.0.100')                 // point at your Art-Net node
-// artnet('2.255.255.255')          // or broadcast on the 2.x.x.x subnet
-// osc('127.0.0.1', 9000)
-// sacn(1, 100)
-// mock()
+// rgbStrip(startChannel, pixelCount) — pixel bar at 3 channels per pixel.
+const strip = rgbStrip(7, 10).viz('strip')             // uni 0, ch 7-36
 
-// ─────────────────────────────────────────────────────
-// 1. define your fixtures (type + DMX start address)
-// ─────────────────────────────────────────────────────
-
-// built-in types: generic-dimmer, generic-rgb, generic-rgbw,
-// generic-rgba, generic-dim-rgb, moving-head-basic, strobe-basic
-
-// Signatures:
-//   fixture(startChannel, id, universe = 0)
-//   rgbStrip(startChannel, pixelCount, universe = 0)
-// Universe defaults to 0 (Art-Net / TD convention: first universe is 0).
-// Any fixture can live on any universe; the bridge transmits every universe
-// that has been written to, one ArtDmx packet per universe per tick.
-
-// Chain .viz(kind) to drop a live widget at the end of the line. Kinds:
-//   'color' swatch · 'wave' scope · 'meter' bar · 'strip' pixel-row.
-// Multiple kinds are allowed, e.g. .viz('wave', 'meter').
-
-// Universe 0 — demo group
-const washA = fixture(1, 'generic-rgbw').viz('color')   // uni 0, ch 1-4
-const washB = fixture(5, 'generic-rgbw').viz('color')   // uni 0, ch 5-8
-const spot  = fixture(9, 'generic-dimmer').viz('wave')  // uni 0, ch 9
-const strb  = fixture(10, 'strobe-basic').viz('meter')  // uni 0, ch 10-11
-
-// rgbStrip(startChannel, pixelCount, universe?) — each pixel = 3 chs (R, G, B)
-const strip = rgbStrip(12, 10).viz('strip')             // uni 0, ch 12-41
-
-// ─── Custom fixture: four-colour moving bar (RGBW pixel segment) ─────
-// defineFixture lets you describe any DMX fixture by its channel map. The
-// 'pixels' channel below uses type: 'strip' with pixelLayout: 'rgbw', so
-// you get a nested RgbwStripInstance with .fill(r,g,b,w), .pixel(i,r,g,b,w),
-// and a .white(v) setter — same API as rgbwStrip() but embedded in the
-// fixture alongside dim / strobe / macro channels.
+// Custom fixture — defineFixture lets you describe any channel layout. The
+// 'pixels' channel below is a nested RGBW strip thanks to pixelLayout:'rgbw'.
 defineFixture('four-color-bar', {
   name: 'Four-Colour Moving Bar',
   manufacturer: 'Generic',
   type: 'generic',
   channelCount: 38,
   channels: [
-    { offset: 0, name: 'direction',   type: 'control'   },      // ch1 level operation / direction
-    { offset: 1, name: 'speed',       type: 'control'   },      // ch2 movement speed
-    { offset: 2, name: 'effect',      type: 'control'   },      // ch3 built-in macro (0 = off)
-    { offset: 3, name: 'effectSpeed', type: 'control'   },      // ch4 macro speed
-    { offset: 4, name: 'dim',         type: 'intensity' },      // ch5 master dimmer
-    { offset: 5, name: 'strobe',      type: 'strobe'    },      // ch6 strobe
-    { offset: 6, name: 'pixels',      type: 'strip',
-      pixelCount: 8, pixelLayout: 'rgbw' },                     // ch7-38: 8 RGBW pixels
+    { offset: 0, name: 'direction',   type: 'control'   },
+    { offset: 1, name: 'speed',       type: 'control'   },
+    { offset: 2, name: 'effect',      type: 'control'   },   // leave 0 for direct pixel control
+    { offset: 3, name: 'effectSpeed', type: 'control'   },
+    { offset: 4, name: 'dim',         type: 'intensity' },
+    { offset: 5, name: 'strobe',      type: 'strobe'    },
+    { offset: 6, name: 'pixels',      type: 'strip', pixelCount: 8, pixelLayout: 'rgbw' },
   ],
 })
-
-// Universe 1, address 1 — drive the bar with the rainbow pattern below.
-const bar = fixture(1, 'four-color-bar', 1)
+const bar = fixture(1, 'four-color-bar', 1)            // uni 1, ch 1-38
 bar.pixels.viz('strip')
 
-// Additional universes — uncomment to drive them.
-// const parU2   = fixture(1, 'generic-rgbw', 2)          // universe 2
-// const parU3   = fixture(1, 'generic-rgbw', 3)          // universe 3
-// const stripU4 = rgbStrip(1, 40, 4)                     // universe 4, 40px
+// ── patterns ──────────────────────────────────────────────
+// Channels take a number (constant) or a pattern (animated). sine/cosine/
+// square/saw/rand chain with .slow, .fast, .add, .mul, .range. .glow() and
+// .wave() on a pattern are opt-in inline editor visualizations.
 
-// ─────────────────────────────────────────────────────
-// 2. write patterns
-// ─────────────────────────────────────────────────────
+// Amber breathe on the wash. The .glow() draws a subtle bg rail on this
+// line that tracks the sine's current value; .wave() adds a mini sparkline.
+wash.red(sine().slow(4).range(0, 0.9).glow())
+wash.green(sine().slow(4).range(0, 0.4))
+wash.white(sine().slow(6).range(0, 0.3).wave())
 
-// wash A — warm amber breathe
-washA.red(sine().slow(4).range(0, 0.9))
-washA.green(sine().slow(4).range(0, 0.4))
-washA.blue(sine().slow(4).range(0, 0.05))
-washA.white(sine().slow(6).range(0, 0.4))
-
-// wash B — cool blue, offset half a cycle
-washB.red(sine().slow(4).add(0.5).range(0, 0.05))
-washB.green(sine().slow(4).add(0.5).range(0, 0.3))
-washB.blue(sine().slow(4).add(0.5).range(0, 0.9))
-washB.white(0)
-
-// spot — sharp beat pulse
-spot.dim(square().fast(1))
-
-// Audio reactivity (optional) — load a track or enable mic via the audio bar
-// at the bottom of the screen, then uncomment any of these. bpm is auto-set
-// from the track, and cycle position follows playback.
-//   spot.dim(audio.peak())                       // strobe on every beat
-//   washA.red(audio.bass().range(0, 1))          // kick → red wash
-//   washA.white(audio.rms().mul(0.5))            // overall energy → white
-
-// strobe — uncomment to fire
+// Strobe — uncomment to fire. .flash() pulses the editor line on each hit.
 // strb.dim(0.8)
-// strb.strobe(square().fast(16))
+// strb.strobe(square().fast(16).flash())
 
-// pixel strip — per-pixel rainbow chase
+// Rainbow chase across the strip — each pixel is phase-shifted by its
+// position so the waves scroll down the bar.
 for (let i = 0; i < strip.pixelCount; i++) {
   const phase = i / strip.pixelCount
   strip.pixel(i,
@@ -134,18 +76,17 @@ for (let i = 0; i < strip.pixelCount; i++) {
   )
 }
 
-// four-colour moving bar (universe 1) — same rainbow across its 8 RGBW pixels.
-// ch3 (effect) stays at 0 so the fixture obeys direct pixel input instead of
-// running its own built-in macro. dim() must be non-zero or the bar stays dark.
+// Same rainbow on the moving bar (universe 1). RGBW pixels take a 4th arg
+// for the white channel — here a slow cosine so the warm tone drifts.
+// bar.dim(1) is required or the master dimmer keeps the fixture dark.
 bar.dim(1)
-bar.strobe(0)
 for (let i = 0; i < bar.pixels.pixelCount; i++) {
   const phase = i / bar.pixels.pixelCount
   bar.pixels.pixel(i,
-    sine().slow(4).add(phase).range(0, 0.9),   // R
-    cosine().slow(4).add(phase).range(0, 0.6), // G
-    sine().slow(2).add(phase).range(0, 0.4),   // B
-    cosine().slow(6).add(phase).range(0, 0.3), // W — slow warm shimmer
+    sine().slow(4).add(phase).range(0, 0.9),
+    cosine().slow(4).add(phase).range(0, 0.6),
+    sine().slow(2).add(phase).range(0, 0.4),
+    cosine().slow(6).add(phase).range(0, 0.3),
   )
 }
 `;
@@ -198,6 +139,7 @@ export function createEditor(
       javascript(),
       lumenTheme,
       lumenHighlight,
+      lumenCodeHighlight,
       vizDecorationsField,
       evalKeybinding,
       changeListener,

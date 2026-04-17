@@ -21,6 +21,11 @@ import {
 } from './fixtures.js';
 import { sendConfig } from './websocket.js';
 import { audio } from './audio.js';
+import {
+  attachPatternVizMethods,
+  clearPatternVizRegistry,
+  registerPatternViz,
+} from './pattern-viz.js';
 
 // Strudel functions, loaded once via initStrudel()
 const _strudelCtx: Record<string, unknown> = {};
@@ -55,6 +60,23 @@ export async function initStrudel(): Promise<void> {
     _strudelCtx.stack = core.stack;
     // Convenience alias
     _strudelCtx.m = core.mini;
+
+    // Teach every Strudel Pattern `.flash() / .glow() / .wave()` via a one-time
+    // prototype patch. Cheaper than wrapping every pattern in a Proxy, and the
+    // methods stay attached through .slow() / .fast() / .add() / etc. chains
+    // because those all return the same Pattern class.
+    try {
+      const sample = typeof core.sine === 'function' ? (core.sine as () => PatternLike)() : core.sine as PatternLike;
+      const proto = sample ? Object.getPrototypeOf(sample) : null;
+      if (proto && !proto.flash) {
+        proto.flash = function () { registerPatternViz(this, 'flash'); return this; };
+        proto.glow  = function () { registerPatternViz(this, 'glow');  return this; };
+        proto.wave  = function () { registerPatternViz(this, 'wave');  return this; };
+      }
+    } catch {
+      // Strudel's internals shape changed or sample failed — fallback
+      // waveforms / audio reactives still get viz methods attached directly.
+    }
 
     _strudelReady = true;
     console.log('[lumen] strudel core loaded');
@@ -91,6 +113,10 @@ function makeFallbackWaveform(fn: (t: number) => number) {
   self.range = (lo: number, hi: number) =>
     makeFallbackWaveform((t) => lo + fn(t) * (hi - lo));
 
+  // Inline-viz chain methods — users can drop `.flash()` / `.glow()` / `.wave()`
+  // anywhere in the fallback chain and the decoration system picks it up.
+  attachPatternVizMethods(self);
+
   return () => self;
 }
 
@@ -121,6 +147,7 @@ export function evalCode(code: string): EvalResult {
   try {
     clearDefs();
     clearVizRegistry();
+    clearPatternVizRegistry();
 
     const ctx: Record<string, unknown> = {
       // DMX API
