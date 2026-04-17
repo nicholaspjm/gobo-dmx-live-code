@@ -219,6 +219,53 @@
         min-height: 0;
       }
 
+      /* Audio transport — tucked above the status bar, deliberately low-key
+         so it doesn't compete with the editor + viz. Hidden when no track
+         and mic isn't engaged; appears muted otherwise. */
+      .audio-bar {
+        height: 28px;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        padding: 0 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .audio-bar button {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        font: inherit;
+        font-size: 11px;
+        padding: 2px 9px;
+        border-radius: 3px;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+      }
+      .audio-bar button:hover:not(:disabled) {
+        color: var(--text);
+        border-color: var(--accent2);
+      }
+      .audio-bar button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .audio-bar button.active {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      #audio-info {
+        font-variant-numeric: tabular-nums;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 320px;
+      }
+      .audio-bar .spacer { flex: 1; }
+
       /* Status bar */
       .statusbar {
         height: 26px;
@@ -609,6 +656,15 @@
           </div>
         </div>
         <canvas id="visualizer"></canvas>
+      </div>
+
+      <div class="audio-bar">
+        <input type="file" id="audio-file" accept="audio/*" hidden />
+        <button type="button" id="audio-load" title="load an audio file">load</button>
+        <button type="button" id="audio-play" disabled title="play / pause">▶</button>
+        <button type="button" id="audio-mic" title="use microphone as input">mic</button>
+        <span id="audio-info">no track</span>
+        <span class="spacer"></span>
       </div>
 
       <div class="statusbar">

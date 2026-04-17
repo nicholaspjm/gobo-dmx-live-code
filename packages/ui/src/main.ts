@@ -24,6 +24,13 @@ import {
   connectBridge,
   onStatusChange,
   sendUniverseState,
+  updateAudioFrame,
+  loadTrack,
+  playTrack,
+  pauseTrack,
+  enableMic,
+  disableMic,
+  getTrackInfo,
 } from '@lumen/core';
 
 import { createEditor } from './editor.js';
@@ -84,6 +91,10 @@ const SEND_INTERVAL_MS = 1000 / 60;
 let _lastSendMs = 0;
 
 onTick((cyclePos, _delta) => {
+  // 0. Refresh audio band values before pattern eval so `audio.bass()` etc.
+  //    see this frame's values. No-op unless a track is loaded or mic is on.
+  updateAudioFrame();
+
   // 1. Resolve patterns → DMX channel values
   tick(cyclePos);
 
@@ -277,6 +288,86 @@ setInterval(() => {
     );
   }
 }, 33); // ~30fps
+
+// ─── Audio transport ─────────────────────────────────────────────────────────
+// Wire the buttons in the audio bar. Kept deliberately small — this is an
+// optional feature, so it's a file picker, a play/pause toggle, and a mic
+// toggle. No scrubber, no waveform strip — patterns get their reactive data
+// through the `audio` object in the eval context regardless.
+
+const audioFileEl  = document.getElementById('audio-file')  as HTMLInputElement;
+const audioLoadEl  = document.getElementById('audio-load')  as HTMLButtonElement;
+const audioPlayEl  = document.getElementById('audio-play')  as HTMLButtonElement;
+const audioMicEl   = document.getElementById('audio-mic')   as HTMLButtonElement;
+const audioInfoEl  = document.getElementById('audio-info')  as HTMLElement;
+
+function formatTime(sec: number): string {
+  if (!Number.isFinite(sec)) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function refreshAudioUi(): void {
+  const info = getTrackInfo();
+  if (info.source === 'mic') {
+    audioPlayEl.disabled = true;
+    audioPlayEl.textContent = '▶';
+    audioMicEl.classList.add('active');
+    audioInfoEl.textContent = 'mic live';
+    return;
+  }
+  audioMicEl.classList.remove('active');
+  if (info.source === 'file') {
+    audioPlayEl.disabled = false;
+    audioPlayEl.textContent = info.isPlaying ? '❚❚' : '▶';
+    const bpmStr = info.bpm ? ` · bpm ${info.bpm}` : '';
+    audioInfoEl.textContent =
+      `${info.name} · ${formatTime(info.position)} / ${formatTime(info.duration)}${bpmStr}`;
+    return;
+  }
+  audioPlayEl.disabled = true;
+  audioPlayEl.textContent = '▶';
+  audioInfoEl.textContent = 'no track';
+}
+
+audioLoadEl.addEventListener('click', () => audioFileEl.click());
+
+audioFileEl.addEventListener('change', async () => {
+  const file = audioFileEl.files?.[0];
+  if (!file) return;
+  audioInfoEl.textContent = `analysing ${file.name}…`;
+  try {
+    await loadTrack(file);
+  } catch (err) {
+    audioInfoEl.textContent = `load failed: ${(err as Error).message}`;
+    return;
+  }
+  refreshAudioUi();
+  // Reset the input so picking the same file again still fires 'change'.
+  audioFileEl.value = '';
+});
+
+audioPlayEl.addEventListener('click', async () => {
+  const info = getTrackInfo();
+  if (info.source !== 'file') return;
+  if (info.isPlaying) pauseTrack();
+  else await playTrack();
+  refreshAudioUi();
+});
+
+audioMicEl.addEventListener('click', async () => {
+  const info = getTrackInfo();
+  if (info.source === 'mic') {
+    disableMic();
+  } else {
+    await enableMic();
+  }
+  refreshAudioUi();
+});
+
+// Keep the info text current while a track plays (cheap — just one tick/sec).
+setInterval(refreshAudioUi, 500);
 
 // ─── Docs panel ──────────────────────────────────────────────────────────────
 

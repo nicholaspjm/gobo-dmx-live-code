@@ -69,6 +69,49 @@ const DOCS: DocSection[] = [
   },
 
   {
+    title: 'audio',
+    blurb:
+      "Optional. Load a track (or enable the mic) from the audio bar at the bottom of the screen; pattern code can then react to it. When a track is playing, the scheduler's cycle position follows the track — patterns stay phase-locked through pauses and seeks. Mic mode uses the internal clock (no track position). All audio sources return 0..1 patterns you can chain with .range / .add / .mul just like sine().",
+    entries: [
+      {
+        name: 'audio.bass',
+        signature: 'audio.bass()',
+        description: 'Low-band energy (≤200Hz) — kick, bass. 0..1, chainable.',
+        example: 'washA.red(audio.bass().range(0, 1))',
+      },
+      {
+        name: 'audio.mid',
+        signature: 'audio.mid()',
+        description: 'Mid-band energy (200Hz–2kHz) — vocals, snare body.',
+      },
+      {
+        name: 'audio.treble',
+        signature: 'audio.treble()',
+        description: 'High-band energy (2–12kHz) — hats, cymbals, sibilance.',
+      },
+      {
+        name: 'audio.rms',
+        signature: 'audio.rms()',
+        description: 'Overall loudness across all bands, 0..1.',
+        example: 'bar.pixels.white(audio.rms().mul(0.6))',
+      },
+      {
+        name: 'audio.peak',
+        signature: 'audio.peak()',
+        description:
+          'Transient detector — jumps to 1 when the RMS spikes above its recent average (beats, hits) and decays back to 0 over ~150ms. Great for strobes and flashes.',
+        example: 'spot.dim(audio.peak())',
+      },
+      {
+        name: 'audio.bpm / position / duration / isPlaying / track',
+        signature: 'audio.bpm · audio.position · audio.duration',
+        description:
+          "Live scalar getters. bpm is null until a track is loaded and analysis succeeds; it's also auto-applied to setBPM() on load.",
+      },
+    ],
+  },
+
+  {
     title: 'fixtures',
     blurb:
       'Load a fixture at a DMX start channel; you get back an object with named setters for every channel that fixture has.',

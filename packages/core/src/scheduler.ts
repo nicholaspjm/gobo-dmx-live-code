@@ -28,6 +28,17 @@ let _worker: Worker | null = null;
 let _lastTickMs = 0;
 const _callbacks = new Set<TickCallback>();
 
+/**
+ * Optional external clock provider — lets another module (currently the
+ * audio integration) pin cyclePos to track position so patterns stay
+ * phase-locked to the music. Returns null when it has nothing to offer
+ * and the internal wall-clock should be used instead.
+ */
+let _clockProvider: (() => number | null) | null = null;
+export function setClockProvider(fn: (() => number | null) | null): void {
+  _clockProvider = fn;
+}
+
 export function setBPM(value: number): void {
   _bpm = Math.max(1, Math.min(400, value));
 }
@@ -64,7 +75,17 @@ function handleTick(): void {
   const dtSec = Math.min(rawDt, 0.1);
 
   const inc = (_bpm / 60 / BEATS_PER_CYCLE) * dtSec;
-  _cyclePos += inc;
+
+  // External clock (audio track) wins when active. This pins cyclePos to
+  // the track's playhead so patterns pause/seek with the music. When it
+  // returns null (no track loaded, paused, mic mode) we fall back to the
+  // internal wall-clock advance.
+  const external = _clockProvider?.();
+  if (external !== null && external !== undefined) {
+    _cyclePos = external;
+  } else {
+    _cyclePos += inc;
+  }
 
   for (const cb of _callbacks) {
     try {

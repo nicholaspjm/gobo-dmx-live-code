@@ -20,6 +20,7 @@ import {
   clearVizRegistry,
 } from './fixtures.js';
 import { sendConfig } from './websocket.js';
+import { audio } from './audio.js';
 
 // Strudel functions, loaded once via initStrudel()
 const _strudelCtx: Record<string, unknown> = {};
@@ -140,6 +141,8 @@ export function evalCode(code: string): EvalResult {
       sacn,
       osc,
       mock,
+      // Audio reactivity (optional — loaded via the UI, not callable from code)
+      audio,
       // Patterns (populated by initStrudel)
       ..._strudelCtx,
       // Passthrough safe globals

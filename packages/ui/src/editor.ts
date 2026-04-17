@@ -113,6 +113,13 @@ washB.white(0)
 // spot — sharp beat pulse
 spot.dim(square().fast(1))
 
+// Audio reactivity (optional) — load a track or enable mic via the audio bar
+// at the bottom of the screen, then uncomment any of these. bpm is auto-set
+// from the track, and cycle position follows playback.
+//   spot.dim(audio.peak())                       // strobe on every beat
+//   washA.red(audio.bass().range(0, 1))          // kick → red wash
+//   washA.white(audio.rms().mul(0.5))            // overall energy → white
+
 // strobe — uncomment to fire
 // strb.dim(0.8)
 // strb.strobe(square().fast(16))
