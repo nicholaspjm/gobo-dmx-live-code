@@ -55,12 +55,34 @@ export async function initStrudel(): Promise<void> {
     _strudelCtx.square = wrap(core.square);
     _strudelCtx.saw = wrap(core.saw);
     _strudelCtx.rand = wrap(core.rand);
-    _strudelCtx.mini = core.mini;
     _strudelCtx.sequence = core.sequence;
     _strudelCtx.cat = core.cat;
     _strudelCtx.stack = core.stack;
-    // Convenience alias
-    _strudelCtx.m = core.mini;
+
+    // Mini-notation lives in a separate @strudel/mini package — not re-
+    // exported from core. Import it so users can do mini('1 - 1 -') the
+    // same way Strudel's docs demonstrate. Fail-soft: if the mini package
+    // is ever missing, fall back to a thin sequence-based shim that
+    // handles the common "space-separated tokens" case without brackets
+    // / repeats / alternation.
+    try {
+      const miniMod = await import('@strudel/mini');
+      _strudelCtx.mini = miniMod.mini;
+      _strudelCtx.m = miniMod.m ?? miniMod.mini;
+    } catch {
+      console.warn('[lumen] @strudel/mini unavailable — falling back to sequence()');
+      const seq = core.sequence as (...args: unknown[]) => PatternLike;
+      const shim = (str: string): PatternLike => {
+        const tokens = str.trim().split(/\s+/).map((t) => {
+          if (t === '-' || t === '~') return 0;
+          const n = Number(t);
+          return Number.isFinite(n) ? n : 0;
+        });
+        return seq(...tokens);
+      };
+      _strudelCtx.mini = shim;
+      _strudelCtx.m = shim;
+    }
 
     // Teach every Strudel Pattern `.flash() / .glow() / .wave()` via a one-time
     // prototype patch. Cheaper than wrapping every pattern in a Proxy, and the
@@ -95,6 +117,35 @@ export async function initStrudel(): Promise<void> {
     _strudelCtx.square = makeFallbackWaveform((t) => (t % 1 < 0.5 ? 1 : 0));
     _strudelCtx.saw = makeFallbackWaveform((t) => t % 1);
     _strudelCtx.rand = makeFallbackWaveform(() => Math.random());
+    // Minimal sequencing shim — steps cycle once per strudel cycle via a
+    // saw() floor into the array. Tokens can be numbers or '-'/'~' for rests.
+    // Doesn't support brackets/*/<>; that's fine for the fallback path
+    // (real strudel is present in any real dev / prod deploy).
+    const seqShim = (...steps: unknown[]): PatternLike => {
+      const vals = steps.map((s) => {
+        if (s === '-' || s === '~') return 0;
+        if (typeof s === 'number') return s;
+        if (typeof s === 'string') {
+          const n = Number(s);
+          return Number.isFinite(n) ? n : 0;
+        }
+        return 0;
+      });
+      return {
+        queryArc(begin, end) {
+          const t = (begin + end) / 2;
+          const idx = Math.floor((t % 1) * vals.length);
+          return [{ value: vals[Math.min(idx, vals.length - 1)] }];
+        },
+      };
+    };
+    _strudelCtx.sequence = seqShim;
+    _strudelCtx.cat = seqShim;
+    _strudelCtx.stack = seqShim;
+    const miniShim = (s: string): PatternLike =>
+      seqShim(...s.trim().split(/\s+/));
+    _strudelCtx.mini = miniShim;
+    _strudelCtx.m = miniShim;
     _strudelReady = true;
     setStripEffectWaveforms(
       _strudelCtx.sine as () => unknown,
