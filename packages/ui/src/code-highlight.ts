@@ -35,6 +35,8 @@ const COMMAND_NAMES = [
   'setBPM',
   // patterns
   'sine', 'cosine', 'square', 'saw', 'rand',
+  // sequencing (Strudel mini-notation)
+  'mini', 'm', 'sequence', 'cat', 'stack',
   // low-level DMX
   'ch', 'uni', 'dim', 'rgb',
   // audio reactivity namespace

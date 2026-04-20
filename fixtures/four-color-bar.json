@@ -1,0 +1,19 @@
+{
+  "lumenFixture": 1,
+  "id": "four-color-bar",
+  "def": {
+    "name": "Four-Colour Moving Bar",
+    "manufacturer": "Generic",
+    "type": "generic",
+    "channelCount": 38,
+    "channels": [
+      { "offset": 0, "name": "direction",   "type": "control",   "description": "Level operation / direction" },
+      { "offset": 1, "name": "speed",       "type": "control",   "description": "Movement speed" },
+      { "offset": 2, "name": "effect",      "type": "control",   "description": "Built-in macro (0 = off)" },
+      { "offset": 3, "name": "effectSpeed", "type": "control",   "description": "Effect speed" },
+      { "offset": 4, "name": "dim",         "type": "intensity", "description": "Master dimmer" },
+      { "offset": 5, "name": "strobe",      "type": "strobe",    "description": "Strobe" },
+      { "offset": 6, "name": "pixels",      "type": "strip",     "pixelCount": 8, "pixelLayout": "rgbw", "description": "8 RGBW pixels (32 chs)" }
+    ]
+  }
+}

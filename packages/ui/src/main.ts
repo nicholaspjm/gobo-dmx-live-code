@@ -14,6 +14,7 @@ import {
   isRunning,
   onTick,
   getBPM,
+  setBPM,
   getCycleFraction,
   tick,
   getAllUniverses,
@@ -31,19 +32,23 @@ import {
   enableMic,
   disableMic,
   getTrackInfo,
+  restoreLibraryFixtures,
 } from '@lumen/core';
 
 import { createEditor } from './editor.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
 import { renderDocs } from './docs.js';
 import { refreshViz } from './inline-viz.js';
+import { mountLibraryPanel } from './library.js';
+import { registerPublicFixtures } from './public-fixtures.js';
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 
 const editorEl = document.getElementById('editor')!;
 const visualizerEl = document.getElementById('visualizer') as HTMLCanvasElement;
 const evalStatusEl = document.getElementById('eval-status')!;
-const bpmValEl = document.getElementById('bpm-val')!;
+const bpmValEl = document.getElementById('bpm-val') as HTMLElement;
+const bpmTapEl = document.getElementById('bpm-tap') as HTMLButtonElement;
 const cycleFillEl = document.getElementById('cycle-fill')!;
 const wsDotEl = document.getElementById('ws-dot')!;
 const wsLabelEl = document.getElementById('ws-label')!;
@@ -59,6 +64,9 @@ function runEval(code: string): void {
     // in the new code. Widgets animate from the live universe buffer; this
     // call only (re)places them in the editor at the right lines.
     refreshViz(editorView);
+    // Refresh the library panel too — a new defineFixture call might have
+    // just added (or replaced) a custom fixture that the user can now save.
+    _refreshLibraryAfterEval();
   } else {
     setStatus('error', result.error ?? 'unknown error');
   }
@@ -109,13 +117,109 @@ onTick((cyclePos, _delta) => {
   }
 });
 
-// ─── Status bar updates ───────────────────────────────────────────────────────
+// ─── Status bar updates ──────────────────────────────────────────────────────
 
-// Update BPM display and cycle bar at ~10 fps
+// Update cycle bar continuously; BPM display updates too EXCEPT while the
+// user is actively editing it (see bpm-edit section below).
+let _bpmEditing = false;
+
 setInterval(() => {
-  bpmValEl.textContent = String(getBPM());
+  if (!_bpmEditing) bpmValEl.textContent = String(getBPM());
   cycleFillEl.style.width = `${(getCycleFraction() * 100).toFixed(1)}%`;
 }, 100);
+
+// ─── BPM inline edit ─────────────────────────────────────────────────────────
+// The top-bar BPM span is contenteditable — click it, type a number, hit
+// Enter (or blur) to commit. Escape cancels and restores the live value.
+// We clamp to the scheduler's 1..400 range; anything invalid reverts.
+
+function commitBpmEdit(): void {
+  const raw = (bpmValEl.textContent ?? '').trim();
+  const v = parseInt(raw, 10);
+  if (Number.isFinite(v) && v >= 1 && v <= 400) {
+    setBPM(v);
+  }
+  // Always snap the text to the authoritative value — handles both
+  // successful commits (normalized int) and invalid input (reverted).
+  bpmValEl.textContent = String(getBPM());
+}
+
+bpmValEl.addEventListener('focus', () => {
+  _bpmEditing = true;
+  // Select all so typing replaces the current value (matches typical
+  // "click a field, type a number" UX).
+  const range = document.createRange();
+  range.selectNodeContents(bpmValEl);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+});
+
+bpmValEl.addEventListener('blur', () => {
+  _bpmEditing = false;
+  commitBpmEdit();
+});
+
+bpmValEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    bpmValEl.blur();      // triggers commit
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    bpmValEl.textContent = String(getBPM());  // revert first
+    bpmValEl.blur();
+  }
+});
+
+// ─── Tap tempo ───────────────────────────────────────────────────────────────
+// Click the `tap` button or press T (outside the editor / other inputs) to
+// tap along with the beat. After the second tap we keep a rolling buffer of
+// timestamps, average the intervals, and push the BPM into the scheduler.
+// A 2-second gap without a tap resets the buffer so you don't pollute a new
+// tempo with stale data.
+
+const TAP_GAP_RESET_MS = 2000;
+const TAP_BUFFER = 8;
+let _taps: number[] = [];
+
+function tap(): void {
+  const now = performance.now();
+  if (_taps.length > 0 && now - _taps[_taps.length - 1] > TAP_GAP_RESET_MS) {
+    _taps = [];
+  }
+  _taps.push(now);
+  if (_taps.length > TAP_BUFFER) _taps.shift();
+
+  if (_taps.length >= 2) {
+    // Average of consecutive intervals — more forgiving to a single
+    // miss-tap than comparing first-to-last.
+    let sum = 0;
+    for (let i = 1; i < _taps.length; i++) sum += _taps[i] - _taps[i - 1];
+    const avgMs = sum / (_taps.length - 1);
+    const bpm = Math.round(60000 / avgMs);
+    if (bpm >= 1 && bpm <= 400) setBPM(bpm);
+  }
+
+  // Visual feedback — a 100ms flash on the button so you can feel the tap.
+  bpmTapEl.classList.add('flash');
+  setTimeout(() => bpmTapEl.classList.remove('flash'), 100);
+}
+
+bpmTapEl.addEventListener('click', tap);
+
+// Global T hotkey — suppressed whenever focus is somewhere you'd actually
+// be typing (editor, BPM field, search, audio file input, etc.) so it
+// doesn't collide with normal text entry.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 't' && e.key !== 'T') return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const active = document.activeElement as HTMLElement | null;
+  if (active?.closest(
+    '.cm-editor, input, textarea, [contenteditable="true"], [contenteditable="plaintext-only"]',
+  )) return;
+  e.preventDefault();
+  tap();
+});
 
 // ─── Bridge connection ───────────────────────────────────────────────────────
 
@@ -522,7 +626,28 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ─── Fixture library panel ───────────────────────────────────────────────────
+
+const libraryPanel = mountLibraryPanel({
+  panelEl:  document.getElementById('library-panel')  as HTMLElement,
+  bodyEl:   document.getElementById('library-body')   as HTMLElement,
+  toggleEl: document.getElementById('library-toggle') as HTMLButtonElement,
+  closeEl:  document.getElementById('library-close')  as HTMLButtonElement,
+});
+
+// After every successful eval, any new defineFixture() calls land in the
+// runtime registry. Refresh the library panel so those show up in the
+// "Defined this session" section as save-able.
+const _refreshLibraryAfterEval = (): void => libraryPanel.refresh();
+
 // ─── Init ────────────────────────────────────────────────────────────────────
+
+// Register the bundled public-library fixtures so `fixture(1, 'any-public-id')`
+// works without clicking "add" first. Public fixtures go in first; the user's
+// localStorage library is restored next so a user-pinned version of a public
+// id (if any) wins.
+registerPublicFixtures();
+restoreLibraryFixtures();
 
 initStrudel().then(() => {
   console.log('[lumen] ready');

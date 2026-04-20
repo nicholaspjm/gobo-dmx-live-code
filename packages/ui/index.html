@@ -87,8 +87,60 @@
         font-size: 12px;
       }
 
+      .bpm-display {
+        /* Already declared above as .bpm-display — keep the flex layout
+           here so tap button sits neatly next to the number. */
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
       .bpm-display span {
         color: var(--text);
+      }
+
+      /* Editable BPM field. Looks like plain text until hovered / focused.
+         Pauses its own auto-refresh while focused (see main.ts) so the
+         user's in-progress edit isn't stomped by the 10 Hz updater. */
+      .bpm-val {
+        display: inline-block;
+        min-width: 2em;
+        padding: 0 3px;
+        border-radius: 2px;
+        color: var(--text);
+        cursor: text;
+        outline: none;
+        font-variant-numeric: tabular-nums;
+      }
+      .bpm-val:hover {
+        background: rgba(196, 114, 74, 0.08);
+      }
+      .bpm-val:focus {
+        background: rgba(196, 114, 74, 0.15);
+        color: var(--accent2);
+      }
+
+      /* Tap-tempo button. Flashes briefly on each tap for feedback. */
+      .bpm-tap {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        font: inherit;
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        letter-spacing: 0.08em;
+        text-transform: lowercase;
+        transition: color 0.1s, border-color 0.1s, background 0.1s;
+      }
+      .bpm-tap:hover {
+        color: var(--text);
+        border-color: var(--accent2);
+      }
+      .bpm-tap.flash {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: rgba(196, 114, 74, 0.18);
       }
 
       .cycle-bar {
@@ -578,6 +630,36 @@
         border-bottom-color: var(--accent);
       }
 
+      /* Flat ranked search results (hidden unless the search box has content).
+         Results carry a small tag on the right showing which section they
+         came from, so the user knows where to go for the full context. */
+      .doc-results {
+        padding-top: 12px;
+      }
+      .doc-result {
+        /* Slightly more breathing room than in-section entries, since the
+           section heading isn't adjacent to guide the eye. */
+        margin-bottom: 12px;
+      }
+      .doc-section-tag {
+        display: inline-block;
+        margin-left: auto;
+        padding: 2px 8px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 9px;
+        color: var(--text-muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        flex-shrink: 0;
+      }
+      .doc-result .doc-sig {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
       /* Generic hide utility, used by the docs filter */
       .hidden {
         display: none !important;
@@ -700,6 +782,200 @@
         margin-top: 4px;
         white-space: pre-wrap;
         font-family: inherit;
+      }
+
+      /* ─── Fixture library panel ────────────────────────────────────────
+         Lives in its own .docs-panel instance with a distinct id, reusing
+         the slide-in layout / scrollbar / sticky header styling from the
+         docs panel. Library-specific rows, buttons and banner live here. */
+      .lib-toolbar {
+        display: flex;
+        gap: 8px;
+        padding: 12px 0 8px;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--surface);
+      }
+      .lib-action {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        font: inherit;
+        font-size: 11px;
+        padding: 5px 11px;
+        border-radius: 3px;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+        text-transform: lowercase;
+        transition: color 0.1s, border-color 0.1s, background 0.1s;
+      }
+      .lib-action:hover {
+        color: var(--text);
+        border-color: var(--accent2);
+      }
+      .lib-action.lib-primary {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      .lib-action.lib-primary:hover {
+        background: rgba(196, 114, 74, 0.12);
+      }
+      .lib-action.lib-danger:hover {
+        color: var(--error);
+        border-color: var(--error);
+      }
+
+      .lib-banner {
+        padding: 0 10px;
+        overflow: hidden;
+        max-height: 0;
+        transition: max-height 0.15s ease, padding 0.15s ease;
+        font-size: 11px;
+        border-left: 2px solid var(--accent);
+        color: var(--text-muted);
+      }
+      .lib-banner.visible {
+        max-height: 40px;
+        padding: 8px 10px;
+        margin: 4px 0 8px;
+      }
+      .lib-banner-error {
+        border-left-color: var(--error);
+        color: var(--error);
+      }
+
+      .lib-heading {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--accent);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin: 18px 0 8px;
+        padding-bottom: 5px;
+        border-bottom: 1px solid var(--border);
+      }
+      .lib-empty {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-style: italic;
+        padding: 12px 4px;
+      }
+      /* Small explanatory paragraph under each section heading so the
+         tiers (public vs pinned vs session) read as distinct. */
+      .lib-note {
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1.45;
+        margin: -4px 0 10px;
+      }
+      /* Pill next to a public fixture's name so it's obvious it's not
+         user-local state. */
+      .lib-row-tag {
+        display: inline-block;
+        padding: 1px 7px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent2);
+        vertical-align: middle;
+      }
+
+      .lib-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 10px 0;
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+      }
+      .lib-row:last-child {
+        border-bottom: none;
+      }
+      .lib-row-unsaved {
+        opacity: 0.85;
+      }
+      .lib-row-meta {
+        min-width: 0;
+        flex: 1;
+      }
+      .lib-row-title {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: baseline;
+        font-size: 12px;
+      }
+      .lib-row-id {
+        color: var(--accent2);
+        font-weight: 600;
+      }
+      .lib-row-name {
+        color: var(--text);
+      }
+      .lib-row-sub {
+        color: var(--text-muted);
+        font-size: 11px;
+        margin-top: 3px;
+      }
+      .lib-row-actions {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
+      /* ─── Autocomplete popup (@codemirror/autocomplete) ────────────────
+         CM6 ships reasonable defaults but they're light-mode. Override
+         colors + borders to sit in the lumen dark theme. */
+      .cm-tooltip.cm-tooltip-autocomplete {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+        font: inherit;
+        font-size: 12px;
+      }
+      .cm-tooltip.cm-tooltip-autocomplete > ul {
+        font-family: inherit;
+      }
+      .cm-tooltip.cm-tooltip-autocomplete > ul > li {
+        padding: 3px 10px;
+      }
+      .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+        background: rgba(196, 114, 74, 0.18);
+        color: var(--accent);
+      }
+      .cm-tooltip-autocomplete .cm-completionLabel {
+        color: var(--text);
+      }
+      .cm-tooltip-autocomplete [aria-selected] .cm-completionLabel {
+        color: var(--accent);
+      }
+      .cm-tooltip-autocomplete .cm-completionMatchedText {
+        color: var(--accent2);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .cm-tooltip-autocomplete .cm-completionDetail {
+        color: var(--text-muted);
+        font-style: normal;
+        font-size: 11px;
+        margin-left: 8px;
+      }
+      /* Info panel that opens to the right of the popup when an item has
+         extra info text. */
+      .cm-tooltip.cm-completionInfo {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text);
+        padding: 8px 12px;
+        font-size: 11px;
+        line-height: 1.55;
+        max-width: 280px;
       }
 
       /* ─── Semantic colour coding (lumen-code-highlight extension) ────── */
@@ -832,7 +1108,23 @@
       <header class="topbar">
         <span class="wordmark"><span class="wordmark-icon" aria-hidden="true">✦</span>lumen</span>
         <div class="topbar-right">
-          <span class="bpm-display">bpm <span id="bpm-val">120</span></span>
+          <span class="bpm-display">
+            bpm
+            <!-- contenteditable instead of <input> so it inherits the top-bar
+                 typography without fighting input-element defaults. -->
+            <span
+              id="bpm-val"
+              class="bpm-val"
+              contenteditable="plaintext-only"
+              spellcheck="false"
+              inputmode="numeric"
+              title="click to edit · double-click to select"
+              role="spinbutton"
+              aria-valuemin="1"
+              aria-valuemax="400"
+            >120</span>
+            <button type="button" id="bpm-tap" class="bpm-tap" title="tap tempo (T)">tap</button>
+          </span>
           <div class="cycle-bar" title="cycle position">
             <div class="cycle-bar-fill" id="cycle-fill"></div>
           </div>
@@ -840,6 +1132,7 @@
             <span class="ws-dot disconnected" id="ws-dot"></span>
             <span id="ws-label">disconnected</span>
           </span>
+          <button type="button" class="docs-toggle" id="library-toggle" title="custom fixture library">library</button>
           <button type="button" class="docs-toggle" id="docs-toggle" title="function reference">docs</button>
         </div>
       </header>
@@ -850,6 +1143,14 @@
           <button type="button" class="docs-close" id="docs-close" title="close">×</button>
         </div>
         <div class="docs-body" id="docs-body"></div>
+      </aside>
+
+      <aside class="docs-panel" id="library-panel" aria-hidden="true">
+        <div class="docs-header">
+          <span class="docs-title">library</span>
+          <button type="button" class="docs-close" id="library-close" title="close">×</button>
+        </div>
+        <div class="docs-body" id="library-body"></div>
       </aside>
 
       <div class="editor-wrap">

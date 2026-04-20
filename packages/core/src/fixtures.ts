@@ -190,6 +190,17 @@ export function defineFixture(id: string, def: FixtureDef): void {
   _customFixtures[id] = def;
 }
 
+/**
+ * Snapshot of currently-registered custom fixtures (those declared via
+ * `defineFixture(id, def)` in the user's code or restored from the library
+ * on startup). Excludes built-ins. Used by the library panel to show what
+ * the user could promote into persistent storage.
+ */
+export function getCustomFixtures(): Record<string, FixtureDef> {
+  // Shallow clone so the caller can't mutate the internal registry.
+  return { ..._customFixtures };
+}
+
 /** Resolve fixture id → FixtureDef (built-in first, then custom). */
 function resolveFixture(id: string): FixtureDef {
   const def = BUILT_IN_FIXTURES[id] ?? _customFixtures[id];
@@ -379,6 +390,15 @@ export interface StripInstance {
    *   const strip = rgbStrip(12, 10).viz('strip')
    */
   viz(...kinds: VizKind[]): StripInstance;
+
+  /**
+   * Built-in rainbow chase — a single bright pixel sweeps across the strip
+   * while its colour slowly walks through the full hue wheel. Options:
+   * `speed` (beats/pass), `narrow` (peak sharpness), `rainbowSpeed`
+   * (beats/cycle), `packets` (simultaneous chase dots). See 'effects' in
+   * the docs for the mechanics.
+   */
+  rainbowChase(opts?: RainbowChaseOptions): void;
 }
 
 /**
@@ -477,6 +497,10 @@ export function rgbStrip(
       });
       return inst;
     },
+
+    rainbowChase(opts: RainbowChaseOptions = {}): void {
+      rainbowChaseImpl(inst, opts);
+    },
   };
   return inst;
 }
@@ -521,6 +545,9 @@ export interface RgbwStripInstance {
 
   /** Opt into an inline editor visualization (default kind 'strip'). */
   viz(...kinds: VizKind[]): RgbwStripInstance;
+
+  /** Built-in rainbow chase — see {@link StripInstance.rainbowChase}. */
+  rainbowChase(opts?: RainbowChaseOptions): void;
 }
 
 /**
@@ -597,8 +624,100 @@ export function rgbwStrip(
       });
       return inst;
     },
+
+    rainbowChase(opts: RainbowChaseOptions = {}): void {
+      rainbowChaseImpl(inst, opts);
+    },
   };
   return inst;
+}
+
+// ─── Effect helpers (strip methods) ──────────────────────────────────────────
+// Higher-level scene recipes exposed as methods on the strip instances. They
+// need access to the waveform factories (sine / cosine), which live in the
+// eval sandbox — so eval.ts injects them here via setStripEffectWaveforms()
+// once strudel (or the fallback) is loaded. If a user calls rainbowChase()
+// before that's happened the method is a no-op rather than a thrown error,
+// since the setup is otherwise automatic.
+
+export interface RainbowChaseOptions {
+  /** Beats per packet pass across the strip (default 2). */
+  speed?: number;
+  /** Peak narrowness — bigger = narrower lit window (default 8). */
+  narrow?: number;
+  /** Beats per full rainbow cycle (default 12). */
+  rainbowSpeed?: number;
+  /** Simultaneous chase packets across the strip (default 1). */
+  packets?: number;
+}
+
+// The waveform types are `any` because sine() / cosine() return values carry
+// chain methods added dynamically by strudel's prototype or by our fallback
+// factory — they don't fit the static PatternLike interface.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _sineFactory: (() => any) | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _cosineFactory: (() => any) | null = null;
+
+/**
+ * Inject the waveform factories. Called from eval.ts right after strudel
+ * (or the fallback) is set up.
+ */
+export function setStripEffectWaveforms(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sine: () => any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cosine: () => any,
+): void {
+  _sineFactory = sine;
+  _cosineFactory = cosine;
+}
+
+/**
+ * Shared rainbow-chase implementation used by both RGB and RGBW strip
+ * instances. Builds a thresholded-cosine brightness envelope per pixel
+ * and multiplies it by a shared three-phase RGB colour cycle — see the
+ * 'effects' section of the docs for the full mechanism.
+ */
+function rainbowChaseImpl(
+  strip: StripInstance | RgbwStripInstance,
+  opts: RainbowChaseOptions,
+): void {
+  const sine = _sineFactory;
+  const cosine = _cosineFactory;
+  if (!sine || !cosine) return;
+
+  const speed = opts.speed ?? 2;
+  const narrow = opts.narrow ?? 8;
+  const rainbowSpeed = opts.rainbowSpeed ?? 12;
+  const packets = opts.packets ?? 1;
+
+  const hueR = sine().slow(rainbowSpeed).range(0, 1);
+  const hueG = sine().early(1 / 3).slow(rainbowSpeed).range(0, 1);
+  const hueB = sine().early(2 / 3).slow(rainbowSpeed).range(0, 1);
+
+  const isRgbw = strip.channelCount === strip.pixelCount * 4;
+
+  for (let i = 0; i < strip.pixelCount; i++) {
+    const phase = (i * packets) / strip.pixelCount;
+    const bright = cosine().early(phase).slow(speed).range(-narrow, 1);
+    if (isRgbw) {
+      (strip as RgbwStripInstance).pixel(
+        i,
+        bright.mul(hueR),
+        bright.mul(hueG),
+        bright.mul(hueB),
+        0,
+      );
+    } else {
+      (strip as StripInstance).pixel(
+        i,
+        bright.mul(hueR),
+        bright.mul(hueG),
+        bright.mul(hueB),
+      );
+    }
+  }
 }
 
 // ─── Inline visualization registry ────────────────────────────────────────────

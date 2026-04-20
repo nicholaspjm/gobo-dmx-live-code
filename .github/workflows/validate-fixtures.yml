@@ -1,0 +1,30 @@
+name: Validate fixtures
+
+# Runs on every PR that touches `fixtures/` and on pushes to main
+# (so merges get re-verified too). Fails fast on any invalid file.
+on:
+  pull_request:
+    paths:
+      - 'fixtures/**'
+      - 'packages/core/src/fixture-validator.ts'
+      - 'scripts/validate-fixtures.mjs'
+      - '.github/workflows/validate-fixtures.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'fixtures/**'
+      - 'packages/core/src/fixture-validator.ts'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # tsx runs the .mjs script, which imports the TS validator source
+      # directly — no separate build step to keep CI in sync with runtime.
+      - run: npx tsx scripts/validate-fixtures.mjs

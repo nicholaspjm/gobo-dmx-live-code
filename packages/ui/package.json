@@ -8,8 +8,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@lumen/core": "*",
+    "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/lang-javascript": "^6.2.2",
+    "@lumen/core": "*",
     "codemirror": "^6.0.1"
   },
   "devDependencies": {

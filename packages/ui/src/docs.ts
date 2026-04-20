@@ -222,6 +222,12 @@ const DOCS: DocSection[] = [
         example:
           "defineFixture('my-bar', {\n  name: 'Custom Bar', manufacturer: 'Generic', type: 'generic',\n  channelCount: 12,\n  channels: [\n    { offset: 0,  name: 'dim',    type: 'intensity' },\n    { offset: 1,  name: 'strobe', type: 'strobe' },\n    { offset: 2,  name: 'pixels', type: 'strip', pixelCount: 3 }, // ch 3-11\n    { offset: 11, name: 'mode',   type: 'control' },\n  ],\n})\nconst bar = fixture(100, 'my-bar')\nbar.dim(0.8)\nbar.pixels.fill(sine(), 0, 0)\nbar.pixels.pixel(1, 1, 0, 0)",
       },
+      {
+        name: 'fixture library',
+        signature: "open the 'library' panel in the top bar",
+        description:
+          "Three tiers of fixture definitions: (1) built-ins in the core (generic-rgbw etc.), always available; (2) public library — community-contributed files in fixtures/ at the repo root, bundled into the app so fixture(1, 'four-color-bar') works out of the box; (3) your library — anything you defined and pinned locally via localStorage. The library panel shows the public bundle and your pinned/session entries with save / export / delete / share actions. Share opens a pre-filled GitHub page to propose your fixture as a PR to the public library. Every incoming fixture (file import or public bundle) is schema-validated against strict size/type limits and rejected if its id collides with a built-in.",
+      },
     ],
   },
 
@@ -375,6 +381,31 @@ const DOCS: DocSection[] = [
 
   {
     category: 'patterns',
+    title: 'effects',
+    blurb:
+      "Higher-level scene recipes exposed as methods on strip / pixel instances. Call them the same way you'd call any other strip method (.fill, .pixel, etc.).",
+    entries: [
+      {
+        name: '.rainbowChase',
+        signature: 'strip.rainbowChase({ speed?, narrow?, rainbowSpeed?, packets? })',
+        description:
+          "A single bright pixel sweeps across the strip; its colour slowly walks through the full hue wheel. Under the hood: each pixel gets a cosine brightness envelope offset by its position (.early(i/N) shifts pixel i's peak later in the cycle), and that cosine is thresholded via .range(-narrow, 1) so most of its cycle sits below zero — the DMX pipeline clamps negatives to 0, leaving just the sharp tip above zero as the visible lit window. Bigger `narrow` → narrower window → fewer pixels lit at once. The hue comes from three sines 120° apart on R/G/B so only one primary peaks at a time. Defaults: speed 2 beats/pass, narrow 8, rainbowSpeed 12 beats/cycle, packets 1. Works on both RGB (rgbStrip) and RGBW (rgbwStrip, bar.pixels) instances — RGBW gets W zeroed so colours stay pure.",
+        example:
+          "strip.rainbowChase()\nstrip.rainbowChase({ speed: 0.5, narrow: 16 })\nbar.pixels.rainbowChase({ packets: 2, rainbowSpeed: 4 })",
+      },
+      {
+        name: 'manual chase',
+        signature: 'for (let i = 0; i < strip.pixelCount; i++) strip.pixel(i, …)',
+        description:
+          "Any chase can be written inline with a for-loop — useful when you want fine control or a different flavour than the built-in helper. The pattern is always: walk each pixel index i, compute its phase offset (i/pixelCount), and call strip.pixel(i, r, g, b [, w]) with patterns whose time is shifted by that phase. The default example uses this exact form on the universe-0 strip so you can see how it comes together.",
+        example:
+          "for (let i = 0; i < strip.pixelCount; i++) {\n  const phase = i / strip.pixelCount\n  const bright = cosine().early(phase).slow(2).range(-8, 1)\n  strip.pixel(i, bright.mul(hueR), bright.mul(hueG), bright.mul(hueB))\n}",
+      },
+    ],
+  },
+
+  {
+    category: 'patterns',
     title: 'patterns',
     blurb:
       'Strudel waveforms and pattern builders. Output is normalised to 0-1 unless stated.',
@@ -409,29 +440,91 @@ const DOCS: DocSection[] = [
         description: 'Uniform random 0-1, resampled per query.',
         example: 'ch(1, rand())',
       },
+    ],
+  },
+
+  {
+    category: 'patterns',
+    title: 'sequencing',
+    blurb:
+      "Step sequencing via Strudel's mini-notation. Each string plays through one scheduler cycle (= 4 beats at default BPM); tokens split the time equally. '-' and '~' are silence. Drop in anywhere a channel setter expects a pattern — one mini call per channel gives you the classic drum-grid. Covers every feature the Strudel workshop does: subdivisions [a b], repeats *N, speed /N, and alternation <a b c>.",
+    entries: [
       {
         name: 'mini',
-        signature: "mini('1 0 0.5 0')",
+        signature: "mini('1 - 0.5 -')",
         description:
-          "Mini-notation pattern. Space-separated steps cycle once per beat. Supports subdivisions with [a b], rests with ~, multiples with *n. Also aliased as m().",
-        example: "spot.dim(m('1 0 0.8 0'))",
+          "Parse mini-notation into a Pattern<number>. Each space-separated token is one step; tokens split one scheduler cycle equally. Numeric tokens ('1', '0.5', '0') pass through as values — great for per-step brightness. Non-numeric tokens ('bd', 'sd') become string events; the DMX pipeline treats the unknown ones as 0. Aliased as m() for shorter code. Returns a regular Pattern, so you can chain .slow / .fast / .range / .glow / .flash afterward.",
+        example:
+          "spot.dim(mini('1 - 1 -'))\nwash.red(mini('1 0.5 0 0.5'))\nstrb.strobe(m('1 - 1 -').flash())",
+      },
+      {
+        name: 'rests',
+        signature: "'-' or '~'",
+        description:
+          "Silence — nothing is emitted for that step. Interchangeable; pick whichever reads cleaner (most lumen examples use '-' for grid alignment).",
+        example: "mini('1 - 1 -')          // hits on beats 1 and 3",
+      },
+      {
+        name: 'subdivisions',
+        signature: "[a b c]",
+        description:
+          "Wrap tokens in brackets to compress them into the time of ONE outer slot. [a b] plays at 2× the outer step rate, [a b c d] at 4×. Nest freely. This is Strudel's sound('bd wind [metal jazz] hh') equivalent — four tokens, metal and jazz share the third slot at double speed.",
+        example:
+          "wash.red(mini('1 [1 1] 1 -'))          // 5 hits per cycle\nstrb.strobe(mini('- [1 1 1 1] - [1 1 1 1]'))  // bursts on 2 and 4",
+      },
+      {
+        name: 'repetition',
+        signature: "a*N",
+        description:
+          "Repeat one token N times inside its slot. 'a*4' plays a four times in the space of one step. Difference from brackets: brackets compress multiple DIFFERENT tokens, *N repeats the SAME token.",
+        example:
+          "strb.strobe(mini('1*16'))             // 16 evenly-spaced hits per cycle\nwash.red(mini('0 0.5*3 1'))            // mixes speeds inside one pattern",
+      },
+      {
+        name: 'speed',
+        signature: "a/N  ·  pattern.slow(N) / .fast(N)",
+        description:
+          "'/N' inside the mini string holds a token for N slots (slows just that token). .slow(N) and .fast(N) chained on the Pattern scale the whole string. .slow(2) turns a 4-step pattern into an 8-beat pattern — every token lasts twice as long.",
+        example:
+          "wash.red(mini('1 - 1 -').slow(2))      // half-time\nwash.red(mini('1 1/2 1 1'))            // second token held for two slots",
+      },
+      {
+        name: 'alternation',
+        signature: "<a b c>",
+        description:
+          "Angle brackets pick ONE token per cycle, advancing each cycle. '<0 0.5 1 0.5>' gives brightness 0 on cycle 1, 0.5 on cycle 2, 1 on cycle 3, 0.5 on cycle 4, then loops. Useful for slowly-evolving motifs without writing a long string.",
+        example:
+          "wash.red(mini('<0 0.5 1 0.5>'))        // brightness cycles each 4 beats",
       },
       {
         name: 'sequence',
-        signature: 'sequence(a, b, c, ...)',
-        description: 'Programmatic version of mini. Each argument is one step.',
-        example: 'ch(1, sequence(0, 1, 0.5, 1))',
+        signature: 'sequence(a, b, c, …)',
+        description:
+          'Same as mini but takes positional args instead of a string. Each arg is one step — and args can be patterns themselves, so you can mix step sequencing with continuous waveforms.',
+        example:
+          "spot.dim(sequence(0, sine().slow(2), 1, 0.5))",
       },
       {
         name: 'cat',
-        signature: 'cat(pat1, pat2, ...)',
-        description: 'Concatenate patterns — each takes one full cycle before the next.',
+        signature: 'cat(pat1, pat2, …)',
+        description:
+          'Concatenate patterns so each pat takes one full cycle before the next starts. Great for building long arrangements out of short motifs.',
+        example:
+          "wash.red(cat(mini('1 - 1 -'), mini('1 1 1 1')))",
       },
       {
         name: 'stack',
-        signature: 'stack(pat1, pat2, ...)',
+        signature: 'stack(pat1, pat2, …)',
         description:
-          "Play multiple patterns simultaneously (value of last one wins at a channel, but useful as part of larger chains).",
+          "Run patterns in parallel — every pat is queried each tick and the value from the last emission wins. In DMX this is rarely what you want directly; usually you get the same effect by applying separate mini() calls to different channels on the same fixture (see the drum-grid example below).",
+      },
+      {
+        name: 'drum grid',
+        signature: "one mini() per channel, same length",
+        description:
+          "The most useful composition for lights: split the same 16-step rhythm across R/G/B/W (or across several fixtures). Match the bar count between strings and group tokens in fours so the columns line up visually — pretty much a Roland drum-machine layout. The default init code has a live example on the wash fixture.",
+        example:
+          "wash.red(  mini('1 - - -  - - 1 -  - - 1 -  - - - -'))\nwash.green(mini('- - 1 -  1 - - -  - - - -  - 1 - -'))\nwash.blue( mini('- 1 - -  - - - 1  - 1 - -  1 - - 1'))\nwash.white(mini('- - - 1  - - - -  - - - 1  - - - -'))",
       },
     ],
   },
@@ -577,68 +670,129 @@ function renderSection(sec: DocSection): string {
 }
 
 /**
- * Filter the rendered docs against a search query and/or an active tab.
+ * Score an entry against a search query. Higher = better match.
  *
- * - `query` filters entries by their search bag; empty string means "no
- *   query" and all entries pass the query filter.
- * - `activeCategory` gates which sections are shown by category. Pass
- *   `null` to disable the tab filter (used during active search, so the
- *   user sees matches from every tab at once).
+ * The old filter just did substring containment on a big bag-of-words,
+ * which meant a description that happened to mention "multiply" could
+ * rank equal to — or above — the actual `.mul(n)` entry. This function
+ * weights match location heavily: an exact name match trounces a prefix
+ * match trounces a substring-in-signature trounces a hit in the prose.
  *
- * A section is visible when it has at least one entry surviving both
- * filters. The `no matches` message toggles when nothing at all matches.
+ * Returns 0 when nothing hits (caller drops those entries).
  */
-function applyFilter(
-  body: HTMLElement,
-  query: string,
-  emptyMsg: HTMLElement,
-  activeCategory: DocCategory | null,
-): void {
+function scoreEntry(entry: DocEntry, section: DocSection, q: string): number {
+  if (!q) return 1; // no query = everyone "matches" (but we won't use scores then)
+
+  const name = entry.name.toLowerCase();
+  const sig = entry.signature.toLowerCase();
+  const desc = entry.description.toLowerCase();
+  const sectionTitle = section.title.toLowerCase();
+
+  // Pull the "short id" out of the name: strip a leading "." and any
+  // trailing parens / args. ".mul(n)" → "mul"; "fixture channels" stays.
+  const shortName = name.replace(/^\.+/, '').replace(/\s*\(.*$/, '').trim();
+
+  // Identifier-like matches on the name — the user's real target 98%
+  // of the time. Shorter names that begin with / equal the query
+  // score higher.
+  if (shortName === q) return 10_000;
+  if (name === q) return 9_500;
+  if (shortName.startsWith(q)) return 8_000 - shortName.length;
+  if (name.startsWith(q)) return 7_500 - name.length;
+  if (shortName.includes(q)) return 6_000 - shortName.indexOf(q) * 10 - shortName.length;
+  if (name.includes(q)) return 5_000 - name.indexOf(q) * 10 - name.length;
+
+  // Signature hits — `mul` matches `sine().mul(n)` as a word after a dot
+  // or opening paren, meaning the method itself, not a random substring.
+  if (sig.startsWith(q)) return 3_000;
+  if (
+    sig.includes(`.${q}`) || sig.includes(` ${q}`) ||
+    sig.includes(`(${q}`) || sig.includes(`,${q}`)
+  ) return 2_500 - sig.length / 20;
+  if (sig.includes(q)) return 1_500 - sig.length / 20;
+
+  // Section title — "patterns" shows every pattern entry.
+  if (sectionTitle === q) return 1_200;
+  if (sectionTitle.includes(q)) return 900;
+
+  // Description last-resort. Earlier mentions rank above buried ones.
+  const descIdx = desc.indexOf(q);
+  if (descIdx >= 0) return 300 - descIdx;
+
+  return 0;
+}
+
+/** Render a single entry as a flat search-result card, including the
+ *  section it came from as a tiny tag on the right of the header. */
+function renderResultEntry(entry: DocEntry, section: DocSection): string {
+  if (entry.tabLink) {
+    // Same markup as a welcome-page link, with an added section tag.
+    return `
+      <button type="button" class="doc-link doc-result" data-tab-link="${escapeHtml(entry.tabLink)}">
+        <span class="doc-link-label">
+          <span class="doc-name">${escapeHtml(entry.name)}</span>
+          <span class="doc-signature">${escapeHtml(entry.signature)}</span>
+        </span>
+        <span class="doc-section-tag">${escapeHtml(section.title)}</span>
+      </button>`;
+  }
+  const example = entry.example
+    ? `<pre class="doc-example">${escapeHtml(entry.example)}</pre>`
+    : '';
+  const desc = entry.description
+    ? `<div class="doc-desc">${escapeHtml(entry.description)}</div>`
+    : '';
+  return `
+    <div class="doc-entry doc-result">
+      <div class="doc-sig">
+        <span class="doc-name">${escapeHtml(entry.name)}</span>
+        <span class="doc-signature">${escapeHtml(entry.signature)}</span>
+        <span class="doc-section-tag">${escapeHtml(section.title)}</span>
+      </div>
+      ${desc}
+      ${example}
+    </div>`;
+}
+
+/**
+ * Populate the flat results container with entries sorted by score.
+ * Returns the number of matches.
+ */
+function renderSearchResults(resultsEl: HTMLElement, query: string): number {
   const q = query.trim().toLowerCase();
-  const sections = body.querySelectorAll<HTMLElement>('.doc-section');
+  const scored: Array<{ entry: DocEntry; section: DocSection; score: number }> = [];
+  for (const section of DOCS) {
+    for (const entry of section.entries) {
+      const score = scoreEntry(entry, section, q);
+      if (score > 0) scored.push({ entry, section, score });
+    }
+  }
+  scored.sort((a, b) => b.score - a.score);
+  resultsEl.innerHTML = scored.map((s) => renderResultEntry(s.entry, s.section)).join('');
+  return scored.length;
+}
 
-  let totalVisible = 0;
-
+/**
+ * Apply the tab filter to the section view (used when no query is active).
+ * Shows sections whose category matches the active tab; hides the rest.
+ */
+function applyTabFilter(sectionsEl: HTMLElement, activeCategory: DocCategory): void {
+  const sections = sectionsEl.querySelectorAll<HTMLElement>('.doc-section');
   sections.forEach((section) => {
     const sectionCategory = (section.getAttribute('data-category') ?? 'reference') as DocCategory;
-    const passesTab = activeCategory === null || sectionCategory === activeCategory;
-    if (!passesTab) {
-      section.classList.add('hidden');
-      return;
-    }
-
-    const sectionText = section.getAttribute('data-search') ?? '';
-    const sectionMatches = q.length > 0 && sectionText.includes(q);
-    // Entries in a section can be either .doc-entry (full) or .doc-link
-    // (compressed welcome-style row). Both carry data-search.
-    const entries = section.querySelectorAll<HTMLElement>('.doc-entry, .doc-link');
-
-    let visibleInSection = 0;
-    entries.forEach((entry) => {
-      if (q === '') {
-        entry.classList.remove('hidden');
-        visibleInSection++;
-        return;
-      }
-      const bag = entry.getAttribute('data-search') ?? '';
-      const hit = bag.includes(q) || sectionMatches;
-      entry.classList.toggle('hidden', !hit);
-      if (hit) visibleInSection++;
-    });
-
-    // A welcome section with a blurb but no entries still should show when
-    // its category is active — it's informational. Only hide if there ARE
-    // entries and none are visible.
-    const wasEmpty = entries.length === 0;
-    section.classList.toggle('hidden', !wasEmpty && visibleInSection === 0);
-    totalVisible += visibleInSection + (wasEmpty ? 1 : 0);
+    section.classList.toggle('hidden', sectionCategory !== activeCategory);
+    // Reveal every entry — the tab view doesn't filter within sections.
+    section
+      .querySelectorAll<HTMLElement>('.doc-entry, .doc-link')
+      .forEach((e) => e.classList.remove('hidden'));
   });
-
-  emptyMsg.classList.toggle('hidden', totalVisible > 0);
 }
 
 /** Render the docs content into the panel body. */
 export function renderDocs(body: HTMLElement): void {
+  // Two content views — a browse view (sections grouped by tab) and a
+  // search view (flat list sorted by relevance score). We switch between
+  // them based on whether the search field has content.
   const searchBar = `
     <div class="doc-search">
       <input type="text" id="doc-search-input" placeholder="search functions…" autocomplete="off" spellcheck="false" />
@@ -650,26 +804,41 @@ export function renderDocs(body: HTMLElement): void {
           `<button type="button" class="doc-tab${t.id === DEFAULT_TAB ? ' active' : ''}" data-tab="${t.id}" role="tab">${escapeHtml(t.label)}</button>`,
       ).join('')}
     </div>
-    <div class="doc-empty hidden" id="doc-empty">no matches — try a different word</div>`;
+    <div class="doc-empty hidden" id="doc-empty">no matches — try a different word</div>
+    <div class="doc-results hidden" id="doc-results"></div>
+    <div class="doc-sections" id="doc-sections">${DOCS.map(renderSection).join('')}</div>`;
 
-  body.innerHTML = searchBar + DOCS.map(renderSection).join('');
+  body.innerHTML = searchBar;
 
   const input = body.querySelector<HTMLInputElement>('#doc-search-input')!;
   const clearBtn = body.querySelector<HTMLButtonElement>('#doc-search-clear')!;
   const emptyMsg = body.querySelector<HTMLElement>('#doc-empty')!;
   const tabsBar = body.querySelector<HTMLElement>('#doc-tabs')!;
+  const resultsEl = body.querySelector<HTMLElement>('#doc-results')!;
+  const sectionsEl = body.querySelector<HTMLElement>('#doc-sections')!;
 
   let activeTab: DocCategory = DEFAULT_TAB;
 
   const update = (): void => {
-    // Search overrides the tab filter — when the user types something, show
-    // every matching result regardless of which tab they're on.
     const query = input.value.trim();
-    applyFilter(body, query, emptyMsg, query.length > 0 ? null : activeTab);
-    clearBtn.classList.toggle('visible', query.length > 0);
-    // Hide the tab bar while searching so the results aren't being filtered
-    // by two criteria at once.
-    tabsBar.classList.toggle('hidden', query.length > 0);
+    const searching = query.length > 0;
+
+    clearBtn.classList.toggle('visible', searching);
+    tabsBar.classList.toggle('hidden', searching);
+
+    if (searching) {
+      // Ranked flat-list search across all tabs.
+      const hits = renderSearchResults(resultsEl, query);
+      resultsEl.classList.remove('hidden');
+      sectionsEl.classList.add('hidden');
+      emptyMsg.classList.toggle('hidden', hits > 0);
+    } else {
+      // Browse view — show sections in the current tab.
+      applyTabFilter(sectionsEl, activeTab);
+      resultsEl.classList.add('hidden');
+      sectionsEl.classList.remove('hidden');
+      emptyMsg.classList.add('hidden');
+    }
   };
 
   input.addEventListener('input', update);

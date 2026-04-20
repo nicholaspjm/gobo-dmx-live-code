@@ -14,6 +14,7 @@ import { bracketMatching, indentOnInput } from '@codemirror/language';
 import { lumenTheme, lumenHighlight } from './theme.js';
 import { vizDecorationsField } from './inline-viz.js';
 import { lumenCodeHighlight } from './code-highlight.js';
+import { lumenAutocomplete } from './autocomplete.js';
 
 const INITIAL_CODE = `// lumen — ctrl+enter to run · ctrl+. to stop · open 'docs' for the reference
 
@@ -51,44 +52,50 @@ const bar = fixture(1, 'four-color-bar', 1)            // uni 1, ch 1-38
 bar.pixels.viz('strip')
 
 // ── patterns ──────────────────────────────────────────────
-// Channels take a number (constant) or a pattern (animated). sine/cosine/
-// square/saw/rand chain with .slow, .fast, .add, .mul, .range. .glow() and
-// .wave() on a pattern are opt-in inline editor visualizations.
+// Channels take a number (constant) or a pattern (animated). Patterns
+// come in two flavours: continuous waveforms (sine/cosine/square/saw/
+// rand, chainable with .slow / .range / .mul / etc.) and step sequences
+// (mini, same drum-style notation Strudel uses).
 
-// Amber breathe on the wash. The .glow() draws a subtle bg rail on this
-// line that tracks the sine's current value; .wave() adds a mini sparkline.
-wash.red(sine().slow(4).range(0, 0.9).glow())
-wash.green(sine().slow(4).range(0, 0.4))
-wash.white(sine().slow(6).range(0, 0.3).wave())
+// Drum-grid on the wash — one mini() string per channel. Each string
+// plays through one scheduler cycle (= 4 beats) with tokens splitting
+// the time equally. '-' rests, numbers pass through as values. Whitespace
+// between tokens is free — group in fours for readability.
+// See the 'sequencing' docs entry for subdivisions, repeats, and more.
+wash.red(  mini('1 - - -  - - 1 -  - - 1 -  - - - -').glow())
+wash.green(mini('- - 1 -  1 - - -  - - - -  - 1 - -'))
+wash.blue( mini('- 1 - -  - - - 1  - 1 - -  1 - - 1'))
+wash.white(mini('- - - 1  - - - -  - - - 1  - - - -'))
 
-// Strobe — uncomment to fire. .flash() pulses the editor line on each hit.
-// strb.dim(0.8)
-// strb.strobe(square().fast(16).flash())
+// Strobe burst on beats 2 and 4. [1 1 1 1] compresses four hits into
+// one slot (4× the outer step rate), so each bracket gives a rapid
+// roll. Uncomment to fire.
+// strb.dim(0.9)
+// strb.strobe(mini('- [1 1 1 1] - [1 1 1 1]').flash())
 
-// Rainbow chase across the strip — each pixel is phase-shifted by its
-// position so the waves scroll down the bar.
+// Rainbow chase on the strip — manual for-loop version so the math is
+// visible. strip.rainbowChase() would do the same in one line (see the
+// 'effects' tab in the docs for the full mechanism).
+const hueR = sine().slow(12).range(0, 1)
+const hueG = sine().early(1/3).slow(12).range(0, 1)
+const hueB = sine().early(2/3).slow(12).range(0, 1)
 for (let i = 0; i < strip.pixelCount; i++) {
   const phase = i / strip.pixelCount
-  strip.pixel(i,
-    sine().slow(4).add(phase).range(0, 0.9),
-    cosine().slow(4).add(phase).range(0, 0.6),
-    sine().slow(2).add(phase).range(0, 0.4),
-  )
+  const bright = cosine().early(phase).slow(2).range(-8, 1)
+  strip.pixel(i, bright.mul(hueR), bright.mul(hueG), bright.mul(hueB))
 }
 
-// Same rainbow on the moving bar (universe 1). RGBW pixels take a 4th arg
-// for the white channel — here a slow cosine so the warm tone drifts.
-// bar.dim(1) is required or the master dimmer keeps the fixture dark.
+// Same chase on the moving bar (universe 1) — one-line helper version.
 bar.dim(1)
-for (let i = 0; i < bar.pixels.pixelCount; i++) {
-  const phase = i / bar.pixels.pixelCount
-  bar.pixels.pixel(i,
-    sine().slow(4).add(phase).range(0, 0.9),
-    cosine().slow(4).add(phase).range(0, 0.6),
-    sine().slow(2).add(phase).range(0, 0.4),
-    cosine().slow(6).add(phase).range(0, 0.3),
-  )
-}
+bar.pixels.rainbowChase()
+
+// Kick — flash the whole bar white on every beat, sitting on top of the
+// rainbow. One scheduler cycle = 4 beats, so .fast(4) gives one pulse per
+// beat. .range(-15, 1) sharpens the cosine into a short snap. Writing to
+// .white() alone overrides just the W channel the chase set to 0, so the
+// rainbow's RGB stays visible between kicks.
+//   .fast(2) → half notes · .fast(4) → quarters · .fast(8) → eighths
+bar.pixels.white(cosine().fast(4).range(-15, 1))
 `;
 
 export type EvalHandler = (code: string) => void;
@@ -140,6 +147,7 @@ export function createEditor(
       lumenTheme,
       lumenHighlight,
       lumenCodeHighlight,
+      lumenAutocomplete,
       vizDecorationsField,
       evalKeybinding,
       changeListener,

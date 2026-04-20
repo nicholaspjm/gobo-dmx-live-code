@@ -18,6 +18,7 @@ import {
   rgbStrip,
   rgbwStrip,
   clearVizRegistry,
+  setStripEffectWaveforms,
 } from './fixtures.js';
 import { sendConfig } from './websocket.js';
 import { audio } from './audio.js';
@@ -79,6 +80,12 @@ export async function initStrudel(): Promise<void> {
     }
 
     _strudelReady = true;
+    // Hand the waveform factories to fixtures.ts so strip.rainbowChase()
+    // can build patterns at eval time without importing strudel itself.
+    setStripEffectWaveforms(
+      _strudelCtx.sine as () => unknown,
+      _strudelCtx.cosine as () => unknown,
+    );
     console.log('[lumen] strudel core loaded');
   } catch (err) {
     console.warn('[lumen] @strudel/core not available:', err);
@@ -89,6 +96,10 @@ export async function initStrudel(): Promise<void> {
     _strudelCtx.saw = makeFallbackWaveform((t) => t % 1);
     _strudelCtx.rand = makeFallbackWaveform(() => Math.random());
     _strudelReady = true;
+    setStripEffectWaveforms(
+      _strudelCtx.sine as () => unknown,
+      _strudelCtx.cosine as () => unknown,
+    );
   }
 }
 
@@ -106,12 +117,40 @@ function makeFallbackWaveform(fn: (t: number) => number) {
     makeFallbackWaveform((t) => fn(t / (factor as number)));
   self.fast = (factor: number) =>
     makeFallbackWaveform((t) => fn(t * (factor as number)));
-  self.add = (n: number) =>
-    makeFallbackWaveform((t) => Math.min(1, fn(t) + (n as number)));
-  self.mul = (n: number) =>
-    makeFallbackWaveform((t) => fn(t) * (n as number));
+  self.add = (n: number | PatternLike) => {
+    if (typeof n === 'number') {
+      return makeFallbackWaveform((t) => Math.min(1, fn(t) + n));
+    }
+    // Combine two patterns: add their sampled values at each point.
+    const other = n;
+    return makeFallbackWaveform((t) => {
+      const v = other.queryArc(t, t + 0.0001)[0]?.value;
+      return Math.min(1, fn(t) + (typeof v === 'number' ? v : 0));
+    });
+  };
+  self.mul = (n: number | PatternLike) => {
+    if (typeof n === 'number') {
+      return makeFallbackWaveform((t) => fn(t) * n);
+    }
+    // Multiplying by another pattern lets you gate one waveform with
+    // another — e.g. a colour cycle multiplied by a per-pixel brightness
+    // peak to chase a bright packet across a strip.
+    const other = n;
+    return makeFallbackWaveform((t) => {
+      const v = other.queryArc(t, t + 0.0001)[0]?.value;
+      return fn(t) * (typeof v === 'number' ? v : 0);
+    });
+  };
   self.range = (lo: number, hi: number) =>
     makeFallbackWaveform((t) => lo + fn(t) * (hi - lo));
+  // Phase shift — .early(n) advances time by n cycles (shift earlier);
+  // .late(n) is the opposite. Mirrors strudel Pattern.prototype.early/late
+  // so user code that phase-shifts waveforms works identically whether
+  // strudel is loaded or we're on the fallback.
+  self.early = (n: number) =>
+    makeFallbackWaveform((t) => fn(t + (n as number)));
+  self.late = (n: number) =>
+    makeFallbackWaveform((t) => fn(t - (n as number)));
 
   // Inline-viz chain methods — users can drop `.flash()` / `.glow()` / `.wave()`
   // anywhere in the fallback chain and the decoration system picks it up.
