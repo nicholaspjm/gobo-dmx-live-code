@@ -15,9 +15,19 @@
 
 const SCENES_KEY = 'lumen-scenes-v1';
 const ACTIVE_KEY = 'lumen-active-scene-v1';
+const META_KEY   = 'lumen-scene-meta-v1';
 const DEFAULT_SCENE = 'default';
 
 type SceneMap = Record<string, string>;
+
+/** Per-scene metadata — small so we can store it as its own JSON blob
+ *  and migrate either side without touching the other. Currently just
+ *  a last-accessed timestamp used to sort the dropdown by recency. */
+interface SceneMeta {
+  /** Wall-clock ms when the scene was last activated or edited. */
+  lastAccessedAt: number;
+}
+type SceneMetaMap = Record<string, SceneMeta>;
 
 // ─── Storage ─────────────────────────────────────────────────────────────────
 
@@ -40,6 +50,31 @@ function writeAll(map: SceneMap): void {
   }
 }
 
+function readMeta(): SceneMetaMap {
+  try {
+    const raw = localStorage.getItem(META_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed as SceneMetaMap;
+  } catch {
+    return {};
+  }
+}
+
+function writeMeta(map: SceneMetaMap): void {
+  try { localStorage.setItem(META_KEY, JSON.stringify(map)); } catch { /* see above */ }
+}
+
+/** Stamp `lastAccessedAt` for this scene. Call when the user opens,
+ *  creates, or edits a scene — any interaction that signals "I care
+ *  about this one right now". */
+export function touchScene(name: string): void {
+  const meta = readMeta();
+  meta[name] = { lastAccessedAt: Date.now() };
+  writeMeta(meta);
+}
+
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 export function getActiveScene(): string {
@@ -60,16 +95,48 @@ export function saveSceneCode(name: string, code: string): void {
   writeAll(map);
 }
 
-/** Sorted list of existing scene names. DEFAULT_SCENE is pinned first
- *  so the dropdown always leads with "default". */
+/** Sorted list of existing scene names. DEFAULT_SCENE is pinned first;
+ *  everything else is sorted by `lastAccessedAt` (most recent first),
+ *  falling back to alphabetical for scenes that haven't been touched. */
 export function listScenes(): string[] {
   const names = Object.keys(readAll());
+  const meta = readMeta();
   names.sort((a, b) => {
     if (a === DEFAULT_SCENE) return -1;
     if (b === DEFAULT_SCENE) return 1;
+    const ma = meta[a]?.lastAccessedAt ?? 0;
+    const mb = meta[b]?.lastAccessedAt ?? 0;
+    if (ma !== mb) return mb - ma;
     return a.localeCompare(b);
   });
   return names;
+}
+
+/**
+ * File-picker-style view of the scenes: the default scene in its own
+ * group, then "recent" scenes ordered by access time, then everything
+ * else alphabetically. Used by the topbar dropdown so the structure
+ * reads the way users expect ("default" / "recent" / "all").
+ */
+export interface ScenesView {
+  default: string[];
+  recent: string[];
+  other: string[];
+}
+
+export function getScenesView(recentLimit = 5): ScenesView {
+  const sorted = listScenes();
+  const meta = readMeta();
+  const default_ = sorted.filter((n) => n === DEFAULT_SCENE);
+  const rest = sorted.filter((n) => n !== DEFAULT_SCENE);
+  const hasTs = (n: string): boolean => (meta[n]?.lastAccessedAt ?? 0) > 0;
+  const touched   = rest.filter((n) => hasTs(n));
+  const untouched = rest.filter((n) => !hasTs(n));
+  return {
+    default: default_,
+    recent: touched.slice(0, recentLimit),
+    other: [...touched.slice(recentLimit), ...untouched].sort(),
+  };
 }
 
 export function deleteScene(name: string): boolean {

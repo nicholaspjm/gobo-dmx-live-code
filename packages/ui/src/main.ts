@@ -38,8 +38,8 @@ import {
 import { createEditor, INITIAL_CODE } from './editor.js';
 import {
   seedScenesIfEmpty, getActiveScene, setActiveScene, getSceneCode,
-  saveSceneCode, listScenes, createScene, deleteScene,
-  resetSeedScene, listSeedScenes,
+  saveSceneCode, getScenesView, createScene, deleteScene,
+  resetSeedScene, listSeedScenes, touchScene,
 } from './scenes.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
 import { renderDocs } from './docs.js';
@@ -104,7 +104,9 @@ let _saveTimer: ReturnType<typeof setTimeout> | null = null;
 function onEditorChange(code: string): void {
   if (_saveTimer) clearTimeout(_saveTimer);
   _saveTimer = setTimeout(() => {
-    saveSceneCode(getActiveScene(), code);
+    const name = getActiveScene();
+    saveSceneCode(name, code);
+    touchScene(name);
     _saveTimer = null;
   }, 500);
 }
@@ -556,11 +558,26 @@ const sceneDelEl    = document.getElementById('scene-delete') as HTMLButtonEleme
 
 function refreshSceneDropdown(): void {
   const active = getActiveScene();
-  const names = listScenes();
-  sceneSelectEl.innerHTML = names
-    .map((n) => `<option value="${n.replace(/"/g, '&quot;')}"${n === active ? ' selected' : ''}>${n.replace(/</g, '&lt;')}</option>`)
-    .join('');
-  // Disable the delete button for the default scene — it's the safety net.
+  const view = getScenesView();
+  // Render "default" / "recent" / "other" as separate <optgroup>s so the
+  // dropdown reads like a file picker. Groups with no entries are
+  // skipped so a fresh install doesn't show empty headers.
+  const esc = (s: string): string =>
+    s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const renderOpt = (n: string): string =>
+    `<option value="${esc(n)}"${n === active ? ' selected' : ''}>${esc(n)}</option>`;
+  const groups: string[] = [];
+  if (view.default.length) {
+    groups.push(`<optgroup label="default">${view.default.map(renderOpt).join('')}</optgroup>`);
+  }
+  if (view.recent.length) {
+    groups.push(`<optgroup label="recent">${view.recent.map(renderOpt).join('')}</optgroup>`);
+  }
+  if (view.other.length) {
+    groups.push(`<optgroup label="other">${view.other.map(renderOpt).join('')}</optgroup>`);
+  }
+  sceneSelectEl.innerHTML = groups.join('');
+  // Delete button disabled for the default scene — it's the safety net.
   sceneDelEl.disabled = active === 'default';
   // Reset button only applies to scenes with a bundled seed template.
   sceneResetEl.disabled = !listSeedScenes().includes(active);
@@ -582,16 +599,32 @@ function loadCodeIntoEditor(code: string): void {
   });
 }
 
-sceneSelectEl.addEventListener('change', () => {
-  const next = sceneSelectEl.value;
-  if (next === getActiveScene()) return;
-  // Save current buffer to the outgoing scene before swapping.
+/**
+ * Switch to `next`: save the outgoing buffer, load the new code into
+ * the editor, stamp the access timestamp, and — the important bit for
+ * live performance — re-evaluate immediately. Without the eval the
+ * sim panel / lights stay on the previous scene's output until the
+ * user presses Ctrl+Enter, which is surprising every time.
+ */
+function switchToScene(next: string, status: string): void {
   saveSceneCode(getActiveScene(), editorView.state.doc.toString());
   setActiveScene(next);
+  touchScene(next);
   const code = getSceneCode(next) ?? '';
   loadCodeIntoEditor(code);
   refreshSceneDropdown();
-  setStatus('', `scene: ${next} · ctrl+enter to run`);
+  setStatus('', status);
+  // Re-eval the freshly-loaded scene so lights + sim reflect it
+  // immediately. If the scheduler was stopped, this re-starts it; if
+  // the scene is empty or broken, runEval falls through to the error
+  // status as usual.
+  if (code.trim().length > 0) runEval(code);
+}
+
+sceneSelectEl.addEventListener('change', () => {
+  const next = sceneSelectEl.value;
+  if (next === getActiveScene()) return;
+  switchToScene(next, `scene: ${next}`);
 });
 
 sceneNewEl.addEventListener('click', () => {
@@ -604,10 +637,7 @@ sceneNewEl.addEventListener('click', () => {
   // Flush current buffer to its scene first so we don't lose edits.
   saveSceneCode(getActiveScene(), editorView.state.doc.toString());
   createScene(name, `// ${name}\n\nartnet('2.0.0.100')\n`);
-  setActiveScene(name);
-  loadCodeIntoEditor(getSceneCode(name) ?? '');
-  refreshSceneDropdown();
-  setStatus('', `new scene: ${name}`);
+  switchToScene(name, `new scene: ${name}`);
 });
 
 sceneDelEl.addEventListener('click', () => {
@@ -615,10 +645,7 @@ sceneDelEl.addEventListener('click', () => {
   if (current === 'default') return;
   if (!confirm(`Delete scene "${current}"? This can't be undone.`)) return;
   deleteScene(current);
-  setActiveScene('default');
-  loadCodeIntoEditor(getSceneCode('default') ?? INITIAL_CODE);
-  refreshSceneDropdown();
-  setStatus('', `scene: default`);
+  switchToScene('default', `scene: default`);
 });
 
 sceneResetEl.addEventListener('click', () => {
@@ -626,10 +653,17 @@ sceneResetEl.addEventListener('click', () => {
   if (!listSeedScenes().includes(current)) return;
   if (!confirm(`Replace "${current}" with its built-in template? Any edits you made will be lost.`)) return;
   resetSeedScene(current);
-  loadCodeIntoEditor(getSceneCode(current) ?? '');
+  const code = getSceneCode(current) ?? '';
+  loadCodeIntoEditor(code);
+  touchScene(current);
   refreshSceneDropdown();
   setStatus('', `scene reset: ${current}`);
+  if (code.trim().length > 0) runEval(code);
 });
+
+// Stamp the boot-active scene so it appears in the "recent" group
+// from the first render.
+touchScene(getActiveScene());
 
 refreshSceneDropdown();
 
