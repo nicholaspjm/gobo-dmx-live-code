@@ -181,6 +181,54 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
   },
 };
 
+// ─── Sim registry ────────────────────────────────────────────────────────────
+// Every fixture / strip the user creates in a scene pushes itself onto this
+// list so the UI's sim panel can render exactly what's in play — no more,
+// no less. Cleared at the start of each evalCode() cycle alongside the
+// pattern registry, so you get a fresh snapshot per scene.
+//
+// Each entry carries what the sim renderer needs and nothing else:
+//   - how to draw it (globe / dimmer / rgb strip / rgbw strip)
+//   - which DMX channels to read for live values
+//   - a label for display + tooltip
+// Channel offsets are all 0-based within the universe buffer.
+
+export type SimRenderKind = 'globe-rgbw' | 'globe-dim' | 'strip-rgb' | 'strip-rgbw';
+
+export interface SimFixture {
+  /** Short label shown under the element in the sim panel (falls back to
+   *  `id` when no better name is available). */
+  label: string;
+  /** Debug/tooltip detail — the human-readable fixture type. */
+  type: string;
+  universe: number;
+  /** 1-based DMX start channel. */
+  startChannel: number;
+  /** Total channels this entry occupies — tooltip-only. */
+  channelCount: number;
+  render:
+    | { kind: 'globe-rgbw'; r?: number; g?: number; b?: number; w?: number; dim?: number }
+    | { kind: 'globe-dim';  dim: number }
+    | { kind: 'strip-rgb';  pixelCount: number }
+    | { kind: 'strip-rgbw'; pixelCount: number };
+}
+
+const _simFixtures: SimFixture[] = [];
+
+export function registerSimFixture(fix: SimFixture): void {
+  _simFixtures.push(fix);
+}
+
+/** UI-side: read the current fixtures after eval to (re)build the panel. */
+export function getSimFixtures(): readonly SimFixture[] {
+  return _simFixtures;
+}
+
+/** Called from eval.ts at the start of every evalCode(). */
+export function clearSimFixtures(): void {
+  _simFixtures.length = 0;
+}
+
 // ─── Runtime fixture registry (user-defined fixtures) ─────────────────────────
 
 const _customFixtures: Record<string, FixtureDef> = {};
@@ -334,11 +382,51 @@ export function fixture(
       const stripStart = startChannel + ch.offset;
       inst[ch.name] =
         ch.pixelLayout === 'rgbw'
-          ? rgbwStrip(stripStart, pixelCount, universe)
-          : rgbStrip(stripStart, pixelCount, universe);
+          ? rgbwStrip(stripStart, pixelCount, universe, { simLabel: `${fixtureId} · ${ch.name}` })
+          : rgbStrip(stripStart, pixelCount, universe, { simLabel: `${fixtureId} · ${ch.name}` });
     } else {
       inst[ch.name] = (value: PatternOrValue) => inst.set(ch.name, value);
     }
+  }
+
+  // ── Register with the sim panel ──
+  // If the fixture has a strip channel the embedded rgbStrip/rgbwStrip call
+  // above registers the visible element — skip the "main" globe here to
+  // avoid showing an extra ghost face for dim/strobe control channels.
+  // Otherwise, pick a renderer based on whichever standard channels the
+  // def exposes (rgb/w preferred; fall back to just a dimmer).
+  const hasStrip = def.channels.some((c) => c.type === 'strip');
+  if (!hasStrip) {
+    const byName = (n: string): number | undefined =>
+      def.channels.find((c) => c.name === n)?.offset;
+    const r = byName('red');
+    const g = byName('green');
+    const b = byName('blue');
+    const w = byName('white');
+    const dimOffset = byName('dim');
+    const hasColor =
+      r !== undefined || g !== undefined || b !== undefined || w !== undefined;
+
+    if (hasColor) {
+      registerSimFixture({
+        label: fixtureId,
+        type: def.name,
+        universe,
+        startChannel,
+        channelCount: def.channelCount,
+        render: { kind: 'globe-rgbw', r, g, b, w, dim: dimOffset },
+      });
+    } else if (dimOffset !== undefined) {
+      registerSimFixture({
+        label: fixtureId,
+        type: def.name,
+        universe,
+        startChannel,
+        channelCount: def.channelCount,
+        render: { kind: 'globe-dim', dim: dimOffset },
+      });
+    }
+    // else: no visible channels (e.g. pan/tilt only) — don't clutter the sim.
   }
 
   return inst;
@@ -425,6 +513,7 @@ export function rgbStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
+  opts: { simLabel?: string } = {},
 ): StripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbStrip: pixelCount must be >= 1 (got ${pixelCount})`);
@@ -502,6 +591,14 @@ export function rgbStrip(
       rainbowChaseImpl(inst, opts);
     },
   };
+  registerSimFixture({
+    label: opts.simLabel ?? `rgbStrip ×${pixelCount}`,
+    type: 'RGB pixel strip',
+    universe,
+    startChannel,
+    channelCount,
+    render: { kind: 'strip-rgb', pixelCount },
+  });
   return inst;
 }
 
@@ -562,6 +659,7 @@ export function rgbwStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
+  opts: { simLabel?: string } = {},
 ): RgbwStripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbwStrip: pixelCount must be >= 1 (got ${pixelCount})`);
@@ -629,6 +727,14 @@ export function rgbwStrip(
       rainbowChaseImpl(inst, opts);
     },
   };
+  registerSimFixture({
+    label: opts.simLabel ?? `rgbwStrip ×${pixelCount}`,
+    type: 'RGBW pixel strip',
+    universe,
+    startChannel,
+    channelCount,
+    render: { kind: 'strip-rgbw', pixelCount },
+  });
   return inst;
 }
 

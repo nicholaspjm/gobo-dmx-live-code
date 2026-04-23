@@ -344,6 +344,15 @@
         color: var(--text-muted);
         letter-spacing: 0.06em;
       }
+      .fixture-empty {
+        font-size: 10px;
+        color: var(--text-muted);
+        font-style: italic;
+        letter-spacing: 0.06em;
+      }
+      .fixture-empty.hidden {
+        display: none;
+      }
 
       #visualizer {
         display: block;
@@ -1222,24 +1231,11 @@
       <div class="viz-wrap">
         <div class="fixture-panel">
           <span class="fixture-label">sim</span>
-          <div class="fixture-lights">
-            <div class="fixture-unit">
-              <div class="fixture-globe" id="sim-wash"></div>
-              <span class="fixture-name">wash</span>
-            </div>
-            <div class="fixture-unit">
-              <div class="fixture-globe" id="sim-strobe"></div>
-              <span class="fixture-name">strobe</span>
-            </div>
-            <div class="fixture-unit">
-              <div class="fixture-strip" id="sim-strip"></div>
-              <span class="fixture-name">strip</span>
-            </div>
-            <div class="fixture-unit">
-              <div class="fixture-strip" id="sim-bar"></div>
-              <span class="fixture-name">bar (u1)</span>
-            </div>
-          </div>
+          <!-- Sim panel is rebuilt dynamically in main.ts after every eval —
+               one fixture-unit element per SimFixture the current scene
+               registered with the core. Empty when nothing is defined. -->
+          <div class="fixture-lights" id="fixture-lights"></div>
+          <span class="fixture-empty" id="fixture-empty">no fixtures in this scene</span>
         </div>
         <canvas id="visualizer"></canvas>
       </div>

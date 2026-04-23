@@ -18,6 +18,7 @@ import {
   rgbStrip,
   rgbwStrip,
   clearVizRegistry,
+  clearSimFixtures,
   setStripEffectWaveforms,
 } from './fixtures.js';
 import { sendConfig } from './websocket.js';
@@ -238,6 +239,7 @@ export function evalCode(code: string): EvalResult {
     clearDefs();
     clearVizRegistry();
     clearPatternVizRegistry();
+    clearSimFixtures();
 
     const ctx: Record<string, unknown> = {
       // DMX API

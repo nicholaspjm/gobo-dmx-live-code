@@ -33,6 +33,8 @@ import {
   disableMic,
   getTrackInfo,
   restoreLibraryFixtures,
+  getSimFixtures,
+  type SimFixture,
 } from '@lumen/core';
 
 import { createEditor, INITIAL_CODE } from './editor.js';
@@ -69,6 +71,9 @@ function runEval(code: string): void {
     // in the new code. Widgets animate from the live universe buffer; this
     // call only (re)places them in the editor at the right lines.
     refreshViz(editorView);
+    // Rebuild the sim panel — one fixture-unit per registered SimFixture
+    // in the new code. Shows exactly what's in the active scene.
+    rebuildSimPanel();
     // Refresh the library panel too — a new defineFixture call might have
     // just added (or replaced) a custom fixture that the user can now save.
     _refreshLibraryAfterEval();
@@ -258,85 +263,94 @@ onStatusChange((connected) => {
 connectBridge();
 
 // ─── Fixture simulation ──────────────────────────────────────────────────────
-// Maps demo fixture channels to the little glowing elements in the sim panel.
-// Layout matches the default init code in editor.ts:
-//   uni 0, ch 1-4   = wash RGBW
-//   uni 0, ch 5-6   = strobe (dim + strobe rate)
-//   uni 0, ch 7-36  = 10-pixel RGB strip
-//   uni 1, ch 1-38  = four-colour moving bar (RGBW pixel segment at ch 7+)
+// Rebuilt from scratch after every successful eval. The core sim-fixture
+// registry (populated by each fixture/rgbStrip/rgbwStrip call in the
+// scene) tells us exactly what to draw — one fixture-unit element per
+// entry. Hardcoded addresses are gone; whatever the scene creates, the
+// panel reflects.
 
-const simWash   = document.getElementById('sim-wash')   as HTMLElement;
-const simStrobe = document.getElementById('sim-strobe') as HTMLElement;
-const simStrip  = document.getElementById('sim-strip')  as HTMLElement;
-const simBar    = document.getElementById('sim-bar')    as HTMLElement;
+const simContainerEl = document.getElementById('fixture-lights') as HTMLElement;
+const simEmptyEl     = document.getElementById('fixture-empty')  as HTMLElement;
 
-const SIM_STRIP_START_CH = 7; // 1-indexed DMX
-const SIM_STRIP_PIXELS = 10;
-
-// Four-colour moving bar sim — universe 1, RGBW pixels start at ch7.
-// (ch1 direction, ch2 speed, ch3 effect, ch4 effectSpeed, ch5 dim, ch6 strobe,
-//  ch7-38 = 8 RGBW pixels × 4 channels.)
-const SIM_BAR_UNIVERSE = 1;
-const SIM_BAR_DIM_CH = 5;            // 1-indexed
-const SIM_BAR_PIXEL_START_CH = 7;    // 1-indexed
-const SIM_BAR_PIXELS = 8;
-const SIM_BAR_STRIDE = 4;            // RGBW
-
-// Build strip pixel elements once.
-const stripPixelEls: HTMLElement[] = [];
-for (let i = 0; i < SIM_STRIP_PIXELS; i++) {
-  const p = document.createElement('div');
-  p.className = 'fixture-strip-pixel';
-  simStrip.appendChild(p);
-  stripPixelEls.push(p);
+interface RenderedSimFixture {
+  core: SimFixture;
+  unitEl: HTMLElement;
+  /** The glowing bit (.fixture-globe for globes, .fixture-strip for strips). */
+  mainEl: HTMLElement;
+  /** Per-pixel elements when render.kind is a strip. Populated at build time. */
+  pixelEls?: HTMLElement[];
 }
 
-const barPixelEls: HTMLElement[] = [];
-for (let i = 0; i < SIM_BAR_PIXELS; i++) {
-  const p = document.createElement('div');
-  p.className = 'fixture-strip-pixel';
-  simBar.appendChild(p);
-  barPixelEls.push(p);
+let _renderedSim: RenderedSimFixture[] = [];
+
+/** Wipe the sim panel and recreate one unit per registered sim fixture.
+ *  Called after every successful evalCode(). */
+function rebuildSimPanel(): void {
+  simContainerEl.innerHTML = '';
+  _renderedSim = [];
+
+  const fixtures = getSimFixtures();
+  simEmptyEl.classList.toggle('hidden', fixtures.length > 0);
+
+  for (const fix of fixtures) {
+    const unit = document.createElement('div');
+    unit.className = 'fixture-unit';
+
+    let mainEl: HTMLElement;
+    let pixelEls: HTMLElement[] | undefined;
+
+    if (fix.render.kind === 'strip-rgb' || fix.render.kind === 'strip-rgbw') {
+      mainEl = document.createElement('div');
+      mainEl.className = 'fixture-strip';
+      pixelEls = [];
+      for (let i = 0; i < fix.render.pixelCount; i++) {
+        const p = document.createElement('div');
+        p.className = 'fixture-strip-pixel';
+        mainEl.appendChild(p);
+        pixelEls.push(p);
+      }
+    } else {
+      mainEl = document.createElement('div');
+      mainEl.className = 'fixture-globe';
+    }
+    unit.appendChild(mainEl);
+
+    const label = document.createElement('span');
+    label.className = 'fixture-name';
+    label.textContent = fix.label;
+    unit.appendChild(label);
+
+    simContainerEl.appendChild(unit);
+    const rendered: RenderedSimFixture = { core: fix, unitEl: unit, mainEl, pixelEls };
+    _renderedSim.push(rendered);
+    bindTooltip(rendered);
+  }
 }
 
-/**
- * Single-dimmer globe — fixture has a fixed tint, the dimmer channel scales it.
- * Used for spot and strobe.
- */
-function updateGlobeDim(
-  el: HTMLElement,
-  dimmer: number,   // 0-255
-  r: number, g: number, b: number  // fixture's native tint, 0-255 each
-): void {
+/** Single-dimmer globe — fixed white tint scaled by the dimmer value. */
+function updateGlobeDim(el: HTMLElement, dimmer: number): void {
   const d = dimmer / 255;
   if (d < 0.02) {
     el.style.background = '#1a1714';
     el.style.boxShadow = 'none';
     return;
   }
-  const ri = Math.round(r * d);
-  const gi = Math.round(g * d);
-  const bi = Math.round(b * d);
-  const glowR = Math.min(255, Math.round(ri * 1.5));
-  const glowG = Math.min(255, Math.round(gi * 1.5));
-  const glowB = Math.min(255, Math.round(bi * 1.5));
-  el.style.background = `rgb(${ri},${gi},${bi})`;
-  el.style.boxShadow = `0 0 ${Math.round(d * 24)}px ${Math.round(d * 12)}px rgba(${glowR},${glowG},${glowB},${(d * 0.7).toFixed(2)})`;
+  const c = Math.round(255 * d);
+  const glow = Math.min(255, Math.round(c * 1.5));
+  el.style.background = `rgb(${c},${c},${c})`;
+  el.style.boxShadow = `0 0 ${Math.round(d * 24)}px ${Math.round(d * 12)}px rgba(${glow},${glow},${glow},${(d * 0.7).toFixed(2)})`;
 }
 
-/**
- * RGBW globe — each channel directly contributes to the output, matching how
- * generic-rgbw actually behaves. White mixes equally into R/G/B. No master
- * dimmer, so a sine on .red() produces an undistorted sine on screen.
- * (The old logic multiplied by max(R,G,B,W), which double-scaled the waveform.)
- */
+/** RGBW globe — W mixes additively into R/G/B, optional master dim scales
+ *  the whole output (used for moving-head-style fixtures with a dim channel). */
 function updateGlobeRGBW(
   el: HTMLElement,
-  r: number, g: number, b: number, w: number, // 0-255 each
+  r: number, g: number, b: number, w: number,
+  dimScale = 1,
 ): void {
-  const rr = Math.min(255, r + w);
-  const gg = Math.min(255, g + w);
-  const bb = Math.min(255, b + w);
+  const rr = Math.min(255, Math.round((r + w) * dimScale));
+  const gg = Math.min(255, Math.round((g + w) * dimScale));
+  const bb = Math.min(255, Math.round((b + w) * dimScale));
   const brightness = Math.max(rr, gg, bb) / 255;
   if (brightness < 0.02) {
     el.style.background = '#1a1714';
@@ -350,7 +364,7 @@ function updateGlobeRGBW(
   el.style.boxShadow = `0 0 ${Math.round(brightness * 24)}px ${Math.round(brightness * 12)}px rgba(${glowR},${glowG},${glowB},${(brightness * 0.7).toFixed(2)})`;
 }
 
-/** Small rectangular pixel in the strip sim. No master dimmer. */
+/** One pixel in a strip — simple RGB render, caller pre-mixes W if needed. */
 function updateStripPixel(el: HTMLElement, r: number, g: number, b: number): void {
   const brightness = Math.max(r, g, b) / 255;
   if (brightness < 0.02) {
@@ -362,158 +376,127 @@ function updateStripPixel(el: HTMLElement, r: number, g: number, b: number): voi
   el.style.boxShadow = `0 0 ${Math.round(brightness * 6)}px rgba(${r},${g},${b},${(brightness * 0.7).toFixed(2)})`;
 }
 
-/**
- * RGBW pixel for the bar sim. White adds to R/G/B additively, and the bar's
- * master dimmer (ch5) scales the whole output so you see the fixture go
- * dark if dim() is dropped to 0.
- */
-function updateBarPixel(
-  el: HTMLElement,
-  r: number, g: number, b: number, w: number,
-  dimScale: number, // 0..1
-): void {
-  const rr = Math.min(255, Math.round((r + w) * dimScale));
-  const gg = Math.min(255, Math.round((g + w) * dimScale));
-  const bb = Math.min(255, Math.round((b + w) * dimScale));
-  const brightness = Math.max(rr, gg, bb) / 255;
-  if (brightness < 0.02) {
-    el.style.background = '#1a1714';
-    el.style.boxShadow = 'none';
-    return;
-  }
-  el.style.background = `rgb(${rr},${gg},${bb})`;
-  el.style.boxShadow = `0 0 ${Math.round(brightness * 6)}px rgba(${rr},${gg},${bb},${(brightness * 0.7).toFixed(2)})`;
-}
-
+// ~30fps driver loop — reads universe buffers and paints each rendered
+// sim fixture according to its render kind.
 setInterval(() => {
-  const ch = getPrimaryUniverseSnapshot();
-  // wash: ch 1-4 RGBW
-  updateGlobeRGBW(simWash, ch[0], ch[1], ch[2], ch[3]);
-  // strobe: ch 5 dim (ch 6 strobe-rate isn't visualised)
-  updateGlobeDim(simStrobe, ch[4], 255, 255, 255);
-  // strip: ch 7..36 as 10 RGB pixels
-  for (let i = 0; i < SIM_STRIP_PIXELS; i++) {
-    const base = (SIM_STRIP_START_CH - 1) + i * 3; // 0-indexed into the buffer
-    updateStripPixel(stripPixelEls[i], ch[base], ch[base + 1], ch[base + 2]);
-  }
+  for (const r of _renderedSim) {
+    const buf = getUniverseBuffer(r.core.universe);
+    const base = r.core.startChannel - 1; // 0-indexed
+    const render = r.core.render;
 
-  // four-colour moving bar on universe 1 — 8 RGBW pixels, master dim at ch5.
-  const barCh = getUniverseBuffer(SIM_BAR_UNIVERSE);
-  const dimScale = (barCh[SIM_BAR_DIM_CH - 1] ?? 0) / 255;
-  for (let i = 0; i < SIM_BAR_PIXELS; i++) {
-    const base = (SIM_BAR_PIXEL_START_CH - 1) + i * SIM_BAR_STRIDE;
-    updateBarPixel(
-      barPixelEls[i],
-      barCh[base] ?? 0,
-      barCh[base + 1] ?? 0,
-      barCh[base + 2] ?? 0,
-      barCh[base + 3] ?? 0,
-      dimScale,
-    );
+    if (render.kind === 'globe-rgbw') {
+      const dimScale = render.dim !== undefined
+        ? (buf[base + render.dim] ?? 0) / 255
+        : 1;
+      updateGlobeRGBW(
+        r.mainEl,
+        render.r !== undefined ? (buf[base + render.r] ?? 0) : 0,
+        render.g !== undefined ? (buf[base + render.g] ?? 0) : 0,
+        render.b !== undefined ? (buf[base + render.b] ?? 0) : 0,
+        render.w !== undefined ? (buf[base + render.w] ?? 0) : 0,
+        dimScale,
+      );
+    } else if (render.kind === 'globe-dim') {
+      updateGlobeDim(r.mainEl, buf[base + render.dim] ?? 0);
+    } else if (render.kind === 'strip-rgb') {
+      const pixels = r.pixelEls ?? [];
+      for (let i = 0; i < render.pixelCount; i++) {
+        const pb = base + i * 3;
+        updateStripPixel(pixels[i], buf[pb] ?? 0, buf[pb + 1] ?? 0, buf[pb + 2] ?? 0);
+      }
+    } else if (render.kind === 'strip-rgbw') {
+      const pixels = r.pixelEls ?? [];
+      for (let i = 0; i < render.pixelCount; i++) {
+        const pb = base + i * 4;
+        const rv = buf[pb] ?? 0;
+        const gv = buf[pb + 1] ?? 0;
+        const bv = buf[pb + 2] ?? 0;
+        const wv = buf[pb + 3] ?? 0;
+        // Mix W additively into RGB for the on-screen pixel — same approach
+        // the old barPixel renderer used.
+        updateStripPixel(
+          pixels[i],
+          Math.min(255, rv + wv),
+          Math.min(255, gv + wv),
+          Math.min(255, bv + wv),
+        );
+      }
+    }
   }
-}, 33); // ~30fps
+}, 33);
 
 // ─── Fixture sim tooltips ────────────────────────────────────────────────────
-// Hover over any fixture in the sim panel to see its name, type, universe,
-// channel range, and live DMX values. The metadata is hand-curated here
-// because the sim panel itself is hand-wired above — we don't introspect
-// the fixture registry (which only exists inside the eval sandbox).
-
-interface SimTooltipChannel {
-  name: string;
-  /** 1-based DMX channel address, absolute within the fixture's universe. */
-  ch: number;
-  /** When present, the value in the tooltip is rendered as `val (hint)` —
-   *  e.g. dim gets '48%', strobe gets '0%'. */
-  format?: 'pct' | 'raw';
-}
-
-interface SimTooltipFixture {
-  el: HTMLElement;
-  name: string;
-  type: string;
-  universe: number;
-  /** Human range shown in the tooltip header, e.g. 'ch 1-4'. */
-  chRange: string;
-  channels: SimTooltipChannel[];
-  /** Extra note shown under meta, e.g. '10 pixels × RGB'. */
-  note?: string;
-}
-
-const simTooltipFixtures: SimTooltipFixture[] = [
-  {
-    el: simWash, name: 'wash', type: 'generic-rgbw',
-    universe: 0, chRange: 'ch 1-4',
-    channels: [
-      { name: 'red',   ch: 1, format: 'pct' },
-      { name: 'green', ch: 2, format: 'pct' },
-      { name: 'blue',  ch: 3, format: 'pct' },
-      { name: 'white', ch: 4, format: 'pct' },
-    ],
-  },
-  {
-    el: simStrobe, name: 'strobe', type: 'strobe-basic',
-    universe: 0, chRange: 'ch 5-6',
-    channels: [
-      { name: 'dim',    ch: 5, format: 'pct' },
-      { name: 'strobe', ch: 6, format: 'pct' },
-    ],
-  },
-  {
-    el: simStrip, name: 'strip', type: 'rgbStrip',
-    universe: 0, chRange: 'ch 7-36',
-    note: `${SIM_STRIP_PIXELS} pixels × RGB`,
-    // For strips we surface the first pixel only — the rest is noise at
-    // tooltip scale. Channel count hint is in the note above.
-    channels: [
-      { name: 'px0.r', ch: SIM_STRIP_START_CH + 0, format: 'raw' },
-      { name: 'px0.g', ch: SIM_STRIP_START_CH + 1, format: 'raw' },
-      { name: 'px0.b', ch: SIM_STRIP_START_CH + 2, format: 'raw' },
-    ],
-  },
-  {
-    el: simBar, name: 'four-colour bar', type: 'four-color-bar (custom)',
-    universe: 1, chRange: 'ch 1-38',
-    note: `${SIM_BAR_PIXELS} pixels × RGBW · effect/strobe/dim chs`,
-    channels: [
-      { name: 'direction',   ch: 1, format: 'raw' },
-      { name: 'speed',       ch: 2, format: 'raw' },
-      { name: 'effect',      ch: 3, format: 'raw' },
-      { name: 'effectSpeed', ch: 4, format: 'raw' },
-      { name: 'dim',         ch: 5, format: 'pct' },
-      { name: 'strobe',      ch: 6, format: 'pct' },
-    ],
-  },
-];
+// Hover any unit in the sim panel → tooltip with name, type, universe,
+// channel range, and live DMX values. Data comes straight from the
+// SimFixture registry, so whatever the scene creates gets a matching
+// tooltip automatically. Bound per-fixture at rebuild time so the
+// elements line up after the panel is wiped + rebuilt.
 
 const tooltipEl = document.getElementById('fixture-tooltip') as HTMLElement;
-let _hoveredFixture: SimTooltipFixture | null = null;
+let _hoveredSim: RenderedSimFixture | null = null;
 
-/** Format a 0..255 DMX value for the tooltip. */
-function formatDmx(raw: number, mode: 'pct' | 'raw' = 'raw'): string {
-  if (mode === 'pct') return `${Math.round((raw / 255) * 100)}%`;
-  return String(raw);
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/** Build the tooltip body for a fixture. */
-function renderTooltip(f: SimTooltipFixture): void {
-  const buf = getUniverseBuffer(f.universe);
-  const rows = f.channels.map((c) => {
-    const val = buf[c.ch - 1] ?? 0;
-    return `<div class="tt-row"><span class="tt-key">${c.name}</span><span class="tt-val">${formatDmx(val, c.format)}</span></div>`;
-  }).join('');
+/** Render the tooltip body for a sim fixture based on its render kind.
+ *  Globes expose their named channels as percentages; strips surface
+ *  the first pixel's raw values so you can see what's going in. */
+function renderTooltip(r: RenderedSimFixture): void {
+  const { label, type, universe, startChannel, channelCount, render } = r.core;
+  const buf = getUniverseBuffer(universe);
+  const base = startChannel - 1;
+
+  const rows: string[] = [];
+  let note = '';
+
+  if (render.kind === 'globe-rgbw') {
+    const push = (name: string, off?: number): void => {
+      if (off === undefined) return;
+      const v = buf[base + off] ?? 0;
+      rows.push(
+        `<div class="tt-row"><span class="tt-key">${name}</span><span class="tt-val">${Math.round((v / 255) * 100)}%</span></div>`,
+      );
+    };
+    push('red',   render.r);
+    push('green', render.g);
+    push('blue',  render.b);
+    push('white', render.w);
+    push('dim',   render.dim);
+  } else if (render.kind === 'globe-dim') {
+    const v = buf[base + render.dim] ?? 0;
+    rows.push(
+      `<div class="tt-row"><span class="tt-key">dim</span><span class="tt-val">${Math.round((v / 255) * 100)}%</span></div>`,
+    );
+  } else {
+    // Strip — first-pixel preview.
+    const stride = render.kind === 'strip-rgbw' ? 4 : 3;
+    const names = render.kind === 'strip-rgbw' ? ['r', 'g', 'b', 'w'] : ['r', 'g', 'b'];
+    for (let j = 0; j < stride; j++) {
+      const v = buf[base + j] ?? 0;
+      rows.push(
+        `<div class="tt-row"><span class="tt-key">px0.${names[j]}</span><span class="tt-val">${v}</span></div>`,
+      );
+    }
+    note = `${render.pixelCount} pixels × ${render.kind === 'strip-rgbw' ? 'RGBW' : 'RGB'}`;
+  }
+
+  const chRange = channelCount > 1
+    ? `ch ${startChannel}-${startChannel + channelCount - 1}`
+    : `ch ${startChannel}`;
+
   tooltipEl.innerHTML =
-    `<div class="tt-name">${f.name}</div>` +
-    `<div class="tt-meta">${f.type} · uni ${f.universe} · ${f.chRange}</div>` +
-    (f.note ? `<div class="tt-meta">${f.note}</div>` : '') +
+    `<div class="tt-name">${escapeHtml(label)}</div>` +
+    `<div class="tt-meta">${escapeHtml(type)} · uni ${universe} · ${chRange}</div>` +
+    (note ? `<div class="tt-meta">${escapeHtml(note)}</div>` : '') +
     `<div class="tt-divider"></div>` +
-    rows;
+    rows.join('');
 }
 
 function positionTooltip(rect: DOMRect): void {
   // Anchor above the fixture by default; if there's no room up top, drop
-  // it below. Clamp horizontally to the viewport so long fixture names
-  // don't push the card offscreen.
+  // it below. Clamp horizontally to the viewport so long labels don't
+  // push the card offscreen.
   const tt = tooltipEl.getBoundingClientRect();
   const margin = 10;
   const topPref = rect.top - tt.height - margin;
@@ -524,26 +507,24 @@ function positionTooltip(rect: DOMRect): void {
   tooltipEl.style.left = `${left}px`;
 }
 
-for (const f of simTooltipFixtures) {
-  f.el.addEventListener('mouseenter', () => {
-    _hoveredFixture = f;
-    renderTooltip(f);
+function bindTooltip(rendered: RenderedSimFixture): void {
+  rendered.mainEl.addEventListener('mouseenter', () => {
+    _hoveredSim = rendered;
+    renderTooltip(rendered);
     tooltipEl.classList.add('open');
-    // Position after the browser has laid out the freshly-populated content.
-    requestAnimationFrame(() => positionTooltip(f.el.getBoundingClientRect()));
+    requestAnimationFrame(() => positionTooltip(rendered.mainEl.getBoundingClientRect()));
   });
-  f.el.addEventListener('mouseleave', () => {
-    if (_hoveredFixture === f) {
-      _hoveredFixture = null;
+  rendered.mainEl.addEventListener('mouseleave', () => {
+    if (_hoveredSim === rendered) {
+      _hoveredSim = null;
       tooltipEl.classList.remove('open');
     }
   });
 }
 
-// Live-refresh the tooltip values while hovered. Piggy-backs on a modest
-// 10 Hz tick — plenty fast to look live, cheap to run.
+// Live-refresh values while hovered (10 Hz, cheap).
 setInterval(() => {
-  if (_hoveredFixture) renderTooltip(_hoveredFixture);
+  if (_hoveredSim) renderTooltip(_hoveredSim);
 }, 100);
 
 // ─── Scene picker ────────────────────────────────────────────────────────────
