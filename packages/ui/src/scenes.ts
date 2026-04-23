@@ -182,6 +182,24 @@ export function seedScenesIfEmpty(defaultCode: string): void {
     map['ultratronics 11'] = ULTRATONICS_11_TEMPLATE;
     changed = true;
   }
+  // Auto-upgrade the stale ultratronics seed in place: earlier versions
+  // of this template called `spot.dim(...)` on a generic-rgbw fixture,
+  // which throws "spot.dim is not a function" at runtime since that
+  // fixture has no dim channel. If the saved scene still contains that
+  // signature we know it's the pre-fix version and it's safe to
+  // overwrite — user edits wouldn't have left the broken calls intact.
+  const saved = map['ultratronics 11'] ?? '';
+  if (/\bspot\.dim\s*\(/.test(saved) && saved !== ULTRATONICS_11_TEMPLATE) {
+    map['ultratronics 11'] = ULTRATONICS_11_TEMPLATE;
+    changed = true;
+  }
+  // Same treatment for anyone still on the misspelled key who never got
+  // the rename migration above (e.g. they had both before we shipped it).
+  const savedTypo = map['ultratonics 11'] ?? '';
+  if (/\bspot\.dim\s*\(/.test(savedTypo)) {
+    map['ultratonics 11'] = ULTRATONICS_11_TEMPLATE;
+    changed = true;
+  }
   if (changed) writeAll(map);
 }
 
