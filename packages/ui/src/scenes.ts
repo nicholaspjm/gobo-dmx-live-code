@@ -101,11 +101,50 @@ export function seedScenesIfEmpty(defaultCode: string): void {
     map[DEFAULT_SCENE] = defaultCode;
     changed = true;
   }
-  if (!map['ultratonics 11']) {
-    map['ultratonics 11'] = ULTRATONICS_11_TEMPLATE;
+  // One-time migration: my earlier seed had a typo ('ultratonics'); the
+  // real album title is 'ultratronics'. If the user has the typo version
+  // and no corrected version, rename it in place and preserve any edits
+  // they made. If both exist, they already sorted it out themselves.
+  if (map['ultratonics 11'] && !map['ultratronics 11']) {
+    map['ultratronics 11'] = map['ultratonics 11'];
+    delete map['ultratonics 11'];
+    if (getActiveScene() === 'ultratonics 11') setActiveScene('ultratronics 11');
+    changed = true;
+  }
+  if (!map['ultratronics 11']) {
+    map['ultratronics 11'] = ULTRATONICS_11_TEMPLATE;
     changed = true;
   }
   if (changed) writeAll(map);
+}
+
+/**
+ * Overwrite a named seed scene with the current template, bypassing the
+ * "don't overwrite user edits" rule of seedScenesIfEmpty. Used by the UI
+ * when the user wants to pick up an updated built-in template after a
+ * release. No-op for scene names that don't have a built-in template.
+ */
+export function resetSeedScene(name: string): boolean {
+  if (name === DEFAULT_SCENE) return false;
+  const seed = builtInSeeds()[name];
+  if (!seed) return false;
+  const map = readAll();
+  map[name] = seed;
+  writeAll(map);
+  return true;
+}
+
+/** Ids that `resetSeedScene` knows how to re-seed. */
+export function listSeedScenes(): readonly string[] {
+  return Object.keys(builtInSeeds());
+}
+
+/** Function instead of an object literal so forward-referencing
+ *  ULTRATONICS_11_TEMPLATE (declared further down) is safe. */
+function builtInSeeds(): Record<string, string> {
+  return {
+    'ultratronics 11': ULTRATONICS_11_TEMPLATE,
+  };
 }
 
 // ─── Built-in templates ──────────────────────────────────────────────────────
@@ -124,58 +163,84 @@ export function seedScenesIfEmpty(defaultCode: string): void {
  * when you rehearse to lock the internal clock to the actual track,
  * or enable the audio-reactive variants to follow the recording.
  */
-const ULTRATONICS_11_TEMPLATE = `// ultratonics 11 — live-performance template (Ryoji Ikeda)
+const ULTRATONICS_11_TEMPLATE = `// ultratronics 11 — Ryoji Ikeda · 5:30 · 108 BPM
 //
-// Each musical element below is a function. Add a call to the LIVE
-// block at the bottom to bring it in, remove the call to drop it.
-// Ctrl+Enter re-evaluates; Ctrl+. zeroes every channel.
+// Section cues extracted from the actual track via librosa analysis
+// (scripts/analyse-track.py). Timings are seconds into the file —
+// keep this comment pinned for rehearsal.
 //
-// Load the actual track in the audio bar at the bottom of the screen
-// if you want the audio-reactive variants to follow the recording.
-// Otherwise tap-tempo or setBPM() to match by ear.
+//   0:00  intro            sparse, dark · rms ~0.33
+//   0:36  development      bass creeping in · rms ~0.36
+//   1:12  first shift      texture change · rms ~0.39→0.68
+//   1:35  main body        full drive · rms 0.70–0.94 (peaks ~2:10)
+//   3:00  second wave      peak intensity · rms 0.72–0.98 (peak ~3:40)
+//   4:36  outro            ebb · rms 0.56–0.60
+//   5:21  fade             rms falls to silence
+//
+// Load the audio file in the bar below and tap 'play'. setBPM(108)
+// is already wired; if librosa's estimate drifts from what you hear,
+// tap-tempo with T. Audio-reactive variants follow the recording when
+// the track is playing; the non-audio ones run off the internal clock.
 
 artnet('2.0.0.100')
-setBPM(130)
+setBPM(108)
 
 // ── fixtures ──────────────────────────────────────────────
-// Spot = any simple 4-channel RGBW par at DMX ch 1-4, universe 0.
-// Bar  = the custom four-colour moving bar from the public library.
+// spot = simple RGBW par at uni 0 ch 1-4.
+// bar  = four-colour moving bar from the public library on uni 1.
 const spot = fixture(1, 'generic-rgbw').viz('color')
 const bar  = fixture(1, 'four-color-bar', 1)
 bar.pixels.viz('strip')
 bar.dim(1)
 
 // ── instrument library ────────────────────────────────────
-// Calling a function REGISTERS its patterns. Not calling it means
-// those channels stay at zero. Each eval wipes previous patterns
-// first, so the set of called functions is the full current state.
+// Each call registers patterns on specific channels. Skipping a call
+// means those channels stay at zero. Every Ctrl+Enter wipes the
+// previous set — the uncommented calls below are the full current
+// state, no implicit carry-over.
 
-// KICK — sparse downbeat thud on the spot's dimmer.
+// KICK_SLOW — deep downbeat thud. Matches the intro's sparse low end.
+function kickSlow() {
+  spot.dim(mini('1 - - -').slow(2).flash())
+}
+
+// KICK — on every beat. Main body / second wave.
 function kick() {
   spot.dim(mini('1 - - -').flash())
 }
 
-// KICK_DOUBLE — kick on beats 1 and 3 of each bar.
+// KICK_DOUBLE — on 1 and 3 of each bar. Tighter in-the-pocket feel.
 function kickDouble() {
   spot.dim(mini('1 - 1 -').flash())
 }
 
-// HATS — 16th-note clicks. Bright high-frequency detail.
-function hats() {
-  spot.white(mini('1 1 1 1  1 1 1 1  1 1 1 1  1 1 1 1').range(0, 0.35))
-}
-
-// HATS_OFFBEAT — only the off-beats, sparser.
+// HATS_OFFBEAT — only the 8th off-beats. Good for the intro / shift.
 function hatsOffbeat() {
   spot.white(mini('- 1 - 1 - 1 - 1').range(0, 0.4))
 }
 
-// SINE_TONE — long pulsing blue drone. Classic Ikeda texture.
+// HATS — fast 16th-note clicks. Ikeda-style high-frequency detail.
+function hats() {
+  spot.white(mini('1 1 1 1  1 1 1 1  1 1 1 1  1 1 1 1').range(0, 0.35))
+}
+
+// HATS_DENSE — 32nd-note roll. Save for transitions / drops.
+function hatsDense() {
+  spot.white(mini('1*32').range(-2, 0.6))
+}
+
+// SINE_DEEP — very slow blue drone. Opens the track.
+function sineDeep() {
+  spot.blue(sine().slow(32).range(0.3, 0.8).glow())
+}
+
+// SINE_TONE — medium-slow drone. Fills the development / main body.
 function sineTone() {
   spot.blue(sine().slow(16).range(0.1, 0.9).glow())
 }
 
 // NOISE_BURST — sparse red spikes from thresholded randomness.
+// Good in the "shift" section where Ikeda introduces irregular hits.
 function noiseBurst() {
   spot.red(rand().range(-6, 1))
 }
@@ -190,7 +255,7 @@ function barSweep() {
   bar.pixels.rainbowChase({ speed: 2, narrow: 12 })
 }
 
-// BAR_STROBE — continuous 16th-note strobe. Use sparingly (drops only).
+// BAR_STROBE — continuous 16th-note strobe. Drops / peaks only.
 function barStrobe() {
   bar.pixels.white(mini('1*16').range(-4, 1))
 }
@@ -201,11 +266,12 @@ function barOff() {
 }
 
 // ── audio-reactive variants ──────────────────────────────
-// Route real audio features (from the loaded track) to lights.
-// Load a file via the audio bar first; these no-op without audio.
+// Route real audio features to lights. Only meaningful once the
+// track is loaded and playing.
 
 function audioKick()  { spot.dim(audio.peak()) }
 function audioBass()  { spot.red(audio.bass().range(0, 1).glow()) }
+function audioMid()   { spot.green(audio.mid().range(0, 0.7)) }
 function audioHats()  { spot.white(audio.treble().range(0, 0.5)) }
 function audioBar()   {
   bar.pixels.rainbowChase({ speed: 1 })
@@ -213,31 +279,46 @@ function audioBar()   {
 }
 
 // ── LIVE ──────────────────────────────────────────────────
-// Uncomment the elements you want active right now, save with
-// Ctrl+Enter. Group the uncommented calls by song section so you
-// can eyeball which block is live.
+// Uncomment elements per section, Ctrl+Enter to apply. Section cue
+// times in the header comment. You're not required to follow them —
+// improvise — but the grouping below is a suggested arrangement.
 
-// --- intro ---
+// --- intro · 0:00-0:36 · minimal ---
+// sineDeep()
+
+// --- development · 0:36-1:12 · bass creeps in ---
+// sineDeep()
+// audioBass()
+// hatsOffbeat()
+
+// --- first shift · 1:12-1:35 · texture change ---
+// sineTone()
+// hatsOffbeat()
+// noiseBurst()
+
+// --- main body · 1:35-3:00 · full drive ---
+// kick()
+// hats()
+// sineTone()
+// barSweep()
+
+// --- second wave · 3:00-4:36 · peak intensity ---
+// kickDouble()
+// hats()
+// barPulse()
+// audioBar()
+
+// --- outro · 4:36-5:21 · ebb ---
 // sineTone()
 // hatsOffbeat()
 
-// --- build ---
-// kick()
-// hats()
-// noiseBurst()
-
-// --- drop ---
-// kickDouble()
-// barPulse()
-// barStrobe()
-
-// --- outro ---
-// sineTone()
+// --- fade · 5:21-5:30 ---
 // barOff()
 
-// --- audio-driven alternatives (load a track first) ---
+// --- full audio-reactive alt (works across the whole track) ---
 // audioKick()
 // audioBass()
+// audioMid()
 // audioHats()
 // audioBar()
 `;

@@ -39,6 +39,7 @@ import { createEditor, INITIAL_CODE } from './editor.js';
 import {
   seedScenesIfEmpty, getActiveScene, setActiveScene, getSceneCode,
   saveSceneCode, listScenes, createScene, deleteScene,
+  resetSeedScene, listSeedScenes,
 } from './scenes.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
 import { renderDocs } from './docs.js';
@@ -550,6 +551,7 @@ setInterval(() => {
 
 const sceneSelectEl = document.getElementById('scene-select') as HTMLSelectElement;
 const sceneNewEl    = document.getElementById('scene-new')    as HTMLButtonElement;
+const sceneResetEl  = document.getElementById('scene-reset')  as HTMLButtonElement;
 const sceneDelEl    = document.getElementById('scene-delete') as HTMLButtonElement;
 
 function refreshSceneDropdown(): void {
@@ -560,6 +562,8 @@ function refreshSceneDropdown(): void {
     .join('');
   // Disable the delete button for the default scene — it's the safety net.
   sceneDelEl.disabled = active === 'default';
+  // Reset button only applies to scenes with a bundled seed template.
+  sceneResetEl.disabled = !listSeedScenes().includes(active);
 }
 
 /** Replace the editor's document with the given code, preserving the
@@ -615,6 +619,16 @@ sceneDelEl.addEventListener('click', () => {
   loadCodeIntoEditor(getSceneCode('default') ?? INITIAL_CODE);
   refreshSceneDropdown();
   setStatus('', `scene: default`);
+});
+
+sceneResetEl.addEventListener('click', () => {
+  const current = getActiveScene();
+  if (!listSeedScenes().includes(current)) return;
+  if (!confirm(`Replace "${current}" with its built-in template? Any edits you made will be lost.`)) return;
+  resetSeedScene(current);
+  loadCodeIntoEditor(getSceneCode(current) ?? '');
+  refreshSceneDropdown();
+  setStatus('', `scene reset: ${current}`);
 });
 
 refreshSceneDropdown();
