@@ -426,6 +426,59 @@
         color: var(--sage);
       }
 
+      /* Scene picker — dropdown + new / delete buttons in the top bar.
+         Live-performance UX: switch between named code buffers without
+         losing edits (each scene autosaves to localStorage). */
+      .scene-picker {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .scene-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-right: 2px;
+      }
+      .scene-select {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+        font: inherit;
+        font-size: 11px;
+        padding: 3px 7px;
+        border-radius: 3px;
+        max-width: 160px;
+        cursor: pointer;
+        transition: border-color 0.12s;
+      }
+      .scene-select:hover,
+      .scene-select:focus {
+        border-color: var(--accent2);
+        outline: none;
+      }
+      .scene-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        font: inherit;
+        font-size: 13px;
+        padding: 0 6px;
+        line-height: 1.6;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: color 0.12s, border-color 0.12s;
+      }
+      .scene-btn:hover {
+        color: var(--text);
+        border-color: var(--accent2);
+      }
+      .scene-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+
       /* Docs toggle button */
       .docs-toggle {
         background: transparent;
@@ -1132,6 +1185,12 @@
             <span class="ws-dot disconnected" id="ws-dot"></span>
             <span id="ws-label">disconnected</span>
           </span>
+          <div class="scene-picker">
+            <label for="scene-select" class="scene-label">scene</label>
+            <select id="scene-select" class="scene-select" title="switch scene"></select>
+            <button type="button" class="scene-btn" id="scene-new" title="new scene">+</button>
+            <button type="button" class="scene-btn" id="scene-delete" title="delete current scene">×</button>
+          </div>
           <button type="button" class="docs-toggle" id="library-toggle" title="custom fixture library">library</button>
           <button type="button" class="docs-toggle" id="docs-toggle" title="function reference">docs</button>
         </div>

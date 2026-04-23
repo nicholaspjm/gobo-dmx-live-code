@@ -16,7 +16,12 @@ import { vizDecorationsField } from './inline-viz.js';
 import { lumenCodeHighlight } from './code-highlight.js';
 import { lumenAutocomplete } from './autocomplete.js';
 
-const INITIAL_CODE = `// lumen — ctrl+enter to run · ctrl+. to stop · open 'docs' for the reference
+/**
+ * Hardcoded code used the first time a user opens lumen, before any
+ * scene has been saved to localStorage. Exported so scenes.ts can seed
+ * the "default" scene with this on first run.
+ */
+export const INITIAL_CODE = `// lumen — ctrl+enter to run · ctrl+. to stop · open 'docs' for the reference
 
 // Output target — swap in mock() for headless dev, osc() for TouchDesigner,
 // or sacn(universe, priority) for E1.31. Port defaults to 6454 for Art-Net.
@@ -107,6 +112,7 @@ export function createEditor(
   onEval: EvalHandler,
   onStop: StopHandler,
   onChange?: ChangeHandler,
+  initialDoc: string = INITIAL_CODE,
 ): EditorView {
   const evalKeybinding = Prec.highest(
     keymap.of([
@@ -136,7 +142,7 @@ export function createEditor(
   });
 
   const state = EditorState.create({
-    doc: INITIAL_CODE,
+    doc: initialDoc,
     extensions: [
       history(),
       lineNumbers(),

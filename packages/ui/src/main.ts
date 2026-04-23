@@ -35,7 +35,11 @@ import {
   restoreLibraryFixtures,
 } from '@lumen/core';
 
-import { createEditor } from './editor.js';
+import { createEditor, INITIAL_CODE } from './editor.js';
+import {
+  seedScenesIfEmpty, getActiveScene, setActiveScene, getSceneCode,
+  saveSceneCode, listScenes, createScene, deleteScene,
+} from './scenes.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
 import { renderDocs } from './docs.js';
 import { refreshViz } from './inline-viz.js';
@@ -82,9 +86,29 @@ function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
   evalStatusEl.className = kind;
 }
 
-// ─── Editor ──────────────────────────────────────────────────────────────────
+// ─── Editor + scenes ────────────────────────────────────────────────────────
+// Scenes are named editor buffers persisted in localStorage. On first run
+// we seed two: "default" (the hardcoded INITIAL_CODE) and "ultratonics 11"
+// (a live-performance template). The active scene's code is loaded into
+// the editor at boot; the buffer autosaves back to it on every change.
 
-const editorView = createEditor(editorEl, runEval, runStop);
+seedScenesIfEmpty(INITIAL_CODE);
+const bootScene = getActiveScene();
+const bootCode = getSceneCode(bootScene) ?? INITIAL_CODE;
+
+// Debounced autosave — every edit writes to the current scene's slot.
+// 500ms is plenty given localStorage writes are microseconds, and keeps
+// us from thrashing on every keystroke of a long paste.
+let _saveTimer: ReturnType<typeof setTimeout> | null = null;
+function onEditorChange(code: string): void {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    saveSceneCode(getActiveScene(), code);
+    _saveTimer = null;
+  }, 500);
+}
+
+const editorView = createEditor(editorEl, runEval, runStop, onEditorChange, bootCode);
 
 // ─── Visualizer ──────────────────────────────────────────────────────────────
 
@@ -518,6 +542,82 @@ for (const f of simTooltipFixtures) {
 setInterval(() => {
   if (_hoveredFixture) renderTooltip(_hoveredFixture);
 }, 100);
+
+// ─── Scene picker ────────────────────────────────────────────────────────────
+// Dropdown + new / delete buttons in the top bar. Each change writes the
+// current buffer to the currently-active scene, then loads the target
+// scene's source into the editor. The `default` scene can't be deleted.
+
+const sceneSelectEl = document.getElementById('scene-select') as HTMLSelectElement;
+const sceneNewEl    = document.getElementById('scene-new')    as HTMLButtonElement;
+const sceneDelEl    = document.getElementById('scene-delete') as HTMLButtonElement;
+
+function refreshSceneDropdown(): void {
+  const active = getActiveScene();
+  const names = listScenes();
+  sceneSelectEl.innerHTML = names
+    .map((n) => `<option value="${n.replace(/"/g, '&quot;')}"${n === active ? ' selected' : ''}>${n.replace(/</g, '&lt;')}</option>`)
+    .join('');
+  // Disable the delete button for the default scene — it's the safety net.
+  sceneDelEl.disabled = active === 'default';
+}
+
+/** Replace the editor's document with the given code, preserving the
+ *  scroll and cursor at position 0. Autosave is bypassed for this
+ *  replacement by temporarily marking the change as system-driven. */
+function loadCodeIntoEditor(code: string): void {
+  // Pause autosave for this swap — otherwise the load itself would
+  // trigger a save that overwrites the INCOMING scene with its own
+  // contents (harmless, but churns localStorage).
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+  const current = editorView.state.doc;
+  editorView.dispatch({
+    changes: { from: 0, to: current.length, insert: code },
+    selection: { anchor: 0 },
+    scrollIntoView: true,
+  });
+}
+
+sceneSelectEl.addEventListener('change', () => {
+  const next = sceneSelectEl.value;
+  if (next === getActiveScene()) return;
+  // Save current buffer to the outgoing scene before swapping.
+  saveSceneCode(getActiveScene(), editorView.state.doc.toString());
+  setActiveScene(next);
+  const code = getSceneCode(next) ?? '';
+  loadCodeIntoEditor(code);
+  refreshSceneDropdown();
+  setStatus('', `scene: ${next} · ctrl+enter to run`);
+});
+
+sceneNewEl.addEventListener('click', () => {
+  const name = prompt('Name for the new scene:')?.trim();
+  if (!name) return;
+  if (getSceneCode(name) !== null) {
+    alert(`A scene named "${name}" already exists.`);
+    return;
+  }
+  // Flush current buffer to its scene first so we don't lose edits.
+  saveSceneCode(getActiveScene(), editorView.state.doc.toString());
+  createScene(name, `// ${name}\n\nartnet('2.0.0.100')\n`);
+  setActiveScene(name);
+  loadCodeIntoEditor(getSceneCode(name) ?? '');
+  refreshSceneDropdown();
+  setStatus('', `new scene: ${name}`);
+});
+
+sceneDelEl.addEventListener('click', () => {
+  const current = getActiveScene();
+  if (current === 'default') return;
+  if (!confirm(`Delete scene "${current}"? This can't be undone.`)) return;
+  deleteScene(current);
+  setActiveScene('default');
+  loadCodeIntoEditor(getSceneCode('default') ?? INITIAL_CODE);
+  refreshSceneDropdown();
+  setStatus('', `scene: default`);
+});
+
+refreshSceneDropdown();
 
 // ─── Audio transport ─────────────────────────────────────────────────────────
 // Wire the buttons in the audio bar. Kept deliberately small — this is an

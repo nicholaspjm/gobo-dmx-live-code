@@ -59,7 +59,14 @@ const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'lumen',
     blurb:
-      'Live DMX coding in the browser. JavaScript patterns drive real fixtures — Art-Net hardware, TouchDesigner via OSC, or pure simulation. Ctrl+Enter runs your code, Ctrl+. stops. Drop a track into the audio bar for bpm-locked reactivity. Hover any fixture in the sim panel for its live channel values.',
+      'Live DMX coding in the browser. JavaScript patterns drive real fixtures — Art-Net hardware, TouchDesigner via OSC, or pure simulation. Ctrl+Enter runs your code, Ctrl+. stops. Drop a track into the audio bar for bpm-locked reactivity. Hover any fixture in the sim panel for its live channel values. Switch between named code buffers with the scene picker in the top bar.',
+    entries: [],
+  },
+  {
+    category: 'welcome',
+    title: 'scenes',
+    blurb:
+      "Multiple named code buffers live in the browser's localStorage. Use the dropdown in the top bar to switch between them; + makes a new one, × deletes the current (the 'default' scene is protected). Each scene autosaves as you type — no explicit save step. A live-performance template for Ryoji Ikeda's ultratonics 11 is seeded on first run as an example of how to structure a scene around instrument functions you toggle in and out while the track plays.",
     entries: [],
   },
   {
