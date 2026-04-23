@@ -261,86 +261,53 @@ bar.pixels.viz('strip')
 bar.dim(1)
 
 // ── instrument library ────────────────────────────────────
-// Each call registers patterns on specific channels. Skipping a call
-// means those channels stay at zero. Every Ctrl+Enter wipes the
-// previous set — the uncommented calls below are the full current
-// state, no implicit carry-over.
+// Each call registers patterns on specific colour channels on the
+// spot (r / g / b / w) — we have a 4-channel RGBW par with no
+// dedicated dim, so brightness comes from driving the colour
+// channels directly. One function per channel family at a time:
+//
+//   WHITE  → kicks / peaks
+//   GREEN  → hi-hats / mid detail
+//   BLUE   → drones
+//   RED    → noise / bass
+//
+// Two functions that share a channel family will override each
+// other (last call wins). Uncomment one from each family when you
+// want them running in parallel.
 
-// KICK_SLOW — deep downbeat thud. Matches the intro's sparse low end.
-function kickSlow() {
-  spot.dim(mini('1 - - -').slow(2).flash())
-}
+// ── WHITE · kicks / peaks ─────────────────────────────────
+function kickSlow()   { spot.white(mini('1 - - -').slow(2).flash()) }
+function kick()       { spot.white(mini('1 - - -').flash()) }
+function kickDouble() { spot.white(mini('1 - 1 -').flash()) }
 
-// KICK — on every beat. Main body / second wave.
-function kick() {
-  spot.dim(mini('1 - - -').flash())
-}
+// ── GREEN · hats / mid detail ─────────────────────────────
+function hatsOffbeat() { spot.green(mini('- 1 - 1 - 1 - 1').range(0, 0.4)) }
+function hats()        { spot.green(mini('1 1 1 1  1 1 1 1  1 1 1 1  1 1 1 1').range(0, 0.35)) }
+function hatsDense()   { spot.green(mini('1*32').range(-2, 0.6)) }
 
-// KICK_DOUBLE — on 1 and 3 of each bar. Tighter in-the-pocket feel.
-function kickDouble() {
-  spot.dim(mini('1 - 1 -').flash())
-}
+// ── BLUE · drones ─────────────────────────────────────────
+function sineDeep()  { spot.blue(sine().slow(32).range(0.3, 0.8).glow()) }
+function sineTone()  { spot.blue(sine().slow(16).range(0.1, 0.9).glow()) }
 
-// HATS_OFFBEAT — only the 8th off-beats. Good for the intro / shift.
-function hatsOffbeat() {
-  spot.white(mini('- 1 - 1 - 1 - 1').range(0, 0.4))
-}
+// ── RED · noise / bass ────────────────────────────────────
+function noiseBurst() { spot.red(rand().range(-6, 1)) }
 
-// HATS — fast 16th-note clicks. Ikeda-style high-frequency detail.
-function hats() {
-  spot.white(mini('1 1 1 1  1 1 1 1  1 1 1 1  1 1 1 1').range(0, 0.35))
-}
-
-// HATS_DENSE — 32nd-note roll. Save for transitions / drops.
-function hatsDense() {
-  spot.white(mini('1*32').range(-2, 0.6))
-}
-
-// SINE_DEEP — very slow blue drone. Opens the track.
-function sineDeep() {
-  spot.blue(sine().slow(32).range(0.3, 0.8).glow())
-}
-
-// SINE_TONE — medium-slow drone. Fills the development / main body.
-function sineTone() {
-  spot.blue(sine().slow(16).range(0.1, 0.9).glow())
-}
-
-// NOISE_BURST — sparse red spikes from thresholded randomness.
-// Good in the "shift" section where Ikeda introduces irregular hits.
-function noiseBurst() {
-  spot.red(rand().range(-6, 1))
-}
-
-// BAR_PULSE — whole-bar white flash on every downbeat.
-function barPulse() {
-  bar.pixels.white(mini('1 - - -').range(-15, 1).flash())
-}
-
-// BAR_SWEEP — rainbow chase across the bar, half-note timed.
-function barSweep() {
-  bar.pixels.rainbowChase({ speed: 2, narrow: 12 })
-}
-
-// BAR_STROBE — continuous 16th-note strobe. Drops / peaks only.
-function barStrobe() {
-  bar.pixels.white(mini('1*16').range(-4, 1))
-}
-
-// BAR_OFF — blackout the bar.
-function barOff() {
-  bar.pixels.fill(0, 0, 0, 0)
-}
+// ── BAR · independent 8-pixel RGBW moving bar on universe 1 ──
+function barPulse()  { bar.pixels.white(mini('1 - - -').range(-15, 1).flash()) }
+function barSweep()  { bar.pixels.rainbowChase({ speed: 2, narrow: 12 }) }
+function barStrobe() { bar.pixels.white(mini('1*16').range(-4, 1)) }
+function barOff()    { bar.pixels.fill(0, 0, 0, 0) }
 
 // ── audio-reactive variants ──────────────────────────────
 // Route real audio features to lights. Only meaningful once the
-// track is loaded and playing.
-
-function audioKick()  { spot.dim(audio.peak()) }
-function audioBass()  { spot.red(audio.bass().range(0, 1).glow()) }
-function audioMid()   { spot.green(audio.mid().range(0, 0.7)) }
-function audioHats()  { spot.white(audio.treble().range(0, 0.5)) }
-function audioBar()   {
+// track is loaded and playing. Same channel-family rule applies:
+// audioKick and kick both drive white, audioBass and noiseBurst
+// both drive red — pick one per family.
+function audioKick() { spot.white(audio.peak()) }
+function audioHats() { spot.green(audio.treble().range(0, 0.5)) }
+function audioMid()  { spot.green(audio.mid().range(0, 0.7)) }
+function audioBass() { spot.red(audio.bass().range(0, 1).glow()) }
+function audioBar()  {
   bar.pixels.rainbowChase({ speed: 1 })
   bar.pixels.white(audio.peak().range(0, 1))
 }
