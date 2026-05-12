@@ -600,6 +600,18 @@ export interface StripInstance {
    */
   pixelGrid(values: PatternOrValue[]): PixelGridFill;
 
+  /**
+   * Run a callback per pixel. Return a single value for a monochrome
+   * chase (applied to R=G=B) or `[r, g, b]` for full colour control.
+   * The callback receives `(phase, i, count)` — phase is `i / count`,
+   * the common chase parameter you'd otherwise hand-compute every time.
+   *
+   * @example
+   *   strip.each(p => cosine().early(p).slow(2).range(-7, 1))   // monochrome walk
+   *   strip.each(p => [sine().early(p), 0, cosine().early(p)])  // colour chase
+   */
+  each(fn: (phase: number, i: number, count: number) => PatternOrValue | PatternOrValue[]): void;
+
   /** Set just the red channel on every pixel. */
   red(v: PatternOrValue): void;
   /** Set just the green channel on every pixel. */
@@ -706,6 +718,24 @@ export function rgbStrip(
       };
     },
 
+    each(fn) {
+      for (let i = 0; i < pixelCount; i++) {
+        const phase = i / pixelCount;
+        const result = fn(phase, i, pixelCount);
+        const base = startChannel + i * 3;
+        if (Array.isArray(result)) {
+          uni(universe, base,     result[0] ?? 0);
+          uni(universe, base + 1, result[1] ?? 0);
+          uni(universe, base + 2, result[2] ?? 0);
+        } else {
+          // Single value → monochrome (R = G = B = value).
+          uni(universe, base,     result);
+          uni(universe, base + 1, result);
+          uni(universe, base + 2, result);
+        }
+      }
+    },
+
     red(v) {
       for (let i = 0; i < pixelCount; i++) {
         uni(universe, startChannel + i * 3, v);
@@ -792,6 +822,18 @@ export interface RgbwStripInstance {
    */
   pixelGrid(values: PatternOrValue[]): PixelGridFill;
 
+  /**
+   * Run a callback per pixel. Return a single value for a monochrome
+   * chase (applied to R=G=B with W=0) or `[r, g, b, w]` for full colour
+   * control. The callback receives `(phase, i, count)` — phase is
+   * `i / count`, the common chase parameter you'd otherwise hand-compute.
+   *
+   * @example
+   *   bar.pixels.each(p => cosine().early(p).slow(2).range(-7, 1))           // walk
+   *   bar.pixels.each(p => [0, sine().early(p), cosine().early(p), 0])       // chase
+   */
+  each(fn: (phase: number, i: number, count: number) => PatternOrValue | PatternOrValue[]): void;
+
   /** Set just the red channel on every pixel. */
   red(v: PatternOrValue): void;
   /** Set just the green channel on every pixel. */
@@ -873,6 +915,26 @@ export function rgbwStrip(
         hold:   () => applyPixelGrid(values, 4, pixelCount, startChannel, universe, 'hold'),
         mirror: () => applyPixelGrid(values, 4, pixelCount, startChannel, universe, 'mirror'),
       };
+    },
+
+    each(fn) {
+      for (let i = 0; i < pixelCount; i++) {
+        const phase = i / pixelCount;
+        const result = fn(phase, i, pixelCount);
+        const base = startChannel + i * STRIDE;
+        if (Array.isArray(result)) {
+          uni(universe, base,     result[0] ?? 0);
+          uni(universe, base + 1, result[1] ?? 0);
+          uni(universe, base + 2, result[2] ?? 0);
+          uni(universe, base + 3, result[3] ?? 0);
+        } else {
+          // Single value → monochrome (R = G = B = value, W = 0).
+          uni(universe, base,     result);
+          uni(universe, base + 1, result);
+          uni(universe, base + 2, result);
+          uni(universe, base + 3, 0);
+        }
+      }
     },
 
     red(v)   { for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE,     v); },

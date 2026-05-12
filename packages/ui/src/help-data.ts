@@ -431,6 +431,16 @@ spot.white(mini('1 - - -').punch())`,
     kind: 'method',
   },
   {
+    label: 'each',
+    signature: '.each((phase, i, count) => value | [r,g,b] | [r,g,b,w])',
+    description:
+      'Run a callback per pixel. Return one value for a monochrome chase (applied to R=G=B) or an array for full colour control. phase = i / count, the common chase parameter.',
+    example: `strip.each(p => cosine().early(p).slow(2).range(-7, 1))
+strip.each(p => [sine().early(p), 0, cosine().early(p)])`,
+    context: 'fixture-method',
+    kind: 'method',
+  },
+  {
     label: 'rainbowChase',
     signature: '.rainbowChase({ speed?, narrow?, rainbowSpeed?, packets? })',
     description: 'Built-in rainbow chase. Bigger `narrow` = tighter packet; `packets` = simultaneous chases.',
