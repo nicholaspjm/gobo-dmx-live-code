@@ -501,7 +501,9 @@ function rebuildSimPanel(): void {
 function updateGlobeDim(el: HTMLElement, dimmer: number): void {
   const d = dimmer / 255;
   if (d < 0.02) {
-    el.style.background = '#1a1714';
+    // Clear inline background so the CSS rule's `var(--bg)` takes over —
+    // matches whichever theme is active instead of a hardcoded ember tone.
+    el.style.background = '';
     el.style.boxShadow = 'none';
     return;
   }
@@ -523,7 +525,7 @@ function updateGlobeRGBW(
   const bb = Math.min(255, Math.round((b + w) * dimScale));
   const brightness = Math.max(rr, gg, bb) / 255;
   if (brightness < 0.02) {
-    el.style.background = '#1a1714';
+    el.style.background = '';
     el.style.boxShadow = 'none';
     return;
   }
@@ -538,7 +540,7 @@ function updateGlobeRGBW(
 function updateStripPixel(el: HTMLElement, r: number, g: number, b: number): void {
   const brightness = Math.max(r, g, b) / 255;
   if (brightness < 0.02) {
-    el.style.background = '#1a1714';
+    el.style.background = '';
     el.style.boxShadow = 'none';
     return;
   }
