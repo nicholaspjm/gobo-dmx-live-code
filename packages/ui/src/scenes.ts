@@ -453,16 +453,12 @@ const split = () => {
   }
 }
 
-// ── custom chain methods ──────────────────────
-register('punch',   (p) => p.range(-15, 1).flash())
-register('shimmer', (p) => p.range(0.2, 1).glow())
-
 // ── LIVE ──────────────────────────────────────
 // pixels (pick one)
 bar.pixels.fill(0, 0, 0, 1)
 // bar.pixels.white(sine().slow(8).range(0.1, 1).glow())          // breathe
 // bar.pixels.white(mini('1 - - -').range(-15, 1).flash())        // pulse
-// bar.pixels.white(mini('1 - 1 -').punch())                      // double
+// bar.pixels.white(mini('1 - 1 -').range(-15, 1).flash())        // double
 // walk()
 // rainbow()
 // split()
