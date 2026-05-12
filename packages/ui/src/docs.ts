@@ -363,11 +363,11 @@ const DOCS: DocSection[] = [
       },
       {
         name: '.pixelGrid',
-        signature: 'strip.pixelGrid(values).{repeat,hold,mirror}()',
+        signature: 'strip.pixelGrid(rows).{repeat,hold,mirror}()',
         description:
-          "Set pixels from a flat values array (3 per pixel for RGB strips, 4 for RGBW). Each chunk of stride values is one pixel; pixels past the end of the input default to 0. Chain a fill method to do something else with the rest: .repeat() tiles the input pattern across the whole strip, .hold() copies the last input pixel forward, .mirror() reflects the input back so the strip reads symmetrically. The default (no chain) leaves the rest blank.",
+          "Set pixels from an array-of-rows. Each inner array is one pixel: [r, g, b] for RGB strips, [r, g, b, w] for RGBW. Missing channels default to 0 so [1] is a valid 'red only' row. Pixels past the end of the input default to 0; chain a fill method for something else: .repeat() tiles the input across the whole strip, .hold() copies the last input pixel forward, .mirror() reflects the input back so the strip reads symmetrically.",
         example:
-          "// 8-pixel RGBW strip — pattern of 2, tiled\nbar.pixels.pixelGrid([\n  1, 0, 0, 0,   // red\n  0, 0, 1, 0,   // blue\n]).repeat()\n\n// 3-pixel input, mirrored: r,g,b,b,g,r,r,b on an 8-pixel strip\nbar.pixels.pixelGrid([1,0,0,0, 0,1,0,0, 0,0,1,0]).mirror()",
+          "// 8-pixel RGBW strip — pattern of 2, tiled\nbar.pixels.pixelGrid([\n  [1, 0, 0, 0],   // red\n  [0, 0, 1, 0],   // blue\n]).repeat()\n\n// 3-pixel input, mirrored: r,g,b,b,g,r,r,b\nbar.pixels.pixelGrid([\n  [1, 0, 0, 0],\n  [0, 1, 0, 0],\n  [0, 0, 1, 0],\n]).mirror()",
       },
     ],
   },
