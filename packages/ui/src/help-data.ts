@@ -419,6 +419,18 @@ spot.white(mini('1 - - -').punch())`,
     kind: 'method',
   },
   {
+    label: 'pixelGrid',
+    signature: '.pixelGrid(values) → { repeat, hold, mirror }',
+    description:
+      'Set pixels from a flat values array (3 per pixel for RGB, 4 for RGBW). Chain .repeat() / .hold() / .mirror() to fill the remaining pixels; default leaves them at 0.',
+    example: `strip.pixelGrid([
+  1, 0, 0, 0,   // red
+  0, 0, 1, 0,   // blue
+]).repeat()`,
+    context: 'fixture-method',
+    kind: 'method',
+  },
+  {
     label: 'rainbowChase',
     signature: '.rainbowChase({ speed?, narrow?, rainbowSpeed?, packets? })',
     description: 'Built-in rainbow chase. Bigger `narrow` = tighter packet; `packets` = simultaneous chases.',

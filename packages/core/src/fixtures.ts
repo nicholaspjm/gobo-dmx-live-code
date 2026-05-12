@@ -248,6 +248,65 @@ export function clearSimFixtures(): void {
   _simFixtures.length = 0;
 }
 
+// ─── pixelGrid helpers ────────────────────────────────────────────────────────
+// `values` is a flat array of channel values laid out row-by-row: every
+// `stride` consecutive entries describe one pixel. `fill` decides what to
+// do for strip positions past the end of the input.
+
+type FillMode = 'none' | 'repeat' | 'hold' | 'mirror';
+
+/**
+ * Resolve the source-pixel index for a given strip position under a fill
+ * mode. Returns -1 when the position should be blank (only `none` past
+ * the input does this).
+ */
+function pickSourceIdx(strip: number, inputPixels: number, mode: FillMode): number {
+  if (strip < inputPixels) return strip;
+  if (inputPixels < 1) return -1;
+  switch (mode) {
+    case 'none':   return -1;
+    case 'hold':   return inputPixels - 1;
+    case 'repeat': return strip % inputPixels;
+    case 'mirror': {
+      // Period 2N: positions [0..N-1] use grid forward, [N..2N-1] use it
+      // reversed. inputPixels=3 → a b c c b a a b c c b a ...
+      const period = inputPixels * 2;
+      const pos = strip % period;
+      return pos < inputPixels ? pos : period - 1 - pos;
+    }
+  }
+}
+
+/**
+ * Write the strip's pixels from a flat values array under the given fill
+ * mode. Called once on the initial `pixelGrid(values)` (mode 'none') and
+ * again on each chained .repeat() / .hold() / .mirror() with the
+ * appropriate mode — the second pass overwrites the first.
+ */
+export function applyPixelGrid(
+  values: PatternOrValue[],
+  stride: 3 | 4,
+  pixelCount: number,
+  startChannel: number,
+  universe: number,
+  mode: FillMode,
+): void {
+  const inputPixels = Math.floor(values.length / stride);
+  for (let i = 0; i < pixelCount; i++) {
+    const base = startChannel + i * stride;
+    const src = pickSourceIdx(i, inputPixels, mode);
+    if (src < 0) {
+      // Blank pixel — zero every channel in the stride.
+      for (let j = 0; j < stride; j++) uni(universe, base + j, 0);
+      continue;
+    }
+    const off = src * stride;
+    for (let j = 0; j < stride; j++) {
+      uni(universe, base + j, values[off + j] ?? 0);
+    }
+  }
+}
+
 /**
  * Resolve movement-channel hints for a fixture from its declared channel
  * layout. Picks `pan` / `tilt` / `direction` channels and converts each
@@ -495,6 +554,24 @@ export function listFixtures(): string[] {
 // A variable-length fixture: N pixels × 3 channels (R, G, B).
 // Not stored as a FixtureDef because the channel count is user-specified.
 
+/**
+ * Chainable result of `strip.pixelGrid(values)`. The grid is already
+ * applied (default: explicit pixels, rest at 0). Call one of the methods
+ * to overwrite with a fill mode:
+ *
+ *   .repeat()  tile the input pattern across the strip
+ *   .hold()    keep the last input pixel for every pixel after it
+ *   .mirror()  reflect the input back so the pattern reads symmetrically
+ *
+ * Returns `void` from the chain methods — the operation is destructive,
+ * not a transform you can keep chaining onto.
+ */
+export interface PixelGridFill {
+  repeat(): void;
+  hold(): void;
+  mirror(): void;
+}
+
 export interface StripInstance {
   readonly universe: number;
   readonly startChannel: number;
@@ -512,6 +589,16 @@ export interface StripInstance {
     g: PatternOrValue,
     b: PatternOrValue,
   ): void;
+
+  /**
+   * Set pixels from a flat array of channel values (3 per pixel: R, G, B).
+   * Pixels beyond the input default to 0; chain .repeat()/.hold()/.mirror()
+   * to fill them instead.
+   *
+   * @example
+   *   strip.pixelGrid([1,0,0, 0,1,0, 0,0,1]).repeat()  // R,G,B tiled
+   */
+  pixelGrid(values: PatternOrValue[]): PixelGridFill;
 
   /** Set just the red channel on every pixel. */
   red(v: PatternOrValue): void;
@@ -607,6 +694,18 @@ export function rgbStrip(
       uni(universe, base + 2, b);
     },
 
+    pixelGrid(values) {
+      // Initial application: explicit pixels, rest blank. The chain
+      // methods (repeat/hold/mirror) overwrite with the same values
+      // under a different fill mode.
+      applyPixelGrid(values, 3, pixelCount, startChannel, universe, 'none');
+      return {
+        repeat: () => applyPixelGrid(values, 3, pixelCount, startChannel, universe, 'repeat'),
+        hold:   () => applyPixelGrid(values, 3, pixelCount, startChannel, universe, 'hold'),
+        mirror: () => applyPixelGrid(values, 3, pixelCount, startChannel, universe, 'mirror'),
+      };
+    },
+
     red(v) {
       for (let i = 0; i < pixelCount; i++) {
         uni(universe, startChannel + i * 3, v);
@@ -683,6 +782,16 @@ export interface RgbwStripInstance {
     w: PatternOrValue,
   ): void;
 
+  /**
+   * Set pixels from a flat array of channel values (4 per pixel: R, G, B, W).
+   * Pixels beyond the input default to 0; chain .repeat()/.hold()/.mirror()
+   * to fill them instead.
+   *
+   * @example
+   *   strip.pixelGrid([1,0,0,0, 0,0,1,0]).mirror()  // red, blue, blue, red, ...
+   */
+  pixelGrid(values: PatternOrValue[]): PixelGridFill;
+
   /** Set just the red channel on every pixel. */
   red(v: PatternOrValue): void;
   /** Set just the green channel on every pixel. */
@@ -755,6 +864,15 @@ export function rgbwStrip(
       uni(universe, base + 1, g);
       uni(universe, base + 2, b);
       uni(universe, base + 3, w);
+    },
+
+    pixelGrid(values) {
+      applyPixelGrid(values, 4, pixelCount, startChannel, universe, 'none');
+      return {
+        repeat: () => applyPixelGrid(values, 4, pixelCount, startChannel, universe, 'repeat'),
+        hold:   () => applyPixelGrid(values, 4, pixelCount, startChannel, universe, 'hold'),
+        mirror: () => applyPixelGrid(values, 4, pixelCount, startChannel, universe, 'mirror'),
+      };
     },
 
     red(v)   { for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE,     v); },
