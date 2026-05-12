@@ -339,6 +339,47 @@
         flex-shrink: 0;
       }
 
+      /* XY indicator — small companion grid that tracks a fixture's
+         pan / tilt / direction channels. Sits between the main viz and
+         the label. Dot positioned via JS as percentages; the crosshair
+         rules are pure decoration. */
+      .fixture-xy {
+        position: relative;
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background: var(--bg);
+      }
+      .fixture-xy-rule {
+        position: absolute;
+        background: var(--border);
+        opacity: 0.6;
+      }
+      .fixture-xy-rule-h {
+        left: 2px; right: 2px;
+        top: 50%;
+        height: 1px;
+      }
+      .fixture-xy-rule-v {
+        top: 2px; bottom: 2px;
+        left: 50%;
+        width: 1px;
+      }
+      .fixture-xy-dot {
+        position: absolute;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 4px var(--accent);
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        transition: left 80ms linear, top 80ms linear;
+        pointer-events: none;
+      }
+
       .fixture-name {
         font-size: 9px;
         color: var(--text-muted);
