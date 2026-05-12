@@ -278,20 +278,24 @@ function pickSourceIdx(strip: number, inputPixels: number, mode: FillMode): numb
 }
 
 /**
- * Write the strip's pixels from a flat values array under the given fill
- * mode. Called once on the initial `pixelGrid(values)` (mode 'none') and
- * again on each chained .repeat() / .hold() / .mirror() with the
- * appropriate mode — the second pass overwrites the first.
+ * Write the strip's pixels from an array-of-rows under the given fill
+ * mode. Each inner array is one pixel: [r, g, b] for RGB strips,
+ * [r, g, b, w] for RGBW. Missing channels default to 0 so callers can
+ * be terse — `[1]` is a valid "red only" row.
+ *
+ * Called once on the initial `pixelGrid(rows)` (mode 'none') and again
+ * on each chained .repeat() / .hold() / .mirror() with the appropriate
+ * mode — the second pass overwrites the first.
  */
 export function applyPixelGrid(
-  values: PatternOrValue[],
+  rows: PatternOrValue[][],
   stride: 3 | 4,
   pixelCount: number,
   startChannel: number,
   universe: number,
   mode: FillMode,
 ): void {
-  const inputPixels = Math.floor(values.length / stride);
+  const inputPixels = rows.length;
   for (let i = 0; i < pixelCount; i++) {
     const base = startChannel + i * stride;
     const src = pickSourceIdx(i, inputPixels, mode);
@@ -300,9 +304,9 @@ export function applyPixelGrid(
       for (let j = 0; j < stride; j++) uni(universe, base + j, 0);
       continue;
     }
-    const off = src * stride;
+    const row = rows[src];
     for (let j = 0; j < stride; j++) {
-      uni(universe, base + j, values[off + j] ?? 0);
+      uni(universe, base + j, row[j] ?? 0);
     }
   }
 }
@@ -597,14 +601,18 @@ export interface StripInstance {
   ): void;
 
   /**
-   * Set pixels from a flat array of channel values (3 per pixel: R, G, B).
-   * Pixels beyond the input default to 0; chain .repeat()/.hold()/.mirror()
-   * to fill them instead.
+   * Set pixels from an array-of-rows. Each inner array is one pixel:
+   * `[r, g, b]`. Missing channels default to 0. Pixels beyond the input
+   * stay at 0; chain .repeat() / .hold() / .mirror() to fill them.
    *
    * @example
-   *   strip.pixelGrid([1,0,0, 0,1,0, 0,0,1]).repeat()  // R,G,B tiled
+   *   strip.pixelGrid([
+   *     [1, 0, 0],   // red
+   *     [0, 1, 0],   // green
+   *     [0, 0, 1],   // blue
+   *   ]).repeat()
    */
-  pixelGrid(values: PatternOrValue[]): PixelGridFill;
+  pixelGrid(rows: PatternOrValue[][]): PixelGridFill;
 
   /**
    * Run a callback per pixel. Return a single value for a monochrome
@@ -828,14 +836,17 @@ export interface RgbwStripInstance {
   ): void;
 
   /**
-   * Set pixels from a flat array of channel values (4 per pixel: R, G, B, W).
-   * Pixels beyond the input default to 0; chain .repeat()/.hold()/.mirror()
-   * to fill them instead.
+   * Set pixels from an array-of-rows. Each inner array is one pixel:
+   * `[r, g, b, w]`. Missing channels default to 0. Pixels beyond the
+   * input stay at 0; chain .repeat() / .hold() / .mirror() to fill them.
    *
    * @example
-   *   strip.pixelGrid([1,0,0,0, 0,0,1,0]).mirror()  // red, blue, blue, red, ...
+   *   strip.pixelGrid([
+   *     [1, 0, 0, 0],   // red
+   *     [0, 0, 1, 0],   // blue
+   *   ]).mirror()
    */
-  pixelGrid(values: PatternOrValue[]): PixelGridFill;
+  pixelGrid(rows: PatternOrValue[][]): PixelGridFill;
 
   /**
    * Run a callback per pixel. Return a single value for a monochrome

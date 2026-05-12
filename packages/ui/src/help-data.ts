@@ -424,12 +424,12 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'pixelGrid',
-    signature: '.pixelGrid(values) → { repeat, hold, mirror }',
+    signature: '.pixelGrid(rows) → { repeat, hold, mirror }',
     description:
-      'Set pixels from a flat values array (3 per pixel for RGB, 4 for RGBW). Chain .repeat() / .hold() / .mirror() to fill the remaining pixels; default leaves them at 0.',
+      'Set pixels from an array-of-rows. Each inner array is one pixel: [r, g, b] for RGB strips, [r, g, b, w] for RGBW. Missing channels default to 0. Chain .repeat() / .hold() / .mirror() to fill the remaining pixels.',
     example: `strip.pixelGrid([
-  1, 0, 0, 0,   // red
-  0, 0, 1, 0,   // blue
+  [1, 0, 0, 0],   // red
+  [0, 0, 1, 0],   // blue
 ]).repeat()`,
     context: 'fixture-method',
     kind: 'method',
