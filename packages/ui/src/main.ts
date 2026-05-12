@@ -139,9 +139,11 @@ function createSceneFromBuffer(promptLabel: string): void {
   touchScene(name);
   setActiveScene(name);
   refreshSceneDropdown();
-  setStatus('ok', `saved as "${name}"`);
-  // Auto-eval so the newly-saved scene is running on the sim immediately.
-  if (code.trim().length > 0) runEval(code);
+  // Stop the scheduler — every scene transition lands in a halted state
+  // so the user explicitly hits Ctrl+Enter to run. Avoids surprise output
+  // from a freshly-loaded buffer the operator hasn't read yet.
+  runStop();
+  setStatus('ok', `saved as "${name}" · ctrl+enter to run`);
 }
 
 function handleSave(): void {
@@ -792,11 +794,11 @@ function loadCodeIntoEditor(code: string): void {
 }
 
 /**
- * Switch to `next`: save the outgoing buffer, load the new code into
- * the editor, stamp the access timestamp, and — the important bit for
- * live performance — re-evaluate immediately. Without the eval the
- * sim panel / lights stay on the previous scene's output until the
- * user presses Ctrl+Enter, which is surprising every time.
+ * Switch to `next`: save the outgoing buffer, load the new code into the
+ * editor, stamp the access timestamp, and stop the scheduler. Every
+ * scene transition lands in a halted state — the operator decides when
+ * to start the new scene with Ctrl+Enter. Prevents surprise output from
+ * a buffer the user hasn't read yet.
  */
 function switchToScene(next: string, status: string): void {
   saveSceneCode(getActiveScene(), editorView.state.doc.toString());
@@ -805,12 +807,10 @@ function switchToScene(next: string, status: string): void {
   const code = getSceneCode(next) ?? '';
   loadCodeIntoEditor(code);
   refreshSceneDropdown();
-  setStatus('', status);
-  // Re-eval the freshly-loaded scene so lights + sim reflect it
-  // immediately. If the scheduler was stopped, this re-starts it; if
-  // the scene is empty or broken, runEval falls through to the error
-  // status as usual.
-  if (code.trim().length > 0) runEval(code);
+  // Stop + blackout (or freeze, per setting) so the outgoing scene's
+  // output doesn't bleed into the incoming buffer's mental model.
+  runStop();
+  setStatus('', `${status} · ctrl+enter to run`);
 }
 
 sceneSelectEl.addEventListener('change', () => {
@@ -849,8 +849,10 @@ sceneResetEl.addEventListener('click', () => {
   loadCodeIntoEditor(code);
   touchScene(current);
   refreshSceneDropdown();
-  setStatus('', `scene reset: ${current}`);
-  if (code.trim().length > 0) runEval(code);
+  // Match the scene-switch rule: a fresh load lands stopped, ctrl+enter
+  // to run.
+  runStop();
+  setStatus('', `scene reset: ${current} · ctrl+enter to run`);
 });
 
 // Stamp the boot-active scene so it appears in the "recent" group
