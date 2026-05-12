@@ -361,6 +361,14 @@ const DOCS: DocSection[] = [
         example:
           "for (let i = 0; i < strip.pixelCount; i++) {\n  const phase = i / strip.pixelCount\n  const bright = cosine().early(phase).slow(2).range(-8, 1)\n  strip.pixel(i, bright.mul(hueR), bright.mul(hueG), bright.mul(hueB))\n}",
       },
+      {
+        name: '.pixelGrid',
+        signature: 'strip.pixelGrid(values).{repeat,hold,mirror}()',
+        description:
+          "Set pixels from a flat values array (3 per pixel for RGB strips, 4 for RGBW). Each chunk of stride values is one pixel; pixels past the end of the input default to 0. Chain a fill method to do something else with the rest: .repeat() tiles the input pattern across the whole strip, .hold() copies the last input pixel forward, .mirror() reflects the input back so the strip reads symmetrically. The default (no chain) leaves the rest blank.",
+        example:
+          "// 8-pixel RGBW strip — pattern of 2, tiled\nbar.pixels.pixelGrid([\n  1, 0, 0, 0,   // red\n  0, 0, 1, 0,   // blue\n]).repeat()\n\n// 3-pixel input, mirrored: r,g,b,b,g,r,r,b on an 8-pixel strip\nbar.pixels.pixelGrid([1,0,0,0, 0,1,0,0, 0,0,1,0]).mirror()",
+      },
     ],
   },
 

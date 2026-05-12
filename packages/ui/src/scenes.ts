@@ -462,6 +462,9 @@ bar.pixels.fill(0, 0, 0, 1)
 // walk()
 // rainbow()
 // split()
+// bar.pixels.pixelGrid([1,0,0,0, 0,0,1,0]).repeat()              // red/blue tile
+// bar.pixels.pixelGrid([1,0,0,0, 0,1,0,0, 0,0,1,0]).mirror()     // r/g/b symmetry
+// bar.pixels.pixelGrid([1,1,0,0]).hold()                         // yellow hold
 
 // movement (stack on top of any pixel effect)
 // bar.direction(0.5); bar.speed(0)                               // center
