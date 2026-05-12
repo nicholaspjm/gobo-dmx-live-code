@@ -36,6 +36,7 @@ import {
   seedScenesIfEmpty, getActiveScene, setActiveScene, getSceneCode,
   saveSceneCode, getScenesView, createScene, deleteScene,
   resetSeedScene, listSeedScenes, touchScene, isProtectedScene,
+  renameScene,
 } from './scenes.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
 import { renderDocs } from './docs.js';
@@ -742,10 +743,12 @@ setInterval(() => {
 // current buffer to the currently-active scene, then loads the target
 // scene's source into the editor. The `default` scene can't be deleted.
 
-const sceneSelectEl = document.getElementById('scene-select') as HTMLSelectElement;
-const sceneNewEl    = document.getElementById('scene-new')    as HTMLButtonElement;
-const sceneResetEl  = document.getElementById('scene-reset')  as HTMLButtonElement;
-const sceneDelEl    = document.getElementById('scene-delete') as HTMLButtonElement;
+const sceneSelectEl = document.getElementById('scene-select')    as HTMLSelectElement;
+const sceneNewEl    = document.getElementById('scene-new')       as HTMLButtonElement;
+const sceneSaveAsEl = document.getElementById('scene-save-as')   as HTMLButtonElement;
+const sceneRenameEl = document.getElementById('scene-rename')    as HTMLButtonElement;
+const sceneResetEl  = document.getElementById('scene-reset')     as HTMLButtonElement;
+const sceneDelEl    = document.getElementById('scene-delete')    as HTMLButtonElement;
 const sceneRoBadgeEl = document.getElementById('scene-readonly-badge') as HTMLElement;
 
 function refreshSceneDropdown(): void {
@@ -769,8 +772,10 @@ function refreshSceneDropdown(): void {
     groups.push(`<optgroup label="other">${view.other.map(renderOpt).join('')}</optgroup>`);
   }
   sceneSelectEl.innerHTML = groups.join('');
-  // Delete button disabled for the default scene — it's the safety net.
+  // Delete + rename disabled for the default scene — it's the safety
+  // net, the same protection that blocks saves on it.
   sceneDelEl.disabled = active === 'default';
+  sceneRenameEl.disabled = isProtectedScene(active);
   // Reset button only applies to scenes with a bundled seed template.
   sceneResetEl.disabled = !listSeedScenes().includes(active);
   // Read-only badge appears whenever the active scene is protected.
@@ -830,6 +835,36 @@ sceneNewEl.addEventListener('click', () => {
   saveSceneCode(getActiveScene(), editorView.state.doc.toString());
   createScene(name, `// ${name}\n\nartnet('2.0.0.100')\n`);
   switchToScene(name, `new scene: ${name}`);
+});
+
+// Save-as button — same as Ctrl+Shift+S. Routes through handleSaveAs so
+// the protected-default flow + naming logic stays in one place.
+sceneSaveAsEl.addEventListener('click', () => handleSaveAs());
+
+// Rename button — prompts for a new name, swaps the scene in storage,
+// updates metadata + active pointer. Disabled on the default scene
+// (handled in refreshSceneDropdown alongside delete).
+sceneRenameEl.addEventListener('click', () => {
+  const current = getActiveScene();
+  if (isProtectedScene(current)) {
+    alert(`"${current}" is read-only and can't be renamed.`);
+    return;
+  }
+  const next = prompt(`Rename "${current}" to:`, current)?.trim();
+  if (!next || next === current) return;
+  const result = renameScene(current, next);
+  if (!result.ok) {
+    const msg = {
+      'protected':  `"${current}" is read-only and can't be renamed.`,
+      'not-found':  `Couldn't find a scene called "${current}".`,
+      'name-taken': `A scene named "${next}" already exists — pick a different name.`,
+      'invalid':    `"${next}" isn't a valid scene name.`,
+    }[result.reason];
+    alert(msg);
+    return;
+  }
+  refreshSceneDropdown();
+  setStatus('ok', `renamed to "${next}"`);
 });
 
 sceneDelEl.addEventListener('click', () => {

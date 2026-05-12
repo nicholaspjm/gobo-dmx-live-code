@@ -175,6 +175,42 @@ export function createScene(name: string, code = ''): boolean {
 }
 
 /**
+ * Rename a scene. Refuses the default (protected) and any rename whose
+ * target already exists. Moves the scene's metadata (lastAccessedAt) too
+ * so recent-list ordering survives the rename. If `oldName` was the
+ * active scene, the active pointer follows.
+ *
+ * Returns a tagged result so the UI can show specific error messages
+ * instead of a generic "failed".
+ */
+export type RenameResult =
+  | { ok: true }
+  | { ok: false; reason: 'protected' | 'not-found' | 'name-taken' | 'invalid' };
+
+export function renameScene(oldName: string, newName: string): RenameResult {
+  if (oldName === DEFAULT_SCENE) return { ok: false, reason: 'protected' };
+  const trimmed = newName.trim();
+  if (!trimmed) return { ok: false, reason: 'invalid' };
+  if (oldName === trimmed) return { ok: true }; // no-op
+  const map = readAll();
+  if (!(oldName in map)) return { ok: false, reason: 'not-found' };
+  if (trimmed in map) return { ok: false, reason: 'name-taken' };
+  map[trimmed] = map[oldName];
+  delete map[oldName];
+  writeAll(map);
+  // Move metadata so the recent-list ordering survives.
+  const meta = readMeta();
+  if (meta[oldName]) {
+    meta[trimmed] = meta[oldName];
+    delete meta[oldName];
+    writeMeta(meta);
+  }
+  // If the renamed scene was active, follow the rename.
+  if (getActiveScene() === oldName) setActiveScene(trimmed);
+  return { ok: true };
+}
+
+/**
  * Seed the built-in scenes on first run. Called from main.ts at startup
  * with the hardcoded default code (previously the only init code). Never
  * overwrites an existing scene — once seeded, the user's edits are king.
