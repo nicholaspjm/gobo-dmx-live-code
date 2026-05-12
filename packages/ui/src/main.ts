@@ -522,8 +522,39 @@ function updateStripPixel(el: HTMLElement, r: number, g: number, b: number): voi
   el.style.boxShadow = `0 0 ${Math.round(brightness * 6)}px rgba(${r},${g},${b},${(brightness * 0.7).toFixed(2)})`;
 }
 
+/**
+ * Apply movement-channel values to the element's CSS transform.
+ *   pan        0 → -50% x, 0.5 → centred, 1 → +50% x
+ *   tilt       0 → -50% y, 0.5 → centred, 1 → +50% y
+ *   direction  0 → -45°,  0.5 → 0°,      1 → +45°
+ * Reads each channel from the live universe buffer; absent channels
+ * default to 0.5 so a fixture missing one axis sits at centre / 0°.
+ * No-op if the SimFixture has no movement hints (transform stays unset).
+ */
+function applyMovement(r: RenderedSimFixture): void {
+  const m = r.core.movement;
+  if (!m) return;
+  const buf = getUniverseBuffer(r.core.universe);
+  const read = (ch: number | undefined): number => {
+    if (ch === undefined) return 0.5;
+    return (buf[ch - 1] ?? 0) / 255;
+  };
+  const pan = read(m.pan);
+  const tilt = read(m.tilt);
+  const direction = read(m.direction);
+  // Travel range chosen by feel — 24px lets pan/tilt move visibly without
+  // colliding with the neighbour fixture; 45° rotation is enough to
+  // suggest a bar tilting without looking broken.
+  const tx = m.pan       !== undefined ? (pan - 0.5) * 48 : 0;
+  const ty = m.tilt      !== undefined ? (tilt - 0.5) * 48 : 0;
+  const rot = m.direction !== undefined ? (direction - 0.5) * 90 : 0;
+  r.mainEl.style.transform =
+    `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) rotate(${rot.toFixed(1)}deg)`;
+  r.mainEl.style.transition = 'transform 80ms linear';
+}
+
 // ~30fps driver loop — reads universe buffers and paints each rendered
-// sim fixture according to its render kind.
+// sim fixture according to its render kind, then applies movement.
 setInterval(() => {
   for (const r of _renderedSim) {
     const buf = getUniverseBuffer(r.core.universe);
@@ -568,6 +599,8 @@ setInterval(() => {
         );
       }
     }
+
+    applyMovement(r);
   }
 }, 33);
 

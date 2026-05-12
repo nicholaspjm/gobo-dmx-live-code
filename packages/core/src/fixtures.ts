@@ -195,6 +195,23 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
 
 export type SimRenderKind = 'globe-rgbw' | 'globe-dim' | 'strip-rgb' | 'strip-rgbw';
 
+/**
+ * Optional movement-channel hints. When present, the sim panel applies a
+ * CSS transform each tick so the element visibly tracks `pan` / `tilt` /
+ * `direction` channel values. Numbers here are *absolute* 1-based DMX
+ * channels — keeps the renderer simple at the cost of one extra add at
+ * registration time.
+ *
+ *  pan        0 → -50% x, 0.5 → centred, 1 → +50% x (horizontal travel)
+ *  tilt       0 → -50% y, 0.5 → centred, 1 → +50% y (vertical travel)
+ *  direction  0 → -45°,  0.5 → 0°,      1 → +45°    (rotation, for bars)
+ */
+export interface SimMovement {
+  pan?: number;
+  tilt?: number;
+  direction?: number;
+}
+
 export interface SimFixture {
   /** Short label shown under the element in the sim panel (falls back to
    *  `id` when no better name is available). */
@@ -206,6 +223,8 @@ export interface SimFixture {
   startChannel: number;
   /** Total channels this entry occupies — tooltip-only. */
   channelCount: number;
+  /** Live movement channel hints; absent = element doesn't move. */
+  movement?: SimMovement;
   render:
     | { kind: 'globe-rgbw'; r?: number; g?: number; b?: number; w?: number; dim?: number }
     | { kind: 'globe-dim';  dim: number }
@@ -227,6 +246,29 @@ export function getSimFixtures(): readonly SimFixture[] {
 /** Called from eval.ts at the start of every evalCode(). */
 export function clearSimFixtures(): void {
   _simFixtures.length = 0;
+}
+
+/**
+ * Resolve movement-channel hints for a fixture from its declared channel
+ * layout. Picks `pan` / `tilt` / `direction` channels and converts each
+ * to an absolute 1-based DMX channel. Returns undefined if none of the
+ * three are present — keeps the SimFixture payload lean for static
+ * fixtures.
+ */
+function collectMovement(def: FixtureDef, startChannel: number): SimMovement | undefined {
+  const byName = (n: string): number | undefined =>
+    def.channels.find((c) => c.name === n)?.offset;
+  const panO       = byName('pan');
+  const tiltO      = byName('tilt');
+  const directionO = byName('direction');
+  if (panO === undefined && tiltO === undefined && directionO === undefined) {
+    return undefined;
+  }
+  const m: SimMovement = {};
+  if (panO       !== undefined) m.pan       = startChannel + panO;
+  if (tiltO      !== undefined) m.tilt      = startChannel + tiltO;
+  if (directionO !== undefined) m.direction = startChannel + directionO;
+  return m;
 }
 
 // ─── Runtime fixture registry (user-defined fixtures) ─────────────────────────
@@ -366,6 +408,10 @@ export function fixture(
     },
   } as FixtureInstance;
 
+  // Resolve movement channels once so both the embedded strip (if any)
+  // and the globe registration (if any) can share the same SimMovement.
+  const movement = collectMovement(def, startChannel);
+
   // Attach named accessors.
   //   - Scalar channels become setter functions: par.red(v)
   //   - 'strip' channels become nested Rgb/Rgbw StripInstance objects:
@@ -380,10 +426,11 @@ export function fixture(
         );
       }
       const stripStart = startChannel + ch.offset;
+      const stripOpts = { simLabel: `${fixtureId} · ${ch.name}`, movement };
       inst[ch.name] =
         ch.pixelLayout === 'rgbw'
-          ? rgbwStrip(stripStart, pixelCount, universe, { simLabel: `${fixtureId} · ${ch.name}` })
-          : rgbStrip(stripStart, pixelCount, universe, { simLabel: `${fixtureId} · ${ch.name}` });
+          ? rgbwStrip(stripStart, pixelCount, universe, stripOpts)
+          : rgbStrip(stripStart, pixelCount, universe, stripOpts);
     } else {
       inst[ch.name] = (value: PatternOrValue) => inst.set(ch.name, value);
     }
@@ -414,6 +461,7 @@ export function fixture(
         universe,
         startChannel,
         channelCount: def.channelCount,
+        movement,
         render: { kind: 'globe-rgbw', r, g, b, w, dim: dimOffset },
       });
     } else if (dimOffset !== undefined) {
@@ -423,10 +471,13 @@ export function fixture(
         universe,
         startChannel,
         channelCount: def.channelCount,
+        movement,
         render: { kind: 'globe-dim', dim: dimOffset },
       });
     }
-    // else: no visible channels (e.g. pan/tilt only) — don't clutter the sim.
+    // else: nothing visible to render (no colour, no dim) — don't clutter
+    // the sim. Movement-only fixtures (rare) need a colour or dim channel
+    // to get an element to track.
   }
 
   return inst;
@@ -513,7 +564,7 @@ export function rgbStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
-  opts: { simLabel?: string } = {},
+  opts: { simLabel?: string; movement?: SimMovement } = {},
 ): StripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbStrip: pixelCount must be >= 1 (got ${pixelCount})`);
@@ -597,6 +648,7 @@ export function rgbStrip(
     universe,
     startChannel,
     channelCount,
+    movement: opts.movement,
     render: { kind: 'strip-rgb', pixelCount },
   });
   return inst;
@@ -659,7 +711,7 @@ export function rgbwStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
-  opts: { simLabel?: string } = {},
+  opts: { simLabel?: string; movement?: SimMovement } = {},
 ): RgbwStripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbwStrip: pixelCount must be >= 1 (got ${pixelCount})`);
@@ -733,6 +785,7 @@ export function rgbwStrip(
     universe,
     startChannel,
     channelCount,
+    movement: opts.movement,
     render: { kind: 'strip-rgbw', pixelCount },
   });
   return inst;
