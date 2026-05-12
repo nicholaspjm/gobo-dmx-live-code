@@ -89,10 +89,28 @@ export function getSceneCode(name: string): string | null {
   return readAll()[name] ?? null;
 }
 
-export function saveSceneCode(name: string, code: string): void {
+/**
+ * True if `name` is a protected scene that user code can't overwrite
+ * (currently just the default). Callers needing to divert saves to a
+ * new scene should check this and prompt for a save-as target.
+ */
+export function isProtectedScene(name: string): boolean {
+  return name === DEFAULT_SCENE;
+}
+
+/**
+ * Write a scene. Refuses to touch protected scenes (returns false). Used
+ * by the editor autosave + manual save actions. The internal
+ * seedScenesIfEmpty / resetSeedScene paths bypass this via a direct
+ * writeAll() so first-run seeding and deliberate template resets still
+ * work.
+ */
+export function saveSceneCode(name: string, code: string): boolean {
+  if (isProtectedScene(name)) return false;
   const map = readAll();
   map[name] = code;
   writeAll(map);
+  return true;
 }
 
 /** Sorted list of existing scene names. DEFAULT_SCENE is pinned first;
@@ -182,6 +200,12 @@ export function seedScenesIfEmpty(defaultCode: string): void {
     map['ultratronics 11'] = ULTRATONICS_11_TEMPLATE;
     changed = true;
   }
+  // Dedicated demo scene for the four-colour moving bar. Seeded fresh on
+  // first run and re-seedable via the "reset" button in the scene picker.
+  if (!map['four-color-bar demo']) {
+    map['four-color-bar demo'] = FOUR_COLOR_BAR_DEMO_TEMPLATE;
+    changed = true;
+  }
   // Auto-upgrade the stale ultratronics seed in place: earlier versions
   // of this template called `spot.dim(...)` on a generic-rgbw fixture,
   // which throws "spot.dim is not a function" at runtime since that
@@ -229,6 +253,7 @@ export function listSeedScenes(): readonly string[] {
 function builtInSeeds(): Record<string, string> {
   return {
     'ultratronics 11': ULTRATONICS_11_TEMPLATE,
+    'four-color-bar demo': FOUR_COLOR_BAR_DEMO_TEMPLATE,
   };
 }
 
@@ -244,9 +269,9 @@ function builtInSeeds(): Record<string, string> {
  * and silences. The instrument palette here is chosen to match that
  * vocabulary with two-fixture gear (simple RGBW + the custom bar).
  *
- * BPM is set to 130 as a rough starting point — tap-tempo or setBPM()
- * when you rehearse to lock the internal clock to the actual track,
- * or enable the audio-reactive variants to follow the recording.
+ * BPM is set to 108 as the librosa-detected starting point — tap-tempo
+ * or setBPM() when you rehearse to lock the internal clock to whatever
+ * you're playing back through your own audio setup.
  */
 const ULTRATONICS_11_TEMPLATE = `// ultratronics 11 — Ryoji Ikeda · 5:30 · 108 BPM
 //
@@ -262,19 +287,34 @@ const ULTRATONICS_11_TEMPLATE = `// ultratronics 11 — Ryoji Ikeda · 5:30 · 1
 //   4:36  outro            ebb · rms 0.56–0.60
 //   5:21  fade             rms falls to silence
 //
-// Load the audio file in the bar below and tap 'play'. setBPM(108)
-// is already wired; if librosa's estimate drifts from what you hear,
-// tap-tempo with T. Audio-reactive variants follow the recording when
-// the track is playing; the non-audio ones run off the internal clock.
+// Play the track through your own audio setup. setBPM(108) is wired
+// from the librosa estimate; if it drifts from what you hear, tap-tempo
+// with T to lock the internal clock to the beat.
 
 artnet('2.0.0.100')
 setBPM(108)
 
 // ── fixtures ──────────────────────────────────────────────
 // spot = simple RGBW par at uni 0 ch 1-4.
-// bar  = four-colour moving bar from the public library on uni 1.
+// bar  = custom 4-colour moving bar (see 'four-color-bar demo' scene
+//        for the full breakdown of defineFixture).
+defineFixture('demo-bar', {
+  name: 'Four-Colour Moving Bar',
+  manufacturer: 'Generic',
+  type: 'generic',
+  channelCount: 38,
+  channels: [
+    { offset: 0, name: 'direction',   type: 'control'   },
+    { offset: 1, name: 'speed',       type: 'control'   },
+    { offset: 2, name: 'effect',      type: 'control'   },
+    { offset: 3, name: 'effectSpeed', type: 'control'   },
+    { offset: 4, name: 'dim',         type: 'intensity' },
+    { offset: 5, name: 'strobe',      type: 'strobe'    },
+    { offset: 6, name: 'pixels',      type: 'strip', pixelCount: 8, pixelLayout: 'rgbw' },
+  ],
+})
 const spot = fixture(1, 'generic-rgbw').viz('color')
-const bar  = fixture(1, 'four-color-bar', 1)
+const bar  = fixture(1, 'demo-bar', 1)
 bar.pixels.viz('strip')
 bar.dim(1)
 
@@ -316,20 +356,6 @@ function barSweep()  { bar.pixels.rainbowChase({ speed: 2, narrow: 12 }) }
 function barStrobe() { bar.pixels.white(mini('1*16').range(-4, 1)) }
 function barOff()    { bar.pixels.fill(0, 0, 0, 0) }
 
-// ── audio-reactive variants ──────────────────────────────
-// Route real audio features to lights. Only meaningful once the
-// track is loaded and playing. Same channel-family rule applies:
-// audioKick and kick both drive white, audioBass and noiseBurst
-// both drive red — pick one per family.
-function audioKick() { spot.white(audio.peak()) }
-function audioHats() { spot.green(audio.treble().range(0, 0.5)) }
-function audioMid()  { spot.green(audio.mid().range(0, 0.7)) }
-function audioBass() { spot.red(audio.bass().range(0, 1).glow()) }
-function audioBar()  {
-  bar.pixels.rainbowChase({ speed: 1 })
-  bar.pixels.white(audio.peak().range(0, 1))
-}
-
 // ── LIVE ──────────────────────────────────────────────────
 // Uncomment elements per section, Ctrl+Enter to apply. Section cue
 // times in the header comment. You're not required to follow them —
@@ -340,7 +366,7 @@ function audioBar()  {
 
 // --- development · 0:36-1:12 · bass creeps in ---
 // sineDeep()
-// audioBass()
+// noiseBurst()
 // hatsOffbeat()
 
 // --- first shift · 1:12-1:35 · texture change ---
@@ -358,7 +384,7 @@ function audioBar()  {
 // kickDouble()
 // hats()
 // barPulse()
-// audioBar()
+// barSweep()
 
 // --- outro · 4:36-5:21 · ebb ---
 // sineTone()
@@ -366,11 +392,87 @@ function audioBar()  {
 
 // --- fade · 5:21-5:30 ---
 // barOff()
+`;
 
-// --- full audio-reactive alt (works across the whole track) ---
-// audioKick()
-// audioBass()
-// audioMid()
-// audioHats()
-// audioBar()
+/**
+ * Single-fixture demo for the four-colour moving bar.
+ *
+ * Designed for live demonstration: only the bar is registered, so the
+ * sim panel shows one fixture and the audience can map every line of
+ * code directly to a visual effect. Each effect is a named function;
+ * uncomment one at a time in the LIVE block to step through capabilities.
+ *
+ * Keep this template minimal so it's the canonical reference for
+ * "what can the bar do, and how do I drive each piece?"
+ */
+const FOUR_COLOR_BAR_DEMO_TEMPLATE = `// four-colour bar — live demo
+// every line at the bottom runs on ctrl+enter. comment a line to silence it.
+
+artnet('2.0.0.100')
+setBPM(120)
+
+// ── define a custom fixture ───────────────────
+// defineFixture(id, def) registers a channel layout under a name we can
+// reference below. 38 channels total: 4 macro/control channels, master
+// dim + strobe, then an 8-pixel RGBW strip (32 chs) starting at offset 6.
+// offsets are 0-based relative to whatever startChannel we instantiate at.
+defineFixture('demo-bar', {
+  name: 'Four-Colour Moving Bar',
+  manufacturer: 'Generic',
+  type: 'generic',
+  channelCount: 38,
+  channels: [
+    { offset: 0, name: 'direction',   type: 'control'   },
+    { offset: 1, name: 'speed',       type: 'control'   },
+    { offset: 2, name: 'effect',      type: 'control'   },
+    { offset: 3, name: 'effectSpeed', type: 'control'   },
+    { offset: 4, name: 'dim',         type: 'intensity' },
+    { offset: 5, name: 'strobe',      type: 'strobe'    },
+    { offset: 6, name: 'pixels',      type: 'strip', pixelCount: 8, pixelLayout: 'rgbw' },
+  ],
+})
+
+// instantiate the fixture at universe 1, channel 1.
+const bar = fixture(1, 'demo-bar', 1)
+bar.pixels.viz('strip')
+bar.dim(1)
+
+// ── effect helpers ────────────────────────────
+// only the multi-pixel effects need a helper — single-expression
+// triggers (breathe, pulse, sweep, spin) live inline in LIVE below.
+const walk = () => {
+  for (let i = 0; i < bar.pixels.pixelCount; i++) {
+    const b = cosine().early(i / bar.pixels.pixelCount).slow(2).range(-7, 1)
+    bar.pixels.pixel(i, b, b, b, 0)
+  }
+}
+const rainbow = () => bar.pixels.rainbowChase({ speed: 2, narrow: 6 })
+const split = () => {
+  for (let i = 0; i < bar.pixels.pixelCount; i++) {
+    bar.pixels.pixel(i, i < 4 ? 1 : 0, 0, i < 4 ? 0 : 1, 0)
+  }
+}
+
+// ── custom chain methods ──────────────────────
+register('punch',   (p) => p.range(-15, 1).flash())
+register('shimmer', (p) => p.range(0.2, 1).glow())
+
+// ── LIVE ──────────────────────────────────────
+// pixels (pick one)
+bar.pixels.fill(0, 0, 0, 1)
+// bar.pixels.white(sine().slow(8).range(0.1, 1).glow())          // breathe
+// bar.pixels.white(mini('1 - - -').range(-15, 1).flash())        // pulse
+// bar.pixels.white(mini('1 - 1 -').punch())                      // double
+// walk()
+// rainbow()
+// split()
+
+// movement (stack on top of any pixel effect)
+// bar.direction(0.5); bar.speed(0)                               // center
+// bar.direction(0);   bar.speed(0)                               // left
+// bar.direction(1);   bar.speed(0)                               // right
+// bar.direction(sine().slow(8)); bar.speed(0.6)                  // sweep
+// bar.direction(saw().slow(6));  bar.speed(0.8)                  // spin
+// bar.direction(sine().slow(1).range(0.4, 0.6)); bar.speed(0.5)  // wobble
+// bar.speed(0)                                                   // freeze
 `;

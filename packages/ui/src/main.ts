@@ -25,15 +25,9 @@ import {
   connectBridge,
   onStatusChange,
   sendUniverseState,
-  updateAudioFrame,
-  loadTrack,
-  playTrack,
-  pauseTrack,
-  enableMic,
-  disableMic,
-  getTrackInfo,
   restoreLibraryFixtures,
   getSimFixtures,
+  clearDefs,
   type SimFixture,
 } from '@lumen/core';
 
@@ -41,13 +35,22 @@ import { createEditor, INITIAL_CODE } from './editor.js';
 import {
   seedScenesIfEmpty, getActiveScene, setActiveScene, getSceneCode,
   saveSceneCode, getScenesView, createScene, deleteScene,
-  resetSeedScene, listSeedScenes, touchScene,
+  resetSeedScene, listSeedScenes, touchScene, isProtectedScene,
 } from './scenes.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
 import { renderDocs } from './docs.js';
 import { refreshViz } from './inline-viz.js';
 import { mountLibraryPanel } from './library.js';
 import { registerPublicFixtures } from './public-fixtures.js';
+import { formatLumenCode } from './formatter.js';
+import { getSettings, mountSettingsPanel, onSettingsChange } from './settings.js';
+import { applyTheme } from './themes.js';
+
+// Apply the persisted theme as early as possible — before the editor
+// mounts and before any CSS-variable-dependent code runs. Otherwise the
+// page would briefly flash the default ember palette while the editor
+// constructs.
+applyTheme(getSettings().theme);
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 
@@ -62,15 +65,27 @@ const wsLabelEl = document.getElementById('ws-label')!;
 
 // ─── Eval ────────────────────────────────────────────────────────────────────
 
-function runEval(code: string): void {
-  const result = evalCode(code);
+async function runEval(code: string): Promise<void> {
+  // Format-on-run: if the setting is on, reformat the buffer before
+  // evaluation. Failure (e.g. syntax error mid-edit) falls through to
+  // eval, which will surface a clearer message than prettier's parse
+  // trace. Identical to manual Ctrl+Shift+F semantically, just less
+  // visible at the keyboard.
+  let toRun = code;
+  if (getSettings().formatOnRun) {
+    const formatted = await formatBuffer({ silent: true });
+    if (formatted !== null) toRun = formatted;
+  }
+  const result = evalCode(toRun);
   if (result.success) {
     setStatus('ok', '✓ running');
     if (!isRunning()) start();
     // Rebuild inline editor visualizations to reflect any .viz() calls
     // in the new code. Widgets animate from the live universe buffer; this
-    // call only (re)places them in the editor at the right lines.
-    refreshViz(editorView);
+    // call only (re)places them in the editor at the right lines. The
+    // inlineViz setting lets users opt out for big scenes or screen recordings.
+    if (getSettings().inlineViz) refreshViz(editorView);
+    else refreshViz(editorView, { disabled: true });
     // Rebuild the sim panel — one fixture-unit per registered SimFixture
     // in the new code. Shows exactly what's in the active scene.
     rebuildSimPanel();
@@ -84,6 +99,17 @@ function runEval(code: string): void {
 
 function runStop(): void {
   stop();
+  // Stop-action setting decides whether to also zero the universe buffers.
+  // 'blackout' wipes; 'freeze' leaves the last frame on outputs so the rig
+  // holds its state until the next eval. clearDefs() removes pattern defs
+  // AND zeroes the buffers in one call; a follow-up sendUniverseState
+  // pushes the zeroed buffers to the bridge so hardware actually goes dark
+  // (the scheduler tick is no longer running, so we have to do it here).
+  if (getSettings().stopAction === 'blackout') {
+    clearDefs();
+    sendUniverseState(getAllUniverses());
+    updateVisualizer(getPrimaryUniverseSnapshot());
+  }
   setStatus('', 'stopped — ctrl+enter to run');
 }
 
@@ -92,6 +118,120 @@ function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
   evalStatusEl.className = kind;
 }
 
+// ─── Save / save-as ──────────────────────────────────────────────────────────
+// Autosave already writes to the active scene on every edit (500ms debounce,
+// in onEditorChange below). These explicit actions are for:
+//   Ctrl+S        — snapshot now + flash "saved"; on the protected default
+//                   scene it diverts to save-as.
+//   Ctrl+Shift+S  — always prompt for a new scene name, create it, switch.
+// Both route through the same createSceneFromBuffer() so "save-as" and
+// "new scene from current buffer" are literally the same operation.
+
+function createSceneFromBuffer(promptLabel: string): void {
+  const name = prompt(promptLabel)?.trim();
+  if (!name) return;
+  if (getSceneCode(name) !== null) {
+    alert(`A scene named "${name}" already exists — pick a different name or delete the existing one first.`);
+    return;
+  }
+  const code = editorView.state.doc.toString();
+  createScene(name, code);
+  touchScene(name);
+  setActiveScene(name);
+  refreshSceneDropdown();
+  setStatus('ok', `saved as "${name}"`);
+  // Auto-eval so the newly-saved scene is running on the sim immediately.
+  if (code.trim().length > 0) runEval(code);
+}
+
+function handleSave(): void {
+  const active = getActiveScene();
+  const code = editorView.state.doc.toString();
+  if (isProtectedScene(active)) {
+    // Default is read-only — prompting for a name IS the save.
+    createSceneFromBuffer(`"${active}" is read-only. Save as a new scene — name:`);
+    return;
+  }
+  // For non-default scenes autosave has already persisted this content;
+  // flash a confirmation so the user gets feedback from their Ctrl+S.
+  saveSceneCode(active, code);
+  setStatus('ok', `saved · ${active}`);
+}
+
+function handleSaveAs(): void {
+  createSceneFromBuffer('Save as new scene — name:');
+}
+
+/**
+ * Format the current editor buffer via Prettier. Replaces the whole
+ * document with the formatted result and restores the cursor to the
+ * line it was on (rough, but less jarring than snapping to the top).
+ *
+ * Returns the formatted string if changes were applied, or null if no
+ * change was needed (or the format failed — both treated as "nothing to
+ * do"). `silent: true` suppresses status-bar updates so format-on-run
+ * doesn't overwrite the imminent eval status.
+ */
+async function formatBuffer(opts: { silent?: boolean } = {}): Promise<string | null> {
+  const src = editorView.state.doc.toString();
+  const lineBefore = editorView.state.doc.lineAt(editorView.state.selection.main.head).number;
+  if (!opts.silent) setStatus('', 'formatting…');
+  let formatted: string;
+  try {
+    formatted = await formatLumenCode(src);
+  } catch (err) {
+    if (!opts.silent) {
+      const msg = (err as Error).message ?? 'format failed';
+      setStatus('error', `format error: ${msg.split('\n')[0]}`);
+    }
+    return null;
+  }
+  if (formatted === src) {
+    if (!opts.silent) setStatus('ok', 'already formatted');
+    return null;
+  }
+  // Replace the document, cursor on the same line number when possible.
+  const newLineCount = formatted.split('\n').length;
+  const targetLine = Math.min(lineBefore, newLineCount);
+  const linePos = formatted.split('\n').slice(0, targetLine - 1).join('\n').length + (targetLine > 1 ? 1 : 0);
+  editorView.dispatch({
+    changes: { from: 0, to: editorView.state.doc.length, insert: formatted },
+    selection: { anchor: linePos },
+  });
+  if (!opts.silent) setStatus('ok', 'formatted');
+  return formatted;
+}
+
+/** Manual Ctrl+Shift+F handler — surfaces format errors / "already
+ *  formatted" in the status bar so the user gets feedback. */
+async function handleFormat(): Promise<void> {
+  await formatBuffer();
+}
+
+document.addEventListener('keydown', (e) => {
+  // Ctrl+S / Cmd+S — save. Shift-modifier → always save-as.
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault();
+    if (e.shiftKey) handleSaveAs();
+    else handleSave();
+    return;
+  }
+  // Ctrl+Shift+F — format current buffer via prettier (lazy-loaded).
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+    e.preventDefault();
+    handleFormat();
+    return;
+  }
+  // Ctrl+Space — global "panic stop" alias. Inside the editor the
+  // CodeMirror keymap catches this first (see editor.ts); this listener
+  // handles the case where focus is on the sim panel, top bar, etc.
+  if ((e.ctrlKey || e.metaKey) && (e.key === ' ' || e.code === 'Space')) {
+    e.preventDefault();
+    runStop();
+    return;
+  }
+});
+
 // ─── Editor + scenes ────────────────────────────────────────────────────────
 // Scenes are named editor buffers persisted in localStorage. On first run
 // we seed two: "default" (the hardcoded INITIAL_CODE) and "ultratonics 11"
@@ -99,7 +239,13 @@ function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
 // the editor at boot; the buffer autosaves back to it on every change.
 
 seedScenesIfEmpty(INITIAL_CODE);
-const bootScene = getActiveScene();
+// Always boot into the `default` scene rather than restoring whatever the
+// user last touched. Autosave still persists every named scene on edit,
+// so nothing is lost — but page reload becomes a predictable hard reset.
+// Performers asked for this: it makes "refresh the tab" a reliable panic
+// button when a custom scene drifts into a weird state.
+const bootScene = 'default';
+setActiveScene(bootScene);
 const bootCode = getSceneCode(bootScene) ?? INITIAL_CODE;
 
 // Debounced autosave — every edit writes to the current scene's slot.
@@ -108,6 +254,9 @@ const bootCode = getSceneCode(bootScene) ?? INITIAL_CODE;
 let _saveTimer: ReturnType<typeof setTimeout> | null = null;
 function onEditorChange(code: string): void {
   if (_saveTimer) clearTimeout(_saveTimer);
+  // Autosave can be disabled in settings — when off the user is responsible
+  // for Ctrl+S. We still arm the timer slot in case they re-enable mid-edit.
+  if (!getSettings().autosave) return;
   _saveTimer = setTimeout(() => {
     const name = getActiveScene();
     saveSceneCode(name, code);
@@ -124,26 +273,23 @@ initVisualizer(visualizerEl);
 
 // ─── Scheduler tick ──────────────────────────────────────────────────────────
 
-// Cap DMX output rate at ~60 Hz so 120/144/240 Hz displays don't flood
-// the downstream over a USB DMX node or WiFi. On localhost this is
-// irrelevant, but it's polite to network gear and enough to look smooth.
-const SEND_INTERVAL_MS = 1000 / 60;
+// Cap DMX output rate so 120/144/240 Hz displays don't flood the downstream
+// over a USB DMX node or WiFi. Configurable via settings.sendRate — default
+// 60 Hz, lower for wireless rigs, higher for local dev. Read fresh each
+// tick so the user can change it live without re-evaluating.
 let _lastSendMs = 0;
 
 onTick((cyclePos, _delta) => {
-  // 0. Refresh audio band values before pattern eval so `audio.bass()` etc.
-  //    see this frame's values. No-op unless a track is loaded or mic is on.
-  updateAudioFrame();
-
   // 1. Resolve patterns → DMX channel values
   tick(cyclePos);
 
   // 2. Push to visualizer (gets the live primary-universe buffer)
   updateVisualizer(getPrimaryUniverseSnapshot());
 
-  // 3. Send to bridge (time-throttled to ~60 Hz).
+  // 3. Send to bridge (time-throttled to the configured send rate).
+  const sendIntervalMs = 1000 / getSettings().sendRate;
   const now = performance.now();
-  if (now - _lastSendMs >= SEND_INTERVAL_MS) {
+  if (now - _lastSendMs >= sendIntervalMs) {
     _lastSendMs = now;
     sendUniverseState(getAllUniverses());
   }
@@ -240,8 +386,8 @@ function tap(): void {
 bpmTapEl.addEventListener('click', tap);
 
 // Global T hotkey — suppressed whenever focus is somewhere you'd actually
-// be typing (editor, BPM field, search, audio file input, etc.) so it
-// doesn't collide with normal text entry.
+// be typing (editor, BPM field, search input, etc.) so it doesn't collide
+// with normal text entry.
 document.addEventListener('keydown', (e) => {
   if (e.key !== 't' && e.key !== 'T') return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -509,6 +655,9 @@ function positionTooltip(rect: DOMRect): void {
 
 function bindTooltip(rendered: RenderedSimFixture): void {
   rendered.mainEl.addEventListener('mouseenter', () => {
+    // Honour settings.simTooltips at hover time, not bind time — toggling
+    // the setting takes effect immediately without rebuilding the panel.
+    if (!getSettings().simTooltips) return;
     _hoveredSim = rendered;
     renderTooltip(rendered);
     tooltipEl.classList.add('open');
@@ -536,6 +685,7 @@ const sceneSelectEl = document.getElementById('scene-select') as HTMLSelectEleme
 const sceneNewEl    = document.getElementById('scene-new')    as HTMLButtonElement;
 const sceneResetEl  = document.getElementById('scene-reset')  as HTMLButtonElement;
 const sceneDelEl    = document.getElementById('scene-delete') as HTMLButtonElement;
+const sceneRoBadgeEl = document.getElementById('scene-readonly-badge') as HTMLElement;
 
 function refreshSceneDropdown(): void {
   const active = getActiveScene();
@@ -562,6 +712,8 @@ function refreshSceneDropdown(): void {
   sceneDelEl.disabled = active === 'default';
   // Reset button only applies to scenes with a bundled seed template.
   sceneResetEl.disabled = !listSeedScenes().includes(active);
+  // Read-only badge appears whenever the active scene is protected.
+  sceneRoBadgeEl.classList.toggle('hidden', !isProtectedScene(active));
 }
 
 /** Replace the editor's document with the given code, preserving the
@@ -648,92 +800,26 @@ touchScene(getActiveScene());
 
 refreshSceneDropdown();
 
-// ─── Audio transport ─────────────────────────────────────────────────────────
-// Wire the buttons in the audio bar. Kept deliberately small — this is an
-// optional feature, so it's a file picker, a play/pause toggle, and a mic
-// toggle. No scrubber, no waveform strip — patterns get their reactive data
-// through the `audio` object in the eval context regardless.
+// ─── Sliding panels (docs / library / settings) ──────────────────────────────
+// Three independent panels but only one should be visible at a time —
+// otherwise opening "library" over an already-open "docs" stacks them and
+// the user can't tell which one's actually on top. Each panel registers
+// its close fn here; when one opens it calls closeOtherPanels(self) to
+// shut the others first.
 
-const audioFileEl  = document.getElementById('audio-file')  as HTMLInputElement;
-const audioLoadEl  = document.getElementById('audio-load')  as HTMLButtonElement;
-const audioPlayEl  = document.getElementById('audio-play')  as HTMLButtonElement;
-const audioMicEl   = document.getElementById('audio-mic')   as HTMLButtonElement;
-const audioInfoEl  = document.getElementById('audio-info')  as HTMLElement;
-
-function formatTime(sec: number): string {
-  if (!Number.isFinite(sec)) return '0:00';
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
+type PanelCloser = (open: boolean) => void;
+const _panelClosers = new Map<string, PanelCloser>();
+function closeOtherPanels(except: string): void {
+  for (const [key, fn] of _panelClosers) {
+    if (key !== except) fn(false);
+  }
 }
 
-function refreshAudioUi(): void {
-  const info = getTrackInfo();
-  if (info.source === 'mic') {
-    audioPlayEl.disabled = true;
-    audioPlayEl.textContent = '▶';
-    audioMicEl.classList.add('active');
-    audioInfoEl.textContent = 'mic live';
-    return;
-  }
-  audioMicEl.classList.remove('active');
-  if (info.source === 'file') {
-    audioPlayEl.disabled = false;
-    audioPlayEl.textContent = info.isPlaying ? '❚❚' : '▶';
-    const bpmStr = info.bpm ? ` · bpm ${info.bpm}` : '';
-    audioInfoEl.textContent =
-      `${info.name} · ${formatTime(info.position)} / ${formatTime(info.duration)}${bpmStr}`;
-    return;
-  }
-  audioPlayEl.disabled = true;
-  audioPlayEl.textContent = '▶';
-  audioInfoEl.textContent = 'no track';
-}
-
-audioLoadEl.addEventListener('click', () => audioFileEl.click());
-
-audioFileEl.addEventListener('change', async () => {
-  const file = audioFileEl.files?.[0];
-  if (!file) return;
-  audioInfoEl.textContent = `analysing ${file.name}…`;
-  try {
-    await loadTrack(file);
-  } catch (err) {
-    audioInfoEl.textContent = `load failed: ${(err as Error).message}`;
-    return;
-  }
-  refreshAudioUi();
-  // Reset the input so picking the same file again still fires 'change'.
-  audioFileEl.value = '';
-});
-
-audioPlayEl.addEventListener('click', async () => {
-  const info = getTrackInfo();
-  if (info.source !== 'file') return;
-  if (info.isPlaying) pauseTrack();
-  else await playTrack();
-  refreshAudioUi();
-});
-
-audioMicEl.addEventListener('click', async () => {
-  const info = getTrackInfo();
-  if (info.source === 'mic') {
-    disableMic();
-  } else {
-    await enableMic();
-  }
-  refreshAudioUi();
-});
-
-// Keep the info text current while a track plays (cheap — just one tick/sec).
-setInterval(refreshAudioUi, 500);
-
-// ─── Docs panel ──────────────────────────────────────────────────────────────
-
+// Docs panel
 const docsToggleEl = document.getElementById('docs-toggle') as HTMLButtonElement;
-const docsCloseEl = document.getElementById('docs-close') as HTMLButtonElement;
-const docsPanelEl = document.getElementById('docs-panel') as HTMLElement;
-const docsBodyEl = document.getElementById('docs-body') as HTMLElement;
+const docsCloseEl  = document.getElementById('docs-close')  as HTMLButtonElement;
+const docsPanelEl  = document.getElementById('docs-panel')  as HTMLElement;
+const docsBodyEl   = document.getElementById('docs-body')   as HTMLElement;
 
 renderDocs(docsBodyEl);
 
@@ -741,28 +827,45 @@ function setDocsOpen(open: boolean): void {
   docsPanelEl.classList.toggle('open', open);
   docsPanelEl.setAttribute('aria-hidden', open ? 'false' : 'true');
   docsToggleEl.classList.toggle('active', open);
+  if (open) closeOtherPanels('docs');
 }
+_panelClosers.set('docs', setDocsOpen);
 
 docsToggleEl.addEventListener('click', () => {
   setDocsOpen(!docsPanelEl.classList.contains('open'));
 });
 docsCloseEl.addEventListener('click', () => setDocsOpen(false));
 
-// Close on Escape for accessibility
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && docsPanelEl.classList.contains('open')) {
     setDocsOpen(false);
   }
 });
 
-// ─── Fixture library panel ───────────────────────────────────────────────────
-
+// Fixture library panel — close docs/settings when this opens.
 const libraryPanel = mountLibraryPanel({
   panelEl:  document.getElementById('library-panel')  as HTMLElement,
   bodyEl:   document.getElementById('library-body')   as HTMLElement,
   toggleEl: document.getElementById('library-toggle') as HTMLButtonElement,
   closeEl:  document.getElementById('library-close')  as HTMLButtonElement,
+  onOpen:   () => closeOtherPanels('library'),
 });
+_panelClosers.set('library', libraryPanel.setOpen);
+
+// Settings panel — close docs/library when this opens.
+const settingsPanel = mountSettingsPanel({
+  panelEl:  document.getElementById('settings-panel')  as HTMLElement,
+  bodyEl:   document.getElementById('settings-body')   as HTMLElement,
+  toggleEl: document.getElementById('settings-toggle') as HTMLButtonElement,
+  closeEl:  document.getElementById('settings-close')  as HTMLButtonElement,
+  onOpen:   () => closeOtherPanels('settings'),
+});
+_panelClosers.set('settings', settingsPanel.setOpen);
+
+// Re-apply the theme whenever the setting changes. Other settings are read
+// at the point of use (no subscription needed); themes are special because
+// they have to write CSS variables onto :root to take effect.
+onSettingsChange((s) => applyTheme(s.theme));
 
 // After every successful eval, any new defineFixture() calls land in the
 // runtime registry. Refresh the library panel so those show up in the
@@ -778,7 +881,14 @@ const _refreshLibraryAfterEval = (): void => libraryPanel.refresh();
 registerPublicFixtures();
 restoreLibraryFixtures();
 
+// Defensive: ensure the scheduler is in the stopped state on boot. Vite's
+// HMR can keep the worker / animation loop alive across reloads in dev,
+// which makes the page look like it's "already playing" before the user
+// hits Ctrl+Enter. Calling stop() unconditionally is a no-op on a cold
+// load and a real reset under HMR.
+runStop();
+
 initStrudel().then(() => {
   console.log('[lumen] ready');
-  setStatus('', 'ctrl+enter to run  ·  ctrl+. to stop');
+  setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop');
 });

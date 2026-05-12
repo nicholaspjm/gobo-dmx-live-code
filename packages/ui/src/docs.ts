@@ -33,18 +33,16 @@ interface DocSection {
  * order they appear. 'start' is intentionally the default so new users land
  * on the walkthrough instead of the reference wall.
  */
-type DocCategory = 'welcome' | 'patterns' | 'fixtures' | 'viz' | 'audio' | 'output' | 'reference';
+type DocCategory = 'welcome' | 'patterns' | 'fixtures' | 'viz' | 'output' | 'reference';
 
-// Tab order mirrors Strudel's navigation (welcome · patterns · sounds · ref
-// · export · console · settings) but adapted to lights — "sounds" → fixtures
-// is our equivalent output target, and we gain viz + audio tabs for the
-// lumen-specific inline-decoration and audio-reactive features.
+// Tab layout: welcome · patterns · fixtures · viz · output · reference.
+// "fixtures" is our equivalent output target, and the viz tab covers
+// lumen's inline-decoration features.
 const DOC_TABS: Array<{ id: DocCategory; label: string }> = [
   { id: 'welcome',   label: 'welcome' },
   { id: 'patterns',  label: 'patterns' },
   { id: 'fixtures',  label: 'fixtures' },
   { id: 'viz',       label: 'viz' },
-  { id: 'audio',     label: 'audio' },
   { id: 'output',    label: 'output' },
   { id: 'reference', label: 'reference' },
 ];
@@ -59,7 +57,7 @@ const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'lumen',
     blurb:
-      'Live DMX coding in the browser. JavaScript patterns drive real fixtures — Art-Net hardware, TouchDesigner via OSC, or pure simulation. Ctrl+Enter runs your code, Ctrl+. stops. Drop a track into the audio bar for bpm-locked reactivity. Hover any fixture in the sim panel for its live channel values. Switch between named code buffers with the scene picker in the top bar.',
+      'Live DMX coding in the browser. JavaScript patterns drive real fixtures — Art-Net hardware, TouchDesigner via OSC, or pure simulation. Ctrl+Enter runs your code, Ctrl+. stops. Hover any fixture in the sim panel for its live channel values. Switch between named code buffers with the scene picker in the top bar.',
     entries: [],
   },
   {
@@ -77,7 +75,6 @@ const DOCS: DocSection[] = [
       { name: 'define fixtures',  signature: 'fixture · rgbStrip · defineFixture',     description: '', tabLink: 'fixtures' },
       { name: 'write patterns',   signature: 'sine · cosine · square · saw · chains',  description: '', tabLink: 'patterns' },
       { name: 'inline viz',       signature: ".viz · .flash · .glow · .wave",          description: '', tabLink: 'viz' },
-      { name: 'sync to audio',    signature: 'audio.bass · mid · treble · rms · peak', description: '', tabLink: 'audio' },
       { name: 'low-level DMX',    signature: 'ch · uni · dim · rgb',                   description: '', tabLink: 'reference' },
     ],
   },
@@ -127,52 +124,8 @@ const DOCS: DocSection[] = [
         name: 'setBPM',
         signature: 'setBPM(bpm)',
         description:
-          'Set the scheduler tempo. One Strudel cycle = one beat, so .fast(4) at 120 BPM fires 4x per beat = 8 per second.',
+          'Set the scheduler tempo. One pattern cycle = one beat, so .fast(4) at 120 BPM fires 4x per beat = 8 per second.',
         example: 'setBPM(128)',
-      },
-    ],
-  },
-
-  {
-    category: 'audio',
-    title: 'audio',
-    blurb:
-      "Optional. Load a track (or enable the mic) from the audio bar at the bottom of the screen; pattern code can then react to it. When a track is playing, the scheduler's cycle position follows the track — patterns stay phase-locked through pauses and seeks. Mic mode uses the internal clock (no track position). All audio sources return 0..1 patterns you can chain with .range / .add / .mul just like sine().",
-    entries: [
-      {
-        name: 'audio.bass',
-        signature: 'audio.bass()',
-        description: 'Low-band energy (≤200Hz) — kick, bass. 0..1, chainable.',
-        example: 'washA.red(audio.bass().range(0, 1))',
-      },
-      {
-        name: 'audio.mid',
-        signature: 'audio.mid()',
-        description: 'Mid-band energy (200Hz–2kHz) — vocals, snare body.',
-      },
-      {
-        name: 'audio.treble',
-        signature: 'audio.treble()',
-        description: 'High-band energy (2–12kHz) — hats, cymbals, sibilance.',
-      },
-      {
-        name: 'audio.rms',
-        signature: 'audio.rms()',
-        description: 'Overall loudness across all bands, 0..1.',
-        example: 'bar.pixels.white(audio.rms().mul(0.6))',
-      },
-      {
-        name: 'audio.peak',
-        signature: 'audio.peak()',
-        description:
-          'Transient detector — jumps to 1 when the RMS spikes above its recent average (beats, hits) and decays back to 0 over ~150ms. Great for strobes and flashes.',
-        example: 'spot.dim(audio.peak())',
-      },
-      {
-        name: 'audio.bpm / position / duration / isPlaying / track',
-        signature: 'audio.bpm · audio.position · audio.duration',
-        description:
-          "Live scalar getters. bpm is null until a track is loaded and analysis succeeds; it's also auto-applied to setBPM() on load.",
       },
     ],
   },
@@ -242,7 +195,7 @@ const DOCS: DocSection[] = [
     category: 'viz',
     title: 'pattern viz',
     blurb:
-      "Opt-in per-pattern editor decorations. Chain .flash() / .glow() / .wave() onto any pattern (sine/square/cosine/saw/rand, fallback waveforms, or audio.bass/mid/treble/rms/peak) and the editor line lights up with live feedback. Methods return the pattern unchanged so you can still pass it into a fixture setter. Never on by default.",
+      "Opt-in per-pattern editor decorations. Chain .flash() / .glow() / .wave() onto any pattern (sine/square/cosine/saw/rand, fallback waveforms) and the editor line lights up with live feedback. Methods return the pattern unchanged so you can still pass it into a fixture setter. Never on by default.",
     entries: [
       {
         name: '.flash',
@@ -415,7 +368,7 @@ const DOCS: DocSection[] = [
     category: 'patterns',
     title: 'patterns',
     blurb:
-      'Strudel waveforms and pattern builders. Output is normalised to 0-1 unless stated.',
+      'Waveform and pattern builders. Output is normalised to 0-1 unless stated.',
     entries: [
       {
         name: 'sine',
@@ -454,7 +407,7 @@ const DOCS: DocSection[] = [
     category: 'patterns',
     title: 'sequencing',
     blurb:
-      "Step sequencing via Strudel's mini-notation. Each string plays through one scheduler cycle (= 4 beats at default BPM); tokens split the time equally. '-' and '~' are silence. Drop in anywhere a channel setter expects a pattern — one mini call per channel gives you the classic drum-grid. Covers every feature the Strudel workshop does: subdivisions [a b], repeats *N, speed /N, and alternation <a b c>.",
+      "Step sequencing via mini-notation. Each string plays through one scheduler cycle (= 4 beats at default BPM); tokens split the time equally. '-' and '~' are silence. Drop in anywhere a channel setter expects a pattern — one mini call per channel gives you the classic drum-grid. Supports subdivisions [a b], repeats *N, speed /N, and alternation <a b c>.",
     entries: [
       {
         name: 'mini',
@@ -475,7 +428,7 @@ const DOCS: DocSection[] = [
         name: 'subdivisions',
         signature: "[a b c]",
         description:
-          "Wrap tokens in brackets to compress them into the time of ONE outer slot. [a b] plays at 2× the outer step rate, [a b c d] at 4×. Nest freely. This is Strudel's sound('bd wind [metal jazz] hh') equivalent — four tokens, metal and jazz share the third slot at double speed.",
+          "Wrap tokens in brackets to compress them into the time of ONE outer slot. [a b] plays at 2× the outer step rate, [a b c d] at 4×. Nest freely. Same idea as the drum-grid notation in live-coding sequencers, adapted for light values.",
         example:
           "wash.red(mini('1 [1 1] 1 -'))          // 5 hits per cycle\nstrb.strobe(mini('- [1 1 1 1] - [1 1 1 1]'))  // bursts on 2 and 4",
       },

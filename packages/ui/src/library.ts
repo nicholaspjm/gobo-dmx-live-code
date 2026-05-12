@@ -28,23 +28,30 @@ import { getPublicFixtures } from './public-fixtures.js';
 const PUBLIC_REPO_SLUG = 'nicholaspjm/lumen-dmx-live-code';
 
 /** Mount the library panel inside the page. The caller is responsible for
- *  the toggle button visibility — we just wire its click handler. */
+ *  the toggle button visibility — we just wire its click handler. The
+ *  optional `onOpen` callback is invoked when the panel becomes visible,
+ *  letting the host close other sliding panels for mutual exclusion. */
 export function mountLibraryPanel(opts: {
   panelEl: HTMLElement;
   bodyEl: HTMLElement;
   toggleEl: HTMLButtonElement;
   closeEl: HTMLButtonElement;
-}): { refresh: () => void } {
-  const { panelEl, bodyEl, toggleEl, closeEl } = opts;
+  onOpen?: () => void;
+}): { refresh: () => void; setOpen: (open: boolean) => void; isOpen: () => boolean } {
+  const { panelEl, bodyEl, toggleEl, closeEl, onOpen } = opts;
 
   function setOpen(open: boolean): void {
     panelEl.classList.toggle('open', open);
     panelEl.setAttribute('aria-hidden', open ? 'false' : 'true');
     toggleEl.classList.toggle('active', open);
-    if (open) refresh();
+    if (open) {
+      refresh();
+      onOpen?.();
+    }
   }
+  function isOpen(): boolean { return panelEl.classList.contains('open'); }
 
-  toggleEl.addEventListener('click', () => setOpen(!panelEl.classList.contains('open')));
+  toggleEl.addEventListener('click', () => setOpen(!isOpen()));
   closeEl.addEventListener('click', () => setOpen(false));
   // Escape closes, same as docs panel.
   document.addEventListener('keydown', (e) => {
@@ -284,7 +291,7 @@ export function mountLibraryPanel(opts: {
     setTimeout(() => { banner.className = 'lib-banner'; }, 2400);
   }
 
-  return { refresh };
+  return { refresh, setOpen, isOpen };
 }
 
 function escapeText(s: string): string {
