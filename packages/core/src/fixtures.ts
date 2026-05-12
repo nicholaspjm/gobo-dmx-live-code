@@ -582,12 +582,18 @@ export interface StripInstance {
   /** Set every pixel to the same r/g/b. Each arg may be a pattern or number. */
   fill(r: PatternOrValue, g: PatternOrValue, b: PatternOrValue): void;
 
-  /** Set a single pixel (0-indexed) to r/g/b. */
+  /**
+   * Set a single pixel (0-indexed). Two shapes:
+   *   pixel(i, brightness)         → monochrome (R = G = B = brightness)
+   *   pixel(i, r, g, b)            → full RGB
+   * The monochrome form is the typical chase-loop shorthand — saves
+   * repeating the same pattern three times.
+   */
   pixel(
     index: number,
     r: PatternOrValue,
-    g: PatternOrValue,
-    b: PatternOrValue,
+    g?: PatternOrValue,
+    b?: PatternOrValue,
   ): void;
 
   /**
@@ -700,10 +706,13 @@ export function rgbStrip(
           `rgbStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`,
         );
       }
+      // Monochrome shortcut: pixel(i, value) replicates `value` across R/G/B.
+      // Saves repeating the brightness pattern three times in chase loops.
+      if (g === undefined && b === undefined) { g = r; b = r; }
       const base = startChannel + index * 3;
       uni(universe, base,     r);
-      uni(universe, base + 1, g);
-      uni(universe, base + 2, b);
+      uni(universe, base + 1, g ?? 0);
+      uni(universe, base + 2, b ?? 0);
     },
 
     pixelGrid(values) {
@@ -803,13 +812,19 @@ export interface RgbwStripInstance {
     w: PatternOrValue,
   ): void;
 
-  /** Set a single pixel (0-indexed) to r/g/b/w. */
+  /**
+   * Set a single pixel (0-indexed). Two shapes:
+   *   pixel(i, brightness)             → monochrome (R = G = B = brightness, W = 0)
+   *   pixel(i, r, g, b, w)             → full RGBW
+   * The monochrome form is the typical chase-loop shorthand — saves
+   * repeating the same pattern four times.
+   */
   pixel(
     index: number,
     r: PatternOrValue,
-    g: PatternOrValue,
-    b: PatternOrValue,
-    w: PatternOrValue,
+    g?: PatternOrValue,
+    b?: PatternOrValue,
+    w?: PatternOrValue,
   ): void;
 
   /**
@@ -901,11 +916,15 @@ export function rgbwStrip(
           `rgbwStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`,
         );
       }
+      // Monochrome shortcut: pixel(i, value) sets R = G = B = value with
+      // W = 0. Repeated four-arg call is the verbose form for explicit
+      // colour control.
+      if (g === undefined && b === undefined) { g = r; b = r; w = 0; }
       const base = startChannel + index * STRIDE;
       uni(universe, base,     r);
-      uni(universe, base + 1, g);
-      uni(universe, base + 2, b);
-      uni(universe, base + 3, w);
+      uni(universe, base + 1, g ?? 0);
+      uni(universe, base + 2, b ?? 0);
+      uni(universe, base + 3, w ?? 0);
     },
 
     pixelGrid(values) {

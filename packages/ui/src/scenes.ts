@@ -438,17 +438,29 @@ bar.pixels.viz('strip')
 bar.dim(1)
 
 // ── LIVE ──────────────────────────────────────
-// uncomment one line at a time and ctrl+enter to apply. each line is a
-// self-contained effect — no separate definitions, the line IS the
-// trigger. the trailing comment is the label you'd read out loud.
+// uncomment one line/block and ctrl+enter to apply. each block is a
+// self-contained effect — the trailing comment is the label.
 
 bar.pixels.fill(0, 0, 0, 1)                                          // solid white
 // bar.pixels.white(sine().slow(8).range(0.1, 1).glow())             // breathe
 // bar.pixels.white(mini('1 - - -').range(-15, 1).flash())           // pulse
 // bar.pixels.white(mini('1 - 1 -').range(-15, 1).flash())           // double
-// bar.pixels.each(p => cosine().early(p).slow(2).range(-7, 1))      // walk
+
+// walk — fade through each pixel in sequence.
+// raise speed for faster passes; raise narrow for tighter fade.
+// const speed = 2, narrow = 7
+// for (let i = 0; i < bar.pixels.pixelCount; i++) {
+//   const fade = cosine().slow(speed).early(i / bar.pixels.pixelCount).range(-narrow, 1)
+//   bar.pixels.pixel(i, fade)
+// }
+
 // bar.pixels.rainbowChase({ speed: 2, narrow: 6 })                  // rainbow
-// bar.pixels.each((_, i) => i < 4 ? [1, 0, 0, 0] : [0, 0, 1, 0])    // split
+
+// split — half red / half blue
+// for (let i = 0; i < bar.pixels.pixelCount; i++) {
+//   bar.pixels.pixel(i, i < 4 ? 1 : 0, 0, i < 4 ? 0 : 1, 0)
+// }
+
 // bar.pixels.pixelGrid([1,0,0,0, 0,0,1,0]).repeat()                 // red/blue tile
 // bar.pixels.pixelGrid([1,0,0,0, 0,1,0,0, 0,0,1,0]).mirror()        // r/g/b symmetry
 // bar.pixels.pixelGrid([1,1,0,0]).hold()                            // yellow hold
