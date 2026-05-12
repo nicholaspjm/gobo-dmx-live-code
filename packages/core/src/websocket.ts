@@ -98,13 +98,19 @@ export function sendConfig(config: Record<string, unknown>): void {
 /**
  * Send universe state to the bridge. Called on each scheduler tick.
  *
- * Skips universes whose entire buffer is zero to cut idle traffic — the
- * downstream Art-Net / sACN / OSC receiver is expected to latch the last
- * non-zero value, which matches the behaviour of real lighting consoles.
- * (A universe that was non-zero and is now zero still gets one final
- * zero-frame sent because at least one channel flipped this tick before
- * the whole buffer became zero; a cold-start empty universe stays silent.)
+ * Skips idle universes (those that have never carried data) to cut
+ * traffic. A universe that WAS non-zero and is now all-zero gets one
+ * final zero-frame sent so downstream fixtures actually go dark —
+ * without it Art-Net / sACN / OSC receivers latch their last value and
+ * a commented-out pattern leaves the rig stuck on its last colour.
+ *
+ * `_wasNonZero` tracks the per-universe "has been live" state across
+ * calls so we can detect the dark transition. A universe is added when
+ * we send live data and removed after the trailing zero-frame; from
+ * that point subsequent idle frames are skipped again.
  */
+const _wasNonZero = new Set<number>();
+
 export function sendUniverseState(universes: Map<number, Uint8Array>): void {
   if (!_ws || _ws.readyState !== WebSocket.OPEN) return;
 
@@ -113,6 +119,13 @@ export function sendUniverseState(universes: Map<number, Uint8Array>): void {
     const hasData = buffer.some((v) => v > 0);
     if (hasData) {
       payload[String(universe)] = Array.from(buffer);
+      _wasNonZero.add(universe);
+    } else if (_wasNonZero.has(universe)) {
+      // Just went dark — emit one zero-frame to clear downstream
+      // fixtures, then drop out of the set so subsequent idle frames
+      // are skipped.
+      payload[String(universe)] = Array.from(buffer);
+      _wasNonZero.delete(universe);
     }
   }
 
