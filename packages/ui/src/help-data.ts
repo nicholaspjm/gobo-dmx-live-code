@@ -404,9 +404,13 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'pixel',
-    signature: '.pixel(i, r, g, b [, w])',
-    description: 'Set one pixel on a strip. Pass `w` only for RGBW strips.',
-    example: 'strip.pixel(0, 1, 0, 0)',
+    signature: '.pixel(i, brightness) | .pixel(i, r, g, b [, w])',
+    description:
+      'Set one pixel on a strip. One value = monochrome (R = G = B; W = 0 on RGBW). Three or four values = full colour control. The monochrome form is the typical shorthand for chase loops.',
+    example: `for (let i = 0; i < strip.pixelCount; i++) {
+  const fade = cosine().early(i/strip.pixelCount).slow(2).range(-7, 1)
+  strip.pixel(i, fade)
+}`,
     context: 'fixture-method',
     kind: 'method',
   },
