@@ -552,7 +552,14 @@ export const vizDecorationsField = StateField.define<DecorationSet>({
  *      extras are ignored, and vice versa.
  *   4. For each (entry, line) pair, emit one widget per kind at line-end.
  */
-export function refreshViz(view: EditorView): void {
+export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}): void {
+  // Settings can disable inline viz entirely — dispatch an empty decoration
+  // set to clear any widgets that were placed by a previous successful eval.
+  if (opts.disabled) {
+    _patternVizEntries.clear();
+    view.dispatch({ effects: setVizDecorations.of(Decoration.set([])) });
+    return;
+  }
   const entries = getVizEntries();
   const doc = view.state.doc;
 

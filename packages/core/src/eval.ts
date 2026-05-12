@@ -22,7 +22,6 @@ import {
   setStripEffectWaveforms,
 } from './fixtures.js';
 import { sendConfig } from './websocket.js';
-import { audio } from './audio.js';
 import {
   attachPatternVizMethods,
   clearPatternVizRegistry,
@@ -32,6 +31,11 @@ import {
 // Strudel functions, loaded once via initStrudel()
 const _strudelCtx: Record<string, unknown> = {};
 let _strudelReady = false;
+// Cached reference to the Strudel Pattern.prototype. Captured during
+// initStrudel() so register() (below) can extend it without re-deriving
+// the prototype each call.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _patternProto: any = null;
 
 /** Call once (async) before first eval to load @strudel/core waveforms. */
 export async function initStrudel(): Promise<void> {
@@ -97,6 +101,8 @@ export async function initStrudel(): Promise<void> {
         proto.glow  = function () { registerPatternViz(this, 'glow');  return this; };
         proto.wave  = function () { registerPatternViz(this, 'wave');  return this; };
       }
+      // Stash the prototype for register() (further down) to extend on demand.
+      _patternProto = proto;
     } catch {
       // Strudel's internals shape changed or sample failed — fallback
       // waveforms / audio reactives still get viz methods attached directly.
@@ -229,6 +235,35 @@ function mock(): void {
   sendConfig({ mode: 'mock' });
 }
 
+// ─── register: extend Pattern with a custom chain method ───────────────────
+// Mirrors Strudel's `register(name, fn)`: `fn` takes a pattern and returns a
+// transformed one. After registration the name is callable as a method on
+// any pattern, surviving .slow()/.fast()/.add() chains since those all
+// return the same Pattern class.
+//
+//   const punch = register('punch', (p) => p.range(-4, 1).flash())
+//   spot.white(mini('1 - - -').punch())
+//
+// Idempotent: re-registering overwrites the previous body so re-evaluating
+// a scene with edited register() bodies picks up the new code. Names persist
+// across evals (we can't tell which were "removed" without diffing the doc),
+// which matches Strudel's behaviour.
+//
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function register(name: string, fn: (pat: any) => any): (pat: any) => any {
+  if (_patternProto && typeof name === 'string' && name.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias, @typescript-eslint/no-explicit-any
+    _patternProto[name] = function (this: any): any {
+      return fn(this);
+    };
+  } else if (!_patternProto) {
+    // Strudel hasn't initialised yet — surface a clear hint rather than
+    // silently swallowing the registration.
+    console.warn(`[lumen] register("${name}") called before strudel loaded; await initStrudel() first`);
+  }
+  return fn;
+}
+
 export interface EvalResult {
   success: boolean;
   error?: string;
@@ -260,8 +295,8 @@ export function evalCode(code: string): EvalResult {
       sacn,
       osc,
       mock,
-      // Audio reactivity (optional — loaded via the UI, not callable from code)
-      audio,
+      // Pattern extension — define custom chain methods at top level.
+      register,
       // Patterns (populated by initStrudel)
       ..._strudelCtx,
       // Passthrough safe globals

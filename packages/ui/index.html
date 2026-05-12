@@ -361,53 +361,6 @@
         min-height: 0;
       }
 
-      /* Audio transport — tucked above the status bar, deliberately low-key
-         so it doesn't compete with the editor + viz. Hidden when no track
-         and mic isn't engaged; appears muted otherwise. */
-      .audio-bar {
-        height: 28px;
-        background: var(--surface);
-        border-top: 1px solid var(--border);
-        padding: 0 14px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-shrink: 0;
-        font-size: 11px;
-        color: var(--text-muted);
-      }
-      .audio-bar button {
-        background: transparent;
-        border: 1px solid var(--border);
-        color: var(--text-muted);
-        font: inherit;
-        font-size: 11px;
-        padding: 2px 9px;
-        border-radius: 3px;
-        cursor: pointer;
-        letter-spacing: 0.04em;
-      }
-      .audio-bar button:hover:not(:disabled) {
-        color: var(--text);
-        border-color: var(--accent2);
-      }
-      .audio-bar button:disabled {
-        opacity: 0.4;
-        cursor: default;
-      }
-      .audio-bar button.active {
-        color: var(--accent);
-        border-color: var(--accent);
-      }
-      #audio-info {
-        font-variant-numeric: tabular-nums;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 320px;
-      }
-      .audio-bar .spacer { flex: 1; }
-
       /* Status bar */
       .statusbar {
         height: 26px;
@@ -487,6 +440,23 @@
         opacity: 0.3;
         cursor: not-allowed;
       }
+      /* Read-only badge — shown next to the scene controls when the
+         active scene is protected (currently just 'default'). Signals
+         that edits won't persist until you save-as. */
+      .scene-readonly-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        margin-left: 2px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .scene-readonly-badge.hidden {
+        display: none;
+      }
 
       /* Docs toggle button */
       .docs-toggle {
@@ -511,6 +481,21 @@
       .docs-toggle.active {
         color: var(--accent);
         border-color: var(--accent);
+      }
+
+      /* Icon-only variant — the settings gear. Same border + hover treatment
+         as the text toggles, but square so the SVG sits centred without
+         the lopsided text padding. */
+      .settings-toggle-btn {
+        padding: 0;
+        width: 24px;
+        height: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .settings-toggle-btn svg {
+        display: block;
       }
 
       /* Docs panel */
@@ -570,6 +555,110 @@
         flex: 1;
         overflow-y: auto;
         padding: 0 18px 40px;
+      }
+
+      /* Settings panel rows */
+      .settings-list {
+        padding-top: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .setting-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .setting-row-main {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .setting-label {
+        font-size: 12px;
+        color: var(--text);
+        letter-spacing: 0.04em;
+      }
+      .setting-hint {
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1.4;
+      }
+      .setting-select {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font: inherit;
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 3px;
+        outline: none;
+        cursor: pointer;
+        min-width: 170px;
+      }
+      .setting-select:focus {
+        border-color: var(--accent2);
+      }
+      /* iOS-style toggle */
+      .setting-toggle {
+        position: relative;
+        display: inline-block;
+        width: 36px;
+        height: 20px;
+        cursor: pointer;
+      }
+      .setting-toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .setting-toggle-thumb {
+        position: absolute;
+        inset: 0;
+        background: var(--border);
+        border-radius: 10px;
+        transition: background 0.15s;
+      }
+      .setting-toggle-thumb::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        background: var(--text-muted);
+        border-radius: 50%;
+        transition: transform 0.15s, background 0.15s;
+      }
+      .setting-toggle input:checked + .setting-toggle-thumb {
+        background: var(--accent);
+      }
+      .setting-toggle input:checked + .setting-toggle-thumb::before {
+        transform: translateX(16px);
+        background: var(--bg);
+      }
+      .settings-footer {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+      }
+      .settings-reset {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        padding: 6px 12px;
+        font: inherit;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: lowercase;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .settings-reset:hover {
+        color: var(--accent);
+        border-color: var(--accent);
       }
 
       /* Search bar — sticky at top of the scrollable body */
@@ -1200,9 +1289,16 @@
             <button type="button" class="scene-btn" id="scene-new" title="new scene">+</button>
             <button type="button" class="scene-btn" id="scene-reset" title="reset current scene to its built-in template (only works on bundled seed scenes)">↺</button>
             <button type="button" class="scene-btn" id="scene-delete" title="delete current scene">×</button>
+            <span id="scene-readonly-badge" class="scene-readonly-badge hidden" title="This scene is read-only. Ctrl+S saves your edits as a new scene.">read-only</span>
           </div>
           <button type="button" class="docs-toggle" id="library-toggle" title="custom fixture library">library</button>
           <button type="button" class="docs-toggle" id="docs-toggle" title="function reference">docs</button>
+          <button type="button" class="docs-toggle settings-toggle-btn" id="settings-toggle" title="settings" aria-label="settings">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -1222,6 +1318,14 @@
         <div class="docs-body" id="library-body"></div>
       </aside>
 
+      <aside class="docs-panel" id="settings-panel" aria-hidden="true">
+        <div class="docs-header">
+          <span class="docs-title">settings</span>
+          <button type="button" class="docs-close" id="settings-close" title="close">×</button>
+        </div>
+        <div class="docs-body" id="settings-body"></div>
+      </aside>
+
       <div class="editor-wrap">
         <div id="editor"></div>
       </div>
@@ -1238,15 +1342,6 @@
           <span class="fixture-empty" id="fixture-empty">no fixtures in this scene</span>
         </div>
         <canvas id="visualizer"></canvas>
-      </div>
-
-      <div class="audio-bar">
-        <input type="file" id="audio-file" accept="audio/*" hidden />
-        <button type="button" id="audio-load" title="load an audio file">load</button>
-        <button type="button" id="audio-play" disabled title="play / pause">▶</button>
-        <button type="button" id="audio-mic" title="use microphone as input">mic</button>
-        <span id="audio-info">no track</span>
-        <span class="spacer"></span>
       </div>
 
       <div class="statusbar">

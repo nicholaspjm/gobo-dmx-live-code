@@ -4,6 +4,9 @@
  * Keybindings:
  *   Ctrl+Enter  — evaluate code
  *   Ctrl+.      — stop / clear all channels
+ *   Ctrl+Space  — stop / clear all channels (preempts autocompletion;
+ *                 callers can still trigger completion by typing a
+ *                 trigger character like `.`).
  */
 
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
@@ -15,13 +18,14 @@ import { lumenTheme, lumenHighlight } from './theme.js';
 import { vizDecorationsField } from './inline-viz.js';
 import { lumenCodeHighlight } from './code-highlight.js';
 import { lumenAutocomplete } from './autocomplete.js';
+import { lumenHoverHelp } from './hover-help.js';
 
 /**
  * Hardcoded code used the first time a user opens lumen, before any
  * scene has been saved to localStorage. Exported so scenes.ts can seed
  * the "default" scene with this on first run.
  */
-export const INITIAL_CODE = `// lumen — ctrl+enter to run · ctrl+. to stop · open 'docs' for the reference
+export const INITIAL_CODE = `// lumen — ctrl+enter to run · ctrl+space (or ctrl+.) to stop · open 'docs' for the reference
 
 // Output target — swap in mock() for headless dev, osc() for TouchDesigner,
 // or sacn(universe, priority) for E1.31. Port defaults to 6454 for Art-Net.
@@ -60,7 +64,7 @@ bar.pixels.viz('strip')
 // Channels take a number (constant) or a pattern (animated). Patterns
 // come in two flavours: continuous waveforms (sine/cosine/square/saw/
 // rand, chainable with .slow / .range / .mul / etc.) and step sequences
-// (mini, same drum-style notation Strudel uses).
+// (mini, a drum-grid notation — see the docs panel for full syntax).
 
 // Drum-grid on the wash — one mini() string per channel. Each string
 // plays through one scheduler cycle (= 4 beats) with tokens splitting
@@ -130,6 +134,19 @@ export function createEditor(
           return true;
         },
       },
+      // Ctrl+Space is the conventional autocomplete trigger in CM; we
+      // override it here at Prec.highest because performers asked for a
+      // "panic stop" that doesn't require the easy-to-miss period key.
+      // Autocomplete still opens automatically as you type (the
+      // autocompletion extension watches for trigger characters), so the
+      // cost of losing the manual trigger is small.
+      {
+        key: 'Ctrl-Space',
+        run() {
+          onStop();
+          return true;
+        },
+      },
     ]),
   );
 
@@ -154,6 +171,7 @@ export function createEditor(
       lumenHighlight,
       lumenCodeHighlight,
       lumenAutocomplete,
+      lumenHoverHelp,
       vizDecorationsField,
       evalKeybinding,
       changeListener,
