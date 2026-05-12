@@ -438,20 +438,11 @@ bar.pixels.viz('strip')
 bar.dim(1)
 
 // ── effect helpers ────────────────────────────
-// only the multi-pixel effects need a helper — single-expression
-// triggers (breathe, pulse, sweep, spin) live inline in LIVE below.
-const walk = () => {
-  for (let i = 0; i < bar.pixels.pixelCount; i++) {
-    const b = cosine().early(i / bar.pixels.pixelCount).slow(2).range(-7, 1)
-    bar.pixels.pixel(i, b, b, b, 0)
-  }
-}
+// .each(fn) walks every pixel for you — fn gets (phase, i, count) and
+// returns either a single value (monochrome) or [r,g,b,w] (colour).
+const walk    = () => bar.pixels.each(p => cosine().early(p).slow(2).range(-7, 1))
 const rainbow = () => bar.pixels.rainbowChase({ speed: 2, narrow: 6 })
-const split = () => {
-  for (let i = 0; i < bar.pixels.pixelCount; i++) {
-    bar.pixels.pixel(i, i < 4 ? 1 : 0, 0, i < 4 ? 0 : 1, 0)
-  }
-}
+const split   = () => bar.pixels.each((_, i) => i < 4 ? [1, 0, 0, 0] : [0, 0, 1, 0])
 
 // ── LIVE ──────────────────────────────────────
 // pixels (pick one)
