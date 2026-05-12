@@ -425,6 +425,9 @@ interface RenderedSimFixture {
   mainEl: HTMLElement;
   /** Per-pixel elements when render.kind is a strip. Populated at build time. */
   pixelEls?: HTMLElement[];
+  /** XY indicator + dot when the fixture has movement channels. */
+  xyEl?: HTMLElement;
+  xyDotEl?: HTMLElement;
 }
 
 let _renderedSim: RenderedSimFixture[] = [];
@@ -461,13 +464,34 @@ function rebuildSimPanel(): void {
     }
     unit.appendChild(mainEl);
 
+    // Optional XY indicator — a small grid with a dot tracking the
+    // fixture's movement channels. Built only when the SimFixture has
+    // movement hints; otherwise the slot stays empty and the layout is
+    // identical to a static fixture.
+    let xyEl: HTMLElement | undefined;
+    let xyDotEl: HTMLElement | undefined;
+    if (fix.movement) {
+      xyEl = document.createElement('div');
+      xyEl.className = 'fixture-xy';
+      // Crosshair guides (horizontal + vertical) — pure visual, no class
+      // hooks so the renderer doesn't need to find them later.
+      const hRule = document.createElement('div');
+      hRule.className = 'fixture-xy-rule fixture-xy-rule-h';
+      const vRule = document.createElement('div');
+      vRule.className = 'fixture-xy-rule fixture-xy-rule-v';
+      xyDotEl = document.createElement('div');
+      xyDotEl.className = 'fixture-xy-dot';
+      xyEl.append(hRule, vRule, xyDotEl);
+      unit.appendChild(xyEl);
+    }
+
     const label = document.createElement('span');
     label.className = 'fixture-name';
     label.textContent = fix.label;
     unit.appendChild(label);
 
     simContainerEl.appendChild(unit);
-    const rendered: RenderedSimFixture = { core: fix, unitEl: unit, mainEl, pixelEls };
+    const rendered: RenderedSimFixture = { core: fix, unitEl: unit, mainEl, pixelEls, xyEl, xyDotEl };
     _renderedSim.push(rendered);
     bindTooltip(rendered);
   }
@@ -523,34 +547,34 @@ function updateStripPixel(el: HTMLElement, r: number, g: number, b: number): voi
 }
 
 /**
- * Apply movement-channel values to the element's CSS transform.
- *   pan        0 → -50% x, 0.5 → centred, 1 → +50% x
- *   tilt       0 → -50% y, 0.5 → centred, 1 → +50% y
- *   direction  0 → -45°,  0.5 → 0°,      1 → +45°
- * Reads each channel from the live universe buffer; absent channels
- * default to 0.5 so a fixture missing one axis sits at centre / 0°.
- * No-op if the SimFixture has no movement hints (transform stays unset).
+ * Reposition the XY indicator dot from the fixture's movement channels.
+ *
+ *   pan        → x axis (0=left, 1=right)
+ *   tilt       → y axis (0=top, 1=bottom)
+ *   direction  → x axis (if pan absent) — bars only have direction, not
+ *                pan/tilt, so we reuse the x axis to show their travel.
+ *
+ * Absent axes anchor to centre (0.5). The dot moves within the XY box
+ * via `left` / `top` percentages so it scales with whatever size CSS gives
+ * the grid.
  */
 function applyMovement(r: RenderedSimFixture): void {
   const m = r.core.movement;
-  if (!m) return;
+  const dot = r.xyDotEl;
+  if (!m || !dot) return;
   const buf = getUniverseBuffer(r.core.universe);
-  const read = (ch: number | undefined): number => {
-    if (ch === undefined) return 0.5;
+  const read = (ch: number | undefined, fallback = 0.5): number => {
+    if (ch === undefined) return fallback;
     return (buf[ch - 1] ?? 0) / 255;
   };
-  const pan = read(m.pan);
-  const tilt = read(m.tilt);
-  const direction = read(m.direction);
-  // Travel range chosen by feel — 24px lets pan/tilt move visibly without
-  // colliding with the neighbour fixture; 45° rotation is enough to
-  // suggest a bar tilting without looking broken.
-  const tx = m.pan       !== undefined ? (pan - 0.5) * 48 : 0;
-  const ty = m.tilt      !== undefined ? (tilt - 0.5) * 48 : 0;
-  const rot = m.direction !== undefined ? (direction - 0.5) * 90 : 0;
-  r.mainEl.style.transform =
-    `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) rotate(${rot.toFixed(1)}deg)`;
-  r.mainEl.style.transition = 'transform 80ms linear';
+  // Prefer pan for x; fall back to direction for fixtures that only
+  // expose `direction` (like the demo bar).
+  const x = m.pan !== undefined ? read(m.pan)
+          : m.direction !== undefined ? read(m.direction)
+          : 0.5;
+  const y = m.tilt !== undefined ? read(m.tilt) : 0.5;
+  dot.style.left = `${(x * 100).toFixed(1)}%`;
+  dot.style.top  = `${(y * 100).toFixed(1)}%`;
 }
 
 // ~30fps driver loop — reads universe buffers and paints each rendered
