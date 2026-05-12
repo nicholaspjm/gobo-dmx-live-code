@@ -437,32 +437,28 @@ const bar = fixture(1, 'demo-bar', 1)
 bar.pixels.viz('strip')
 bar.dim(1)
 
-// ── effect helpers ────────────────────────────
-// .each(fn) walks every pixel for you — fn gets (phase, i, count) and
-// returns either a single value (monochrome) or [r,g,b,w] (colour).
-const walk    = () => bar.pixels.each(p => cosine().early(p).slow(2).range(-7, 1))
-const rainbow = () => bar.pixels.rainbowChase({ speed: 2, narrow: 6 })
-const split   = () => bar.pixels.each((_, i) => i < 4 ? [1, 0, 0, 0] : [0, 0, 1, 0])
-
 // ── LIVE ──────────────────────────────────────
-// pixels (pick one)
-bar.pixels.fill(0, 0, 0, 1)
-// bar.pixels.white(sine().slow(8).range(0.1, 1).glow())          // breathe
-// bar.pixels.white(mini('1 - - -').range(-15, 1).flash())        // pulse
-// bar.pixels.white(mini('1 - 1 -').range(-15, 1).flash())        // double
-// walk()
-// rainbow()
-// split()
-// bar.pixels.pixelGrid([1,0,0,0, 0,0,1,0]).repeat()              // red/blue tile
-// bar.pixels.pixelGrid([1,0,0,0, 0,1,0,0, 0,0,1,0]).mirror()     // r/g/b symmetry
-// bar.pixels.pixelGrid([1,1,0,0]).hold()                         // yellow hold
+// uncomment one line at a time and ctrl+enter to apply. each line is a
+// self-contained effect — no separate definitions, the line IS the
+// trigger. the trailing comment is the label you'd read out loud.
+
+bar.pixels.fill(0, 0, 0, 1)                                          // solid white
+// bar.pixels.white(sine().slow(8).range(0.1, 1).glow())             // breathe
+// bar.pixels.white(mini('1 - - -').range(-15, 1).flash())           // pulse
+// bar.pixels.white(mini('1 - 1 -').range(-15, 1).flash())           // double
+// bar.pixels.each(p => cosine().early(p).slow(2).range(-7, 1))      // walk
+// bar.pixels.rainbowChase({ speed: 2, narrow: 6 })                  // rainbow
+// bar.pixels.each((_, i) => i < 4 ? [1, 0, 0, 0] : [0, 0, 1, 0])    // split
+// bar.pixels.pixelGrid([1,0,0,0, 0,0,1,0]).repeat()                 // red/blue tile
+// bar.pixels.pixelGrid([1,0,0,0, 0,1,0,0, 0,0,1,0]).mirror()        // r/g/b symmetry
+// bar.pixels.pixelGrid([1,1,0,0]).hold()                            // yellow hold
 
 // movement (stack on top of any pixel effect)
-// bar.direction(0.5); bar.speed(0)                               // center
-// bar.direction(0);   bar.speed(0)                               // left
-// bar.direction(1);   bar.speed(0)                               // right
-// bar.direction(sine().slow(8)); bar.speed(0.6)                  // sweep
-// bar.direction(saw().slow(6));  bar.speed(0.8)                  // spin
-// bar.direction(sine().slow(1).range(0.4, 0.6)); bar.speed(0.5)  // wobble
-// bar.speed(0)                                                   // freeze
+// bar.direction(0.5); bar.speed(0)                                  // center
+// bar.direction(0);   bar.speed(0)                                  // left
+// bar.direction(1);   bar.speed(0)                                  // right
+// bar.direction(sine().slow(8)); bar.speed(0.6)                     // sweep
+// bar.direction(saw().slow(6));  bar.speed(0.8)                     // spin
+// bar.direction(sine().slow(1).range(0.4, 0.6)); bar.speed(0.5)     // wobble
+// bar.speed(0)                                                      // freeze
 `;
