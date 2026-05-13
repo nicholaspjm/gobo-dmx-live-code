@@ -243,7 +243,7 @@ export function seedScenesIfEmpty(defaultCode: string): void {
     changed = true;
   }
   // Auto-upgrade the stale ultratronics seed in place: earlier versions
-  // of this template called `spot.dim(...)` on a generic-rgbw fixture,
+  // of this template called `spot.dim(...)` on an rgbw fixture,
   // which throws "spot.dim is not a function" at runtime since that
   // fixture has no dim channel. If the saved scene still contains that
   // signature we know it's the pre-fix version and it's safe to

@@ -264,44 +264,92 @@ const DOCS: DocSection[] = [
 
   {
     category: 'fixtures',
-    title: 'fixture channels',
+    title: 'generic helpers',
     blurb:
-      'Every fixture instance has methods matching its channel names. A few common ones:',
+      'Every fixture instance — built-in or user-defined — has these helpers in addition to per-channel setters. They\'re portable: the same call works regardless of whether the fixture has a master dimmer, RGB, RGBW, or an embedded strip.',
     entries: [
       {
-        name: 'all fixtures',
-        signature: '.color(r,g,b[,w])  .off()  .full()',
-        description: 'Generic helpers available on every fixture. .color skips channels the fixture lacks (safe on rgb / rgbw / dim-rgb / moving heads). .off zeros every light-emitting channel (incl. embedded strip pixels). .full drives everything to 1.',
+        name: '.color',
+        signature: '.color(r, g, b [, w])',
+        description:
+          'Set red / green / blue (and optionally white) in one call. Channels absent on the fixture are silently skipped so the same line works on rgb, rgbw, dim-rgb, dim-rgbw, and moving heads. Each argument can be a constant 0..1 or a pattern.',
+        example:
+          "wash.color(1, 0, 0)              // red\nwash.color(1, 0, 0, 0.3)         // RGBW: red + a touch of white\nwash.color(sine(), 0, cosine())  // animated",
+      },
+      {
+        name: '.off',
+        signature: '.off()',
+        description:
+          'Zero every light-emitting channel (red, green, blue, white, amber, dim) and every pixel of any embedded strip. State channels (pan, tilt, strobe, gobo, colour wheel) are intentionally left alone so blackout doesn\'t lose your aim.',
+        example: 'wash.off()',
+      },
+      {
+        name: '.full',
+        signature: '.full()',
+        description:
+          'Drive every light-emitting channel to 1. On dim-RGB(W) fixtures this brings both the dimmer AND every colour channel up together.',
+        example: 'wash.full()',
+      },
+      {
+        name: '.set',
+        signature: '.set(channelName, value)',
+        description: 'Set any scalar channel by name. Useful when a channel name clashes with something else, or for less common channels that don\'t have a convenience method.',
+        example: "head.set('zoom', 0.5)",
+      },
+      {
+        name: '.channels',
+        signature: '.channels()',
+        description: 'List the channel names exposed by this fixture — handy for discovery.',
+        example: 'console.log(wash.channels())',
+      },
+    ],
+  },
+
+  {
+    category: 'fixtures',
+    title: 'built-in fixture catalogue',
+    blurb:
+      'Short ids — write fixture(1, \'rgbw\') not fixture(1, \'generic-rgbw\'). Old generic-* ids still resolve via alias so legacy scenes keep working.',
+    entries: [
+      {
+        name: 'dim',
+        signature: '.dim(v)',
+        description: 'Single-channel dimmer — tungsten par, smoke machine, UV flood.',
       },
       {
         name: 'rgb',
         signature: '.red(v)  .green(v)  .blue(v)',
-        description: '3-channel RGB PAR, no dedicated dimmer.',
+        description: '3-channel RGB PAR, no dedicated dimmer. Use .color(r,g,b) for the common path.',
       },
       {
         name: 'rgbw',
         signature: '.red(v)  .green(v)  .blue(v)  .white(v)',
-        description: '4-channel RGBW. Dim by modulating colour intensities directly.',
+        description: '4-channel RGBW. Dim by modulating the colour channels directly, or call .full() / .off().',
+      },
+      {
+        name: 'rgba',
+        signature: '.red(v)  .green(v)  .blue(v)  .amber(v)',
+        description: '4-channel RGBA. Amber takes the role of W on some fixtures — better warm tones.',
+      },
+      {
+        name: 'dim-rgb',
+        signature: '.dim(v)  .red(v)  .green(v)  .blue(v)',
+        description: '4-channel with a master dimmer on top of RGB.',
       },
       {
         name: 'dim-rgbw',
         signature: '.dim(v)  .red(v)  .green(v)  .blue(v)  .white(v)',
-        description: '5-channel with master dimmer.',
-      },
-      {
-        name: 'dim',
-        signature: '.dim(v)',
-        description: 'Single-channel dimmer — think tungsten par, smoke machine, UV flood.',
+        description: '5-channel with master dimmer plus RGBW.',
       },
       {
         name: 'moving-head-basic',
         signature: '.pan  .tilt  .dim  .strobe  .red  .green  .blue  .white',
-        description: '8-channel moving head. Pan/tilt are 0-1 over full travel.',
+        description: '8-channel moving head. Pan/tilt are 0..1 over full travel.',
       },
       {
         name: 'moving-head-spot',
         signature: '.pan  .panFine  .tilt  .tiltFine  .speed  .dim  .strobe  .zoom  .gobo  .colorWheel  .prism  .focus',
-        description: '12-channel moving head spot.',
+        description: '12-channel moving head spot. (colorWheel was renamed from `color` to free .color() for the generic RGB helper.)',
       },
       {
         name: 'strobe',
