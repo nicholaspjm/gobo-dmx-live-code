@@ -34,8 +34,8 @@ artnet('2.0.0.100')
 // ── fixtures ──────────────────────────────────────────────
 // fixture(startChannel, id, universe = 0) returns an object with one setter
 // per named channel. Chain .viz('kind') to drop a live widget at line-end.
-const wash  = fixture(1, 'generic-rgbw').viz('color')  // uni 0, ch 1-4
-const strb  = fixture(5, 'strobe-basic').viz('meter')  // uni 0, ch 5-6
+const wash  = fixture(1, 'rgbw').viz('color')          // uni 0, ch 1-4
+const strb  = fixture(5, 'strobe').viz('meter')        // uni 0, ch 5-6
 
 // rgbStrip(startChannel, pixelCount) — pixel bar at 3 channels per pixel.
 const strip = rgbStrip(7, 10).viz('strip')             // uni 0, ch 7-36
