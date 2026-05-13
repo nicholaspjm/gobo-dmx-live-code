@@ -140,9 +140,9 @@ const DOCS: DocSection[] = [
         name: 'fixture',
         signature: "fixture(startChannel, id, universe=0)",
         description:
-          "Create a fixture instance. Returns an object with one setter per named channel (e.g. .red(), .dim(), .pan()). Built-in ids: generic-dimmer, generic-rgb, generic-rgbw, generic-rgba, generic-dim-rgb, generic-dim-rgbw, moving-head-basic, moving-head-spot, strobe-basic. Universe defaults to 0 (matches Art-Net / TouchDesigner's first-universe convention). Pass 1, 2, 3, … to address additional universes — the bridge sends one Art-Net packet per written universe per tick. Note: sACN requires universe ≥ 1.",
+          "Create a fixture instance. Returns an object with one setter per named channel (e.g. .red(), .dim(), .pan()) plus generic helpers .color(r,g,b[,w]), .off(), .full(). Built-in ids: dim, rgb, rgbw, rgba, dim-rgb, dim-rgbw, moving-head-basic, moving-head-spot, strobe. (The old `generic-*` ids still resolve via alias.) Universe defaults to 0 (matches Art-Net / TouchDesigner's first-universe convention).",
         example:
-          "const wash = fixture(1, 'generic-rgbw')\nwash.red(sine().slow(4))\nwash.white(0.3)\n\n// Second universe\nconst par2 = fixture(1, 'generic-rgbw', 1)",
+          "const wash = fixture(1, 'rgbw')\nwash.color(1, 0, 0, 0.3)        // red + a touch of white\nwash.red(sine().slow(4))         // or pick channels directly\n\n// Second universe\nconst par2 = fixture(1, 'rgbw', 1)",
       },
       {
         name: 'defineFixture',
@@ -186,7 +186,7 @@ const DOCS: DocSection[] = [
         name: 'fixture library',
         signature: "open the 'library' panel in the top bar",
         description:
-          "Three tiers of fixture definitions: (1) built-ins in the core (generic-rgbw etc.), always available; (2) public library — community-contributed files in fixtures/ at the repo root, bundled into the app so fixture(1, 'four-color-bar') works out of the box; (3) your library — anything you defined and pinned locally via localStorage. The library panel shows the public bundle and your pinned/session entries with save / export / delete / share actions. Share opens a pre-filled GitHub page to propose your fixture as a PR to the public library. Every incoming fixture (file import or public bundle) is schema-validated against strict size/type limits and rejected if its id collides with a built-in.",
+          "Three tiers of fixture definitions: (1) built-ins in the core (dim, rgb, rgbw, etc.), always available; (2) public library — community-contributed files in fixtures/ at the repo root, bundled into the app; (3) your library — anything you defined and pinned locally via localStorage. The library panel shows the public bundle and your pinned/session entries with save / export / delete / share actions. Share opens a pre-filled GitHub page to propose your fixture as a PR to the public library. Every incoming fixture (file import or public bundle) is schema-validated against strict size/type limits and rejected if its id collides with a built-in.",
       },
     ],
   },
@@ -233,7 +233,7 @@ const DOCS: DocSection[] = [
         description:
           "Attach one or more inline widgets to this fixture. Kinds: 'color' (mixed-output swatch), 'wave' (scrolling intensity scope), 'meter' (vertical bar), 'strip' (row of mini pixels — for rgbStrip). Multiple kinds stack side-by-side. Returns the fixture so you can keep chaining.",
         example:
-          "const washA = fixture(1, 'generic-rgbw').viz('color')\nconst spot  = fixture(9, 'generic-dimmer').viz('wave', 'meter')\nconst strip = rgbStrip(12, 10).viz('strip')",
+          "const washA = fixture(1, 'rgbw').viz('color')\nconst spot  = fixture(9, 'dim').viz('wave', 'meter')\nconst strip = rgbStrip(12, 10).viz('strip')",
       },
       {
         name: 'color',
@@ -269,22 +269,27 @@ const DOCS: DocSection[] = [
       'Every fixture instance has methods matching its channel names. A few common ones:',
     entries: [
       {
-        name: 'generic-rgb',
+        name: 'all fixtures',
+        signature: '.color(r,g,b[,w])  .off()  .full()',
+        description: 'Generic helpers available on every fixture. .color skips channels the fixture lacks (safe on rgb / rgbw / dim-rgb / moving heads). .off zeros every light-emitting channel (incl. embedded strip pixels). .full drives everything to 1.',
+      },
+      {
+        name: 'rgb',
         signature: '.red(v)  .green(v)  .blue(v)',
         description: '3-channel RGB PAR, no dedicated dimmer.',
       },
       {
-        name: 'generic-rgbw',
+        name: 'rgbw',
         signature: '.red(v)  .green(v)  .blue(v)  .white(v)',
         description: '4-channel RGBW. Dim by modulating colour intensities directly.',
       },
       {
-        name: 'generic-dim-rgbw',
+        name: 'dim-rgbw',
         signature: '.dim(v)  .red(v)  .green(v)  .blue(v)  .white(v)',
         description: '5-channel with master dimmer.',
       },
       {
-        name: 'generic-dimmer',
+        name: 'dim',
         signature: '.dim(v)',
         description: 'Single-channel dimmer — think tungsten par, smoke machine, UV flood.',
       },
@@ -295,11 +300,11 @@ const DOCS: DocSection[] = [
       },
       {
         name: 'moving-head-spot',
-        signature: '.pan  .panFine  .tilt  .tiltFine  .speed  .dim  .strobe  .zoom  .gobo  .color  .prism  .focus',
+        signature: '.pan  .panFine  .tilt  .tiltFine  .speed  .dim  .strobe  .zoom  .gobo  .colorWheel  .prism  .focus',
         description: '12-channel moving head spot.',
       },
       {
-        name: 'strobe-basic',
+        name: 'strobe',
         signature: '.dim(v)  .strobe(v)',
         description: '2-channel strobe. .dim is overall brightness, .strobe is flash rate.',
       },

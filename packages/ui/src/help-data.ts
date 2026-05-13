@@ -42,7 +42,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'fixture',
     signature: 'fixture(startCh, id, universe = 0)',
     description: 'Create a fixture instance at a DMX start channel.',
-    example: "const wash = fixture(1, 'generic-rgbw').viz('color')",
+    example: "const wash = fixture(1, 'rgbw').viz('color')",
     context: 'command',
     kind: 'function',
   },
@@ -347,6 +347,35 @@ spot.white(mini('1 - - -').punch())`,
 
   // ─── Fixture / strip methods ───────────────────────────────────────────────
   {
+    label: 'color',
+    signature: '.color(r, g, b [, w])',
+    description:
+      'Set R / G / B (and optionally W) in one call. Channels absent on the fixture are skipped silently — same line works on rgb / rgbw / dim-rgbw / moving heads.',
+    example: `wash.color(1, 0, 0)         // red on any colour fixture
+wash.color(1, 0, 0, 0.3)    // RGBW: red + a touch of white
+wash.color(sine(), 0, 0)    // animated red`,
+    context: 'fixture-method',
+    kind: 'method',
+  },
+  {
+    label: 'off',
+    signature: '.off()',
+    description:
+      'Zero every light-emitting channel on the fixture (dim, RGB(W), amber, embedded strips). Leaves state channels like pan / tilt / gobo alone.',
+    example: 'wash.off()',
+    context: 'fixture-method',
+    kind: 'method',
+  },
+  {
+    label: 'full',
+    signature: '.full()',
+    description:
+      'Drive every light-emitting channel to 1. Brings dim + RGB(W) up together on fixtures that have both.',
+    example: 'wash.full()',
+    context: 'fixture-method',
+    kind: 'method',
+  },
+  {
     label: 'red',
     signature: '.red(value | pattern)',
     description: 'Set the red channel. Accepts a constant 0..1 or a pattern.',
@@ -456,7 +485,7 @@ strip.each(p => [sine().early(p), 0, cosine().early(p)])`,
     label: 'viz',
     signature: ".viz('color' | 'wave' | 'meter' | 'strip')",
     description: 'Opt into an inline editor widget at line-end for this fixture/strip.',
-    example: "fixture(1, 'generic-rgbw').viz('color')",
+    example: "fixture(1, 'rgbw').viz('color')",
     context: 'fixture-method',
     kind: 'method',
   },

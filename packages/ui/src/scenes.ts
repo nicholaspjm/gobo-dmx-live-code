@@ -349,7 +349,7 @@ defineFixture('demo-bar', {
     { offset: 6, name: 'pixels',      type: 'strip', pixelCount: 8, pixelLayout: 'rgbw' },
   ],
 })
-const spot = fixture(1, 'generic-rgbw').viz('color')
+const spot = fixture(1, 'rgbw').viz('color')
 const bar  = fixture(1, 'demo-bar', 1)
 bar.pixels.viz('strip')
 bar.dim(1)

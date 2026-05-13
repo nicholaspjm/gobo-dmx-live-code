@@ -56,8 +56,11 @@ export interface FixtureDef {
 // ─── Built-in fixture library ─────────────────────────────────────────────────
 
 export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
-  'generic-dimmer': {
-    name: 'Generic Dimmer',
+  // Short names — what user code should reference. The legacy `generic-*`
+  // ids resolve to these via FIXTURE_ALIASES below so existing scenes
+  // keep working.
+  'dim': {
+    name: 'Dimmer',
     manufacturer: 'Generic',
     type: 'dimmer',
     channelCount: 1,
@@ -66,8 +69,8 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
     ],
   },
 
-  'generic-rgb': {
-    name: 'Generic RGB PAR',
+  'rgb': {
+    name: 'RGB PAR',
     manufacturer: 'Generic',
     type: 'rgb',
     channelCount: 3,
@@ -78,8 +81,8 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
     ],
   },
 
-  'generic-rgbw': {
-    name: 'Generic RGBW PAR',
+  'rgbw': {
+    name: 'RGBW PAR',
     manufacturer: 'Generic',
     type: 'rgbw',
     channelCount: 4,
@@ -91,8 +94,8 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
     ],
   },
 
-  'generic-rgba': {
-    name: 'Generic RGBA PAR',
+  'rgba': {
+    name: 'RGBA PAR',
     manufacturer: 'Generic',
     type: 'rgba',
     channelCount: 4,
@@ -104,8 +107,8 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
     ],
   },
 
-  'generic-dim-rgb': {
-    name: 'Generic Dimmer + RGB',
+  'dim-rgb': {
+    name: 'Dimmer + RGB PAR',
     manufacturer: 'Generic',
     type: 'rgb',
     channelCount: 4,
@@ -117,8 +120,8 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
     ],
   },
 
-  'generic-dim-rgbw': {
-    name: 'Generic Dimmer + RGBW',
+  'dim-rgbw': {
+    name: 'Dimmer + RGBW PAR',
     manufacturer: 'Generic',
     type: 'rgbw',
     channelCount: 5,
@@ -163,14 +166,14 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
       { offset: 6,  name: 'strobe', type: 'strobe',    description: 'Strobe'             },
       { offset: 7,  name: 'zoom',   type: 'control',   description: 'Zoom'               },
       { offset: 8,  name: 'gobo',   type: 'control',   description: 'Gobo wheel'         },
-      { offset: 9,  name: 'color',  type: 'control',   description: 'Color wheel'        },
+      { offset: 9,  name: 'colorWheel', type: 'control', description: 'Colour wheel position' },
       { offset: 10, name: 'prism',  type: 'control',   description: 'Prism'              },
       { offset: 11, name: 'focus',  type: 'control',   description: 'Focus'              },
     ],
   },
 
-  'strobe-basic': {
-    name: 'Generic Strobe',
+  'strobe': {
+    name: 'Strobe',
     manufacturer: 'Generic',
     type: 'strobe',
     channelCount: 2,
@@ -179,6 +182,22 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
       { offset: 1, name: 'strobe', type: 'strobe',    description: 'Strobe rate'   },
     ],
   },
+};
+
+/**
+ * Backward-compat: pre-rename fixture ids resolve to the new short names.
+ * Scenes saved against `generic-rgbw` etc. keep working without a forced
+ * migration. Pure-data ergonomics — write `fixture(1, 'rgbw')`, not
+ * `fixture(1, 'generic-rgbw')`.
+ */
+const FIXTURE_ALIASES: Record<string, string> = {
+  'generic-dimmer':   'dim',
+  'generic-rgb':      'rgb',
+  'generic-rgbw':     'rgbw',
+  'generic-rgba':     'rgba',
+  'generic-dim-rgb':  'dim-rgb',
+  'generic-dim-rgbw': 'dim-rgbw',
+  'strobe-basic':     'strobe',
 };
 
 // ─── Sim registry ────────────────────────────────────────────────────────────
@@ -354,9 +373,10 @@ export function getCustomFixtures(): Record<string, FixtureDef> {
   return { ..._customFixtures };
 }
 
-/** Resolve fixture id → FixtureDef (built-in first, then custom). */
+/** Resolve fixture id → FixtureDef (alias → built-in first, then custom). */
 function resolveFixture(id: string): FixtureDef {
-  const def = BUILT_IN_FIXTURES[id] ?? _customFixtures[id];
+  const canonical = FIXTURE_ALIASES[id] ?? id;
+  const def = BUILT_IN_FIXTURES[canonical] ?? _customFixtures[canonical];
   if (!def) {
     const available = [
       ...Object.keys(BUILT_IN_FIXTURES),
@@ -396,10 +416,35 @@ export type FixtureInstance = {
    * live widget at the end of that line. Default kind is 'color'.
    *
    * @example
-   *   const washA = fixture(1, 'generic-rgbw').viz('color')
-   *   const spot  = fixture(9, 'generic-dimmer').viz('wave', 'meter')
+   *   const washA = fixture(1, 'rgbw').viz('color')
+   *   const spot  = fixture(9, 'dim').viz('wave', 'meter')
    */
   viz(...kinds: VizKind[]): FixtureInstance;
+
+  // ── Generic helpers — work on any fixture, ignore channels that don't exist
+  /**
+   * Set red / green / blue (and optionally white) in one call. Channels
+   * absent on this fixture are skipped silently so the same call works
+   * across rgb / rgbw / dim-rgb / dim-rgbw / moving-head fixtures.
+   *
+   * @example
+   *   wash.color(1, 0, 0)         // red on an RGB par
+   *   wash.color(1, 0, 0, 0.3)    // red + a touch of white (RGBW)
+   *   wash.color(sine(), 0, 0)    // animated red
+   */
+  color(
+    r: PatternOrValue,
+    g: PatternOrValue,
+    b: PatternOrValue,
+    w?: PatternOrValue,
+  ): void;
+  /** Zero every light-emitting channel on the fixture (dim, RGB, RGBW,
+   *  embedded strip pixels). Safe on every fixture type. */
+  off(): void;
+  /** Drive every light-emitting channel to full (1). For dim-RGB(W)
+   *  fixtures this brings both the dimmer AND the colour channels to max. */
+  full(): void;
+
   // Named channels: setter function OR nested StripInstance (for type: 'strip')
   [key: string]: unknown;
 };
@@ -468,6 +513,60 @@ export function fixture(
         dim,
       });
       return inst;
+    },
+
+    color(r, g, b, w) {
+      // Skip channels that don't exist on this fixture so the same call
+      // is portable across rgb / rgbw / dim-rgbw / moving-head etc. Each
+      // channel is set independently — patterns and constants both flow
+      // through inst.set() the same way as a named-channel setter would.
+      const has = (name: string): boolean =>
+        def.channels.some((c) => c.name === name && c.type !== 'strip');
+      if (has('red'))   inst.set('red',   r);
+      if (has('green')) inst.set('green', g);
+      if (has('blue'))  inst.set('blue',  b);
+      if (w !== undefined && has('white')) inst.set('white', w);
+    },
+
+    off() {
+      // Walk every channel; zero the standard light-emitting ones and
+      // fill embedded strips. Other channels (pan, tilt, strobe, gobo,
+      // colour wheel, etc.) are intentionally left alone — they describe
+      // STATE rather than brightness and the user usually wants them
+      // preserved across a blackout.
+      const lightChannels = new Set(['red', 'green', 'blue', 'white', 'amber', 'dim']);
+      for (const ch of def.channels) {
+        if (ch.type === 'strip') {
+          // Strip channels live as a nested StripInstance on the fixture;
+          // fill() zeroes every pixel in one shot.
+          const strip = inst[ch.name] as unknown as { fill: (...vs: number[]) => void } | undefined;
+          if (strip && typeof strip.fill === 'function') {
+            if (ch.pixelLayout === 'rgbw') strip.fill(0, 0, 0, 0);
+            else strip.fill(0, 0, 0);
+          }
+        } else if (lightChannels.has(ch.name)) {
+          inst.set(ch.name, 0);
+        }
+      }
+    },
+
+    full() {
+      // Mirror of .off(): drive every light-emitting channel (and every
+      // pixel of any embedded strip) to 1. Useful for "I just need this
+      // thing on, full white" without thinking about whether the fixture
+      // has a master dim, an RGB triad, both, or only one.
+      const lightChannels = new Set(['red', 'green', 'blue', 'white', 'amber', 'dim']);
+      for (const ch of def.channels) {
+        if (ch.type === 'strip') {
+          const strip = inst[ch.name] as unknown as { fill: (...vs: number[]) => void } | undefined;
+          if (strip && typeof strip.fill === 'function') {
+            if (ch.pixelLayout === 'rgbw') strip.fill(1, 1, 1, 1);
+            else strip.fill(1, 1, 1);
+          }
+        } else if (lightChannels.has(ch.name)) {
+          inst.set(ch.name, 1);
+        }
+      }
     },
   } as FixtureInstance;
 

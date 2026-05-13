@@ -3,8 +3,8 @@
  *
  * Users opt into these by chaining `.viz(kind)` on a fixture or strip:
  *
- *   const washA = fixture(1, 'generic-rgbw').viz('color')
- *   const spot  = fixture(9, 'generic-dimmer').viz('wave')
+ *   const washA = fixture(1, 'rgbw').viz('color')
+ *   const spot  = fixture(9, 'dim').viz('wave')
  *   const strip = rgbStrip(12, 10).viz('strip')
  *
  * How the wiring works:
