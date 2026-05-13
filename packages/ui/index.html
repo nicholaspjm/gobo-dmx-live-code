@@ -1089,6 +1089,20 @@
       .lib-row-unsaved {
         opacity: 0.85;
       }
+      /* Built-in rows are read-only — slightly muted to telegraph that. */
+      .lib-row-builtin .lib-row-id {
+        color: var(--text);
+      }
+      /* Inline code styling inside the library notes (used to highlight
+         the .color / .off / .full helpers in the built-in section blurb). */
+      .lib-note code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        background: var(--code-bg);
+        padding: 1px 4px;
+        border-radius: 2px;
+        color: var(--accent);
+      }
       .lib-row-meta {
         min-width: 0;
         flex: 1;

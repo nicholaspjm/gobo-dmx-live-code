@@ -13,7 +13,7 @@
  *
  * What we're defending against:
  *   - Denial of service via absurd sizes (50k-pixel strips, etc.)
- *   - Shadowing built-ins by submitting `generic-rgbw` with a bogus def
+ *   - Shadowing built-ins by submitting `rgbw` with a bogus def
  *   - Malformed content that would confuse downstream code paths
  *   - Path-traversal / shell-unsafe characters in ids (important because
  *     the id becomes a filename when exported)

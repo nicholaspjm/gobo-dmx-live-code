@@ -41,10 +41,16 @@ const COMMAND_NAMES = [
   'ch', 'uni', 'dim', 'rgb',
 ];
 
-/** Method names whose colour should match the command accent (the lumen
- *  decoration chain; not every method — .red, .green, .pan etc. stay
- *  default so they read as fixture channels). */
-const METHOD_NAMES = ['viz', 'flash', 'glow', 'wave'];
+/** Method names whose colour should match the command accent. Includes
+ *  the viz/decoration chain (.viz / .flash / .glow / .wave) and the
+ *  generic fixture helpers (.color / .off / .full / .pixelGrid / .each /
+ *  .rainbowChase) — anything that's part of the lumen API surface and
+ *  worth visually distinguishing from raw channel setters (.red etc.). */
+const METHOD_NAMES = [
+  'viz', 'flash', 'glow', 'wave',
+  'color', 'off', 'full',
+  'pixelGrid', 'each', 'rainbowChase',
+];
 
 const commandMark = Decoration.mark({ class: 'lumen-command' });
 const lightMark = Decoration.mark({ class: 'lumen-light' });

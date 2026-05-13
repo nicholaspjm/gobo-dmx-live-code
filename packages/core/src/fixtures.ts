@@ -6,7 +6,7 @@
  * named setters that call through to uni() / ch().
  *
  * Example:
- *   const par = fixture(1, 'generic-rgb')
+ *   const par = fixture(1, 'rgb')
  *   par.red(sine())
  *   par.green(0)
  *   par.blue(cosine().slow(2))
@@ -453,7 +453,7 @@ export type FixtureInstance = {
  * Load a fixture at a DMX address and return a named-channel setter object.
  *
  * @param startChannel  1-based DMX channel (first channel of the fixture)
- * @param fixtureId     Built-in id ('generic-rgb', 'moving-head-basic', …) or custom id
+ * @param fixtureId     Built-in id ('rgbw', 'dim-rgb', 'moving-head-basic', …) or custom id
  * @param universe      DMX universe (default: 0). Art-Net / TouchDesigner
  *                      label the first universe as "Universe 0" — if your node
  *                      is configured for universe 0 this works out of the box.
@@ -461,7 +461,7 @@ export type FixtureInstance = {
  *                      sACN E1.31 requires universe ≥ 1.
  *
  * @example
- *   const par = fixture(1, 'generic-rgb')
+ *   const par = fixture(1, 'rgb')
  *   par.red(sine())
  *   par.blue(0.5)
  *

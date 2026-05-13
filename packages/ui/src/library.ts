@@ -19,6 +19,7 @@ import {
   parseImportString,
   getCustomFixtures,
   defineFixture,
+  BUILT_IN_FIXTURES,
   type FixtureDef,
 } from '@lumen/core';
 import { getPublicFixtures } from './public-fixtures.js';
@@ -204,16 +205,21 @@ export function mountLibraryPanel(opts: {
     return pieces.join(' · ');
   }
 
-  type RowTier = 'public' | 'saved' | 'session';
+  type RowTier = 'builtin' | 'public' | 'saved' | 'session';
 
   function renderRow(entry: { id: string; def: FixtureDef }, tier: RowTier): string {
     const idAttr = escapeAttr(entry.id);
     // Action buttons differ per tier:
-    //   public  — community-contributed, already usable in code, can export
-    //   saved   — user-pinned locally, can export / share / delete
-    //   session — defined in current code but not yet pinned, can save / export / share
+    //   builtin — shipped with the core, always present, view-only.
+    //   public  — community-contributed, already usable in code, can export.
+    //   saved   — user-pinned locally, can export / share / delete.
+    //   session — defined in current code but not yet pinned, can save / export / share.
     let actions = '';
-    if (tier === 'public') {
+    if (tier === 'builtin') {
+      // No actions — built-ins are part of the core and can't be edited
+      // or removed. Listed so users can see what's available.
+      actions = '';
+    } else if (tier === 'public') {
       actions = `
         <button type="button" class="lib-action" data-lib-action="export" data-lib-id="${idAttr}">export</button>`;
     } else if (tier === 'saved') {
@@ -227,8 +233,12 @@ export function mountLibraryPanel(opts: {
         <button type="button" class="lib-action"            data-lib-action="export" data-lib-id="${idAttr}">export</button>
         <button type="button" class="lib-action"            data-lib-action="share"  data-lib-id="${idAttr}" title="Propose this fixture for the public library">share</button>`;
     }
-    const extraClass = tier === 'session' ? ' lib-row-unsaved' : '';
-    const tierTag = tier === 'public' ? ` <span class="lib-row-tag">public</span>` : '';
+    const extraClass =
+      tier === 'session' ? ' lib-row-unsaved' :
+      tier === 'builtin' ? ' lib-row-builtin' : '';
+    const tierTag =
+      tier === 'public'  ? ` <span class="lib-row-tag">public</span>` :
+      tier === 'builtin' ? ` <span class="lib-row-tag">built-in</span>` : '';
     return `
       <div class="lib-row${extraClass}">
         <div class="lib-row-meta">
@@ -236,22 +246,40 @@ export function mountLibraryPanel(opts: {
             <span class="lib-row-id">${escapeText(entry.id)}</span>
             <span class="lib-row-name">${escapeText(entry.def.name)}</span>${tierTag}
           </div>
-          <div class="lib-row-sub">${escapeText(channelSummary(entry.def))}</div>
+          <div class="lib-row-sub">${escapeText(channelSummary(entry.def))} · ${escapeText(channelNamesSummary(entry.def))}</div>
         </div>
         <div class="lib-row-actions">${actions}</div>
       </div>`;
   }
 
+  /** Comma-joined channel names — gives users a quick read of what
+   *  setters / generics will be available on a fixture instance. */
+  function channelNamesSummary(def: FixtureDef): string {
+    return def.channels.map((c) => c.name).join(', ');
+  }
+
   function refresh(): void {
     const publicFixtures = getPublicFixtures();
     const saved = getLibraryFixtures();
+    // Built-ins straight from the core registry. Filter out any session
+    // entries that shadow a built-in (defineFixture('rgbw', …)) — those
+    // surface in the session block instead.
+    const builtIns = Object.entries(BUILT_IN_FIXTURES)
+      .map(([id, def]) => ({ id, def }))
+      .sort((a, b) => a.id.localeCompare(b.id));
     const runtime = Object.entries(getCustomFixtures())
       .map(([id, def]) => ({ id, def }))
       // Don't surface session entries that also happen to be in the library
       // or already shipped in the public bundle — would just be confusing
       // duplicates.
-      .filter((e) => !isInLibrary(e.id) && !publicFixtures.some((p) => p.id === e.id))
+      .filter((e) =>
+        !isInLibrary(e.id) &&
+        !publicFixtures.some((p) => p.id === e.id) &&
+        !(e.id in BUILT_IN_FIXTURES),
+      )
       .sort((a, b) => a.id.localeCompare(b.id));
+
+    const builtInBlock = builtIns.map((e) => renderRow(e, 'builtin')).join('');
 
     const publicBlock = publicFixtures.length
       ? publicFixtures.map((e) => renderRow(e, 'public')).join('')
@@ -270,6 +298,10 @@ export function mountLibraryPanel(opts: {
         <button type="button" class="lib-action lib-primary" data-lib-action="import">import from file…</button>
       </div>
       <div class="lib-banner" id="lib-banner"></div>
+
+      <h3 class="lib-heading">Built-in</h3>
+      <p class="lib-note">Shipped with lumen. Every fixture also has the generic helpers <code>.color(r,g,b[,w])</code>, <code>.off()</code>, <code>.full()</code> on top of its named channel setters.</p>
+      ${builtInBlock}
 
       <h3 class="lib-heading">Public library</h3>
       <p class="lib-note">Community-contributed, bundled with the app. Use any of these in your code without clicking anything.</p>
