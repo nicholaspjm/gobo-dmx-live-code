@@ -12,7 +12,7 @@ Powered by [@strudel/core](https://strudel.cc) — the same waveform and cycle s
 
 ## Try it now
 
-**[Open lumen in your browser](https://nicholaspjm.github.io/dmx-live-code/)** — no install required.
+**[Open lumen in your browser](https://nicholaspjm.github.io/lumen-dmx-live-code/)** — no install required.
 
 > The web version runs the full editor and visualizer. To send DMX to real hardware, run the bridge server locally (see below).
 
@@ -35,13 +35,13 @@ Powered by [@strudel/core](https://strudel.cc) — the same waveform and cycle s
 
 ### Browser only (no hardware)
 
-Just open the [live link](https://nicholaspjm.github.io/dmx-live-code/) and start coding. The visualizer shows DMX output in real time.
+Just open the [live link](https://nicholaspjm.github.io/lumen-dmx-live-code/) and start coding. The visualizer shows DMX output in real time.
 
 ### With hardware (local dev)
 
 ```bash
-git clone https://github.com/nicholaspjm/dmx-live-code.git
-cd dmx-live-code
+git clone https://github.com/nicholaspjm/lumen-dmx-live-code.git
+cd lumen-dmx-live-code
 npm install
 npm run dev
 ```
@@ -258,7 +258,7 @@ Set *Font* to a monospace face (e.g. `Consolas`, `JetBrains Mono`) so indentatio
 
 lumen pushes the current editor contents to `code_text` on every keystroke (debounced ~250 ms), on every `Ctrl+Enter`, and once on (re)connect, so the visual always reflects what's actually running.
 
-**7. In lumen.** Open the [live page](https://nicholaspjm.github.io/dmx-live-code/), leave the default `td('localhost', 9980)` line, and hit `Ctrl+Enter`. The status dot in the top bar should switch to `td` and channels will start appearing in `datto1`.
+**7. In lumen.** Open the [live page](https://nicholaspjm.github.io/lumen-dmx-live-code/), leave the default `td('localhost', 9980)` line, and hit `Ctrl+Enter`. The status dot in the top bar should switch to `td` and channels will start appearing in `datto1`.
 
 > **Note:** `localhost` works from the hosted page because Chromium allows `ws://localhost` even from https pages. If you run TD on a different machine, substitute its IP — but the page will need to be served over http (or TD behind wss/a reverse proxy).
 
