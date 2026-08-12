@@ -22,12 +22,17 @@ import {
   getUniverseBuffer,
   evalCode,
   initStrudel,
+  isStrudelReady,
+  getStrudelError,
   connectBridge,
   onStatusChange,
   sendUniverseState,
   restoreLibraryFixtures,
   getSimFixtures,
   clearDefs,
+  getQueryFailures,
+  getQueryFailureGeneration,
+  type QueryFailure,
   type SimFixture,
 } from '@lumen/core';
 
@@ -102,21 +107,37 @@ function runStop(): void {
   stop();
   // Stop-action setting decides whether to also zero the universe buffers.
   // 'blackout' wipes; 'freeze' leaves the last frame on outputs so the rig
-  // holds its state until the next eval. clearDefs() removes pattern defs
-  // AND zeroes the buffers in one call; a follow-up sendUniverseState
-  // pushes the zeroed buffers to the bridge so hardware actually goes dark
-  // (the scheduler tick is no longer running, so we have to do it here).
+  // holds its state until the next eval.
+  //
+  // Going dark is a deliberate operator action, so the zeroing lives here
+  // rather than in clearDefs() — an eval must never be able to black the rig
+  // out as a side effect of clearing defs. clearDefs() stops anything from
+  // being redriven, the fill(0) darkens the buffers now (the scheduler tick
+  // that would normally rewrite them is stopped), and sendUniverseState
+  // pushes that frame so hardware actually goes out.
   if (getSettings().stopAction === 'blackout') {
     clearDefs();
+    for (const buf of getAllUniverses().values()) buf.fill(0);
     sendUniverseState(getAllUniverses());
     updateVisualizer(getPrimaryUniverseSnapshot());
   }
   setStatus('', 'stopped — ctrl+enter to run');
 }
 
+// What is currently on the status bar. setStatus() is the only writer of
+// evalStatusEl anywhere in the app, so these mirror what the operator is
+// actually reading — the tick loop compares against them to notice when an
+// unrelated message has replaced a warning that is still true.
+let _statusKind: '' | 'ok' | 'error' = '';
+let _statusMsg = '';
+let _statusAtMs = 0;
+
 function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
   evalStatusEl.textContent = msg;
   evalStatusEl.className = kind;
+  _statusKind = kind;
+  _statusMsg = msg;
+  _statusAtMs = performance.now();
 }
 
 // ─── Save / save-as ──────────────────────────────────────────────────────────
@@ -282,14 +303,83 @@ initVisualizer(visualizerEl);
 // tick so the user can change it live without re-evaluating.
 let _lastSendMs = 0;
 
+// Patterns run user code on every query, so a scene can start throwing long
+// after evalCode() reported success. tick() contains that — the offending
+// channel reads 0 and the frame still ships — but silence would leave a
+// green "✓ running" over a partly-dark rig, which is exactly the state an
+// operator finds out about from the audience rather than the status bar.
+//
+// Polled rather than subscribed: one integer compare per frame, no callback
+// re-entering the tick loop, and the snapshot is only built when the set of
+// failing channels actually changes.
+let _lastQueryFailureGen = getQueryFailureGeneration();
+
+// The warning the bar should be carrying while channels are still failing, or
+// null when nothing is failing.
+//
+// The core generation moves only when a NEW channel starts failing (or the set
+// is reset), so writing the warning once at that moment is not enough to keep
+// it: a save, a format, a scene rename — any unrelated setStatus — erases it,
+// and with the failing set unchanged the generation never moves again. That is
+// how a green line ended up over a partly-dark rig. Holding the message here
+// makes the warning a state rather than an event, so the tick loop can put it
+// back once something else takes the bar.
+let _queryFailureMsg: string | null = null;
+
+// How long an unrelated message gets to stay readable before the warning takes
+// the bar back. Reclaiming on the very next frame would make Ctrl+S flash
+// "saved" for ~16ms and look like the save failed; a second and a half is long
+// enough to read a confirmation and far too short to finish a song under.
+const QUERY_FAILURE_RECLAIM_MS = 1500;
+
+function formatQueryFailures(failures: QueryFailure[]): string {
+  const first = failures[0];
+  const rest = failures.length - 1;
+  const more = rest > 0 ? ` (+${rest} more channel${rest > 1 ? 's' : ''})` : '';
+  // First line only — a pattern throwing a stack trace would otherwise blow
+  // out the top bar. The console has the full error.
+  const msg = first.message.split('\n')[0];
+  return `pattern error · uni ${first.universe} ch ${first.channel} dark${more} — ${msg}`;
+}
+
 onTick((cyclePos, _delta) => {
   // 1. Resolve patterns → DMX channel values
   tick(cyclePos);
 
-  // 2. Push to visualizer (gets the live primary-universe buffer)
+  // 2. Surface any channel whose pattern threw during that resolve, and keep
+  //    it surfaced for as long as it is true. Costs one integer compare per
+  //    frame in the steady state, plus two string compares and a clock read on
+  //    the frames where a warning is live but overwritten; the DOM is written
+  //    only when the failure set changes or when the warning is reclaimed,
+  //    never once per tick.
+  const failureGen = getQueryFailureGeneration();
+  if (failureGen !== _lastQueryFailureGen) {
+    _lastQueryFailureGen = failureGen;
+    const failures = getQueryFailures();
+    // An empty set means the generation moved because the live scene was
+    // replaced or dropped (re-eval, clearDefs) — the failing defs are gone, so
+    // the warning goes with them, and runEval() keeps the status it just set.
+    _queryFailureMsg = failures.length > 0 ? formatQueryFailures(failures) : null;
+    if (_queryFailureMsg !== null) setStatus('error', _queryFailureMsg);
+  } else if (
+    _queryFailureMsg !== null
+    && _statusMsg !== _queryFailureMsg
+    && _statusKind !== 'error'
+    && performance.now() - _statusAtMs >= QUERY_FAILURE_RECLAIM_MS
+  ) {
+    // Something unrelated took the bar while those channels are still dark —
+    // reclaim it once that message has had its moment. Not over another error,
+    // though: a red line is already telling the operator something is wrong,
+    // and stomping an eval or format error they never got to read would just
+    // move the silence somewhere else. (The clock is read last so it costs
+    // nothing on the frames where no warning is pending.)
+    setStatus('error', _queryFailureMsg);
+  }
+
+  // 3. Push to visualizer (gets the live primary-universe buffer)
   updateVisualizer(getPrimaryUniverseSnapshot());
 
-  // 3. Send to bridge (time-throttled to the configured send rate).
+  // 4. Send to bridge (time-throttled to the configured send rate).
   const sendIntervalMs = 1000 / getSettings().sendRate;
   const now = performance.now();
   if (now - _lastSendMs >= sendIntervalMs) {
@@ -985,6 +1075,14 @@ restoreLibraryFixtures();
 runStop();
 
 initStrudel().then(() => {
+  // No pattern engine means no waveforms, and evalCode() will refuse every
+  // run rather than quietly resolving scenes to something else. Say so in the
+  // status bar and leave it there — an operator must not discover this
+  // halfway through a set.
+  if (!isStrudelReady()) {
+    setStatus('error', `pattern engine failed to load — ${getStrudelError() ?? 'unknown error'}`);
+    return;
+  }
   console.log('[lumen] ready');
   setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop');
 });

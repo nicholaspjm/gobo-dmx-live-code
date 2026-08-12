@@ -452,7 +452,10 @@ export type FixtureInstance = {
 /**
  * Load a fixture at a DMX address and return a named-channel setter object.
  *
- * @param startChannel  1-based DMX channel (first channel of the fixture)
+ * @param startChannel  1-based DMX channel (first channel of the fixture). The
+ *                      whole fixture must fit inside the universe — a patch
+ *                      that would run past channel 512 throws rather than
+ *                      quietly dropping the channels that don't fit.
  * @param fixtureId     Built-in id ('rgbw', 'dim-rgb', 'moving-head-basic', …) or custom id
  * @param universe      DMX universe (default: 0). Art-Net / TouchDesigner
  *                      label the first universe as "Universe 0" — if your node
@@ -476,6 +479,25 @@ export function fixture(
   universe = 0,
 ): FixtureInstance {
   const def = resolveFixture(fixtureId);
+
+  // Patch-address guard, same contract as rgbStrip/rgbwStrip: a fixture that
+  // doesn't fit the universe is a patching mistake, not something to clamp.
+  // Clamping would light the channels that fit and silently drop the rest,
+  // which on stage reads as "that head is broken" rather than "that patch is
+  // wrong" — the operator loses the one clue they need. Throwing surfaces the
+  // address in the editor's error banner before the scene ever goes out.
+  if (!Number.isInteger(universe) || universe < 0) {
+    throw new Error(`fixture: universe must be a non-negative integer (got ${universe})`);
+  }
+  if (!Number.isInteger(startChannel) || startChannel < 1) {
+    throw new Error(`fixture: startChannel must be an integer >= 1 (got ${startChannel})`);
+  }
+  const lastChannel = startChannel + def.channelCount - 1;
+  if (lastChannel > 512) {
+    throw new Error(
+      `fixture: "${fixtureId}" (${def.channelCount} channels) starting at ${startChannel} would run to channel ${lastChannel} — exceeds 512 by ${lastChannel - 512}. Move it to a lower address or split across universes.`,
+    );
+  }
 
   const inst: FixtureInstance = {
     def,
@@ -1104,7 +1126,7 @@ export function rgbwStrip(
 // Higher-level scene recipes exposed as methods on the strip instances. They
 // need access to the waveform factories (sine / cosine), which live in the
 // eval sandbox — so eval.ts injects them here via setStripEffectWaveforms()
-// once strudel (or the fallback) is loaded. If a user calls rainbowChase()
+// once strudel is loaded. If a user calls rainbowChase()
 // before that's happened the method is a no-op rather than a thrown error,
 // since the setup is otherwise automatic.
 
@@ -1120,8 +1142,8 @@ export interface RainbowChaseOptions {
 }
 
 // The waveform types are `any` because sine() / cosine() return values carry
-// chain methods added dynamically by strudel's prototype or by our fallback
-// factory — they don't fit the static PatternLike interface.
+// chain methods added dynamically by strudel's prototype — they don't fit the
+// static PatternLike interface.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _sineFactory: (() => any) | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1129,7 +1151,7 @@ let _cosineFactory: (() => any) | null = null;
 
 /**
  * Inject the waveform factories. Called from eval.ts right after strudel
- * (or the fallback) is set up.
+ * is set up.
  */
 export function setStripEffectWaveforms(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
