@@ -195,7 +195,7 @@ const DOCS: DocSection[] = [
     category: 'viz',
     title: 'pattern viz',
     blurb:
-      "Opt-in per-pattern editor decorations. Chain .flash() / .glow() / .wave() onto any pattern (sine/square/cosine/saw/rand, fallback waveforms) and the editor line lights up with live feedback. Methods return the pattern unchanged so you can still pass it into a fixture setter. Never on by default.",
+      "Opt-in per-pattern editor decorations. Chain .flash() / .glow() / .wave() onto any pattern (sine/square/cosine/saw/rand, mini-notation) and the editor line lights up with live feedback. Methods return the pattern unchanged so you can still pass it into a fixture setter. Never on by default.",
     entries: [
       {
         name: '.flash',

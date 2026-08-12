@@ -49,7 +49,7 @@ export function getPatternVizEntries(): readonly PatternVizEntry[] {
 
 /**
  * Sample a pattern's value at a point on the cycle timeline. Strudel patterns
- * return an array of events from queryArc; fallback/reactive patterns return
+ * return an array of events from queryArc; reactive patterns return
  * a single event. Either way we grab the first event's .value and clamp to
  * a number; anything non-numeric becomes 0.
  */
@@ -66,7 +66,7 @@ export function samplePattern(pattern: PatternLike, cyclePos: number): number {
 
 /**
  * Mutate an object to add `.flash() / .glow() / .wave()` methods. Used by
- * our fallback waveform and audio-reactive factories (we own those objects).
+ * our audio-reactive factories (we own those objects).
  * Strudel patterns get the same methods via a one-time prototype monkey-patch
  * inside initStrudel() so we don't pay Proxy overhead on every pattern eval.
  *

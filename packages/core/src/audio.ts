@@ -12,7 +12,7 @@
  *      `PatternLike` objects whose queryArc returns the current stored value,
  *      so they ignore the cycle-time argument — they're "live" values, not
  *      parametric waveforms. Same `.range / .add / .mul / .slow / .fast`
- *      chain as the fallback waveforms so users can `audio.bass().range(0, 1)`.
+ *      chain as the strudel waveforms so users can `audio.bass().range(0, 1)`.
  *
  *   3. An external clock provider registered with the scheduler. When a track
  *      is loaded and playing, cyclePos is pinned to (audioPosition * bpm /
@@ -307,7 +307,7 @@ export function updateAudioFrame(): void {
 
 /**
  * Wrap a 0..1 read function in a PatternLike with the same chain methods the
- * fallback-waveform factory offers, so `audio.bass().range(0, 1)` works the
+ * strudel waveforms offer, so `audio.bass().range(0, 1)` works the
  * same way as `sine().slow(4).range(...)`.
  *
  * queryArc ignores begin/end — these are "live" values, not parametric.

@@ -1,12 +1,18 @@
 /**
  * lumen bridge — WebSocket server that routes DMX universe data to
- * ArtNet UDP, sACN E1.31, or mock (console log).
+ * Art-Net UDP, sACN E1.31, OSC, or mock (console log).
  *
  * Listens on ws://localhost:3001
- * Config: bridge.config.json in the working directory
+ * Config: bridge.config.json, read from this package's own directory (NOT the
+ * process working directory) and overridden at runtime by config messages from
+ * the editor's artnet() / sacn() / osc() / mock() calls.
  *
  * Wire format expected from the UI:
  *   { type: "dmx", universes: { "1": [0, 128, 255, ...], ... } }
+ *
+ * Nothing a running show depends on is allowed to throw: every socket and
+ * server here has an error handler and every send has a callback, so a bad
+ * host or an unplugged cable costs frames, never the process.
  */
 
 import { createServer } from 'http';
@@ -19,12 +25,32 @@ import { randomBytes } from 'crypto';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
+/** The output modes the router below actually implements. */
+const OUTPUT_MODES = ['artnet', 'sacn', 'osc', 'mock'] as const;
+
+type OutputMode = (typeof OUTPUT_MODES)[number];
+
 interface BridgeConfig {
-  mode: 'artnet' | 'sacn' | 'osc' | 'mock';
+  mode: OutputMode;
   artnet?: { host: string; port?: number };
   sacn?: { universe?: number; priority?: number };
   osc?: { host: string; port: number };
   mock?: { logIntervalFrames?: number };
+}
+
+/**
+ * An unrecognised mode used to fall through the router's `default:` branch
+ * into mock, which logs cheerfully while nothing reaches the rig — one typo
+ * ("artnett") was indistinguishable from a working bridge. Both entry points
+ * (the config file and runtime config messages) check this before assigning
+ * config.mode, so an invalid value can never reach the router.
+ */
+function isOutputMode(value: unknown): value is OutputMode {
+  return typeof value === 'string' && (OUTPUT_MODES as readonly string[]).includes(value);
+}
+
+function unknownModeMessage(value: unknown): string {
+  return `unknown output mode ${JSON.stringify(value)} — valid modes are ${OUTPUT_MODES.join(', ')}`;
 }
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -32,31 +58,143 @@ const configPath = resolve(__dir, '..', 'bridge.config.json');
 
 let config: BridgeConfig = { mode: 'mock' };
 try {
-  config = JSON.parse(readFileSync(configPath, 'utf-8')) as BridgeConfig;
-  console.log(`[bridge] config loaded — mode: ${config.mode}`);
-} catch {
-  console.warn('[bridge] bridge.config.json not found, using mock mode');
+  const loaded = JSON.parse(readFileSync(configPath, 'utf-8')) as BridgeConfig;
+  if (isOutputMode(loaded.mode)) {
+    config = loaded;
+    console.log(`[bridge] config loaded — mode: ${config.mode}`);
+  } else {
+    // Keep the rest of the file so correcting the mode is the only edit needed,
+    // but shout about it — this must never look like a working output.
+    config = { ...loaded, mode: 'mock' };
+    console.error(`[bridge] bridge.config.json: ${unknownModeMessage(loaded.mode)}`);
+    console.error('[bridge] falling back to mock — NOTHING will be sent to the rig until the mode is corrected');
+  }
+} catch (err) {
+  // A missing file is a normal first run; unreadable or malformed JSON is a
+  // mistake worth naming, since both otherwise land on the same silent default.
+  if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+    console.warn(`[bridge] no bridge.config.json at ${configPath}, using mock mode`);
+  } else {
+    console.error(`[bridge] could not read ${configPath} — ${(err as Error).message}`);
+    console.error('[bridge] falling back to mock — NOTHING will be sent to the rig until that is fixed');
+  }
 }
 
-// ─── UDP socket (shared for ArtNet + sACN) ───────────────────────────────────
+// ─── Error reporting ─────────────────────────────────────────────────────────
+
+/**
+ * Best guess at what a socket error actually means, in one line someone can
+ * act on. Node's own messages ("send EHOSTUNREACH") say what broke but never
+ * what to do about it, and these get read in a dark room during a show.
+ */
+function explainSocketError(err: NodeJS.ErrnoException): string {
+  switch (err.code) {
+    case 'EACCES':
+    case 'EPERM':
+      return 'the OS refused the send — a firewall or security policy is blocking outbound UDP';
+    case 'EADDRINUSE':
+      return 'the local port is already taken, probably by another bridge or lighting app';
+    case 'ENETUNREACH':
+    case 'EHOSTUNREACH':
+    case 'ENETDOWN':
+      return 'no route to that address — check the interface is up and on the same subnet as the node';
+    case 'ENOTFOUND':
+    case 'EAI_AGAIN':
+      return 'that host name could not be resolved — pass a literal IP address instead';
+    case 'EADDRNOTAVAIL':
+      return 'the local address is not available — the network it was bound to may have gone away';
+    case 'ERR_SOCKET_DGRAM_NOT_RUNNING':
+      return 'the UDP socket has been closed';
+    default:
+      return err.message;
+  }
+}
+
+/**
+ * Send failures arrive at frame rate — one unreachable host would print
+ * thousands of identical lines a minute (OSC sends one packet per channel, so
+ * far worse) and bury everything else. Print the first of each kind at once,
+ * then at most one line per interval with a count of what was swallowed.
+ *
+ * A dropped frame is never fatal here: the next frame is 16ms away and the
+ * show keeps running.
+ */
+const SEND_ERROR_REPEAT_MS = 5000;
+const _sendErrors = new Map<string, { last: number; suppressed: number }>();
+
+function reportSendError(protocol: string, target: string, err: NodeJS.ErrnoException): void {
+  const code = err.code ?? 'error';
+  const key = `${protocol}|${code}|${target}`;
+  const now = Date.now();
+  const seen = _sendErrors.get(key);
+
+  if (seen && now - seen.last < SEND_ERROR_REPEAT_MS) {
+    seen.suppressed++;
+    return;
+  }
+
+  const repeats = seen && seen.suppressed > 0 ? ` (+${seen.suppressed} more since the last line)` : '';
+  console.error(
+    `[bridge] ${protocol} send to ${target} failed — ${code}: ${explainSocketError(err)}${repeats}`,
+  );
+  _sendErrors.set(key, { last: now, suppressed: 0 });
+}
+
+// ─── UDP socket (shared by Art-Net, sACN and OSC) ────────────────────────────
 
 let udp: Socket | null = null;
 
-if (config.mode === 'artnet' || config.mode === 'sacn' || config.mode === 'osc') {
-  udp = createSocket('udp4');
-  udp.bind(() => {
-    udp!.setBroadcast(true);
-    console.log(`[bridge] UDP socket ready`);
+/**
+ * Create the shared output socket with its error handling already attached.
+ * A dgram socket that emits 'error' with no listener throws out of the event
+ * loop and takes the whole bridge down, so wiring this up is not optional —
+ * hence a factory rather than two hand-rolled call sites.
+ */
+function createUdpSocket(reason: string): Socket {
+  const socket = createSocket('udp4');
+
+  socket.on('error', (err: NodeJS.ErrnoException) => {
+    console.error(`[bridge] UDP socket error — ${err.code ?? 'error'}: ${explainSocketError(err)}`);
   });
+
+  // Node closes the socket after a fatal socket error. Drop the reference so
+  // the send paths no-op on their `if (!udp)` guard instead of throwing on
+  // every frame from then on. Guarded because a later mode switch may already
+  // have replaced this socket with a live one.
+  socket.on('close', () => {
+    if (udp === socket) {
+      udp = null;
+      console.warn('[bridge] UDP socket closed — no output until an output mode is selected again');
+    }
+  });
+
+  socket.bind(() => {
+    try {
+      // Without this, sends to a .255 broadcast address are dropped by the OS
+      // on most systems, silently.
+      socket.setBroadcast(true);
+    } catch (err) {
+      console.error(
+        `[bridge] could not enable UDP broadcast — ${(err as Error).message}; unicast and multicast still work`,
+      );
+    }
+    console.log(`[bridge] UDP socket ready (${reason})`);
+  });
+
+  return socket;
+}
+
+if (config.mode === 'artnet' || config.mode === 'sacn' || config.mode === 'osc') {
+  udp = createUdpSocket(`startup, mode ${config.mode}`);
 }
 
 // sACN CID — 16-byte identifier, generated once per process
 const SACN_CID = randomBytes(16);
-let _sacnSeq = 0;
 
 // ─── ArtNet ──────────────────────────────────────────────────────────────────
 
 const ARTNET_PORT = 6454;
+const ARTNET_DEFAULT_HOST = '255.255.255.255';
 
 /**
  * Build an ArtDmx packet per Art-Net 4 spec.
@@ -114,11 +252,11 @@ let _artnetSendCount = 0;
 
 function sendArtNet(universe: number, data: number[]): void {
   if (!udp) return;
-  const host = config.artnet?.host ?? '255.255.255.255';
+  const host = config.artnet?.host ?? ARTNET_DEFAULT_HOST;
   const port = config.artnet?.port ?? ARTNET_PORT;
   const packet = buildArtDmxPacket(universe, data);
   udp.send(packet, port, host, (err) => {
-    if (err) console.error('[bridge] ArtNet send error:', err.message);
+    if (err) reportSendError('Art-Net', `${host}:${port}`, err);
   });
   _artnetSendCount++;
   if (_artnetSendCount === 1 || _artnetSendCount % 100 === 0) {
@@ -134,9 +272,117 @@ const ACN_IDENT = Buffer.from([
   0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00,
 ]);
 
-/** Build a full E1.31 UDP packet for one universe. */
+// E1.31 reserves universe 0 and everything from 64000 up; 1–63999 is all a
+// conformant receiver will look at.
+const SACN_UNIVERSE_MIN = 1;
+const SACN_UNIVERSE_MAX = 63999;
+const SACN_DEFAULT_BASE = 1;
+
+/**
+ * Sequence numbers are per universe (E1.31 §6.2.5): a receiver compares each
+ * packet against the last one it saw *for that universe* and discards anything
+ * that looks out of order. A single process-wide counter therefore looked like
+ * a jump of however many universes were in the rotation, and receivers threw
+ * away frames until the numbers caught up — roughly 170ms of black per gap.
+ *
+ * Keyed on the WIRE universe, not the scene universe: the receiver only ever
+ * sees the wire number, so that is the only key that matches what it compares
+ * against. This matters where two scene universes share one wire universe —
+ * they must draw from the same counter or every packet looks out of order.
+ */
+const _sacnSeq = new Map<number, number>();
+
+function nextSacnSeq(wireUniverse: number): number {
+  const current = _sacnSeq.get(wireUniverse) ?? 0;
+  _sacnSeq.set(wireUniverse, (current + 1) & 0xff);
+  return current;
+}
+
+/** Invalid bases already named in the log, so the warning stays a one-off. */
+const _sacnBaseWarned = new Set<number>();
+
+/**
+ * The base universe actually used, which is the configured one only if it can
+ * legally go on the wire.
+ *
+ * sacn(0) is a call scene code can make — the argument defaults to 1 but
+ * nothing stops a 0 — and 0 is precisely the universe E1.31 reserves. An
+ * unchecked base is therefore a direct route to packets no conformant receiver
+ * will accept, which looks exactly like a dead rig. Fall back to the default
+ * rather than emitting illegal packets or going dark, but never quietly.
+ */
+function sacnBase(): number {
+  const configured = config.sacn?.universe;
+  if (configured === undefined) return SACN_DEFAULT_BASE;
+  if (
+    Number.isInteger(configured) &&
+    configured >= SACN_UNIVERSE_MIN &&
+    configured <= SACN_UNIVERSE_MAX
+  ) {
+    return configured;
+  }
+
+  if (!_sacnBaseWarned.has(configured)) {
+    _sacnBaseWarned.add(configured);
+    console.error(
+      `[bridge] sACN: base universe ${JSON.stringify(configured)} is not a whole number in the legal E1.31 ` +
+      `range ${SACN_UNIVERSE_MIN}-${SACN_UNIVERSE_MAX} — using ${SACN_DEFAULT_BASE} instead. ` +
+      `Correct the sacn(<base>) call or bridge.config.json.`,
+    );
+  }
+  return SACN_DEFAULT_BASE;
+}
+
+/**
+ * Map a scene universe onto the sACN universe that goes on the wire.
+ *
+ * ONLY scene universe 0 is remapped; everything else goes out verbatim.
+ *
+ * Scene universes do not all start at 0 — the fixture family (fixture(),
+ * rgbStrip(), rgbwStrip()) defaults to universe 0, while the channel family
+ * (ch(), dim(), rgb()) writes universe 1, and the shipped demo scene patches
+ * on universe 1. Only the 0 is a problem: E1.31 reserves it, so a default
+ * fixture scene was multicasting to a universe conformant receivers drop.
+ * Remapping just that value fixes it without moving a single rig that works
+ * today — scene uni 1 stays sACN uni 1, scene uni 7 stays 7.
+ *
+ * Art-Net and OSC addressing is unchanged: both use the scene universe as-is.
+ */
+function sacnUniverseFor(sceneUniverse: number): number {
+  return sceneUniverse === 0 ? sacnBase() : sceneUniverse;
+}
+
+/**
+ * Which scene universe first claimed each wire universe, and which collisions
+ * have been reported.
+ *
+ * Setting the base to B while the scene also writes universe B directly points
+ * scene uni 0 and scene uni B at the same wire universe. Both still send, one
+ * frame overwrites the other, and the symptom is a fixture that flickers
+ * between two looks — worth a line naming both rather than a silent merge.
+ */
+const _sacnWireOwner = new Map<number, number>();
+const _sacnCollisionWarned = new Set<number>();
+
+function checkWireCollision(sceneUniverse: number, wireUniverse: number): void {
+  const owner = _sacnWireOwner.get(wireUniverse);
+  if (owner === undefined) {
+    _sacnWireOwner.set(wireUniverse, sceneUniverse);
+    return;
+  }
+  if (owner === sceneUniverse || _sacnCollisionWarned.has(wireUniverse)) return;
+
+  _sacnCollisionWarned.add(wireUniverse);
+  console.error(
+    `[bridge] sACN: scene uni ${owner} and scene uni ${sceneUniverse} both map to sACN uni ${wireUniverse} — ` +
+    `they are NOT merged, each frame overwrites the other on the wire. Scene uni 0 is remapped to the base ` +
+    `universe (currently ${sacnBase()}); move one of them or pick another base with sacn(<base>).`,
+  );
+}
+
+/** Build a full E1.31 UDP packet for one (wire) universe. */
 function buildSACNPacket(universe: number, data: number[], priority = 100): Buffer {
-  const TOTAL = 638; // 126 header + 1 start code + 511 data... actually 126 + 512 = 638
+  const TOTAL = 638; // 126-byte header, whose last byte is the DMX start code, + 512 slots
   const buf = Buffer.alloc(TOTAL, 0);
 
   // ── Root Layer ──────────────────────────────────────────────────
@@ -160,7 +406,7 @@ function buildSACNPacket(universe: number, data: number[], priority = 100): Buff
   buf[108] = priority & 0xff;                     // Priority
   buf[109] = 0x00;                                // Reserved hi
   buf[110] = 0x00;                                // Reserved lo
-  buf[111] = _sacnSeq++ & 0xff;                   // Sequence number
+  buf[111] = nextSacnSeq(universe);               // Sequence number, per universe
   buf[112] = 0x00;                                // Options
   buf.writeUInt16BE(universe, 113);               // Universe [113-114]
 
@@ -182,18 +428,52 @@ function buildSACNPacket(universe: number, data: number[], priority = 100): Buff
   return buf;
 }
 
+/** Multicast group for a universe, per E1.31: 239.255.<hi>.<lo>. */
 function sacnMulticastAddr(universe: number): string {
   return `239.255.${(universe >> 8) & 0xff}.${universe & 0xff}`;
 }
 
-function sendSACN(universe: number, data: number[]): void {
+let _sacnSendCount = 0;
+const _sacnRangeWarned = new Set<number>();
+
+function sendSACN(sceneUniverse: number, data: number[]): void {
   if (!udp) return;
+
+  const universe = sacnUniverseFor(sceneUniverse);
+
+  if (universe < SACN_UNIVERSE_MIN || universe > SACN_UNIVERSE_MAX) {
+    // Only a scene universe can land here — scene uni 0 maps to the base, which
+    // sacnBase() has already forced into range. This runs per universe per
+    // frame, so warn once and then stay quiet: at 60Hz the honest version of
+    // this line is a denial of service on the log.
+    if (!_sacnRangeWarned.has(sceneUniverse)) {
+      _sacnRangeWarned.add(sceneUniverse);
+      console.error(
+        `[bridge] sACN: scene uni ${sceneUniverse} is outside the legal E1.31 range ` +
+        `${SACN_UNIVERSE_MIN}-${SACN_UNIVERSE_MAX} — skipping this universe. Scene universes go on the wire ` +
+        `unchanged; only scene uni 0 is remapped, to the base universe.`,
+      );
+    }
+    return;
+  }
+
+  checkWireCollision(sceneUniverse, universe);
+
   const priority = config.sacn?.priority ?? 100;
   const packet = buildSACNPacket(universe, data, priority);
   const addr = sacnMulticastAddr(universe);
   udp.send(packet, SACN_PORT, addr, (err) => {
-    if (err) console.error('[bridge] sACN send error:', err.message);
+    if (err) reportSendError('sACN', `${addr}:${SACN_PORT}`, err);
   });
+
+  _sacnSendCount++;
+  if (_sacnSendCount === 1 || _sacnSendCount % 100 === 0) {
+    const active = data.filter(v => v > 0).length;
+    console.log(
+      `[bridge] sACN → ${addr}:${SACN_PORT} scene uni ${sceneUniverse} → sACN uni ${universe} ` +
+      `(${active} active ch, packet #${_sacnSendCount})`,
+    );
+  }
 }
 
 // ─── OSC output ──────────────────────────────────────────────────────────────
@@ -235,7 +515,11 @@ function sendOSC(universe: number, data: number[]): void {
     if (raw === 0 && prevRaw === 0) continue;
     const address = `/lumen/${universe}/${i + 1}`;
     const msg = buildOscMessage(address, raw / 255);
-    udp.send(msg, port, host);
+    // One packet per channel, so an error here can fire hundreds of times per
+    // frame — reportSendError collapses the repeats.
+    udp.send(msg, port, host, (err) => {
+      if (err) reportSendError('OSC', `${host}:${port}`, err);
+    });
   }
 
   _oscPrevData.set(universe, [...data]);
@@ -251,10 +535,16 @@ function sendOSC(universe: number, data: number[]): void {
 
 let _mockFrame = 0;
 
+/**
+ * Console output for when no rig is attached. The interval is configurable
+ * (mock.logIntervalFrames) because the send rate is: the default of 30 frames
+ * is about two lines a second at the UI's default 60 Hz, and wants doubling
+ * if the send rate is raised to 120.
+ */
 function sendMock(universe: number, data: number[]): void {
   _mockFrame++;
-  // Log ~2x per second (every 7th frame at ~15hz send rate)
-  if (_mockFrame % 7 !== 0) return;
+  const interval = Math.max(1, Math.floor(config.mock?.logIntervalFrames ?? 30));
+  if (_mockFrame % interval !== 0) return;
 
   const active = data
     .map((v, i) => ({ ch: i + 1, v }))
@@ -266,52 +556,89 @@ function sendMock(universe: number, data: number[]): void {
   }
 }
 
+// ─── Where output is going ───────────────────────────────────────────────────
+
+/**
+ * One line describing where frames are actually going. The startup banner and
+ * the runtime config log both use this so they cannot drift apart from each
+ * other or from the sender: the old sACN line printed a universe number that
+ * the sender never put on the wire.
+ */
+function describeOutput(): string {
+  switch (config.mode) {
+    case 'artnet':
+      return `artnet → ${config.artnet?.host ?? ARTNET_DEFAULT_HOST}:${config.artnet?.port ?? ARTNET_PORT}`;
+    case 'sacn': {
+      // sacnBase(), not the raw config value: this line has to describe what
+      // the sender will actually do, including the fallback when the configured
+      // base is unusable. It is the sender's own function, so it cannot drift.
+      const base = sacnBase();
+      return `sacn → multicast :${SACN_PORT}, priority ${config.sacn?.priority ?? 100} ` +
+        `(scene uni 0 → sACN uni ${base}; every other scene uni goes out unchanged, 1 → 1, 7 → 7)`;
+    }
+    case 'osc':
+      return `osc → ${config.osc?.host ?? '127.0.0.1'}:${config.osc?.port ?? 9000}`;
+    case 'mock':
+      return 'mock → console only, nothing leaves this machine';
+  }
+}
+
 // ─── Runtime config update ───────────────────────────────────────────────────
 
 function handleConfigMessage(msg: Record<string, unknown>): void {
-  if (msg.mode && typeof msg.mode === 'string') {
-    const newMode = msg.mode as BridgeConfig['mode'];
-    const oldMode = config.mode;
-    config.mode = newMode;
-
-    if (msg.artnet && typeof msg.artnet === 'object') {
-      const a = msg.artnet as Record<string, unknown>;
-      config.artnet = {
-        host: typeof a.host === 'string' ? a.host : config.artnet?.host ?? '127.0.0.1',
-        port: typeof a.port === 'number' ? a.port : config.artnet?.port ?? 6454,
-      };
-    }
-
-    if (msg.sacn && typeof msg.sacn === 'object') {
-      const s = msg.sacn as Record<string, unknown>;
-      config.sacn = {
-        universe: typeof s.universe === 'number' ? s.universe : config.sacn?.universe ?? 1,
-        priority: typeof s.priority === 'number' ? s.priority : config.sacn?.priority ?? 100,
-      };
-    }
-
-    if (msg.osc && typeof msg.osc === 'object') {
-      const o = msg.osc as Record<string, unknown>;
-      config.osc = {
-        host: typeof o.host === 'string' ? o.host : config.osc?.host ?? '127.0.0.1',
-        port: typeof o.port === 'number' ? o.port : config.osc?.port ?? 9000,
-      };
-    }
-
-    // Create UDP socket if switching to a network mode and none exists
-    if ((newMode === 'artnet' || newMode === 'sacn' || newMode === 'osc') && !udp) {
-      udp = createSocket('udp4');
-      udp.bind(() => {
-        udp!.setBroadcast(true);
-        console.log(`[bridge] UDP socket ready (created for ${newMode})`);
-      });
-    }
-
-    console.log(`[bridge] config updated — mode: ${config.mode}` +
-      (config.mode === 'artnet' ? ` → ${config.artnet?.host}:${config.artnet?.port}` : '') +
-      (config.mode === 'sacn' ? ` → universe ${config.sacn?.universe}` : '') +
-      (config.mode === 'osc' ? ` → ${config.osc?.host}:${config.osc?.port}` : ''));
+  if (msg.mode === undefined) {
+    console.warn('[bridge] config message carried no mode — ignored');
+    return;
   }
+
+  if (!isOutputMode(msg.mode)) {
+    // Deliberately keep the current mode: a typo mid-show must not silently
+    // take away a working output, and dropping to mock would look like success.
+    console.error(`[bridge] config message: ${unknownModeMessage(msg.mode)} — staying in ${config.mode} mode`);
+    return;
+  }
+
+  const newMode = msg.mode;
+  config.mode = newMode;
+
+  if (msg.artnet && typeof msg.artnet === 'object') {
+    const a = msg.artnet as Record<string, unknown>;
+    config.artnet = {
+      host: typeof a.host === 'string' ? a.host : config.artnet?.host ?? '127.0.0.1',
+      port: typeof a.port === 'number' ? a.port : config.artnet?.port ?? 6454,
+    };
+  }
+
+  if (msg.sacn && typeof msg.sacn === 'object') {
+    const s = msg.sacn as Record<string, unknown>;
+    config.sacn = {
+      universe: typeof s.universe === 'number' ? s.universe : config.sacn?.universe ?? SACN_DEFAULT_BASE,
+      priority: typeof s.priority === 'number' ? s.priority : config.sacn?.priority ?? 100,
+    };
+    // A new base moves scene uni 0 to a different wire universe, so the old
+    // collision bookkeeping describes a mapping that no longer exists. Clear
+    // the warn-once state too, so a base that is still wrong is named again
+    // rather than being reported only for the first show that hit it.
+    _sacnRangeWarned.clear();
+    _sacnBaseWarned.clear();
+    _sacnWireOwner.clear();
+    _sacnCollisionWarned.clear();
+  }
+
+  if (msg.osc && typeof msg.osc === 'object') {
+    const o = msg.osc as Record<string, unknown>;
+    config.osc = {
+      host: typeof o.host === 'string' ? o.host : config.osc?.host ?? '127.0.0.1',
+      port: typeof o.port === 'number' ? o.port : config.osc?.port ?? 9000,
+    };
+  }
+
+  // Create UDP socket if switching to a network mode and none exists
+  if ((newMode === 'artnet' || newMode === 'sacn' || newMode === 'osc') && !udp) {
+    udp = createUdpSocket(`switched to ${newMode}`);
+  }
+
+  console.log(`[bridge] config updated — ${describeOutput()}`);
 }
 
 // ─── Route DMX message ───────────────────────────────────────────────────────
@@ -327,6 +654,9 @@ function handleDmxMessage(universes: Record<string, number[]>): void {
     const universe = parseInt(uniStr, 10);
     if (isNaN(universe) || channels.length < 1) continue;
 
+    // No `default:` here on purpose. Every mode is listed, config.mode is
+    // validated before it is ever assigned, and a catch-all branch is what
+    // used to route typo'd modes into mock with no complaint.
     switch (config.mode) {
       case 'artnet':
         sendArtNet(universe, channels);
@@ -338,8 +668,8 @@ function handleDmxMessage(universes: Record<string, number[]>): void {
         sendOSC(universe, channels);
         break;
       case 'mock':
-      default:
         sendMock(universe, channels);
+        break;
     }
   }
 }
@@ -351,10 +681,26 @@ const httpServer = createServer((_req, res) => {
   res.end('lumen bridge running');
 });
 
+let listening = false;
+
 const wss = new WebSocketServer({ server: httpServer });
+
+wss.on('error', (err) => {
+  // Until the server is up this is only the HTTP server's own error re-emitted,
+  // and the handler below says the same thing in terms someone can act on.
+  if (!listening) return;
+  console.error(`[bridge] WebSocket server error — ${(err as NodeJS.ErrnoException).code ?? 'error'}: ${err.message}`);
+});
 
 wss.on('connection', (ws: WebSocket) => {
   console.log(`[bridge] client connected (${wss.clients.size} total)`);
+
+  // A client that vanishes mid-frame (laptop lid, wifi drop) emits 'error' on
+  // its socket; with no listener that throws and kills the bridge along with
+  // every other client's output.
+  ws.on('error', (err) => {
+    console.error(`[bridge] client socket error — ${err.message}`);
+  });
 
   ws.on('message', (raw) => {
     try {
@@ -377,7 +723,25 @@ wss.on('connection', (ws: WebSocket) => {
 });
 
 const PORT = 3001;
+
+// Failing to listen at all is unrecoverable — there is nothing for the editor
+// to connect to — so say why in one line and stop, rather than throwing a
+// stack trace. Anything that goes wrong after we are up is survivable and must
+// not interrupt a running show.
+httpServer.on('error', (err: NodeJS.ErrnoException) => {
+  if (!listening) {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`[bridge] port ${PORT} is already in use — another bridge is probably running already. Close it, then start this one.`);
+    } else {
+      console.error(`[bridge] could not listen on port ${PORT} — ${err.code ?? 'error'}: ${err.message}`);
+    }
+    process.exit(1);
+  }
+  console.error(`[bridge] HTTP server error — ${err.code ?? 'error'}: ${err.message}`);
+});
+
 httpServer.listen(PORT, () => {
+  listening = true;
   console.log(`[bridge] WebSocket server on ws://localhost:${PORT}`);
-  console.log(`[bridge] output mode: ${config.mode}`);
+  console.log(`[bridge] output: ${describeOutput()}`);
 });

@@ -3,16 +3,19 @@
  *
  * These pin the behaviour the rest of the system leans on: 1-based DMX
  * addressing, the number/pattern value contract, defensive handling of junk
- * input, and the zero-and-rebuild-per-tick model that makes scene swaps
- * atomic. Fixture channel mapping is tested here too — fixtures are just a
- * naming layer over uni(), and the offset arithmetic is where addressing
- * bugs hide.
+ * input, the zero-and-rebuild-per-tick model, the staged scene swap that
+ * makes an eval all-or-nothing, and the per-def guard that keeps a pattern
+ * throwing at query time from taking the whole frame down with it. Fixture
+ * channel mapping is tested here too —
+ * fixtures are just a naming layer over uni(), and the offset arithmetic is
+ * where addressing bugs hide.
  *
  * No strudel dependency: patterns are stubbed as `{ queryArc() }`, which is
- * the entire surface dmx.ts touches.
+ * the entire surface dmx.ts touches, and the eval tests drive scenes made of
+ * plain numbers.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import {
   ch,
@@ -21,15 +24,28 @@ import {
   rgb,
   tick,
   clearDefs,
+  beginStaging,
+  commitStaging,
+  abortStaging,
   getUniverseBuffer,
   getAllUniverses,
   getPrimaryUniverseSnapshot,
   getUniverse1Snapshot,
+  getQueryFailures,
+  getQueryFailureGeneration,
   type PatternLike,
   type PatternOrValue,
 } from './dmx.js';
 
 import { fixture, type FixtureInstance } from './fixtures.js';
+
+// eval.ts reaches websocket.ts, which resolves the bridge host from
+// `window.location` at module-load time. These tests run headless, so give it
+// the one property it reads before the module graph is pulled in — hence the
+// dynamic import rather than a static one at the top of the file.
+const g = globalThis as { window?: { location: { hostname: string } } };
+if (g.window === undefined) g.window = { location: { hostname: 'localhost' } };
+const { evalCode } = await import('./eval.js');
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +61,16 @@ function stubPattern(value: unknown, calls?: Array<[number, number]>): PatternLi
 
 /** A pattern that yields nothing for the queried arc (a rest / gap). */
 const silentPattern: PatternLike = { queryArc: () => [] };
+
+/** A pattern that throws when queried — i.e. user code that only fails at
+ *  tick time, long after the eval that installed it reported success. */
+function throwingPattern(message = 'pattern exploded'): PatternLike {
+  return {
+    queryArc() {
+      throw new Error(message);
+    },
+  };
+}
 
 /** Escape hatch for the invalid-input tests — these values are off-contract. */
 const bad = (v: unknown): PatternOrValue => v as PatternOrValue;
@@ -67,8 +93,12 @@ function nonZeroIndices(buf: Uint8Array): number[] {
 }
 
 // dmx.ts holds module-level state, so every test starts from a clean slate.
+// clearDefs() only drops definitions — buffers are zeroed here explicitly
+// because nothing but a tick (or a deliberate blackout) darkens them now.
 beforeEach(() => {
+  abortStaging();
   clearDefs();
+  for (const buf of getAllUniverses().values()) buf.fill(0);
 });
 
 // ─── value scaling ────────────────────────────────────────────────────────────
@@ -317,7 +347,8 @@ describe('zero-and-rebuild per tick', () => {
     tick(0);
     expect(getUniverseBuffer(1)[0]).toBe(255);
 
-    // What evalCode() does on every re-run: wipe, then register the new scene.
+    // Stand-in for a scene swap: drop the old defs, register the new ones.
+    // (evalCode() does this through the staging map — see below.)
     clearDefs();
     uni(1, 2, 1);
     tick(0);
@@ -357,7 +388,7 @@ describe('zero-and-rebuild per tick', () => {
 // ─── clearDefs ────────────────────────────────────────────────────────────────
 
 describe('clearDefs()', () => {
-  it('wipes both the definitions and the buffers', () => {
+  it('drops the definitions and leaves the buffers to the next tick', () => {
     uni(1, 1, 1);
     uni(2, 1, 1);
     tick(0);
@@ -366,12 +397,16 @@ describe('clearDefs()', () => {
 
     clearDefs();
 
-    // Buffers go dark immediately — no tick required. This is what makes a
-    // failed eval or a stop go to black rather than freeze on the last frame.
-    expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([]);
-    expect(nonZeroIndices(getUniverseBuffer(2))).toEqual([]);
+    // The buffers still hold the last frame — clearDefs() does NOT zero
+    // them. That is the whole point: clearing defs is a cheap, reversible
+    // bookkeeping step, so it must not be able to darken live hardware on
+    // its own. Callers that want black *now* (the stop/blackout path in the
+    // UI) zero the buffers themselves.
+    expect(getUniverseBuffer(1)[0]).toBe(255);
+    expect(getUniverseBuffer(2)[0]).toBe(255);
 
-    // And the defs are gone, so ticking does not resurrect them.
+    // Nothing is driven any more, so the next tick zeroes them and there is
+    // nothing to write back.
     tick(0);
     expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([]);
     expect(nonZeroIndices(getUniverseBuffer(2))).toEqual([]);
@@ -384,6 +419,202 @@ describe('clearDefs()', () => {
 
     expect(getAllUniverses().has(6)).toBe(true);
     expect(getAllUniverses().get(6)).toHaveLength(512);
+  });
+
+  it('supports the blackout path: clear defs, zero buffers, stay dark', () => {
+    // What runStop() does when stopAction is 'blackout'. No tick follows —
+    // the scheduler is stopped — so the explicit fill(0) is what darkens
+    // the outputs, and the cleared defs are what keeps them dark.
+    uni(1, 1, 1);
+    uni(1, 5, 0.5);
+    tick(0);
+
+    clearDefs();
+    for (const buf of getAllUniverses().values()) buf.fill(0);
+
+    expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([]);
+    tick(0.5);
+    expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([]);
+  });
+});
+
+// ─── staged scene swap ────────────────────────────────────────────────────────
+
+describe('staging', () => {
+  it('routes writes to the scratch scene, leaving the live one driving', () => {
+    uni(1, 1, 1);
+    tick(0);
+    expect(getUniverseBuffer(1)[0]).toBe(255);
+
+    beginStaging();
+    uni(1, 2, 1);
+
+    // Mid-staging ticks still resolve the OLD scene — the staged channel is
+    // invisible until it is committed.
+    tick(0);
+    const buf = getUniverseBuffer(1);
+    expect(buf[0]).toBe(255);
+    expect(buf[1]).toBe(0);
+    expect(nonZeroIndices(buf)).toEqual([0]);
+  });
+
+  it('replaces the live scene wholesale on commit', () => {
+    uni(1, 1, 1);
+    tick(0);
+
+    beginStaging();
+    uni(1, 2, 1);
+    commitStaging();
+    tick(0);
+
+    // The staged scene REPLACES rather than merges: channel 1 is gone
+    // because the new scene never mentioned it.
+    const buf = getUniverseBuffer(1);
+    expect(buf[0]).toBe(0);
+    expect(buf[1]).toBe(255);
+    expect(nonZeroIndices(buf)).toEqual([1]);
+  });
+
+  it('throws the scratch scene away on abort', () => {
+    uni(1, 1, 1);
+    tick(0);
+
+    beginStaging();
+    uni(1, 2, 1);
+    uni(1, 3, 1);
+    abortStaging();
+    tick(0);
+
+    const buf = getUniverseBuffer(1);
+    expect(buf[0]).toBe(255);
+    expect(nonZeroIndices(buf)).toEqual([0]);
+  });
+
+  it('sends writes back to the live scene once staging ends', () => {
+    beginStaging();
+    uni(1, 1, 1);
+    abortStaging();
+
+    uni(1, 2, 1);
+    tick(0);
+
+    expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([1]);
+  });
+
+  it('commits an empty staged scene as an empty scene, not a no-op', () => {
+    // An empty scene is a legitimate edit ("comment everything out and run").
+    uni(1, 1, 1);
+    tick(0);
+
+    beginStaging();
+    commitStaging();
+    tick(0);
+
+    expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([]);
+  });
+
+  it('ignores a commit with nothing staged', () => {
+    uni(1, 1, 1);
+    commitStaging();
+    tick(0);
+
+    expect(getUniverseBuffer(1)[0]).toBe(255);
+  });
+});
+
+// ─── transactional eval ───────────────────────────────────────────────────────
+// The defining contract of the tool: an eval that does not complete must
+// leave the rig running exactly what it was running before. These drive
+// evalCode() rather than the staging primitives directly, because the
+// ordering inside evalCode (compile first, stage, commit last) is the part
+// that has to hold.
+//
+// No strudel here — these scenes use plain numbers, which is all dmx.ts
+// needs. Patterns are covered above.
+
+describe('transactional eval', () => {
+  it('swaps the scene atomically on success', () => {
+    expect(evalCode('uni(1, 1, 1)').success).toBe(true);
+    tick(0);
+    expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([0]);
+
+    expect(evalCode('uni(1, 2, 1)').success).toBe(true);
+    tick(0);
+
+    // Fully the new scene, nothing of the old one.
+    const buf = getUniverseBuffer(1);
+    expect(buf[0]).toBe(0);
+    expect(buf[1]).toBe(255);
+    expect(nonZeroIndices(buf)).toEqual([1]);
+  });
+
+  it('leaves the previous scene running when the new code will not parse', () => {
+    evalCode('uni(1, 1, 1)');
+    tick(0);
+    expect(getUniverseBuffer(1)[0]).toBe(255);
+
+    // A stray paren — the everyday mid-set typo.
+    const result = evalCode('uni(1, 2, 1');
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+
+    // Nothing was cleared, so the rig is still lit BEFORE any further tick —
+    // this is the case that used to drive the whole rig to black.
+    expect(getUniverseBuffer(1)[0]).toBe(255);
+
+    tick(0.25);
+    expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([0]);
+  });
+
+  it('leaves the previous scene running when the new code throws mid-file', () => {
+    evalCode('uni(1, 1, 1); uni(1, 2, 1)');
+    tick(0);
+    expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([0, 1]);
+
+    // Parses fine, registers one channel, then dies. The half-scene must not
+    // survive — neither the channel it managed to write nor the loss of the
+    // channels it never reached.
+    const result = evalCode('uni(1, 10, 1); nope(); uni(1, 11, 1)');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/nope/);
+
+    tick(0.5);
+    const buf = getUniverseBuffer(1);
+    expect(buf[0]).toBe(255);
+    expect(buf[1]).toBe(255);
+    expect(buf[9]).toBe(0);
+    expect(nonZeroIndices(buf)).toEqual([0, 1]);
+  });
+
+  it('keeps fixture writes inside the transaction too', () => {
+    // Fixtures are a naming layer over uni(), so they have to stage with it.
+    evalCode("fixture(1, 'rgb', 7).color(1, 1, 1)");
+    tick(0);
+    expect(nonZeroIndices(getUniverseBuffer(7))).toEqual([0, 1, 2]);
+
+    const result = evalCode("fixture(20, 'rgb', 7).color(1, 1, 1); boom()");
+    expect(result.success).toBe(false);
+
+    tick(0);
+    expect(nonZeroIndices(getUniverseBuffer(7))).toEqual([0, 1, 2]);
+  });
+
+  it('recovers cleanly — a good eval after a failed one still swaps', () => {
+    evalCode('uni(1, 1, 1)');
+    expect(evalCode('uni(1, 2,').success).toBe(false);
+    expect(evalCode('uni(1, 3, 1); boom()').success).toBe(false);
+
+    expect(evalCode('uni(1, 4, 1)').success).toBe(true);
+    tick(0);
+
+    // Neither failed attempt left anything behind in the staging map.
+    expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([3]);
+  });
+
+  it('reports the error message rather than throwing out of evalCode', () => {
+    expect(() => evalCode('this is not javascript at all {{{')).not.toThrow();
+    expect(() => evalCode('throw new Error("scene exploded")')).not.toThrow();
+    expect(evalCode('throw new Error("scene exploded")').error).toBe('scene exploded');
   });
 });
 
@@ -444,6 +675,164 @@ describe('pattern values', () => {
     tick(0);
 
     expect(Array.from(getUniverseBuffer(1).slice(0, 3))).toEqual([255, 128, 64]);
+  });
+});
+
+// ─── pattern query failures ───────────────────────────────────────────────────
+// A pattern's body runs at QUERY time, so a scene that evaluated cleanly can
+// still throw on every tick afterwards. Before this was guarded, that throw
+// escaped tick() with the buffers already zeroed and half-rewritten, and the
+// caller never got to send the frame — the rig latched its last look while
+// the status bar still read "running". These pin the containment.
+
+function spyConsoleError() {
+  return vi.spyOn(console, 'error').mockImplementation(() => {});
+}
+
+describe('pattern query failures', () => {
+  let errSpy: ReturnType<typeof spyConsoleError>;
+
+  beforeEach(() => {
+    errSpy = spyConsoleError();
+  });
+
+  afterEach(() => {
+    errSpy.mockRestore();
+  });
+
+  it('resolves the rest of the frame when one pattern throws', () => {
+    uni(1, 1, 1);
+    uni(1, 2, throwingPattern());
+    uni(1, 3, stubPattern(0.5));
+    uni(1, 4, 64);
+
+    expect(() => tick(0)).not.toThrow();
+
+    // Channels registered before AND after the thrower still resolve; only
+    // the throwing one is dark.
+    const buf = getUniverseBuffer(1);
+    expect(Array.from(buf.slice(0, 4))).toEqual([255, 0, 128, 64]);
+  });
+
+  it('darkens a channel that starts throwing after it was lit', () => {
+    let broken = false;
+    const flaky: PatternLike = {
+      queryArc() {
+        if (broken) throw new Error('gone bad');
+        return [{ value: 1 }];
+      },
+    };
+    uni(1, 1, flaky);
+    uni(1, 2, 1);
+
+    tick(0);
+    expect(getUniverseBuffer(1)[0]).toBe(255);
+
+    broken = true;
+    tick(0.5);
+
+    const buf = getUniverseBuffer(1);
+    expect(buf[0]).toBe(0);   // the thrower goes dark
+    expect(buf[1]).toBe(255); // everything else keeps running
+  });
+
+  it('reports a repeat offender once, not once per tick', () => {
+    uni(1, 1, throwingPattern());
+    for (let i = 0; i < 60; i++) tick(i / 60);
+
+    // One console line and one failure entry for sixty throws.
+    expect(errSpy).toHaveBeenCalledTimes(1);
+    const failures = getQueryFailures();
+    expect(failures).toHaveLength(1);
+    expect(failures[0].universe).toBe(1);
+    expect(failures[0].channel).toBe(1);
+    expect(failures[0].message).toBe('pattern exploded');
+    // The tick count is what distinguishes "reported once" from "failed once".
+    expect(failures[0].ticks).toBe(60);
+  });
+
+  it('bumps the change counter only when a new channel starts failing', () => {
+    uni(1, 1, throwingPattern());
+    const before = getQueryFailureGeneration();
+
+    tick(0);
+    const afterFirst = getQueryFailureGeneration();
+    expect(afterFirst).not.toBe(before);
+
+    // Same def still throwing — nothing new to tell the operator.
+    tick(0.1);
+    tick(0.2);
+    expect(getQueryFailureGeneration()).toBe(afterFirst);
+
+    // A second broken channel is new information.
+    uni(1, 2, throwingPattern('second failure'));
+    tick(0.3);
+    expect(getQueryFailureGeneration()).not.toBe(afterFirst);
+    expect(getQueryFailures()).toHaveLength(2);
+  });
+
+  it('identifies each failing channel separately, including its universe', () => {
+    uni(2, 5, throwingPattern('first'));
+    uni(3, 9, throwingPattern('second'));
+    tick(0);
+
+    const failures = getQueryFailures();
+    expect(failures).toHaveLength(2);
+    expect(failures.map((f) => `${f.universe}:${f.channel}`)).toEqual(['2:5', '3:9']);
+    expect(failures.map((f) => f.message)).toEqual(['first', 'second']);
+  });
+
+  it('survives a value whose queryArc probe itself throws', () => {
+    // isPattern() reads .queryArc off the value, so a throwing getter fails
+    // before the call is ever made — outside the obvious guard.
+    const trap = bad(Object.defineProperty({}, 'queryArc', {
+      get() { throw new Error('trapped getter'); },
+    }));
+    uni(1, 1, trap);
+    uni(1, 2, 1);
+
+    expect(() => tick(0)).not.toThrow();
+    expect(Array.from(getUniverseBuffer(1).slice(0, 2))).toEqual([0, 255]);
+    expect(getQueryFailures()).toHaveLength(1);
+  });
+
+  it('survives a thrown value that cannot be stringified', () => {
+    const hostile: PatternLike = {
+      queryArc() {
+        throw Object.defineProperty({}, 'toString', {
+          get() { throw new Error('nope'); },
+        });
+      },
+    };
+    uni(1, 1, hostile);
+
+    expect(() => tick(0)).not.toThrow();
+    expect(getQueryFailures()[0].message).toBe('unknown error');
+  });
+
+  it('forgets failures when a new scene is committed', () => {
+    uni(1, 1, throwingPattern());
+    tick(0);
+    expect(getQueryFailures()).toHaveLength(1);
+
+    // The fix: re-evaluate with a scene that doesn't throw.
+    beginStaging();
+    uni(1, 1, 1);
+    commitStaging();
+
+    expect(getQueryFailures()).toEqual([]);
+    tick(0.5);
+    expect(getQueryFailures()).toEqual([]);
+    expect(getUniverseBuffer(1)[0]).toBe(255);
+  });
+
+  it('forgets failures when the defs are dropped', () => {
+    uni(1, 1, throwingPattern());
+    tick(0);
+    expect(getQueryFailures()).toHaveLength(1);
+
+    clearDefs();
+    expect(getQueryFailures()).toEqual([]);
   });
 });
 
