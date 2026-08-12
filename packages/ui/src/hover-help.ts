@@ -1,6 +1,6 @@
 /**
  * Editor hover-help: tooltip that shows signature + description + example
- * when the cursor lingers over a lumen API identifier.
+ * when the cursor lingers over a gobo API identifier.
  *
  * The data source is `help-data.ts` — shared with autocomplete so a single
  * edit updates both surfaces. The tooltip only fires for identifiers we
@@ -71,26 +71,26 @@ function escapeHtml(s: string): string {
  */
 function renderTooltip(entry: HelpEntry): HTMLElement {
   const root = document.createElement('div');
-  root.className = 'lumen-hover-help';
+  root.className = 'gobo-hover-help';
 
   const sig = document.createElement('div');
-  sig.className = 'lumen-hover-help-sig';
+  sig.className = 'gobo-hover-help-sig';
   sig.textContent = entry.signature;
   root.appendChild(sig);
 
   const desc = document.createElement('div');
-  desc.className = 'lumen-hover-help-desc';
+  desc.className = 'gobo-hover-help-desc';
   desc.textContent = entry.description;
   root.appendChild(desc);
 
   if (entry.example) {
     const exLabel = document.createElement('div');
-    exLabel.className = 'lumen-hover-help-ex-label';
+    exLabel.className = 'gobo-hover-help-ex-label';
     exLabel.textContent = 'example';
     root.appendChild(exLabel);
 
     const ex = document.createElement('pre');
-    ex.className = 'lumen-hover-help-ex';
+    ex.className = 'gobo-hover-help-ex';
     // innerHTML so we can preserve newlines as-is; entry.example is
     // editor-controlled data, but escape defensively anyway.
     ex.innerHTML = escapeHtml(entry.example);
@@ -102,7 +102,7 @@ function renderTooltip(entry: HelpEntry): HTMLElement {
 
 /** The CodeMirror extension. Wire into editor.ts alongside the other
  *  extensions. */
-export const lumenHoverHelp = hoverTooltip(
+export const goboHoverHelp = hoverTooltip(
   (view, pos): Tooltip | null => {
     const hit = identifierAt(view, pos);
     if (!hit) return null;

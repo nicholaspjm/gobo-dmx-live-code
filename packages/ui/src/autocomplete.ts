@@ -1,5 +1,5 @@
 /**
- * Editor autocomplete for the lumen API.
+ * Editor autocomplete for the gobo API.
  *
  * Two contexts are recognised:
  *
@@ -42,19 +42,19 @@ function toCompletion(e: HelpEntry): Completion {
     detail: e.signature,
     info: () => {
       const root = document.createElement('div');
-      root.className = 'lumen-completion-info';
+      root.className = 'gobo-completion-info';
       const desc = document.createElement('div');
       desc.textContent = e.description;
-      desc.className = 'lumen-completion-info-desc';
+      desc.className = 'gobo-completion-info-desc';
       root.appendChild(desc);
       if (e.example) {
         const lbl = document.createElement('div');
         lbl.textContent = 'example';
-        lbl.className = 'lumen-completion-info-ex-label';
+        lbl.className = 'gobo-completion-info-ex-label';
         root.appendChild(lbl);
         const ex = document.createElement('pre');
         ex.textContent = e.example;
-        ex.className = 'lumen-completion-info-ex';
+        ex.className = 'gobo-completion-info-ex';
         root.appendChild(ex);
       }
       return root;
@@ -94,7 +94,7 @@ function collectLightNames(doc: string): string[] {
 
 // ─── Completion source ───────────────────────────────────────────────────────
 
-function lumenCompletions(context: CompletionContext): CompletionResult | null {
+function goboCompletions(context: CompletionContext): CompletionResult | null {
   // Skip inside strings and comments — typing "re" in a comment shouldn't
   // pop the whole API up.
   const tree = syntaxTree(context.state);
@@ -134,8 +134,8 @@ function lumenCompletions(context: CompletionContext): CompletionResult | null {
 }
 
 /** CodeMirror extension: our source over the default JavaScript completions. */
-export const lumenAutocomplete = autocompletion({
-  override: [lumenCompletions],
+export const goboAutocomplete = autocompletion({
+  override: [goboCompletions],
   activateOnTyping: true,
   closeOnBlur: true,
   maxRenderedOptions: 15,

@@ -37,7 +37,7 @@ type DocCategory = 'welcome' | 'patterns' | 'fixtures' | 'viz' | 'output' | 'ref
 
 // Tab layout: welcome · patterns · fixtures · viz · output · reference.
 // "fixtures" is our equivalent output target, and the viz tab covers
-// lumen's inline-decoration features.
+// gobo's inline-decoration features.
 const DOC_TABS: Array<{ id: DocCategory; label: string }> = [
   { id: 'welcome',   label: 'welcome' },
   { id: 'patterns',  label: 'patterns' },
@@ -55,7 +55,7 @@ const DOCS: DocSection[] = [
   // page is just a one-paragraph intro plus link-list of jump-off points.
   {
     category: 'welcome',
-    title: 'lumen',
+    title: 'gobo',
     blurb:
       'Live DMX coding in the browser. JavaScript patterns drive real fixtures — Art-Net hardware, TouchDesigner via OSC, or pure simulation. Ctrl+Enter runs your code, Ctrl+. stops. Hover any fixture in the sim panel for its live channel values. Switch between named code buffers with the scene picker in the top bar.',
     entries: [],
@@ -96,7 +96,7 @@ const DOCS: DocSection[] = [
         name: 'osc',
         signature: "osc(host='127.0.0.1', port=9000)",
         description:
-          'Send every active channel as an OSC message via the bridge. Address format: /lumen/<universe>/<channel>, one float arg in [0,1]. Works great with TouchDesigner OSC In CHOP.',
+          'Send every active channel as an OSC message via the bridge. Address format: /gobo/<universe>/<channel>, one float arg in [0,1]. Works great with TouchDesigner OSC In CHOP.',
         example: "osc('127.0.0.1', 9000)",
       },
       {
@@ -482,7 +482,7 @@ const DOCS: DocSection[] = [
         name: 'rests',
         signature: "'-' or '~'",
         description:
-          "Silence — nothing is emitted for that step. Interchangeable; pick whichever reads cleaner (most lumen examples use '-' for grid alignment).",
+          "Silence — nothing is emitted for that step. Interchangeable; pick whichever reads cleaner (most gobo examples use '-' for grid alignment).",
         example: "mini('1 - 1 -')          // hits on beats 1 and 3",
       },
       {

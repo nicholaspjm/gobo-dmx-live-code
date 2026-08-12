@@ -1,5 +1,5 @@
 /**
- * Clock worker — drives lumen's scheduler from a background thread so
+ * Clock worker — drives gobo's scheduler from a background thread so
  * that DMX output continues even when the browser tab is hidden.
  *
  * Main-thread timers in Chromium get heavily throttled on hidden tabs:

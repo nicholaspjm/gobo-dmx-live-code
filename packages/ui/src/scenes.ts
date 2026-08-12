@@ -1,7 +1,7 @@
 /**
  * Scenes — multiple named editor buffers, persisted to localStorage.
  *
- * Each scene is a separate slab of lumen code (fixtures + patterns).
+ * Each scene is a separate slab of gobo code (fixtures + patterns).
  * The active scene's source is loaded into the editor at startup, and
  * the editor autosaves back to it on every change. Switching scenes
  * writes out the current buffer and loads the selected one.
@@ -13,10 +13,20 @@
  * performer toggles elements by comment/uncomment + Ctrl+Enter.
  */
 
-const SCENES_KEY = 'lumen-scenes-v1';
-const ACTIVE_KEY = 'lumen-active-scene-v1';
-const META_KEY   = 'lumen-scene-meta-v1';
+import { migrateLegacyKey } from './storage-migration.js';
+
+const SCENES_KEY = 'gobo-scenes-v1';
+const ACTIVE_KEY = 'gobo-active-scene-v1';
+const META_KEY   = 'gobo-scene-meta-v1';
 const DEFAULT_SCENE = 'default';
+
+// These keys were `lumen-*` before the rename, and the scenes behind them
+// are the user's own work. Adopt any pre-rename data before the first read
+// below — without this the app boots empty and every saved scene looks
+// deleted. See storage-migration.ts.
+migrateLegacyKey(SCENES_KEY, 'lumen-scenes-v1');
+migrateLegacyKey(ACTIVE_KEY, 'lumen-active-scene-v1');
+migrateLegacyKey(META_KEY,   'lumen-scene-meta-v1');
 
 type SceneMap = Record<string, string>;
 

@@ -51,8 +51,15 @@ for (const file of files) {
     continue;
   }
 
-  if (!parsed || typeof parsed !== 'object' || parsed.lumenFixture !== 1) {
-    console.error(`✗ ${rel}: missing or wrong "lumenFixture" version (expected 1)`);
+  // "goboFixture" is the current schema-version field. "lumenFixture" is the
+  // pre-rename spelling and stays accepted as a deprecated alias — fixture
+  // files exported by older builds are already out in the world, and they
+  // should keep validating and importing unchanged.
+  const schemaVersion =
+    parsed && typeof parsed === 'object' ? (parsed.goboFixture ?? parsed.lumenFixture) : undefined;
+
+  if (schemaVersion !== 1) {
+    console.error(`✗ ${rel}: missing or wrong "goboFixture" version (expected 1)`);
     hadError = true;
     continue;
   }

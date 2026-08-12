@@ -2,7 +2,7 @@
 """
 Audio analysis tool for building live-coding templates.
 
-Given an MP3/WAV path, extract the data a lumen scene author needs
+Given an MP3/WAV path, extract the data a gobo scene author needs
 to structure a performance around it:
 
   - duration, sample rate

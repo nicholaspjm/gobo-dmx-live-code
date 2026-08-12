@@ -1,5 +1,5 @@
 /**
- * lumen bridge — WebSocket server that routes DMX universe data to
+ * gobo bridge — WebSocket server that routes DMX universe data to
  * Art-Net UDP, sACN E1.31, OSC, or mock (console log).
  *
  * Listens on ws://localhost:3001
@@ -268,6 +268,16 @@ function sendArtNet(universe: number, data: number[]): void {
 // ─── sACN (E1.31) ────────────────────────────────────────────────────────────
 
 const SACN_PORT = 5568;
+
+// Source name, and the exact width of the framing-layer field that carries it.
+// E1.31 §6.2.2 fixes that field at 64 bytes: null-terminated, null-padded, and
+// followed immediately by Priority at offset 108. The name is ASCII and shorter
+// than the field, so the write below is capped at SACN_SOURCE_NAME_BYTES — a
+// name that ever outgrew the field would be truncated rather than allowed to
+// run over Priority and shift every field after it.
+const SACN_SOURCE_NAME = 'gobo';
+const SACN_SOURCE_NAME_BYTES = 64;
+
 const ACN_IDENT = Buffer.from([
   0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00,
 ]);
@@ -400,8 +410,9 @@ function buildSACNPacket(universe: number, data: number[], priority = 100): Buff
   buf.writeUInt16BE(0x7000 | (TOTAL - 38), 38);
   buf.writeUInt32BE(0x00000002, 40);              // Framing vector (DATA_PACKET)
 
-  // Source name [44-107]: "lumen\0" padded
-  buf.write('lumen', 44, 'ascii');
+  // Source name [44-107]: "gobo\0" padded. buf is allocated zero-filled, so the
+  // bytes after the name are already the nulls the spec asks for.
+  buf.write(SACN_SOURCE_NAME, 44, SACN_SOURCE_NAME_BYTES, 'ascii');
 
   buf[108] = priority & 0xff;                     // Priority
   buf[109] = 0x00;                                // Reserved hi
@@ -513,7 +524,7 @@ function sendOSC(universe: number, data: number[]): void {
     const raw = data[i] ?? 0;
     const prevRaw = prev?.[i] ?? 0;
     if (raw === 0 && prevRaw === 0) continue;
-    const address = `/lumen/${universe}/${i + 1}`;
+    const address = `/gobo/${universe}/${i + 1}`;
     const msg = buildOscMessage(address, raw / 255);
     // One packet per channel, so an error here can fire hundreds of times per
     // frame — reportSendError collapses the repeats.
@@ -678,7 +689,7 @@ function handleDmxMessage(universes: Record<string, number[]>): void {
 
 const httpServer = createServer((_req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('lumen bridge running');
+  res.end('gobo bridge running');
 });
 
 let listening = false;

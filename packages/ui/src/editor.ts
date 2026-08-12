@@ -14,18 +14,18 @@ import { EditorState, Prec } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { defaultKeymap, historyKeymap, history } from '@codemirror/commands';
 import { bracketMatching, indentOnInput } from '@codemirror/language';
-import { lumenTheme, lumenHighlight } from './theme.js';
+import { goboTheme, goboHighlight } from './theme.js';
 import { vizDecorationsField } from './inline-viz.js';
-import { lumenCodeHighlight } from './code-highlight.js';
-import { lumenAutocomplete } from './autocomplete.js';
-import { lumenHoverHelp } from './hover-help.js';
+import { goboCodeHighlight } from './code-highlight.js';
+import { goboAutocomplete } from './autocomplete.js';
+import { goboHoverHelp } from './hover-help.js';
 
 /**
- * Hardcoded code used the first time a user opens lumen, before any
+ * Hardcoded code used the first time a user opens gobo, before any
  * scene has been saved to localStorage. Exported so scenes.ts can seed
  * the "default" scene with this on first run.
  */
-export const INITIAL_CODE = `// lumen — ctrl+enter to run · ctrl+space (or ctrl+.) to stop · open 'docs' for the reference
+export const INITIAL_CODE = `// gobo — ctrl+enter to run · ctrl+space (or ctrl+.) to stop · open 'docs' for the reference
 
 // Output target — swap in mock() for headless dev, osc() for TouchDesigner,
 // or sacn(universe, priority) for E1.31. Port defaults to 6454 for Art-Net.
@@ -167,11 +167,11 @@ export function createEditor(
       bracketMatching(),
       indentOnInput(),
       javascript(),
-      lumenTheme,
-      lumenHighlight,
-      lumenCodeHighlight,
-      lumenAutocomplete,
-      lumenHoverHelp,
+      goboTheme,
+      goboHighlight,
+      goboCodeHighlight,
+      goboAutocomplete,
+      goboHoverHelp,
       vizDecorationsField,
       evalKeybinding,
       changeListener,

@@ -63,13 +63,13 @@ export function connectBridge(url = BRIDGE_URL): void {
   _ws.onopen = () => {
     _connected = true;
     _onStatusChange?.(true);
-    console.log('[lumen] bridge connected');
+    console.log('[gobo] bridge connected');
   };
 
   _ws.onclose = () => {
     _connected = false;
     _onStatusChange?.(false);
-    console.log('[lumen] bridge disconnected — reconnecting…');
+    console.log('[gobo] bridge disconnected — reconnecting…');
     scheduleReconnect(url);
   };
 

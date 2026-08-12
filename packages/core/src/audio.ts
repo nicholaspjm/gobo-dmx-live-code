@@ -212,7 +212,7 @@ export async function enableMic(): Promise<void> {
   try {
     _micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (err) {
-    console.warn('[lumen audio] mic denied', err);
+    console.warn('[gobo audio] mic denied', err);
     return;
   }
 

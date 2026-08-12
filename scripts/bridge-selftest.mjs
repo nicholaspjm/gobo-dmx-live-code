@@ -21,7 +21,7 @@ import { randomBytes } from 'node:crypto';
 // ─── CLI ─────────────────────────────────────────────────────────────────────
 
 const USAGE = `
-lumen bridge self test — send a DMX test sequence directly to the wire.
+gobo bridge self test — send a DMX test sequence directly to the wire.
 
   node scripts/bridge-selftest.mjs [options]
 
@@ -183,7 +183,7 @@ function buildSACNPacket(universe, data, priority) {
   // Framing layer
   buf.writeUInt16BE(0x7000 | (TOTAL - 38), 38);
   buf.writeUInt32BE(0x00000002, 40);         // DATA_PACKET
-  buf.write('lumen', 44, 'ascii');           // source name [44-107]
+  buf.write('gobo', 44, 'ascii');            // source name [44-107]
   buf[108] = priority & 0xff;
   buf[109] = 0x00;                           // reserved
   buf[110] = 0x00;
@@ -233,7 +233,7 @@ const channelCount = opts.lastChannel - opts.firstChannel + 1;
 const packetBytes = opts.mode === 'sacn' ? 638 : 530;
 const frameMs = 1000 / opts.fps;
 
-console.log('lumen bridge self test');
+console.log('gobo bridge self test');
 console.log(`  mode      ${opts.mode}${opts.mode === 'sacn' ? ` (priority ${opts.priority})` : ''}`);
 console.log(`  target    ${target}${isBroadcast ? ' (broadcast)' : ''}${opts.mode === 'sacn' ? ' (multicast)' : ''}`);
 console.log(`  universe  ${opts.universe}`);

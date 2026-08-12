@@ -130,7 +130,7 @@ function handleTick(): void {
       // the console and starve the frame budget.
       if (!_tickErrorLogged) {
         _tickErrorLogged = true;
-        console.error('[lumen] tick callback threw — further occurrences are not logged:', err);
+        console.error('[gobo] tick callback threw — further occurrences are not logged:', err);
       }
     }
   }

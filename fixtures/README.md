@@ -1,6 +1,6 @@
 # Public fixture library
 
-One JSON file per fixture, any of which can be pulled into the lumen app's
+One JSON file per fixture, any of which can be pulled into the gobo app's
 library with one click. Contributions are welcome — open a PR adding your
 file here and the automated validator + a human review will gate it.
 
@@ -8,7 +8,7 @@ file here and the automated validator + a human review will gate it.
 
 ```jsonc
 {
-  "lumenFixture": 1,             // schema version; always 1 today
+  "goboFixture": 1,              // schema version; always 1 today
   "id": "your-fixture-id",       // unique id, [a-z0-9-] only
   "def": {
     "name": "Human-readable name",
@@ -30,6 +30,11 @@ file here and the automated validator + a human review will gate it.
 }
 ```
 
+The version field was called `lumenFixture` before the project was renamed.
+It is still accepted as a deprecated alias so fixture files exported by
+older builds keep importing — write `goboFixture` in anything new, and
+don't set both.
+
 Channel `type` is one of `intensity`, `color`, `position`, `strobe`,
 `control`, `generic`, `strip`. The built-in ids — `dim`, `rgb`, `rgbw`,
 `rgba`, `dim-rgb`, `dim-rgbw`, `moving-head-basic`, `moving-head-spot`,
@@ -43,7 +48,7 @@ everyone's scenes. Pick a manufacturer-and-model id.
 
 Define it in the editor with `defineFixture('your-id', {…})`, run it, then
 use the **library** panel's *share* (opens a pre-filled PR) or *export*
-(downloads `your-id.lumen-fixture.json` — rename it to `your-id.json`, the
+(downloads `your-id.gobo-fixture.json` — rename it to `your-id.json`, the
 validator rejects any other filename). Full contribution flow in
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 

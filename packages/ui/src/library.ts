@@ -21,12 +21,12 @@ import {
   defineFixture,
   BUILT_IN_FIXTURES,
   type FixtureDef,
-} from '@lumen/core';
+} from '@gobo/core';
 import { getPublicFixtures } from './public-fixtures.js';
 
 /** Destination of the GitHub "share" flow. Kept here so a repo rename
  *  is a one-line change. */
-const PUBLIC_REPO_SLUG = 'nicholaspjm/lumen-dmx-live-code';
+const PUBLIC_REPO_SLUG = 'nicholaspjm/gobo-dmx-live-code';
 
 /** Mount the library panel inside the page. The caller is responsible for
  *  the toggle button visibility — we just wire its click handler. The
@@ -130,7 +130,7 @@ export function mountLibraryPanel(opts: {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${id}.lumen-fixture.json`;
+    a.download = `${id}.gobo-fixture.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -154,7 +154,7 @@ export function mountLibraryPanel(opts: {
       `Propose "${id}" for the public library?\n\n` +
       `A new tab will open on GitHub with the fixture pre-filled into fixtures/${id}.json. ` +
       `You'll click "Propose change" — GitHub forks the repo for you and opens a pull request. ` +
-      `Once reviewed and merged, the fixture ships to everyone using lumen.`,
+      `Once reviewed and merged, the fixture ships to everyone using gobo.`,
     );
     if (!confirmed) return;
 
@@ -300,7 +300,7 @@ export function mountLibraryPanel(opts: {
       <div class="lib-banner" id="lib-banner"></div>
 
       <h3 class="lib-heading">Built-in</h3>
-      <p class="lib-note">Shipped with lumen. Every fixture also has the generic helpers <code>.color(r,g,b[,w])</code>, <code>.off()</code>, <code>.full()</code> on top of its named channel setters.</p>
+      <p class="lib-note">Shipped with gobo. Every fixture also has the generic helpers <code>.color(r,g,b[,w])</code>, <code>.off()</code>, <code>.full()</code> on top of its named channel setters.</p>
       ${builtInBlock}
 
       <h3 class="lib-heading">Public library</h3>

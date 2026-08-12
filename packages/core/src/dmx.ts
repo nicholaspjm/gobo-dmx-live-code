@@ -238,11 +238,11 @@ function recordQueryFailure(def: ChannelDef, err: unknown): void {
     if (_queryFailuresLogged < QUERY_FAILURE_LOG_LIMIT) {
       _queryFailuresLogged++;
       console.error(
-        `[lumen] pattern query threw on universe ${def.universe} channel ${def.channel} — ` +
+        `[gobo] pattern query threw on universe ${def.universe} channel ${def.channel} — ` +
         `that channel reads 0 on every tick it throws: ${message}`,
       );
       if (_queryFailuresLogged === QUERY_FAILURE_LOG_LIMIT) {
-        console.error('[lumen] further pattern query failures suppressed — see the status bar for the total');
+        console.error('[gobo] further pattern query failures suppressed — see the status bar for the total');
       }
     }
   } catch {

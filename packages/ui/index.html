@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>lumen</title>
+    <title>gobo</title>
     <!-- Inline SVG favicon — a small four-pointed "spark" in the accent
          colour. Drop-in replace this <link> later with a real icon file. -->
     <link
@@ -1134,7 +1134,7 @@
 
       /* ─── Autocomplete popup (@codemirror/autocomplete) ────────────────
          CM6 ships reasonable defaults but they're light-mode. Override
-         colors + borders to sit in the lumen dark theme. */
+         colors + borders to sit in the gobo dark theme. */
       .cm-tooltip.cm-tooltip-autocomplete {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -1184,17 +1184,17 @@
         max-width: 280px;
       }
 
-      /* ─── Semantic colour coding (lumen-code-highlight extension) ────── */
-      /* Commands are every lumen API name — fixture, sine, artnet, setBPM,
+      /* ─── Semantic colour coding (gobo-code-highlight extension) ────── */
+      /* Commands are every gobo API name — fixture, sine, artnet, setBPM,
          .viz, .flash, .glow, .wave, the audio.* namespace, etc. They wear
          the accent colour so pattern chains are easy to scan. */
-      .cm-content .lumen-command {
+      .cm-content .gobo-command {
         color: var(--accent);
       }
       /* Lights are identifiers bound to a fixture via `const X =
          fixture(…) | rgbStrip(…) | rgbwStrip(…)`. They get accent2 with a
          touch of weight so method-chain roots like `wash.red(…)` pop. */
-      .cm-content .lumen-light {
+      .cm-content .gobo-light {
         color: var(--accent2);
         font-weight: 600;
       }
@@ -1203,7 +1203,7 @@
       /* Placed at line-end via CodeMirror WidgetType. They must not take
          part in the text flow's caret positioning, so they're inline-block
          with negative vertical alignment to sit on the baseline cleanly. */
-      .lumen-viz {
+      .gobo-viz {
         display: inline-flex;
         align-items: center;
         gap: 3px;
@@ -1218,7 +1218,7 @@
       }
 
       /* Color swatch */
-      .lumen-viz-color {
+      .gobo-viz-color {
         width: 30px;
         height: 16px;
         padding: 0;
@@ -1228,14 +1228,14 @@
       }
 
       /* Meter */
-      .lumen-viz-meter {
+      .gobo-viz-meter {
         width: 8px;
         height: 18px;
         padding: 1px;
         position: relative;
         background: #0f0d0b;
       }
-      .lumen-viz-meter-fill {
+      .gobo-viz-meter-fill {
         position: absolute;
         left: 1px;
         right: 1px;
@@ -1247,40 +1247,40 @@
       }
 
       /* Wave scope */
-      .lumen-viz-wave {
+      .gobo-viz-wave {
         padding: 1px 2px;
         height: 24px;
       }
-      .lumen-viz-wave-canvas {
+      .gobo-viz-wave-canvas {
         display: block;
       }
 
       /* ─── Pattern-level inline viz (.flash / .glow / .wave) ────────────
          Applied to whole editor lines via Decoration.line. The tick loop
-         writes `--lumen-val` (0..1) for .glow and toggles a data attribute
+         writes `--gobo-val` (0..1) for .glow and toggles a data attribute
          for .flash; CSS takes it from there. .wave is an end-of-line
          WidgetType canvas and needs nothing here beyond a small padding. */
-      .lumen-patviz {
+      .gobo-patviz {
         position: relative;
       }
       /* Glow: subtle rail on the left that fills with the pattern value. */
-      .lumen-patviz-glow {
+      .gobo-patviz-glow {
         background: linear-gradient(
           to right,
-          rgba(196, 114, 74, calc(var(--lumen-val, 0) * 0.22)) 0%,
+          rgba(196, 114, 74, calc(var(--gobo-val, 0) * 0.22)) 0%,
           rgba(196, 114, 74, 0) 140px
         );
         transition: background 60ms linear;
       }
-      /* Flash: the tick loop maintains a decaying --lumen-flash 0..1 that we
+      /* Flash: the tick loop maintains a decaying --gobo-flash 0..1 that we
          multiply into the bg alpha. No keyframes, no attribute toggles, no
          forced reflows — the previous animation-restart approach was
          interfering with DMX tick timing enough to flicker physical lights. */
-      .lumen-patviz-flash {
-        background: rgba(196, 114, 74, calc(var(--lumen-flash, 0) * 0.32));
+      .gobo-patviz-flash {
+        background: rgba(196, 114, 74, calc(var(--gobo-flash, 0) * 0.32));
       }
       /* Wave sparkline widget (inline canvas at end of line). */
-      .lumen-patviz-wave {
+      .gobo-patviz-wave {
         display: inline-block;
         margin-left: 10px;
         padding: 1px 3px;
@@ -1290,16 +1290,16 @@
         vertical-align: middle;
         user-select: none;
       }
-      .lumen-patviz-wave canvas {
+      .gobo-patviz-wave canvas {
         display: block;
       }
 
       /* Pixel strip preview — mini dots */
-      .lumen-viz-strip {
+      .gobo-viz-strip {
         padding: 2px 3px;
         gap: 1px;
       }
-      .lumen-viz-strip-dot {
+      .gobo-viz-strip-dot {
         width: 5px;
         height: 14px;
         border-radius: 1px;
@@ -1312,7 +1312,7 @@
   <body>
     <div id="app">
       <header class="topbar">
-        <span class="wordmark"><span class="wordmark-icon" aria-hidden="true">✦</span>lumen</span>
+        <span class="wordmark"><span class="wordmark-icon" aria-hidden="true">✦</span>gobo</span>
         <div class="topbar-right">
           <span class="bpm-display">
             bpm
