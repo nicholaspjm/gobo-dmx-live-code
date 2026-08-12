@@ -31,18 +31,21 @@ file here and the automated validator + a human review will gate it.
 ```
 
 Channel `type` is one of `intensity`, `color`, `position`, `strobe`,
-`control`, `generic`, `strip`. Built-in fixture ids (`generic-dimmer`,
-`generic-rgbw`, `moving-head-basic`, etc.) can't be reused — the
-validator will reject a PR that tries.
+`control`, `generic`, `strip`. The built-in ids — `dim`, `rgb`, `rgbw`,
+`rgba`, `dim-rgb`, `dim-rgbw`, `moving-head-basic`, `moving-head-spot`,
+`strobe` — can't be reused; the validator will reject a PR that tries.
+Their pre-0.2 `generic-*` spellings still resolve as aliases, so don't
+claim one of those either: the validator doesn't currently catch it, but
+a fixture named `generic-rgbw` would shadow the alias and confuse
+everyone's scenes. Pick a manufacturer-and-model id.
 
 ## Writing a fixture by exporting from the app
 
-Easiest path:
-
-1. Define the fixture in the editor with `defineFixture('your-id', {…})`
-2. Run it (Ctrl+Enter)
-3. Open the **library** panel, find it under *Defined this session*, click
-   **export** — you'll get the file ready to drop in here.
+Define it in the editor with `defineFixture('your-id', {…})`, run it, then
+use the **library** panel's *share* (opens a pre-filled PR) or *export*
+(downloads `your-id.lumen-fixture.json` — rename it to `your-id.json`, the
+validator rejects any other filename). Full contribution flow in
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## Limits
 
@@ -55,6 +58,7 @@ Strictly enforced by the validator on every PR:
 | `manufacturer` | 1-64 chars |
 | `channelCount` | 1-512 |
 | `channels` array | ≤ 128 entries |
+| Channel `name` | 1-32 chars |
 | Strip `pixelCount` | 1-512 |
 | Total strip DMX channels | ≤ 512 |
 
