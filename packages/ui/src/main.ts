@@ -1,8 +1,8 @@
 /**
- * lumen — main entry point
+ * gobo — main entry point
  *
  * Wires together:
- *   - @lumen/core (scheduler, DMX state, eval, WS client)
+ *   - @gobo/core (scheduler, DMX state, eval, WS client)
  *   - CodeMirror editor
  *   - Canvas visualizer
  *   - Top-bar status updates
@@ -34,7 +34,7 @@ import {
   getQueryFailureGeneration,
   type QueryFailure,
   type SimFixture,
-} from '@lumen/core';
+} from '@gobo/core';
 
 import { createEditor, INITIAL_CODE } from './editor.js';
 import {
@@ -48,7 +48,7 @@ import { renderDocs } from './docs.js';
 import { refreshViz } from './inline-viz.js';
 import { mountLibraryPanel } from './library.js';
 import { registerPublicFixtures } from './public-fixtures.js';
-import { formatLumenCode } from './formatter.js';
+import { formatGoboCode } from './formatter.js';
 import { getSettings, mountSettingsPanel, onSettingsChange } from './settings.js';
 import { applyTheme } from './themes.js';
 
@@ -202,7 +202,7 @@ async function formatBuffer(opts: { silent?: boolean } = {}): Promise<string | n
   if (!opts.silent) setStatus('', 'formatting…');
   let formatted: string;
   try {
-    formatted = await formatLumenCode(src);
+    formatted = await formatGoboCode(src);
   } catch (err) {
     if (!opts.silent) {
       const msg = (err as Error).message ?? 'format failed';
@@ -1083,6 +1083,6 @@ initStrudel().then(() => {
     setStatus('error', `pattern engine failed to load — ${getStrudelError() ?? 'unknown error'}`);
     return;
   }
-  console.log('[lumen] ready');
+  console.log('[gobo] ready');
   setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop');
 });

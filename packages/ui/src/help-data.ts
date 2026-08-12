@@ -1,5 +1,5 @@
 /**
- * Shared help index for lumen API.
+ * Shared help index for gobo API.
  *
  * One entry per identifier or method name. The autocomplete extension
  * derives its Completion[] from this list, and the hover-help extension

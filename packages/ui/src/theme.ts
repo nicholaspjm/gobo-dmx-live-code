@@ -1,5 +1,5 @@
 /**
- * CodeMirror 6 theme for lumen.
+ * CodeMirror 6 theme for gobo.
  *
  * All colours come from CSS custom properties so the active theme
  * (set via themes.ts → applyTheme()) propagates into the editor
@@ -18,7 +18,7 @@ export { COLORS } from './themes.js';
 /** Shorthand for `var(--x)` so the style object stays readable. */
 const v = (name: string): string => `var(--${name})`;
 
-export const lumenTheme = EditorView.theme(
+export const goboTheme = EditorView.theme(
   {
     '&': {
       backgroundColor: v('bg'),
@@ -77,31 +77,31 @@ export const lumenTheme = EditorView.theme(
       backgroundColor: v('selection-bg'),
     },
     // ── Hover-help tooltip ─────────────────────────────────────────────
-    '.cm-tooltip .lumen-hover-help': {
+    '.cm-tooltip .gobo-hover-help': {
       maxWidth: '440px',
       padding: '8px 10px',
       lineHeight: '1.4',
       fontSize: '12.5px',
     },
-    '.cm-tooltip .lumen-hover-help-sig': {
+    '.cm-tooltip .gobo-hover-help-sig': {
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
       color: v('accent2'),
       fontSize: '12.5px',
       marginBottom: '4px',
     },
-    '.cm-tooltip .lumen-hover-help-desc': {
+    '.cm-tooltip .gobo-hover-help-desc': {
       color: v('text'),
       marginBottom: '6px',
       whiteSpace: 'normal',
     },
-    '.cm-tooltip .lumen-hover-help-ex-label': {
+    '.cm-tooltip .gobo-hover-help-ex-label': {
       color: v('text-muted'),
       fontSize: '10.5px',
       letterSpacing: '0.08em',
       textTransform: 'uppercase',
       marginBottom: '2px',
     },
-    '.cm-tooltip .lumen-hover-help-ex': {
+    '.cm-tooltip .gobo-hover-help-ex': {
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
       fontSize: '12px',
       color: v('accent'),
@@ -113,22 +113,22 @@ export const lumenTheme = EditorView.theme(
       overflow: 'auto',
     },
     // ── Completion info panel ─────────────────────────────────────────
-    '.cm-tooltip .lumen-completion-info': {
+    '.cm-tooltip .gobo-completion-info': {
       maxWidth: '360px',
       padding: '6px 8px',
       lineHeight: '1.4',
     },
-    '.cm-tooltip .lumen-completion-info-desc': {
+    '.cm-tooltip .gobo-completion-info-desc': {
       marginBottom: '5px',
     },
-    '.cm-tooltip .lumen-completion-info-ex-label': {
+    '.cm-tooltip .gobo-completion-info-ex-label': {
       color: v('text-muted'),
       fontSize: '10.5px',
       letterSpacing: '0.08em',
       textTransform: 'uppercase',
       marginBottom: '2px',
     },
-    '.cm-tooltip .lumen-completion-info-ex': {
+    '.cm-tooltip .gobo-completion-info-ex': {
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
       fontSize: '11.5px',
       color: v('accent'),
@@ -157,7 +157,7 @@ export const lumenTheme = EditorView.theme(
   { dark: true },
 );
 
-export const lumenHighlight = syntaxHighlighting(
+export const goboHighlight = syntaxHighlighting(
   HighlightStyle.define([
     { tag: t.comment, color: v('text-muted'), fontStyle: 'italic' },
     { tag: t.lineComment, color: v('text-muted'), fontStyle: 'italic' },

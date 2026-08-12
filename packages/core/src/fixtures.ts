@@ -1,5 +1,5 @@
 /**
- * Fixture system for lumen.
+ * Fixture system for gobo.
  *
  * Fixtures map named channels (red, pan, dim, etc.) to DMX addresses.
  * Users load a fixture at a start channel and get back an object with

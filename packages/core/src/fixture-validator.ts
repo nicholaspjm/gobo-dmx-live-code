@@ -2,7 +2,7 @@
  * Fixture-definition validator.
  *
  * Gate for anything coming from untrusted sources: the public-library
- * glob, user-dropped `.lumen-fixture.json` files, and CI checks on PRs
+ * glob, user-dropped `.gobo-fixture.json` files, and CI checks on PRs
  * that add to `fixtures/*.json`. Built-in fixtures hard-coded in
  * BUILT_IN_FIXTURES are trusted by construction and skip this path.
  *

@@ -1,5 +1,5 @@
 {
-  "name": "@lumen/bridge",
+  "name": "@gobo/bridge",
   "version": "0.2.0",
   "type": "module",
   "main": "src/index.ts",

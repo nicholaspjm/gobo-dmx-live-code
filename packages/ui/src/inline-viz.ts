@@ -10,7 +10,7 @@
  * How the wiring works:
  *
  * 1. At eval time, each `.viz()` call pushes a VizEntry into a registry in
- *    @lumen/core. The registry contains channel layout but NOT source
+ *    @gobo/core. The registry contains channel layout but NOT source
  *    location — fragile stack-trace parsing would be the only way to capture
  *    that at runtime, so we avoid it.
  *
@@ -48,7 +48,7 @@ import {
   type VizKind,
   type PatternVizEntry,
   type PatternVizKind,
-} from '@lumen/core';
+} from '@gobo/core';
 
 // ─── Widget base class ───────────────────────────────────────────────────────
 
@@ -85,7 +85,7 @@ abstract class VizWidget extends WidgetType {
 
   toDOM(): HTMLElement {
     const el = document.createElement('span');
-    el.className = `lumen-viz lumen-viz-${this.kind}`;
+    el.className = `gobo-viz gobo-viz-${this.kind}`;
     // Keep the widget inert to CodeMirror's selection/click logic.
     el.setAttribute('aria-hidden', 'true');
     el.contentEditable = 'false';
@@ -193,7 +193,7 @@ class MeterWidget extends VizWidget {
 
   protected build(el: HTMLSpanElement): void {
     const fill = document.createElement('span');
-    fill.className = 'lumen-viz-meter-fill';
+    fill.className = 'gobo-viz-meter-fill';
     el.appendChild(fill);
     this.fill = fill;
     el.title = 'intensity';
@@ -228,7 +228,7 @@ class WaveWidget extends VizWidget {
     c.height = 22 * dpr;
     c.style.width = '96px';
     c.style.height = '22px';
-    c.className = 'lumen-viz-wave-canvas';
+    c.className = 'gobo-viz-wave-canvas';
     el.appendChild(c);
     this.canvas = c;
     this.history = new Array(this.SAMPLES).fill(0);
@@ -290,7 +290,7 @@ class StripWidget extends VizWidget {
     this.dots = [];
     for (let i = 0; i < count; i++) {
       const d = document.createElement('span');
-      d.className = 'lumen-viz-strip-dot';
+      d.className = 'gobo-viz-strip-dot';
       el.appendChild(d);
       this.dots.push(d);
     }
@@ -366,14 +366,14 @@ onTick(() => {
 
 // ─── Pattern-level inline viz (.flash / .glow / .wave) ──────────────────────
 // Distinct decoration pipeline from the fixture-level `.viz(kind)` widgets
-// above. Flash and glow apply a CSS class + a `data-lumen-patviz` index to
+// above. Flash and glow apply a CSS class + a `data-gobo-patviz` index to
 // the line they appear on (via `Decoration.line`), then a tick subscription
 // finds those lines by data-attribute and mutates their inline styles from
 // the current pattern sample. Wave places a canvas widget at line-end and
 // draws a recent-history sparkline of the pattern.
 
 interface PatternVizDecoEntry {
-  /** Matches the PatternVizEntry in @lumen/core. */
+  /** Matches the PatternVizEntry in @gobo/core. */
   core: PatternVizEntry;
   /** Line number (1-based) the decoration was placed on. */
   line: number;
@@ -412,7 +412,7 @@ class PatternWaveWidget extends WidgetType {
 
   toDOM(): HTMLElement {
     const span = document.createElement('span');
-    span.className = 'lumen-patviz-wave';
+    span.className = 'gobo-patviz-wave';
     span.setAttribute('aria-hidden', 'true');
     span.contentEditable = 'false';
     const c = document.createElement('canvas');
@@ -493,14 +493,14 @@ onTick(() => {
     let lineEl = deco.cachedLineEl;
     if (!lineEl || !lineEl.isConnected) {
       lineEl = document.querySelector<HTMLElement>(
-        `.cm-content .cm-line[data-lumen-patviz="${deco.idx}"]`,
+        `.cm-content .cm-line[data-gobo-patviz="${deco.idx}"]`,
       );
       deco.cachedLineEl = lineEl;
     }
     if (!lineEl) continue; // line is outside CM's virtualized viewport
 
     if (deco.core.kind === 'glow') {
-      lineEl.style.setProperty('--lumen-val', value.toFixed(3));
+      lineEl.style.setProperty('--gobo-val', value.toFixed(3));
     } else if (deco.core.kind === 'flash') {
       // Rising edge bumps the decaying intensity; otherwise decay toward 0.
       // No attribute toggles, no reflow — pure CSS-var write so the tick
@@ -512,7 +512,7 @@ onTick(() => {
         fi = Math.max(0, fi - FLASH_DECAY_PER_TICK);
       }
       deco.flashIntensity = fi;
-      lineEl.style.setProperty('--lumen-flash', fi.toFixed(3));
+      lineEl.style.setProperty('--gobo-flash', fi.toFixed(3));
     }
   }
 });
@@ -544,7 +544,7 @@ export const vizDecorationsField = StateField.define<DecorationSet>({
  * Rebuild widget decorations to reflect the current registry.
  *
  * Call after every successful eval. We:
- *   1. Read VizEntries from @lumen/core (populated by `.viz()` calls during eval).
+ *   1. Read VizEntries from @gobo/core (populated by `.viz()` calls during eval).
  *   2. Walk the doc and record the line numbers that contain `.viz(` (in code,
  *      not comments).
  *   3. Zip the two lists 1:1. If the user has more `.viz(` hits in the doc
@@ -636,8 +636,8 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
         to: lineObj.from,
         value: Decoration.line({
           attributes: {
-            class: `lumen-patviz lumen-patviz-${coreEntry.kind}`,
-            'data-lumen-patviz': String(i),
+            class: `gobo-patviz gobo-patviz-${coreEntry.kind}`,
+            'data-gobo-patviz': String(i),
           },
         }),
       });

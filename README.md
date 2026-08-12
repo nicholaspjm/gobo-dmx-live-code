@@ -1,4 +1,4 @@
-# lumen
+# gobo
 
 **Live-code DMX lighting in your browser.**
 
@@ -8,13 +8,13 @@ Powered by [@strudel/core](https://strudel.cc) — the same waveform and cycle s
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-![lumen — editor, visualizer and fixture sim running a pattern](docs/media/demo.gif)
+![gobo — editor, visualizer and fixture sim running a pattern](docs/media/demo.gif)
 
 ---
 
 ## Try it now
 
-**[Open lumen in your browser](https://nicholaspjm.github.io/lumen-dmx-live-code/)** — no install required.
+**[Open gobo in your browser](https://nicholaspjm.github.io/gobo-dmx-live-code/)** — no install required.
 
 > The web version runs the full editor and visualizer. To send DMX to real hardware, run the bridge server locally (see below).
 
@@ -40,13 +40,13 @@ Powered by [@strudel/core](https://strudel.cc) — the same waveform and cycle s
 
 ### Browser only (no hardware)
 
-Just open the [live link](https://nicholaspjm.github.io/lumen-dmx-live-code/) and start coding. The visualizer shows DMX output in real time.
+Just open the [live link](https://nicholaspjm.github.io/gobo-dmx-live-code/) and start coding. The visualizer shows DMX output in real time.
 
 ### With hardware (local dev)
 
 ```bash
-git clone https://github.com/nicholaspjm/lumen-dmx-live-code.git
-cd lumen-dmx-live-code
+git clone https://github.com/nicholaspjm/gobo-dmx-live-code.git
+cd gobo-dmx-live-code
 npm install
 npm run dev
 ```
@@ -151,7 +151,7 @@ Visualizer (rAF, 30 fps, read-only snapshot)   +   WS sender (wall-clock throttl
 
 - **Clock lives in a Web Worker.** A `setInterval(16)` in [clockWorker.ts](packages/core/src/clockWorker.ts) posts `"tick"` messages to the main thread. Chromium doesn't throttle worker timers, so the clock keeps firing at ~60 Hz even when the tab is backgrounded ([scheduler.ts](packages/core/src/scheduler.ts)).
 - **Cycle position** advances by `(bpm / 60) / 4` cycles per second (4 beats per cycle). `dt` is clamped at 100 ms so a machine sleep or long GC pause doesn't send the phase spinning ([scheduler.ts](packages/core/src/scheduler.ts)). An external clock provider (audio playhead) can override `cyclePos`; nothing installs one in this release.
-- **Pattern evaluation** uses [@strudel/core](https://strudel.cc) as the actual pattern engine — `sine()`, `saw()`, mini-notation, `.slow / .fast / .add / .range / .early / .late` are real Strudel patterns. Each tick, every registered channel calls `pattern.queryArc(cyclePos, cyclePos + ε)` to sample the value at that exact moment ([dmx.ts](packages/core/src/dmx.ts)). The lumen-specific chain methods `.flash / .glow / .wave` are added by monkey-patching `Pattern.prototype`; user code can add its own with `register(name, fn)` ([eval.ts](packages/core/src/eval.ts)). If Strudel fails to load, evaluation is disabled outright and the status bar says why — reload the page to retry. There is deliberately no degraded waveform mode, because silently running a show on subtly different maths is worse than refusing to run.
+- **Pattern evaluation** uses [@strudel/core](https://strudel.cc) as the actual pattern engine — `sine()`, `saw()`, mini-notation, `.slow / .fast / .add / .range / .early / .late` are real Strudel patterns. Each tick, every registered channel calls `pattern.queryArc(cyclePos, cyclePos + ε)` to sample the value at that exact moment ([dmx.ts](packages/core/src/dmx.ts)). The gobo-specific chain methods `.flash / .glow / .wave` are added by monkey-patching `Pattern.prototype`; user code can add its own with `register(name, fn)` ([eval.ts](packages/core/src/eval.ts)). If Strudel fails to load, evaluation is disabled outright and the status bar says why — reload the page to retry. There is deliberately no degraded waveform mode, because silently running a show on subtly different maths is worse than refusing to run.
 - **Live eval is not sandboxed** — user code runs via `new Function(...)` in strict mode with a curated globals object (DMX API, fixture API, Strudel waveforms, `Math`, `console`). Those names shadow, they don't remove: the code runs in the page's own realm. Fast to hot-swap, not safe against hostile code — fine for a local live-coding tool ([eval.ts](packages/core/src/eval.ts), and [SECURITY.md](SECURITY.md)).
 - **Universe state is `Map<number, Uint8Array(512)>`.** Zeroed and rewritten from scratch every tick, so a scene swap is atomic at the tick boundary ([dmx.ts](packages/core/src/dmx.ts), [dmx.ts](packages/core/src/dmx.ts)).
 
@@ -175,8 +175,8 @@ Bridge is stateless — one WebSocket frame in, one UDP send out. Wire cadence m
 | Mode | Packet | Transport | Notes |
 |------|--------|-----------|-------|
 | Art-Net | 530-byte ArtDmx (`OpOutput 0x5000`) | UDP to the configured host, port 6454 — unicast or a broadcast address, your choice | Full 512-channel payload each frame |
-| sACN (E1.31) | 638-byte E1.31 packet | UDP multicast `239.255.<hi>.<lo>`, port 5568 | Random CID per bridge process, source name `lumen`; one sequence counter shared across universes |
-| OSC | `/lumen/<uni>/<ch>` float | UDP unicast | Only channels that are non-zero, plus one zero per channel transitioning off |
+| sACN (E1.31) | 638-byte E1.31 packet | UDP multicast `239.255.<hi>.<lo>`, port 5568 | Random CID per bridge process, source name `gobo`; one sequence counter shared across universes |
+| OSC | `/gobo/<uni>/<ch>` float | UDP unicast | Only channels that are non-zero, plus one zero per channel transitioning off |
 | Mock | — | — | Logs the non-zero channels of every 7th frame |
 
 ### Fixtures
@@ -192,7 +192,7 @@ Set the output from your code, at the top of the editor. Switching modes while r
 ```js
 artnet('2.0.0.100')        // Art-Net — node IP to unicast, or a broadcast address
 // sacn(1, 100)            // sACN E1.31 — second arg is priority
-// osc('127.0.0.1', 9000)  // OSC — /lumen/<uni>/<ch> floats
+// osc('127.0.0.1', 9000)  // OSC — /gobo/<uni>/<ch> floats
 // mock()                  // console log only
 ```
 
@@ -218,7 +218,7 @@ Full setup and Art-Net alternative: **[docs/touchdesigner.md](docs/touchdesigner
 | Visualizer flat but the rig responds, or the reverse | The 512-bar strip only draws universe 0. `fixture()` / `rgbStrip()` default to universe 0; `ch()`, `dim()`, `rgb()` write universe **1** | Use `uni(0, ch, v)` to land on the visualized universe. Output is unaffected — every universe is sent |
 | Fixtures stay lit after `Ctrl+.` | Stop action is set to `freeze`, which holds the last frame by design (the default is `blackout`) | Set it back to `blackout` in settings. Blackout only reaches the rig while the bridge is connected — closing the tab sends nothing |
 | Rig stuck on its last colour after commenting a pattern out | The single zero-frame sent when a universe goes dark was lost — bridge disconnected on that frame | Reconnect, then `Ctrl+.` to re-send zeros |
-| Wrong fixtures respond, everything off by one | DMX is 1-based: `ch(1, …)` is channel 1, `fixture(start, id)` covers `start` … `start + channelCount - 1` | Check the fixture's address and channel count; address 1 is lumen's channel 1, not 0 |
+| Wrong fixtures respond, everything off by one | DMX is 1-based: `ch(1, …)` is channel 1, `fixture(start, id)` covers `start` … `start + channelCount - 1` | Check the fixture's address and channel count; address 1 is gobo's channel 1, not 0 |
 | sACN lands on the wrong universe | `sacn(universe, priority)`'s first arg doesn't steer output — the bridge multicasts every universe it receives to `239.255.<hi>.<lo>` | Set the universe with `uni()` or the fixture universe arg. Priority (default 100) is the arg that counts — receivers arbitrate by it |
 | Hosted https page can't reach a bridge on another machine | From `github.io` the page always dials `ws://localhost:3001` — browsers allow loopback from https, but block `ws://` to any other host | Run the bridge on the browser's machine, or `npm run dev` locally and open the UI on that machine's LAN IP (`http://192.168.x.x:3000`) |
 | Nothing arrives in TouchDesigner | Bridge still in Art-Net or mock mode, or the `OSC In CHOP` port doesn't match `osc(host, port)` | See [docs/touchdesigner.md](docs/touchdesigner.md); only channels you drive are transmitted |

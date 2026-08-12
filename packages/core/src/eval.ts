@@ -1,5 +1,5 @@
 /**
- * Safe eval sandbox for user-written lumen code.
+ * Safe eval sandbox for user-written gobo code.
  *
  * Uses new Function() to run code with a controlled set of globals.
  * Strudel pattern functions are loaded once and injected into the context.
@@ -112,7 +112,7 @@ export async function initStrudel(): Promise<void> {
       _strudelCtx.mini = miniMod.mini;
       _strudelCtx.m = miniMod.m ?? miniMod.mini;
     } catch {
-      console.warn('[lumen] @strudel/mini unavailable — falling back to sequence()');
+      console.warn('[gobo] @strudel/mini unavailable — falling back to sequence()');
       const seq = core.sequence as (...args: unknown[]) => PatternLike;
       const shim = (str: string): PatternLike => {
         const tokens = str.trim().split(/\s+/).map((t) => {
@@ -152,7 +152,7 @@ export async function initStrudel(): Promise<void> {
       _strudelCtx.sine as () => unknown,
       _strudelCtx.cosine as () => unknown,
     );
-    console.log('[lumen] strudel core loaded');
+    console.log('[gobo] strudel core loaded');
   } catch (err) {
     // No fallback waveforms. A hand-rolled stand-in engine looks identical
     // from user code but resolves subtly different values, so a show would
@@ -165,7 +165,7 @@ export async function initStrudel(): Promise<void> {
     _strudelState = 'failed';
     _strudelError = errorMessage(err);
     console.error(
-      `[lumen] pattern engine (@strudel/core) failed to load — evaluation is disabled: ${_strudelError}`,
+      `[gobo] pattern engine (@strudel/core) failed to load — evaluation is disabled: ${_strudelError}`,
     );
   }
 }
@@ -347,7 +347,7 @@ function register(name: string, fn: (pat: any) => any): (pat: any) => any {
   } else if (!_patternProto) {
     // Strudel hasn't initialised yet — surface a clear hint rather than
     // silently swallowing the registration.
-    console.warn(`[lumen] register("${name}") called before strudel loaded; await initStrudel() first`);
+    console.warn(`[gobo] register("${name}") called before strudel loaded; await initStrudel() first`);
   }
   return fn;
 }

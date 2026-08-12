@@ -15,6 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateFixture, FIXTURE_LIMITS, type ValidationResult } from './fixture-validator.js';
 import { BUILT_IN_FIXTURES } from './fixtures.js';
+import { parseImportString, toExportEnvelope } from './fixture-library.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -983,9 +984,9 @@ describe('unknown fields', () => {
 
   it('rejects the whole envelope pasted in as the def', () => {
     // A contributor passing the file contents rather than `parsed.def`.
-    const envelope = { lumenFixture: 1, id: 'my-par', def: validDef() };
+    const envelope = { goboFixture: 1, id: 'my-par', def: validDef() };
     expect(expectErr(validateFixture('u', envelope))).toBe(
-      'Unknown field "lumenFixture" in fixture def.',
+      'Unknown field "goboFixture" in fixture def.',
     );
   });
 
@@ -1048,10 +1049,10 @@ describe('unknown fields', () => {
 
 // ─── schema version envelope ─────────────────────────────────────────────────
 
-describe('schema version (lumenFixture)', () => {
+describe('schema version (goboFixture)', () => {
   /**
-   * The `lumenFixture` version field lives on the file envelope, not on
-   * the def — scripts/validate-fixtures.mjs checks `parsed.lumenFixture
+   * The `goboFixture` version field lives on the file envelope, not on
+   * the def — scripts/validate-fixtures.mjs checks `parsed.goboFixture
    * !== 1` and only then calls validateFixture(parsed.id, parsed.def).
    * These tests pin that split so nobody moves the check by accident.
    */
@@ -1061,25 +1062,84 @@ describe('schema version (lumenFixture)', () => {
   });
 
   it('rejects a correct version value carried inside the def', () => {
-    expect(expectErr(validateFixture('v', validDef({ lumenFixture: 1 })))).toBe(
-      'Unknown field "lumenFixture" in fixture def.',
+    expect(expectErr(validateFixture('v', validDef({ goboFixture: 1 })))).toBe(
+      'Unknown field "goboFixture" in fixture def.',
     );
   });
 
   it('rejects a wrong version value carried inside the def', () => {
-    for (const lumenFixture of [0, 2, 99]) {
-      expect(expectErr(validateFixture('v', validDef({ lumenFixture })))).toBe(
-        'Unknown field "lumenFixture" in fixture def.',
+    for (const goboFixture of [0, 2, 99]) {
+      expect(expectErr(validateFixture('v', validDef({ goboFixture })))).toBe(
+        'Unknown field "goboFixture" in fixture def.',
       );
     }
   });
 
   it('rejects a wrong-typed version value carried inside the def', () => {
-    for (const lumenFixture of ['1', null, true, {}, []]) {
-      expect(expectErr(validateFixture('v', validDef({ lumenFixture })))).toBe(
-        'Unknown field "lumenFixture" in fixture def.',
+    for (const goboFixture of ['1', null, true, {}, []]) {
+      expect(expectErr(validateFixture('v', validDef({ goboFixture })))).toBe(
+        'Unknown field "goboFixture" in fixture def.',
       );
     }
+  });
+
+  it('rejects the deprecated envelope field carried inside the def', () => {
+    // The legacy alias is an *envelope* field. It is no more welcome inside
+    // a def than the current one is.
+    expect(expectErr(validateFixture('v', validDef({ lumenFixture: 1 })))).toBe(
+      'Unknown field "lumenFixture" in fixture def.',
+    );
+  });
+});
+
+// ─── envelope parsing (deprecated schema-field alias) ────────────────────────
+
+describe('parseImportString — schema field', () => {
+  /**
+   * The version field was called `lumenFixture` before the project was
+   * renamed to gobo. Users have already exported files carrying the old
+   * name, so import accepts it as a deprecated alias; export only ever
+   * writes `goboFixture`. Covered here because the envelope check is the
+   * front half of the same validation path these tests pin.
+   */
+
+  it('accepts a current envelope', () => {
+    const result = parseImportString(
+      JSON.stringify({ goboFixture: 1, id: 'my-par', def: validDef() }),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.id).toBe('my-par');
+    expect(result.def?.name).toBe('Test PAR');
+  });
+
+  it('accepts a pre-rename envelope using the deprecated lumenFixture field', () => {
+    const result = parseImportString(
+      JSON.stringify({ lumenFixture: 1, id: 'my-par', def: validDef() }),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.id).toBe('my-par');
+    expect(result.def?.name).toBe('Test PAR');
+  });
+
+  it('still validates the def of a pre-rename envelope', () => {
+    const result = parseImportString(
+      JSON.stringify({ lumenFixture: 1, id: 'my-par', def: validDef({ channelCount: 0 }) }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('channelCount');
+  });
+
+  it('rejects an envelope carrying neither field', () => {
+    const result = parseImportString(JSON.stringify({ id: 'my-par', def: validDef() }));
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("Not a gobo fixture file (missing 'goboFixture' version).");
+  });
+
+  it('exports the current field name only', () => {
+    const def = expectOk(validateFixture('my-par', validDef())).def;
+    const envelope = toExportEnvelope('my-par', def);
+    expect(envelope.goboFixture).toBe(1);
+    expect(Object.keys(envelope)).not.toContain('lumenFixture');
   });
 });
 

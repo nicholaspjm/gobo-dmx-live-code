@@ -1,11 +1,11 @@
 /**
- * Semantic colour coding for the editor: lumen commands vs. fixture names.
+ * Semantic colour coding for the editor: gobo commands vs. fixture names.
  *
  * The default `@codemirror/lang-javascript` highlighter paints all function
- * calls and identifiers identically. At lumen's scale it's useful to tell
+ * calls and identifiers identically. At gobo's scale it's useful to tell
  * two kinds of name apart at a glance:
  *
- *   1. **Commands** — names from the lumen API (fixture, sine, artnet,
+ *   1. **Commands** — names from the gobo API (fixture, sine, artnet,
  *      .viz, .flash, setBPM, audio, …). These are the verbs of the
  *      language and get the accent colour so you can find a pattern call
  *      site instantly.
@@ -25,7 +25,7 @@
 import { ViewPlugin, EditorView, Decoration, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
 
-/** Free-function lumen commands (referenced without a receiver). */
+/** Free-function gobo commands (referenced without a receiver). */
 const COMMAND_NAMES = [
   // fixtures + custom
   'fixture', 'defineFixture', 'listFixtures', 'rgbStrip', 'rgbwStrip',
@@ -44,7 +44,7 @@ const COMMAND_NAMES = [
 /** Method names whose colour should match the command accent. Includes
  *  the viz/decoration chain (.viz / .flash / .glow / .wave) and the
  *  generic fixture helpers (.color / .off / .full / .pixelGrid / .each /
- *  .rainbowChase) — anything that's part of the lumen API surface and
+ *  .rainbowChase) — anything that's part of the gobo API surface and
  *  worth visually distinguishing from raw channel setters (.red etc.). */
 const METHOD_NAMES = [
   'viz', 'flash', 'glow', 'wave',
@@ -52,8 +52,8 @@ const METHOD_NAMES = [
   'pixelGrid', 'each', 'rainbowChase',
 ];
 
-const commandMark = Decoration.mark({ class: 'lumen-command' });
-const lightMark = Decoration.mark({ class: 'lumen-light' });
+const commandMark = Decoration.mark({ class: 'gobo-command' });
+const lightMark = Decoration.mark({ class: 'gobo-light' });
 
 const COMMAND_RE = new RegExp(`\\b(?:${COMMAND_NAMES.join('|')})\\b`, 'g');
 const METHOD_RE = new RegExp(`\\.(${METHOD_NAMES.join('|')})\\b`, 'g');
@@ -119,7 +119,7 @@ function buildDecorations(view: EditorView): DecorationSet {
  * on pure viewport updates (scroll/resize) because the decorations span the
  * whole doc, not just the visible lines.
  */
-export const lumenCodeHighlight = ViewPlugin.fromClass(
+export const goboCodeHighlight = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
     constructor(view: EditorView) {

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? '/lumen-dmx-live-code/' : '/',
+  base: process.env.GITHUB_ACTIONS ? '/gobo-dmx-live-code/' : '/',
   server: {
     port: 3000,
     host: '0.0.0.0',

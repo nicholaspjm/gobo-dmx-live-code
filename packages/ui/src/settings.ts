@@ -15,8 +15,15 @@
  */
 
 import { THEME_LIST, type ThemeId } from './themes.js';
+import { migrateLegacyKey } from './storage-migration.js';
 
-const STORAGE_KEY = 'lumen-settings-v1';
+const STORAGE_KEY = 'gobo-settings-v1';
+
+// Pre-rename this blob lived under `lumen-settings-v1`. Adopt it before the
+// first read so an existing user keeps their theme, send rate and stop
+// action instead of being silently reset to defaults. See
+// storage-migration.ts.
+migrateLegacyKey(STORAGE_KEY, 'lumen-settings-v1');
 
 /** Behaviour when the user presses the stop key (Ctrl+. / Ctrl+Space).
  *  - 'blackout' wipes the universe buffers and turns every fixture off.

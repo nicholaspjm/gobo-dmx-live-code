@@ -1,10 +1,26 @@
 # Changelog
 
-All notable changes to lumen are recorded here.
+All notable changes to gobo are recorded here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0] - 2026-08-12
+
+> **Renamed: lumen → gobo.** The project, the workspace packages (`@gobo/core`,
+> `@gobo/bridge`, `@gobo/ui`), the repository and the hosted app all changed name.
+> The hosted build now lives at https://nicholaspjm.github.io/gobo-dmx-live-code/.
+> Three consequences you will actually notice:
+>
+> - **OSC addresses are now `/gobo/<universe>/<channel>`**, not `/lumen/…`. A
+>   TouchDesigner patch — or any OSC receiver — matching the old prefix goes quiet
+>   until it is repointed. See [docs/touchdesigner.md](docs/touchdesigner.md).
+> - **The sACN source name is now `gobo`.** Receivers that identify or filter
+>   senders by source name need updating; nothing else about the wire format moved.
+> - **Scenes and fixtures saved in your browser migrate automatically.** On first
+>   load the app adopts anything stored under the old `lumen-*` localStorage keys
+>   and rewrites it under `gobo-*` — nothing to export first, nothing lost. Fixture
+>   files you exported earlier still import too: the old `lumenFixture` schema field
+>   is accepted as a deprecated alias alongside `goboFixture`.
 
 First public release. There was never a published 0.1.0 — everything below landed during pre-0.2 development, and the commit-level detail for that period lives in git rather than being restated here.
 
@@ -22,9 +38,9 @@ First public release. There was never a published 0.1.0 — everything below lan
 - **Fixture validation** — every fixture coming in from a file or the bundle runs through a strict validator (rejects id collisions with built-ins, out-of-range sizes, unknown schema keys, unsafe characters). CI runs the same validator on any PR touching `fixtures/`.
 - **Inline visualizations** — `.viz('color' | 'wave' | 'meter' | 'strip')` on a fixture or strip drops a live widget at the end of the source line, and `.flash()` / `.glow()` / `.wave()` decorate any pattern in place. Both are opt-in per call and driven from the scheduler tick, so they stay phase-locked with output.
 - **Fixture simulator** — a panel rebuilt after every eval from the fixtures the scene actually declares, rendering RGB/RGBW globes, dimmer globes, and pixel strips. Hover tooltips show name, type, universe, channel range, and live values; fixtures with `pan` / `tilt` / `direction` channels get a small XY indicator tracking their position.
-- **Docs and hover help** — a tabbed reference panel (welcome / patterns / fixtures / viz / output / reference) with ranked search, plus hover tooltips giving signature, description, and example for any lumen identifier. Autocomplete and hover help are generated from the same help source, and the editor highlights lumen commands and fixture-bound identifiers semantically.
+- **Docs and hover help** — a tabbed reference panel (welcome / patterns / fixtures / viz / output / reference) with ranked search, plus hover tooltips giving signature, description, and example for any gobo identifier. Autocomplete and hover help are generated from the same help source, and the editor highlights gobo commands and fixture-bound identifiers semantically.
 - **Settings and themes** — sliding settings panel with theme, stop action (blackout or freeze), autosave, format-on-run, inline viz, sim tooltips, and send rate (30 / 60 / 120 Hz). Nine themes — ember, slate, forest, midnight, paper, ikeda, datamatrix, terminal, puredata — swap instantly because the editor and canvas read CSS variables.
-- **Output paths** — a Node bridge on `ws://localhost:3001` fans DMX out over Art-Net, sACN (E1.31), OSC, or a mock console logger; `artnet()`, `sacn()`, `osc()` and `mock()` reconfigure it at runtime from editor code. OSC sends `/lumen/<universe>/<channel>` with one float in 0–1, which an OSC In CHOP picks up directly for TouchDesigner work.
+- **Output paths** — a Node bridge on `ws://localhost:3001` fans DMX out over Art-Net, sACN (E1.31), OSC, or a mock console logger; `artnet()`, `sacn()`, `osc()` and `mock()` reconfigure it at runtime from editor code. OSC sends `/gobo/<universe>/<channel>` with one float in 0–1, which an OSC In CHOP picks up directly for TouchDesigner work.
 - **Editor keybindings** — `Ctrl+Enter` eval, `Ctrl+.` stop, `Ctrl+Space` as a second stop alias that preempts autocomplete, `Ctrl+S` save, `Ctrl+Shift+S` save-as, `Ctrl+Shift+F` format via a lazily loaded Prettier. Tap tempo on the `T` key or the topbar button, and the BPM readout is click-to-edit.
 - **512-bar canvas visualizer** at ~30 fps with smoothing, themed from the same variables as the rest of the UI, and a GitHub Pages workflow that publishes the UI on every push to `main`.
 
@@ -58,4 +74,4 @@ First public release. There was never a published 0.1.0 — everything below lan
 - The sim panel was hard-coded to one scene's channel layout and showed ghost fixtures after a scene switch; it is now rebuilt from the fixtures registered during the last eval. Its "off" state also reads the theme background instead of a hardcoded colour, so blackout looks dark on every theme.
 - The `ultratronics 11` template called `spot.dim()` on an RGBW fixture that has no dimmer channel, throwing on every run. The instrument palette was remapped onto discrete colour channels, and stale copies saved in a browser are auto-upgraded on load.
 
-[0.2.0]: https://github.com/nicholaspjm/lumen-dmx-live-code/releases/tag/v0.2.0
+[0.2.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.2.0

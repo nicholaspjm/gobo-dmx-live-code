@@ -1,6 +1,6 @@
 # Contributing
 
-lumen is MIT-licensed and open to contributions. Fixtures are the easiest and most
+gobo is MIT-licensed and open to contributions. Fixtures are the easiest and most
 useful place to start — everything else, open an issue first.
 
 ---
@@ -8,7 +8,7 @@ useful place to start — everything else, open an issue first.
 ## Fixture contributions
 
 The public library is one JSON file per fixture in `fixtures/`, bundled into the app
-at build time. Getting yours merged means every lumen user can write
+at build time. Getting yours merged means every gobo user can write
 `fixture(1, 'your-id')` without defining anything.
 
 **Read [`fixtures/README.md`](fixtures/README.md) first** — it's the authoritative
@@ -20,7 +20,7 @@ The flow:
 2. Open the **library** panel. Your fixture is listed under *Defined this session*.
 3. Click **share**. That opens a GitHub new-file page with `fixtures/your-id.json`
    pre-filled; *Propose change* forks the repo and opens the PR for you.
-   Doing it by hand instead? **export** downloads `your-id.lumen-fixture.json` —
+   Doing it by hand instead? **export** downloads `your-id.gobo-fixture.json` —
    rename it to `your-id.json` before dropping it in `fixtures/`. The validator
    rejects any file whose name isn't `<id>.json`.
 4. CI runs `scripts/validate-fixtures.mjs` on every PR touching `fixtures/` — the
@@ -71,7 +71,7 @@ packages/ui/       Vite frontend — CodeMirror editor, visualizer, sim panel, d
 
 ## Code contributions
 
-**Open an issue before anything non-trivial.** lumen has opinions about the timing
+**Open an issue before anything non-trivial.** gobo has opinions about the timing
 path especially, and it's cheaper to disagree in an issue than in a 600-line diff.
 
 - One change per PR. A focused diff gets reviewed; a grab-bag doesn't.

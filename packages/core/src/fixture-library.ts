@@ -9,7 +9,7 @@
  *
  * Wire format (single fixture):
  *   {
- *     "lumenFixture": 1,          // schema version, bump if we ever reshape
+ *     "goboFixture": 1,           // schema version, bump if we ever reshape
  *     "id": "four-color-bar",     // short identifier used in fixture() calls
  *     "def": {                     // exactly the arg passed to defineFixture
  *       "name": "Four-Colour Moving Bar",
@@ -28,7 +28,18 @@
 import { defineFixture, type FixtureDef } from './fixtures.js';
 import { validateFixture } from './fixture-validator.js';
 
-const LIBRARY_KEY = 'lumen-fixtures-v1';
+const LIBRARY_KEY = 'gobo-fixtures-v1';
+
+/**
+ * Pre-rename storage key. The project was called "lumen" before it became
+ * gobo, and every library saved up to that point still sits under the old
+ * key in the user's browser. readRaw() adopts it the first time the new key
+ * comes back empty, so upgrading doesn't look like a wiped library.
+ *
+ * Do not delete this until we're confident no browser still holds the old
+ * entry — dropping it silently orphans real, unrecoverable user fixtures.
+ */
+const LEGACY_LIBRARY_KEY = 'lumen-fixtures-v1';
 
 export interface LibraryEntry {
   id: string;
@@ -39,7 +50,22 @@ export interface LibraryEntry {
 
 function readRaw(): Record<string, FixtureDef> {
   try {
-    const raw = localStorage.getItem(LIBRARY_KEY);
+    let raw = localStorage.getItem(LIBRARY_KEY);
+    if (raw === null) {
+      // Nothing under the current key — fall back to the pre-rename one and
+      // copy it across, so the migration happens once and stays invisible.
+      // The legacy entry is left in place: it costs nothing, and it keeps
+      // an older build of the app working for anyone who rolls back.
+      const legacy = localStorage.getItem(LEGACY_LIBRARY_KEY);
+      if (legacy === null) return {};
+      raw = legacy;
+      try {
+        localStorage.setItem(LIBRARY_KEY, legacy);
+      } catch {
+        // Quota / private mode — the adopted value is still returned below,
+        // we just retry the copy on the next read.
+      }
+    }
     if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return {};
@@ -100,7 +126,7 @@ export function restoreLibraryFixtures(): void {
     try {
       defineFixture(id, def);
     } catch (err) {
-      console.warn(`[lumen] couldn't restore library fixture "${id}":`, err);
+      console.warn(`[gobo] couldn't restore library fixture "${id}":`, err);
     }
   }
 }
@@ -108,15 +134,26 @@ export function restoreLibraryFixtures(): void {
 // ─── Import / Export (file + string) ─────────────────────────────────────────
 
 /** Schema-tagged object ready to be stringified and handed to the user as
- *  a `.lumen-fixture.json` file. */
+ *  a `.gobo-fixture.json` file. */
 export interface ExportEnvelope {
-  lumenFixture: number;
+  goboFixture: number;
   id: string;
   def: FixtureDef;
 }
 
+/**
+ * Pre-rename name of the schema-version field. Files exported while the
+ * project was still called "lumen" carry `lumenFixture` instead, and users
+ * have those files sitting in folders and shared with other people, so
+ * parseImportString() accepts it as a deprecated alias. Exports only ever
+ * write the current `goboFixture` field.
+ *
+ * @deprecated Import-only alias for `goboFixture`; do not write it.
+ */
+const LEGACY_SCHEMA_FIELD = 'lumenFixture';
+
 export function toExportEnvelope(id: string, def: FixtureDef): ExportEnvelope {
-  return { lumenFixture: 1, id, def };
+  return { goboFixture: 1, id, def };
 }
 
 export function toExportString(id: string, def: FixtureDef): string {
@@ -131,12 +168,15 @@ export interface ImportResult {
 }
 
 /**
- * Parse a .lumen-fixture.json string and validate the shape. Doesn't
+ * Parse a .gobo-fixture.json string and validate the shape. Doesn't
  * touch storage — caller decides what to do with the result.
  *
- * The envelope (lumenFixture version + id + def) is checked here; the
+ * The envelope (goboFixture version + id + def) is checked here; the
  * inner fixture def is handed off to validateFixture() for the strict
  * schema / limits / no-collision-with-built-ins pass.
+ *
+ * The deprecated `lumenFixture` field is accepted in place of
+ * `goboFixture` so pre-rename exports still import.
  */
 export function parseImportString(raw: string): ImportResult {
   let parsed: unknown;
@@ -149,8 +189,10 @@ export function parseImportString(raw: string): ImportResult {
     return { ok: false, error: 'Expected a JSON object.' };
   }
   const env = parsed as Record<string, unknown>;
-  if (typeof env.lumenFixture !== 'number') {
-    return { ok: false, error: "Not a lumen fixture file (missing 'lumenFixture' version)." };
+  const version =
+    typeof env.goboFixture === 'number' ? env.goboFixture : env[LEGACY_SCHEMA_FIELD];
+  if (typeof version !== 'number') {
+    return { ok: false, error: "Not a gobo fixture file (missing 'goboFixture' version)." };
   }
   const result = validateFixture(env.id, env.def);
   if (!result.ok) {

@@ -42,12 +42,12 @@ async function loadPrettier(): Promise<{ prettier: PrettierLike; plugins: unknow
 }
 
 /**
- * Format a chunk of lumen code. Resolves to the formatted string or
+ * Format a chunk of gobo code. Resolves to the formatted string or
  * rejects with the parser's error — callers should catch and surface
  * the message in the UI (typical: Prettier throws a friendly "unexpected
  * token at line N" for syntax errors).
  */
-export async function formatLumenCode(src: string): Promise<string> {
+export async function formatGoboCode(src: string): Promise<string> {
   const { prettier, plugins } = await loadPrettier();
   return prettier.format(src, {
     parser: 'babel',

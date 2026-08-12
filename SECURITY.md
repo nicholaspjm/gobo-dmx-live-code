@@ -1,6 +1,6 @@
 # Security policy
 
-lumen is an operator tool, not a service. This file describes what it does and does not
+gobo is an operator tool, not a service. This file describes what it does and does not
 defend against, so you can decide where it belongs on your network — and so a report you
 send me is about a real bug rather than a documented design choice.
 
@@ -16,11 +16,12 @@ current tag, the fix is to update.
 
 ## Threat model
 
-lumen assumes one operator, on a machine they trust, on a network they trust — a laptop
+gobo assumes one operator, on a machine they trust, on a network they trust — a laptop
 running the editor and the bridge, wired to a lighting rig or a dedicated art-net VLAN.
 It is not multi-tenant, has no accounts, no roles, no server-side state, and nothing it
-stores is secret. Everything lives in the browser (`localStorage`, under the `lumen-*-v1`
-keys — scenes, saved fixtures, settings) and in a local Node process that speaks
+stores is secret. Everything lives in the browser (`localStorage`, under the `gobo-*-v1`
+keys — scenes, saved fixtures, settings; values written under the pre-rename `lumen-*-v1`
+keys are migrated across on first load) and in a local Node process that speaks
 unencrypted UDP to lighting hardware. The hosted build on GitHub Pages is static — your
 code never leaves your browser; DMX only leaves the machine through a bridge you started
 yourself (`ws://localhost:3001` by default, or the LAN address the UI is served from —
@@ -61,12 +62,12 @@ per-client state. Any client that can reach tcp/3001 on that machine can:
   anywhere it can route.
 
 Browsers do not apply same-origin restrictions to outbound WebSocket connections, so this
-includes any page open in a browser on the operator's machine, not just lumen itself.
+includes any page open in a browser on the operator's machine, not just gobo itself.
 
 Mitigation is network placement, not configuration: keep tcp/3001 on a trusted segment,
 don't port-forward it, and prefer a dedicated lighting VLAN or a host firewall rule that
 limits 3001 to loopback if the UI and bridge are on the same machine. If you need the
-bridge reachable from elsewhere, put it behind something that does authentication — lumen
+bridge reachable from elsewhere, put it behind something that does authentication — gobo
 will not do it for you.
 
 ## Art-Net, sACN and OSC are unauthenticated by design
@@ -75,15 +76,15 @@ Art-Net (UDP/6454, unicast or broadcast depending on the host you configure), sA
 (UDP/5568, multicast `239.255.<hi>.<lo>`) and OSC (UDP unicast) are cleartext protocols
 with no authentication, no integrity check, and no replay protection. Anything on the same
 segment can watch your levels or inject its own; sACN's priority field is advisory and any
-sender can claim any priority. lumen implements these protocols faithfully, which means it
+sender can claim any priority. gobo implements these protocols faithfully, which means it
 inherits their properties. That is the protocols' threat model, not a defect in this tool —
 the answer is network segmentation, as it is for every other lighting controller.
 
 ## What is worth reporting
 
-Things that break an expectation lumen actually sets:
+Things that break an expectation gobo actually sets:
 
-- **Anything a merely-visited web page can do to lumen itself** — writing to the scene or
+- **Anything a merely-visited web page can do to gobo itself** — writing to the scene or
   fixture store, getting code to persist into a scene, or otherwise acting inside the app's
   origin without the operator doing it. (Connecting to the unauthenticated bridge socket is
   already covered above and is not this.)
@@ -92,7 +93,7 @@ Things that break an expectation lumen actually sets:
   A fixture id, name, manufacturer, or channel name that escapes that and executes is a bug.
   Same for the docs, sim and settings panels.
 - **Validator bypass** — `validateFixture` (`packages/core/src/fixture-validator.ts`) is the
-  gate for imported `.lumen-fixture.json` files and for the bundled public library. A def
+  gate for imported `.gobo-fixture.json` files and for the bundled public library. A def
   that passes it and then breaks something downstream — resource exhaustion past
   `FIXTURE_LIMITS`, shadowing a built-in, a hostile id reaching a filename or a URL — is a bug.
 - **Bridge crashes or hangs.** Its only inbound surface is the HTTP/WS listener on 3001;
@@ -100,7 +101,7 @@ Things that break an expectation lumen actually sets:
   kills the process, wedges it, or makes it emit traffic to a destination the operator never
   configured (without going through the documented `config` message) is a bug.
 - **Dependency vulnerabilities with a plausible path here** — `ws`, Vite, Strudel and their
-  transitives. An advisory in a code path lumen never executes is still useful to hear about,
+  transitives. An advisory in a code path gobo never executes is still useful to hear about,
   just lower priority than one that isn't.
 
 Not vulnerabilities, and already true by construction: eval sandbox escapes, driving or
@@ -111,7 +112,7 @@ impact.
 ## Reporting
 
 Open a private advisory:
-**https://github.com/nicholaspjm/lumen-dmx-live-code/security/advisories/new**
+**https://github.com/nicholaspjm/gobo-dmx-live-code/security/advisories/new**
 
 Please include the version or commit, what you did, what happened, and what you expected —
 a minimal scene, fixture file, or WebSocket message that reproduces it is worth more than a

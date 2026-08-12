@@ -1,5 +1,5 @@
 {
-  "name": "@lumen/ui",
+  "name": "@gobo/ui",
   "version": "0.2.0",
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/lang-javascript": "^6.2.2",
-    "@lumen/core": "*",
+    "@gobo/core": "*",
     "codemirror": "^6.0.1",
     "prettier": "^3.8.3"
   },

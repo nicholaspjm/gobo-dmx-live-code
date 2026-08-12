@@ -8,7 +8,7 @@
  * than crashing — and the UI still loads with whatever's still valid.
  */
 
-import { defineFixture, validateFixture, type FixtureDef } from '@lumen/core';
+import { defineFixture, validateFixture, type FixtureDef } from '@gobo/core';
 
 export interface PublicFixture {
   id: string;
@@ -26,14 +26,27 @@ const bundled: Record<string, unknown> = import.meta.glob(
 function loadAll(): PublicFixture[] {
   const out: PublicFixture[] = [];
   for (const [path, raw] of Object.entries(bundled)) {
-    const envelope = raw as { lumenFixture?: number; id?: unknown; def?: unknown };
-    if (!envelope || envelope.lumenFixture !== 1) {
-      console.warn(`[lumen] skipping ${path}: not a lumen fixture file`);
+    const envelope = raw as {
+      goboFixture?: number;
+      /** @deprecated Pre-rename name for `goboFixture`. Still read so
+       *  fixture files exported (or contributed) before the rename keep
+       *  loading — see the version check below. */
+      lumenFixture?: number;
+      id?: unknown;
+      def?: unknown;
+    };
+    // Accept either spelling of the schema version. `goboFixture` is the
+    // current field; `lumenFixture` is its deprecated alias, kept because
+    // files users exported before the rename are already out there and
+    // must not stop working.
+    const schemaVersion = envelope?.goboFixture ?? envelope?.lumenFixture;
+    if (!envelope || schemaVersion !== 1) {
+      console.warn(`[gobo] skipping ${path}: not a gobo fixture file`);
       continue;
     }
     const result = validateFixture(envelope.id, envelope.def);
     if (!result.ok) {
-      console.warn(`[lumen] skipping ${path}: ${result.error}`);
+      console.warn(`[gobo] skipping ${path}: ${result.error}`);
       continue;
     }
     out.push({ id: result.id, def: result.def });
@@ -60,7 +73,7 @@ export function registerPublicFixtures(): void {
     try {
       defineFixture(id, def);
     } catch (err) {
-      console.warn(`[lumen] couldn't register public fixture "${id}":`, err);
+      console.warn(`[gobo] couldn't register public fixture "${id}":`, err);
     }
   }
 }
