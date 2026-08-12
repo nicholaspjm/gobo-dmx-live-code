@@ -1,5 +1,6 @@
 {
-  "_comment": "lumen bridge config — set mode to 'artnet', 'sacn', or 'mock'",
+  "_comment": "lumen bridge config — read once at bridge startup. Runtime calls in the editor (artnet(), sacn(), osc(), mock()) override whatever is set here, so this file is really just the default for a freshly started bridge. See the DMX output configuration section of the README.",
+  "_comment_host": "artnet.host: 127.0.0.1 only reaches software on THIS machine. For real hardware use either your subnet broadcast (e.g. 192.168.1.255 — reaches every node, easiest) or a single node's IP (e.g. 192.168.1.50 — unicast, quieter on the network). Check which subnet your lighting network is actually on; Art-Net gear is often on 2.x.x.x or 10.x.x.x rather than 192.168.x.x.",
   "mode": "artnet",
   "artnet": {
     "host": "127.0.0.1",
