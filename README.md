@@ -8,6 +8,8 @@ Powered by [@strudel/core](https://strudel.cc) — the same waveform and cycle s
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+![lumen — editor, visualizer and fixture sim running a pattern](docs/media/demo.gif)
+
 ---
 
 ## Try it now
@@ -25,9 +27,12 @@ Powered by [@strudel/core](https://strudel.cc) — the same waveform and cycle s
 - **512 channels per universe** — multiple universes via `uni()`
 - **Real-time visualizer** — 512-bar channel strip + fixture simulation, 30 fps
 - **Fixture system** — built-in profiles for RGB, RGBW, moving heads, strobes, and custom definitions
-- **Multiple outputs** — direct-to-TouchDesigner WebSocket, OSC, ArtNet (Art-Net 4), sACN (E1.31), or mock
-- **Reference panel** — click `docs` in the top bar for inline function reference
-- **Earth-tone UI** — warm charcoal / terracotta aesthetic, no harsh whites
+- **Pixel strips** — `rgbStrip()` / `rgbwStrip()` with per-pixel, grid and chase helpers
+- **Multiple outputs** — Art-Net 4, sACN (E1.31), OSC, or mock
+- **Scenes** — named code buffers in the top bar, autosaved to the browser
+- **Fixture library** — built-in, bundled public, saved and session fixtures in one panel, with JSON import/export
+- **Reference panel** — click `docs` in the top bar for inline function reference, plus hover help and autocomplete
+- **Nine themes** — ember (warm charcoal / terracotta) by default, through to paper, terminal and ikeda
 
 ---
 
@@ -48,13 +53,16 @@ npm run dev
 
 This starts both the **UI** (http://localhost:3000) and the **bridge** (ws://localhost:3001).
 
-Edit `packages/bridge/bridge.config.json` to configure your output:
+`packages/bridge/bridge.config.json` sets the bridge's startup output. It ships in `artnet`
+mode pointed at `127.0.0.1`, which only reaches software on the same machine — edit the host
+to your subnet broadcast or a node's IP for real hardware:
 
 ```json
 { "mode": "artnet", "artnet": { "host": "192.168.1.255", "port": 6454 } }
 ```
 
-Supported modes: `mock` (default), `artnet`, `sacn`.
+Supported modes: `artnet`, `sacn`, `osc`, `mock`. Calling `artnet()` / `sacn()` / `osc()` /
+`mock()` from editor code overrides this at runtime — see [DMX output configuration](#dmx-output-configuration).
 
 ---
 
@@ -84,7 +92,7 @@ ch(3, saw().add(0.5))
 ch(4, saw().add(0.75))
 
 // Named fixture access
-fixture(1, 'generic-rgb').red(sine())
+fixture(1, 'rgb').red(sine())
 
 // Multi-universe
 uni(2, 1, sine().slow(4))
@@ -97,7 +105,12 @@ uni(2, 1, sine().slow(4))
 | Key | Action |
 |-----|--------|
 | `Ctrl+Enter` | Evaluate code |
-| `Ctrl+.` | Stop — zero all channels |
+| `Ctrl+.` | Stop — blackout by default, `freeze` if set that way in settings |
+| `Ctrl+Space` | Stop, as an alias that also preempts the autocomplete popup |
+| `Ctrl+S` | Save the current scene |
+| `Ctrl+Shift+S` | Save as a new scene |
+| `Ctrl+Shift+F` | Format the buffer |
+| `T` | Tap tempo (ignored while typing in the editor or any input) |
 
 ---
 
@@ -128,7 +141,7 @@ DMX.tick(cyclePos)
 Visualizer (rAF, 30 fps, read-only snapshot)   +   WS sender (wall-clock throttled)
                                                         │
                                                         ▼
-                                                 Bridge  or  TouchDesigner
+                                                      Bridge
                                                         │
                                                         ▼
                                              UDP: Art-Net / sACN / OSC
@@ -136,24 +149,24 @@ Visualizer (rAF, 30 fps, read-only snapshot)   +   WS sender (wall-clock throttl
 
 ### Engine
 
-- **Clock lives in a Web Worker.** A `setInterval(16)` in [clockWorker.ts:22](packages/core/src/clockWorker.ts:22) posts `"tick"` messages to the main thread. Chromium doesn't throttle worker timers, so the clock keeps firing at ~60 Hz even when the tab is backgrounded ([scheduler.ts:8](packages/core/src/scheduler.ts:8)).
-- **Cycle position** advances by `(bpm / 60) / 4` cycles per second (4 beats per cycle). `dt` is clamped at 100 ms so a machine sleep or long GC pause doesn't send the phase spinning ([scheduler.ts:70](packages/core/src/scheduler.ts:70)). An external clock provider (audio playhead) can override `cyclePos` when audio-reactive mode is on.
-- **Pattern evaluation** uses [@strudel/core](https://strudel.cc) as the actual pattern engine — `sine()`, `saw()`, mini-notation, `.slow / .fast / .add / .range / .early / .late` are real Strudel patterns. Each tick, every registered channel calls `pattern.queryArc(cyclePos, cyclePos + ε)` to sample the value at that exact moment ([dmx.ts:95](packages/core/src/dmx.ts:95)). The lumen-specific chain methods `.flash / .glow / .wave` are added by monkey-patching `Pattern.prototype`; user code can add its own with `register(name, fn)` ([eval.ts:96](packages/core/src/eval.ts:96), [eval.ts:252](packages/core/src/eval.ts:252)).
-- **Live eval is not sandboxed** — user code runs via `new Function(...)` in strict mode with a curated globals object (DMX API, fixture API, Strudel waveforms, `Math`, `console`). Fast to hot-swap, not safe against hostile code — fine for a local live-coding tool ([eval.ts:272](packages/core/src/eval.ts:272)).
-- **Universe state is `Map<number, Uint8Array(512)>`.** Zeroed and rewritten from scratch every tick, so a scene swap is atomic at the tick boundary ([dmx.ts:26](packages/core/src/dmx.ts:26), [dmx.ts:85](packages/core/src/dmx.ts:85)).
+- **Clock lives in a Web Worker.** A `setInterval(16)` in [clockWorker.ts](packages/core/src/clockWorker.ts#L26) posts `"tick"` messages to the main thread. Chromium doesn't throttle worker timers, so the clock keeps firing at ~60 Hz even when the tab is backgrounded ([scheduler.ts](packages/core/src/scheduler.ts#L8)).
+- **Cycle position** advances by `(bpm / 60) / 4` cycles per second (4 beats per cycle). `dt` is clamped at 100 ms so a machine sleep or long GC pause doesn't send the phase spinning ([scheduler.ts](packages/core/src/scheduler.ts#L75)). An external clock provider (audio playhead) can override `cyclePos`; nothing installs one in this release.
+- **Pattern evaluation** uses [@strudel/core](https://strudel.cc) as the actual pattern engine — `sine()`, `saw()`, mini-notation, `.slow / .fast / .add / .range / .early / .late` are real Strudel patterns. Each tick, every registered channel calls `pattern.queryArc(cyclePos, cyclePos + ε)` to sample the value at that exact moment ([dmx.ts](packages/core/src/dmx.ts#L97)). The lumen-specific chain methods `.flash / .glow / .wave` are added by monkey-patching `Pattern.prototype`; user code can add its own with `register(name, fn)` ([eval.ts](packages/core/src/eval.ts#L99), [eval.ts](packages/core/src/eval.ts#L253)). If Strudel fails to load, a numeric fallback shim keeps the same waveform API working.
+- **Live eval is not sandboxed** — user code runs via `new Function(...)` in strict mode with a curated globals object (DMX API, fixture API, Strudel waveforms, `Math`, `console`). Those names shadow, they don't remove: the code runs in the page's own realm. Fast to hot-swap, not safe against hostile code — fine for a local live-coding tool ([eval.ts](packages/core/src/eval.ts#L312), and [SECURITY.md](SECURITY.md)).
+- **Universe state is `Map<number, Uint8Array(512)>`.** Zeroed and rewritten from scratch every tick, so a scene swap is atomic at the tick boundary ([dmx.ts](packages/core/src/dmx.ts#L26), [dmx.ts](packages/core/src/dmx.ts#L85)).
 
 ### Real-time behavior
 
 The interesting bits for anyone asking "will this hold up during a set":
 
 - **Tab-throttling immune.** The clock is in a worker; the on-screen visualizer's rAF loop is decoupled and never drives DMX. Hide the tab, minimize the window, patterns keep running.
-- **Hot swap is atomic.** `evalCode` calls `clearDefs()` which wipes pattern defs *and* universe buffers; the next tick rebuilds everything from the new code ([dmx.ts:77](packages/core/src/dmx.ts:77)). No half-applied scene is ever sent to the wire.
-- **Send rate is wall-clock throttled**, not "every Nth tick". Sender uses `1000 / sendRate` ms as its send interval (default 60 Hz, configurable), so a slow render tick doesn't back up the send queue ([main.ts:285](packages/ui/src/main.ts:285), [settings.ts:58](packages/ui/src/settings.ts:58)).
-- **Going-dark zero-frame.** Idle all-zero universes are skipped to save UDP bandwidth, but when a universe transitions live → all-zero, exactly one trailing zero-frame is sent so downstream fixtures actually latch off — otherwise Art-Net/sACN receivers happily hold the last value forever ([websocket.ts:104](packages/core/src/websocket.ts:104)).
-- **Per-tick user errors are swallowed.** A broken pattern doesn't kill the clock; that channel just outputs zero until you fix it ([scheduler.ts:91](packages/core/src/scheduler.ts:91)).
-- **Bridge auto-reconnect** every 2 s on close; sends silently drop while disconnected — no queue, no backpressure ([websocket.ts:69](packages/core/src/websocket.ts:69)).
-- **Latency floor.** One clock tick (~16 ms) + up to one send interval (~16 ms at 60 Hz) + WS hop + UDP hop. The bridge is stateless: each incoming WS message triggers an immediate UDP send, no coalescing ([bridge/index.ts:319](packages/bridge/src/index.ts:319)).
-- **Inline pattern widgets** hook the same `onTick` the DMX loop uses rather than a separate rAF, so their visuals stay phase-locked with the lights ([inline-viz.ts:335](packages/ui/src/inline-viz.ts:335)). The main 512-bar visualizer runs a separate rAF loop with a read-only snapshot and light exponential smoothing so the on-screen strip never contends with the DMX path ([visualizer.ts:51](packages/ui/src/visualizer.ts:51)).
+- **Hot swap is atomic.** `evalCode` calls `clearDefs()` which wipes pattern defs *and* universe buffers; the next tick rebuilds everything from the new code ([dmx.ts](packages/core/src/dmx.ts#L77)). No half-applied scene is ever sent to the wire.
+- **Send rate is wall-clock throttled**, not "every Nth tick". Sender uses `1000 / sendRate` ms as its send interval (default 60 Hz; 30 / 60 / 120 in settings), so a slow render tick doesn't back up the send queue ([main.ts](packages/ui/src/main.ts#L293), [settings.ts](packages/ui/src/settings.ts#L58)).
+- **Going-dark zero-frame.** Idle all-zero universes are skipped to save UDP bandwidth, but when a universe transitions live → all-zero, exactly one trailing zero-frame is sent so downstream fixtures actually latch off — otherwise Art-Net/sACN receivers happily hold the last value forever ([websocket.ts](packages/core/src/websocket.ts#L114)).
+- **Per-tick user errors are swallowed.** A broken pattern doesn't kill the clock; that channel just outputs zero until you fix it ([scheduler.ts](packages/core/src/scheduler.ts#L91)).
+- **Bridge auto-reconnect** every 2 s on close; sends silently drop while disconnected — no queue, no backpressure ([websocket.ts](packages/core/src/websocket.ts#L69)).
+- **Latency floor.** One clock tick (~16 ms) + up to one send interval (~16 ms at 60 Hz) + WS hop + UDP hop. The bridge is stateless: each incoming WS message triggers an immediate UDP send, no coalescing ([bridge/index.ts](packages/bridge/src/index.ts#L321)).
+- **Inline pattern widgets** hook the same `onTick` the DMX loop uses rather than a separate rAF, so their visuals stay phase-locked with the lights ([inline-viz.ts](packages/ui/src/inline-viz.ts#L335)). The main 512-bar visualizer runs a separate rAF loop with a read-only snapshot and light exponential smoothing so the on-screen strip never contends with the DMX path ([visualizer.ts](packages/ui/src/visualizer.ts#L51)).
 
 ### Output protocols
 
@@ -161,106 +174,55 @@ Bridge is stateless — one WebSocket frame in, one UDP send out. Wire cadence m
 
 | Mode | Packet | Transport | Notes |
 |------|--------|-----------|-------|
-| Art-Net | 530-byte ArtDmx (`OpOutput 0x5000`) | UDP broadcast (default) or unicast, port 6454 | Full 512-channel payload each frame |
-| sACN (E1.31) | 638-byte E1.31 packet | UDP multicast `239.255.<hi>.<lo>`, port 5568 | Random CID per bridge process, monotonic seq per universe |
+| Art-Net | 530-byte ArtDmx (`OpOutput 0x5000`) | UDP to the configured host, port 6454 — unicast or a broadcast address, your choice | Full 512-channel payload each frame |
+| sACN (E1.31) | 638-byte E1.31 packet | UDP multicast `239.255.<hi>.<lo>`, port 5568 | Random CID per bridge process, source name `lumen`; one sequence counter shared across universes |
 | OSC | `/lumen/<uni>/<ch>` float | UDP unicast | Only channels that are non-zero, plus one zero per channel transitioning off |
-| TouchDesigner | JSON over WebSocket | browser → TD directly | Bypasses the bridge; TD's WebSocket DAT parses JSON (see setup below) |
-| Mock | — | — | Logs a summary ~2×/s |
+| Mock | — | — | Logs the non-zero channels of every 7th frame |
 
 ### Fixtures
 
-A fixture profile is just an ordered list of `{offset, name, type}` channel descriptors ([fixtures.ts:58](packages/core/src/fixtures.ts:58)). `fixture(start, id)` returns an object where each channel name becomes a setter that writes to `start + offset` on the target universe. Generic helpers `.color(r,g,b,w?) / .off() / .full()` walk the light-emitting channels of whatever fixture you gave them, so the same call works on `rgb`, `rgbw`, `dim-rgbw`, or a moving head ([fixtures.ts:518](packages/core/src/fixtures.ts:518)). Pixel strips (`rgbStrip`, `rgbwStrip`) lay out N × 3 or N × 4 contiguous channels and add `.pixel(i, …)`, `.pixelGrid([…])`, `.each(fn)`, `.rainbowChase(…)`. Roll your own with `defineFixture(id, def)`.
+A fixture profile is just an ordered list of `{offset, name, type}` channel descriptors ([fixtures.ts](packages/core/src/fixtures.ts#L58)). `fixture(start, id)` returns an object where each channel name becomes a setter that writes to `start + offset` on the target universe. Generic helpers `.color(r,g,b,w?) / .off() / .full()` walk the light-emitting channels of whatever fixture you gave them, so the same call works on `rgb`, `rgbw`, `dim-rgbw`, or a moving head ([fixtures.ts](packages/core/src/fixtures.ts#L518)). Pixel strips (`rgbStrip`, `rgbwStrip`) lay out N × 3 or N × 4 contiguous channels and add `.pixel(i, …)`, `.pixelGrid([…])`, `.each(fn)`, `.rainbowChase(…)`. Roll your own with `defineFixture(id, def)`.
 
 ---
 
 ## DMX output configuration
 
-Set the output from your code, at the top of the editor. Switching modes while running reconfigures on the fly:
+Set the output from your code, at the top of the editor. Switching modes while running reconfigures the bridge on the fly:
 
 ```js
-td('localhost', 9980)      // direct WebSocket to TouchDesigner (no bridge)
-// osc('127.0.0.1', 9000)  // OSC via bridge
-// artnet('192.168.1.50')  // Art-Net via bridge
-// sacn(1, 100)            // sACN E1.31 via bridge
+artnet('2.0.0.100')        // Art-Net — node IP to unicast, or a broadcast address
+// sacn(1, 100)            // sACN E1.31 — second arg is priority
+// osc('127.0.0.1', 9000)  // OSC — /lumen/<uni>/<ch> floats
 // mock()                  // console log only
 ```
 
-- **`td(host, port)`** bypasses the bridge entirely — the browser opens a WebSocket straight to TouchDesigner's WebSocket DAT.
-- **`osc`, `artnet`, `sacn`, `mock`** all run through the local bridge (which speaks raw UDP). Start it with `npm run bridge`.
-
-`packages/bridge/bridge.config.json` is still read on bridge startup as a default, but the runtime calls above override it.
+All four go through the bridge — the only part that speaks UDP. `npm run dev` starts it with the UI, `npm run dev:bridge` alone. `bridge.config.json` sets the startup default; these calls override it at runtime.
 
 ---
 
-## TouchDesigner — direct WebSocket setup
+## TouchDesigner
 
-Use this when you want lumen to drive TouchDesigner with no bridge process. All values arrive as 0–1 floats, one per DMX channel.
+Patterns reach TouchDesigner over OSC via the bridge — `osc('127.0.0.1', 9000)` in your scene, an `OSC In CHOP` on the same port in TD, one channel per driven DMX address.
 
-**1. WebSocket DAT (server).**
-Create `websocket1` (DAT → WebSocket). Parameters:
+Full setup and Art-Net alternative: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
 
-| Parameter | Value |
-|-----------|-------|
-| Active | `On` |
-| Mode | `Server` |
-| Network Port | `9980` |
-| Format | `Text` |
+---
 
-**2. Table DAT.** Create `table1` (DAT → Table). Leave it empty.
+## Troubleshooting
 
-**3. Code Text DAT.** Create `code_text` (DAT → Text). Leave it empty — lumen will push your live editor contents into it.
-
-**4. Callback script.** Create `callbacks1` (DAT → Text) and set `websocket1`'s *Callbacks DAT* parameter to it. Paste:
-
-```python
-import json
-
-def onReceiveText(dat, rowIndex, message, peer):
-    try:
-        data = json.loads(message)
-    except Exception:
-        return
-
-    msg_type = data.get('type')
-
-    if msg_type == 'dmx':
-        table = op('table1')
-        for uni_str, values in data.get('universes', {}).items():
-            for i, v in enumerate(values):
-                name = f'{uni_str}/{i + 1}'
-                norm = v / 255.0
-                row = table.row(name)
-                if row is None:
-                    table.appendRow([name, norm])
-                else:
-                    table[name, 1] = norm
-
-    elif msg_type == 'code':
-        code_dat = op('code_text')
-        if code_dat is not None:
-            code_dat.text = data.get('text', '')
-
-    return
-
-def onConnect(dat, peer): return
-def onDisconnect(dat, peer): return
-```
-
-**5. DAT to CHOP.** Create `datto1` (CHOP → DAT to). Set *DAT* to `table1` and *First Column is Names* to `On`. Each channel now appears as a named CHOP channel (`1/1`, `1/2`, …) with values 0–1.
-
-**6. Code visual (optional).** Create a Text TOP and set its *Text* parameter to a Python expression:
-
-```
-op('code_text').text
-```
-
-Set *Font* to a monospace face (e.g. `Consolas`, `JetBrains Mono`) so indentation lines up. The Text TOP renders the whole string in a single colour — indentation and line breaks are preserved, but syntax highlighting is not. Composite this TOP into your scene however you like.
-
-lumen pushes the current editor contents to `code_text` on every keystroke (debounced ~250 ms), on every `Ctrl+Enter`, and once on (re)connect, so the visual always reflects what's actually running.
-
-**7. In lumen.** Open the [live page](https://nicholaspjm.github.io/lumen-dmx-live-code/), leave the default `td('localhost', 9980)` line, and hit `Ctrl+Enter`. The status dot in the top bar should switch to `td` and channels will start appearing in `datto1`.
-
-> **Note:** `localhost` works from the hosted page because Chromium allows `ws://localhost` even from https pages. If you run TD on a different machine, substitute its IP — but the page will need to be served over http (or TD behind wss/a reverse proxy).
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Nothing on the rig, dot reads `disconnected` | Bridge not running, or the page can't reach `ws://<host>:3001` | `npm run dev`, or `npm run dev:bridge` on its own — the page reconnects by itself |
+| Dot reads `bridge`, rig still dark | Bridge in the wrong mode — with no config file it starts in `mock` and only logs | Call `artnet(…)` / `sacn(…)` / `osc(…)` at the top of the scene and re-run; the bridge prints `config updated — mode: …` |
+| Bridge logs Art-Net sends, fixtures dark | Wrong destination — `artnet()` with no argument targets `127.0.0.1`, loopback only | Unicast the node (`artnet('2.0.0.100')`) or broadcast the subnet (`artnet('2.255.255.255')`); the bridge logs the address it used |
+| Visualizer flat but the rig responds, or the reverse | The 512-bar strip only draws universe 0. `fixture()` / `rgbStrip()` default to universe 0; `ch()`, `dim()`, `rgb()` write universe **1** | Use `uni(0, ch, v)` to land on the visualized universe. Output is unaffected — every universe is sent |
+| Fixtures stay lit after `Ctrl+.` | Stop action is set to `freeze`, which holds the last frame by design (the default is `blackout`) | Set it back to `blackout` in settings. Blackout only reaches the rig while the bridge is connected — closing the tab sends nothing |
+| Rig stuck on its last colour after commenting a pattern out | The single zero-frame sent when a universe goes dark was lost — bridge disconnected on that frame | Reconnect, then `Ctrl+.` to re-send zeros |
+| Wrong fixtures respond, everything off by one | DMX is 1-based: `ch(1, …)` is channel 1, `fixture(start, id)` covers `start` … `start + channelCount - 1` | Check the fixture's address and channel count; address 1 is lumen's channel 1, not 0 |
+| sACN lands on the wrong universe | `sacn(universe, priority)`'s first arg doesn't steer output — the bridge multicasts every universe it receives to `239.255.<hi>.<lo>` | Set the universe with `uni()` or the fixture universe arg. Priority (default 100) is the arg that counts — receivers arbitrate by it |
+| Hosted https page can't reach a bridge on another machine | From `github.io` the page always dials `ws://localhost:3001` — browsers allow loopback from https, but block `ws://` to any other host | Run the bridge on the browser's machine, or `npm run dev` locally and open the UI on that machine's LAN IP (`http://192.168.x.x:3000`) |
+| Nothing arrives in TouchDesigner | Bridge still in Art-Net or mock mode, or the `OSC In CHOP` port doesn't match `osc(host, port)` | See [docs/touchdesigner.md](docs/touchdesigner.md); only channels you drive are transmitted |
+| Stutter, or a saturated network | Send rate too high for the link | Drop **send rate** to 30 Hz in settings |
 
 ---
 
@@ -271,6 +233,15 @@ lumen pushes the current editor contents to `code_text` on every keystroke (debo
 - [CodeMirror 6](https://codemirror.net/) — code editor
 - [ws](https://github.com/websockets/ws) — WebSocket bridge (Node.js)
 - ArtNet 4 / sACN E1.31 — DMX protocol output
+
+---
+
+## Project
+
+- [CHANGELOG.md](CHANGELOG.md) — what landed in each release
+- [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup, fixture contributions, PR expectations
+- [SECURITY.md](SECURITY.md) — threat model, and why the eval and the bridge are unguarded on purpose
+- [fixtures/README.md](fixtures/README.md) — public fixture file format
 
 ---
 
