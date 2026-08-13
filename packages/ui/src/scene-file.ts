@@ -6,49 +6,51 @@
  * one machine, one cleared-cache away from gone. A file is the durable copy:
  * the user owns it, backs it up, emails it, keeps it next to the show.
  *
- * Wire format (a `.gobo` file is JSON):
- *   {
- *     "goboScene": 1,                          // schema version, bump if reshaped
- *     "name": "ultratronics 11",               // scene name, restored on open
- *     "code": "artnet('2.0.0.100')...",        // the entire editor buffer
- *     "savedAt": "2026-08-13T19:04:11.912Z"    // ISO 8601, informational only
- *   }
+ * A saved scene is the code and nothing else, written as a `.js` file.
  *
- * Versioned and envelope-shaped for the same reason the fixture export is
- * (see packages/core/src/fixture-library.ts): a file written today has to
- * still open in a build that has since grown per-scene BPM, tags, or a
- * fixture manifest, and a file from a *newer* build has to fail with an
- * explanation instead of loading half a scene.
+ * It used to be a JSON envelope carrying the name, the code and a timestamp.
+ * That was backwards for a tool whose whole premise is that a scene IS
+ * readable code: JSON escapes the source into a single unreadable line, so
+ * the file could not be read, edited, diffed or syntax-highlighted anywhere
+ * outside gobo. Everything the envelope carried has a better home — the name
+ * is the filename, the save time is the file's own mtime, and plain code has
+ * no format to version. `.js` rather than `.txt` because it IS JavaScript:
+ * editors highlight it, gists render it, formatters and diffs understand it.
  *
- * Opening is deliberately forgiving in one direction only. A `.js` or `.txt`
- * file with no envelope is accepted as raw code — people paste sets into
- * scratch files and expect to open them — but anything that claims to be an
- * envelope is held to the schema. The decision is made on CONTENT, not on the
- * extension, so a `.gobo` file someone renamed still opens and a `.js` file
- * that happens to contain a saved envelope still restores its name.
+ * Opening still accepts the old envelope so files written by the previous
+ * build keep working (see readLegacyEnvelope). The decision is made on
+ * CONTENT, not on the extension, so a `.gobo` file someone renamed still
+ * opens and a `.js` file that happens to hold an old envelope still restores
+ * its name. Anything else is raw code, named after the file it came from.
  */
 
-/** On-disk shape of a saved scene. */
-export interface SceneFile {
+/**
+ * On-disk shape of a scene saved by builds up to 0.2.0. READ ONLY — nothing
+ * here writes this shape any more; it exists so those files still open.
+ */
+export interface LegacySceneFile {
   goboScene: 1;
   name: string;
   code: string;
   savedAt: string;
 }
 
-/** Current schema version. Only files carrying exactly this open. */
-const SCENE_FILE_VERSION = 1;
+/** The only envelope version that ever shipped. */
+const LEGACY_SCENE_FILE_VERSION = 1;
 
-const FILE_EXTENSION = '.gobo';
+const FILE_EXTENSION = '.js';
 
-/** Extensions offered in the picker. `.js` / `.txt` are here because raw-code
- *  files are a supported input, not because we trust the extension. */
-const ACCEPTED_EXTENSIONS = '.gobo,.js,.txt';
+/** Extensions offered in the picker. `.gobo` is here for files written by the
+ *  old build; `.txt` because people paste sets into scratch files. None of
+ *  them are trusted — parseSceneText decides on content. */
+const ACCEPTED_EXTENSIONS = '.js,.txt,.gobo';
 
 /**
- * Extensions stripped when deriving a scene name from a filename. Kept to a
- * known list rather than "everything after the last dot" so a scene genuinely
- * called `ultratronics 11.2` keeps its name.
+ * Extensions stripped when deriving a scene name from a filename. Anchored to
+ * the end and matched once, so only the LAST one goes: `act 2.5 final.js`
+ * opens as `act 2.5 final`, not as `act 2`. Kept to a known list rather than
+ * "everything after the last dot" so a scene genuinely called
+ * `ultratronics 11.2` keeps its name even with no extension on the file.
  */
 const KNOWN_EXTENSIONS = /\.(gobo|js|mjs|txt|json)$/i;
 
@@ -76,18 +78,20 @@ const FALLBACK_SCENE_NAME = 'untitled';
 // ─── Save ────────────────────────────────────────────────────────────────────
 
 /**
- * Build a `.gobo` file from the buffer and hand it to the browser's
- * downloader. Fire-and-forget: there is no way to observe whether the user
- * kept the file, so callers should treat the call itself as the save point.
+ * Write the buffer to a `.js` file and hand it to the browser's downloader.
+ *
+ * The blob is the code verbatim — no envelope, no re-indentation, no trailing
+ * newline added. What the user sees in the editor is what lands in the file,
+ * byte for byte, because the file is the thing they will open in an editor
+ * next. `name` only decides what the file is called.
+ *
+ * Fire-and-forget: there is no way to observe whether the user kept the file,
+ * so callers should treat the call itself as the save point.
  */
 export function downloadScene(name: string, code: string): void {
-  const file: SceneFile = {
-    goboScene: SCENE_FILE_VERSION,
-    name: cleanSceneName(name) || FALLBACK_SCENE_NAME,
-    code,
-    savedAt: new Date().toISOString(),
-  };
-  const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+  // charset is spelled out because the code may carry non-ASCII (fixture
+  // labels, comments) and a downloaded file has no page encoding to inherit.
+  const blob = new Blob([code], { type: 'text/javascript;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -108,7 +112,15 @@ export function downloadScene(name: string, code: string): void {
  * codes, no trailing dot or space, not a reserved device name, and not
  * absurdly long. Falls back to a generic name when nothing usable survives.
  *
- * Exported for tests — the UI should call downloadScene().
+ * Now that the name lives ONLY in the filename, this function and
+ * sceneNameFromFilename() are a matched pair, and the property that matters
+ * is that they settle: sanitising can rename a scene once (`50/50` saves as
+ * `50 50.js` and reopens as `50 50`), but re-saving that reopened name
+ * produces the identical filename, so a name cannot drift a little further on
+ * every save/open cycle. Every rewrite here is one the user can see — it is in
+ * the filename they were just handed and in the topbar when they reopen it.
+ *
+ * Exported for tests, and for main.ts to tell the user which file it wrote.
  */
 export function sceneFilename(name: string): string {
   let base = stripControlChars(String(name ?? ''))
@@ -123,7 +135,7 @@ export function sceneFilename(name: string): string {
   // a truncation that lands on a dot is caught too.
   base = base.replace(/[. ]+$/, '');
 
-  // `con.gobo` is unopenable on Windows — the OS resolves it to the console
+  // `con.js` is unopenable on Windows — the OS resolves it to the console
   // device. Suffixing is friendlier than falling back to a generic name.
   if (RESERVED_FILENAMES.test(base)) base = `${base}-scene`;
 
@@ -142,22 +154,25 @@ export type ParsedScene =
  * Parse the text of an opened file. Never throws — every failure comes back
  * as `{ ok: false, reason }` with a sentence the UI can show verbatim.
  *
- * Accepts either a `.gobo` envelope or raw code, decided by content:
+ * Raw code is the normal path; the legacy envelope is still read. Decided by
+ * content, never by the extension:
  *
- *   - Parses as a JSON object carrying a `goboScene` key → treated as an
- *     envelope and validated. A wrong version or a missing/non-string `code`
- *     is an error, because the file is claiming to be something it isn't and
- *     silently loading it as source would drop a wall of JSON into the editor.
- *   - Anything else → the whole text is the code, and the name is derived
- *     from the filename. This includes JSON that is *not* an envelope: a
- *     scene is JavaScript, and `{ a: 1 }` is a legal (if dull) program.
+ *   - Parses as a JSON object carrying a `goboScene` key → an envelope from
+ *     an older build, validated before use. A wrong version or a
+ *     missing/non-string `code` is an error, because the file is claiming to
+ *     be something it isn't and silently loading it as source would drop a
+ *     wall of JSON into the editor.
+ *   - Anything else → the whole text is the code, and the name comes from the
+ *     filename minus its extension. This includes JSON that is *not* an
+ *     envelope: a scene is JavaScript, and `{ a: 1 }` is a legal (if dull)
+ *     program.
  */
 export function parseSceneText(text: string, filename: string): ParsedScene {
   if (typeof text !== 'string' || text.trim() === '') {
     return { ok: false, reason: 'That file is empty.' };
   }
 
-  const read = readEnvelope(text);
+  const read = readLegacyEnvelope(text);
   if (read.kind === 'invalid') return { ok: false, reason: read.reason };
   if (read.kind === 'envelope') {
     // A missing or non-string name is not worth rejecting the file over —
@@ -260,13 +275,14 @@ type EnvelopeRead =
   | { kind: 'invalid'; reason: string };
 
 /**
- * Decide whether `text` is a scene envelope, and validate it if so.
+ * Decide whether `text` is a legacy scene envelope, and validate it if so.
  *
- * `goboScene` is the marker: its presence means the file is claiming to be a
- * scene file, and from that point on a problem is an error rather than a
- * reason to fall back to treating the text as code.
+ * `goboScene` is the marker — presence of the KEY, not the extension, because
+ * a file written by the old build may have been renamed since. Once it is
+ * there the file is claiming to be a scene file, so a problem from that point
+ * on is an error rather than a reason to fall back to treating it as code.
  */
-function readEnvelope(text: string): EnvelopeRead {
+function readLegacyEnvelope(text: string): EnvelopeRead {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -280,13 +296,13 @@ function readEnvelope(text: string): EnvelopeRead {
   const env = parsed as Record<string, unknown>;
   if (!('goboScene' in env)) return { kind: 'not-envelope' }; // some other JSON
 
-  if (env.goboScene !== SCENE_FILE_VERSION) {
+  if (env.goboScene !== LEGACY_SCENE_FILE_VERSION) {
     return {
       kind: 'invalid',
       reason:
-        `This scene file is version ${describeVersion(env.goboScene)}, ` +
-        `but this build only reads version ${SCENE_FILE_VERSION}. ` +
-        'Update gobo, or open the file in a text editor and copy the code out.',
+        `This scene file says it is version ${describeVersion(env.goboScene)}, ` +
+        `but the only scene-file format gobo ever wrote was version ${LEGACY_SCENE_FILE_VERSION}. ` +
+        'Open it in a text editor and copy the code out.',
     };
   }
   if (typeof env.code !== 'string') {
@@ -336,7 +352,8 @@ function cleanSceneName(value: unknown): string {
 }
 
 /** Derive a scene name from the file's name: last path segment, known
- *  extension removed, normalised. */
+ *  extension removed, normalised. The inverse of sceneFilename() — see the
+ *  settling property documented there. */
 function sceneNameFromFilename(filename: string): string {
   const base = String(filename ?? '').split(/[\\/]/).pop() ?? '';
   return cleanSceneName(base.replace(KNOWN_EXTENSIONS, '')) || FALLBACK_SCENE_NAME;

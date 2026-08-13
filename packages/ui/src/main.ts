@@ -42,7 +42,7 @@ import {
   isUnsavedSinceFileSave, markSavedToFile,
   listLegacyScenes, legacyNoticeDismissed, dismissLegacyNotice,
 } from './buffer.js';
-import { downloadScene, openSceneFile } from './scene-file.js';
+import { downloadScene, openSceneFile, sceneFilename } from './scene-file.js';
 import { encodeShareLink, decodeShareFromLocation, clearShareFromLocation } from './share.js';
 import { EXAMPLES, type Example } from './examples.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
@@ -853,9 +853,10 @@ setInterval(() => {
  * A share link's name is attacker-controlled and otherwise unbounded, and
  * would happily be a megabyte of newlines.
  *
- * 80 is the same ceiling scene-file.ts puts on the name it writes into a
- * file, so what is in the bar is what lands in the envelope. (The filename
- * is trimmed further there — that is the filesystem's business, not ours.)
+ * 80 is the same ceiling scene-file.ts puts on a name it reads back out of a
+ * file, so a name that survives the bar survives a save/open round trip.
+ * (The filename is trimmed further there — that is the filesystem's business,
+ * not ours.)
  */
 const MAX_NAME_LEN = 80;
 
@@ -881,6 +882,21 @@ function normalizeSceneName(raw: string): string {
  *  one-line status message. */
 function short(name: string): string {
   return name.length > 32 ? `${name.slice(0, 31)}…` : name;
+}
+
+/**
+ * Shorten a filename for a status line WITHOUT losing its extension.
+ *
+ * The extension is the part that answers "what did save just write?", so the
+ * ellipsis eats the middle of the name rather than the tail of the string —
+ * `short()` on a long name would leave a status line that never says `.js`.
+ */
+function shortFilename(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  // dot > 0, not >= 0: a leading dot is part of the name, not an extension.
+  if (dot <= 0) return short(filename);
+  const base = filename.slice(0, dot);
+  return base.length > 31 ? `${base.slice(0, 30)}…${filename.slice(dot)}` : filename;
 }
 
 /** Write the stored name into the top bar. textContent, never innerHTML —
@@ -995,7 +1011,11 @@ function handleSaveToFile(): void {
   markSavedToFile();
   _dirtySinceFileSave = false;
   refreshDirtyDot();
-  setStatus('ok', `saved "${short(name)}" to your downloads`);
+  // Names the actual file rather than the scene: the sanitiser may have
+  // rewritten the name to something the filesystem accepts ("50/50" lands as
+  // "50 50.js"), and that is exactly what the user will be looking for in
+  // their downloads folder — and what the name will be when they reopen it.
+  setStatus('ok', `saved ${shortFilename(sceneFilename(name))} to your downloads`);
 }
 
 sceneSaveEl.addEventListener('click', handleSaveToFile);
@@ -1226,7 +1246,7 @@ function mountLegacyNotice(): void {
     btn.textContent = 'download';
     btn.addEventListener('click', () => {
       downloadScene(scene.name, scene.code);
-      setStatus('ok', `downloaded "${short(scene.name)}"`);
+      setStatus('ok', `downloaded ${shortFilename(sceneFilename(scene.name))}`);
     });
 
     row.append(name, size, btn);
@@ -1241,7 +1261,7 @@ function mountLegacyNotice(): void {
     scenes.forEach((scene, i) => {
       setTimeout(() => downloadScene(scene.name, scene.code), i * 400);
     });
-    setStatus('ok', `downloading ${scenes.length} old scene${scenes.length === 1 ? '' : 's'} — your browser may ask to allow multiple files`);
+    setStatus('ok', `downloading ${scenes.length} old scene${scenes.length === 1 ? '' : 's'} as .js files — your browser may ask to allow multiple files`);
   });
 
   legacyCloseEl.addEventListener('click', closeLegacyNotice);
