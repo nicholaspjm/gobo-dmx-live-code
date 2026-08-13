@@ -15,14 +15,15 @@
  * process.
  */
 
-import { createServer } from 'http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createSocket, Socket } from 'dgram';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync, statSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
 import { networkInterfaces } from 'os';
+import { spawn } from 'child_process';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -708,7 +709,64 @@ function handleDmxMessage(universes: Record<string, number[]>): void {
 
 // ─── WebSocket server ─────────────────────────────────────────────────────────
 
-const httpServer = createServer((_req, res) => {
+/**
+ * Optional: serve the built UI from this same server.
+ *
+ * A browser cannot open a UDP socket, so a native process has to exist for
+ * Art-Net to reach a rig at all. Serving the app from the bridge means that
+ * process is the only thing to start, and the page's WebSocket is same-origin
+ * rather than a second port to get wrong. Passed as `--ui <dir>`; without it
+ * the bridge behaves exactly as before.
+ */
+const uiDirArg = process.argv.indexOf('--ui');
+const UI_DIR = uiDirArg !== -1 && process.argv[uiDirArg + 1]
+  ? resolve(process.argv[uiDirArg + 1])
+  : null;
+
+const CONTENT_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.map': 'application/json; charset=utf-8',
+};
+
+function serveUi(req: IncomingMessage, res: ServerResponse): void {
+  const root = UI_DIR as string;
+  const urlPath = decodeURIComponent((req.url ?? '/').split('?')[0]);
+  // Resolve inside the root and verify it stayed there. Local-only is not a
+  // reason to serve arbitrary files off the disk.
+  const candidate = resolve(root, '.' + (urlPath === '/' ? '/index.html' : urlPath));
+  const target = candidate.startsWith(root) && existsSync(candidate) && statSync(candidate).isFile()
+    ? candidate
+    : resolve(root, 'index.html'); // single page app, unknown paths get the shell
+
+  try {
+    const body = readFileSync(target);
+    const ext = target.slice(target.lastIndexOf('.'));
+    res.writeHead(200, {
+      'Content-Type': CONTENT_TYPES[ext] ?? 'application/octet-stream',
+      'Cache-Control': 'no-cache',
+    });
+    res.end(body);
+  } catch {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('not found');
+  }
+}
+
+const httpServer = createServer((req, res) => {
+  if (UI_DIR) {
+    serveUi(req, res);
+    return;
+  }
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('gobo bridge running');
 });
@@ -775,4 +833,26 @@ httpServer.listen(PORT, () => {
   listening = true;
   console.log(`[bridge] WebSocket server on ws://localhost:${PORT}`);
   console.log(`[bridge] output: ${describeOutput()}`);
+  warnIfSendingToSelf();
+
+  if (UI_DIR) {
+    const url = `http://localhost:${PORT}`;
+    console.log(`[bridge] serving the app from ${UI_DIR}`);
+    console.log(`[bridge] open ${url}`);
+    if (process.argv.includes('--open')) openBrowser(url);
+  }
 });
+
+/** Open the default browser. Best effort: a failure here is not worth exiting
+ *  over, since the URL has already been printed. */
+function openBrowser(url: string): void {
+  const cmd = process.platform === 'win32' ? 'cmd'
+    : process.platform === 'darwin' ? 'open'
+    : 'xdg-open';
+  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
+  try {
+    spawn(cmd, args, { detached: true, stdio: 'ignore' }).unref();
+  } catch (err) {
+    console.warn(`[bridge] could not open a browser: ${(err as Error).message}`);
+  }
+}

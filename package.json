@@ -6,6 +6,7 @@
     "packages/*"
   ],
   "scripts": {
+    "start": "node scripts/start.mjs",
     "dev": "concurrently \"npm:dev:*\"",
     "dev:bridge": "npm run dev --workspace=packages/bridge",
     "dev:ui": "npm run dev --workspace=packages/ui",
@@ -14,9 +15,9 @@
     "bridge:build": "npm run build --workspace=packages/bridge",
     "bridge:start": "npm run start --workspace=packages/bridge",
     "bridge:selftest": "node scripts/bridge-selftest.mjs",
+    "doctor": "node scripts/doctor.mjs",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "doctor": "node scripts/doctor.mjs"
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "concurrently": "^8.2.0",
