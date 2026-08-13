@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * DMX wire-path self test — proves packets actually leave this machine.
+ * DMX wire-path self test: checks that packets leave this machine.
  *
- * Sends a short ramp/hold/fade test sequence straight out of a UDP socket
- * as Art-Net or sACN, bypassing the browser, the UI and the bridge's
- * WebSocket layer entirely. If a fixture responds to this, the network
- * side is fine and any remaining problem is upstream in the app.
+ * Sends a ramp/hold/fade test sequence straight out of a UDP socket as
+ * Art-Net or sACN, bypassing the browser, the UI and the bridge's WebSocket
+ * layer. If a fixture responds to this, the network side is fine and any
+ * remaining problem is upstream in the app.
  *
- * The packet builders below are a byte-for-byte reimplementation of the
- * ones in packages/bridge/src/index.ts. They are duplicated rather than
- * imported so this script stays zero-dependency and needs no build step —
- * if you change the wire format there, change it here too.
+ * The packet builders below are a byte-for-byte reimplementation of the ones
+ * in packages/bridge/src/index.ts, duplicated rather than imported so this
+ * script stays zero-dependency and needs no build step. Change the wire
+ * format there and you must change it here too.
  *
  *   node scripts/bridge-selftest.mjs --help
  */
@@ -21,7 +21,7 @@ import { randomBytes } from 'node:crypto';
 // ─── CLI ─────────────────────────────────────────────────────────────────────
 
 const USAGE = `
-gobo bridge self test — send a DMX test sequence directly to the wire.
+gobo bridge self test: send a DMX test sequence directly to the wire.
 
   node scripts/bridge-selftest.mjs [options]
 
@@ -134,8 +134,8 @@ const opts = parseArgs(process.argv.slice(2));
  *   10..11 ProtVer 14, high byte first
  *   12     Sequence (0 = receiver does not enforce ordering)
  *   13     Physical
- *   14     SubUni — low byte of the universe address
- *   15     Net    — upper 7 bits
+ *   14     SubUni: low byte of the universe address
+ *   15     Net:    upper 7 bits
  *   16..17 Length, high byte first
  *   18..   DMX data (start code is implicit 0 and not transmitted)
  */
@@ -177,7 +177,7 @@ function buildSACNPacket(universe, data, priority) {
   buf.writeUInt16BE(0x0000, 2);              // postamble size
   ACN_IDENT.copy(buf, 4);                    // ACN packet identifier [4-15]
   buf.writeUInt16BE(0x7000 | (TOTAL - 16), 16);
-  buf.writeUInt32BE(0x00000004, 18);         // root vector — E1.31 data
+  buf.writeUInt32BE(0x00000004, 18);         // root vector: E1.31 data
   SACN_CID.copy(buf, 22);                    // CID [22-37]
 
   // Framing layer
@@ -197,7 +197,7 @@ function buildSACNPacket(universe, data, priority) {
   buf[118] = 0xa1;                           // address + data type
   buf.writeUInt16BE(0x0000, 119);            // first property address
   buf.writeUInt16BE(0x0001, 121);            // address increment
-  buf.writeUInt16BE(513, 123);               // property count — start code + 512
+  buf.writeUInt16BE(513, 123);               // property count: start code + 512
   buf[125] = 0x00;                           // DMX start code
 
   for (let i = 0; i < 512; i++) buf[126 + i] = data[i] ?? 0;
@@ -252,11 +252,11 @@ function explain(err) {
     case 'EPERM':
       return isBroadcast
         ? 'the OS refused the broadcast send. a firewall or security policy is\n' +
-          'blocking UDP broadcast — try a direct node address with --host <ip>.'
+          'blocking UDP broadcast. try a direct node address with --host <ip>.'
         : 'the OS refused the send. check firewall rules for outbound UDP on\n' +
           `port ${opts.mode === 'sacn' ? SACN_PORT : opts.port}.`;
     case 'EADDRINUSE':
-      return 'the local UDP port is already taken — another lighting app or a\n' +
+      return 'the local UDP port is already taken. another lighting app or a\n' +
         'running bridge probably holds it. close it and try again.';
     case 'ENETUNREACH':
     case 'EHOSTUNREACH':
@@ -266,9 +266,9 @@ function explain(err) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
       return `"${opts.host}" could not be resolved. pass a literal IP address to\n` +
-        '--host — Art-Net nodes rarely have DNS names.';
+        '--host. Art-Net nodes rarely have DNS names.';
     case 'EADDRNOTAVAIL':
-      return 'the local address is not available on any interface — the network\n' +
+      return 'the local address is not available on any interface. the network\n' +
         'you were bound to may have gone away.';
     case 'ERR_SOCKET_DGRAM_NOT_RUNNING':
       return 'the socket closed before the frame was sent.';
@@ -279,7 +279,7 @@ function explain(err) {
 
 function abort(err) {
   console.error('');
-  console.error(`failed — ${err?.code ? `${err.code}: ` : ''}${err?.message ?? err}`);
+  console.error(`failed, ${err?.code ? `${err.code}: ` : ''}${err?.message ?? err}`);
   console.error(explain(err));
   try {
     socket.close();
@@ -331,10 +331,10 @@ function finish() {
     socket.close(() => {
       console.log('');
       console.log(
-        `done — sent ${frames} frames in ${elapsed.toFixed(1)}s ` +
+        `done: sent ${frames} frames in ${elapsed.toFixed(1)}s ` +
         `(${(frames / elapsed).toFixed(1)} fps), final blackout frame sent`,
       );
-      console.log(`packets left this machine for ${target} — the send path works.`);
+      console.log(`packets left this machine for ${target}. The send path works.`);
       process.exit(0);
     });
   });
@@ -367,8 +367,8 @@ function tick() {
   timer = setTimeout(tick, Math.max(0, nextFrameAt - Date.now()));
 }
 
-// Bind before sending so setBroadcast can be applied — without it a send to
-// 255.255.255.255 is dropped by the OS on most systems, silently.
+// Bind before sending so setBroadcast can be applied. Without it, a send to
+// 255.255.255.255 is silently dropped by the OS on most systems.
 socket.bind(() => {
   try {
     socket.setBroadcast(true);
@@ -386,7 +386,7 @@ socket.bind(() => {
 process.on('SIGINT', () => {
   if (timer) clearTimeout(timer);
   console.log('');
-  console.log('interrupted — sending blackout frame');
+  console.log('interrupted, sending blackout frame');
   try {
     sendFrame(0, () => socket.close(() => process.exit(130)));
   } catch {

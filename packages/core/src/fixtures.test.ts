@@ -4,10 +4,9 @@
  * Addressing mistakes are the most common patching error in lighting, and
  * they used to fail silently: a fixture patched near the top of a universe
  * lost its overflow channels, and a start channel below 1 wrote to the
- * wrong place. Both look like broken hardware on stage, so these tests pin
- * the loud behaviour — the same throw-with-the-address contract rgbStrip /
- * rgbwStrip have always had — and, just as importantly, pin that a rejected
- * patch writes nothing and registers nothing.
+ * wrong place. Both look like broken hardware, so these tests pin the
+ * throw-with-the-address contract rgbStrip / rgbwStrip already had, and pin
+ * that a rejected patch writes nothing and registers nothing.
  *
  * Channel-mapping behaviour for valid patches lives in dmx.test.ts.
  */
@@ -45,14 +44,14 @@ describe('fixture() start-channel range', () => {
 
   it('throws when the fixture would run past channel 512', () => {
     expect(() => fixture(506, 'moving-head-basic')).toThrow(
-      /would run to channel 513 — exceeds 512 by 1/,
+      /would run to channel 513, which exceeds 512 by 1/,
     );
   });
 
   it('names the fixture, its address, and the overrun in the message', () => {
     // 12-channel spot at 510 → runs to 521, i.e. 9 channels of overflow.
     expect(() => fixture(510, 'moving-head-spot')).toThrow(
-      /"moving-head-spot" \(12 channels\) starting at 510 would run to channel 521 — exceeds 512 by 9/,
+      /"moving-head-spot" \(12 channels\) starting at 510 would run to channel 521, which exceeds 512 by 9/,
     );
   });
 
@@ -62,7 +61,7 @@ describe('fixture() start-channel range', () => {
 
   it('rejects an overrunning patch outright instead of clamping it', () => {
     // The old behaviour wrote the channels that fit and dropped the rest,
-    // which is exactly the failure mode this guard exists to kill.
+    // which is the failure mode this guard exists to kill.
     expect(() => fixture(511, 'rgbw')).toThrow();
     tick(0);
 
@@ -131,7 +130,7 @@ describe('fixture() universe argument', () => {
 describe('fixture() patch failures', () => {
   it('leaves already-patched output untouched when a later patch is rejected', () => {
     // The throw propagates to evalCode(), which reports it in the error
-    // banner — but it must not corrupt the channels the scene already set.
+    // banner. It must not corrupt the channels the scene already set.
     ch(1, 1);
     expect(() => fixture(600, 'rgb')).toThrow();
     tick(0);

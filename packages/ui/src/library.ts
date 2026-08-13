@@ -1,13 +1,13 @@
 /**
- * Fixture library panel — UI over the core fixture-library storage.
+ * Fixture library panel: UI over the core fixture-library storage.
  *
  * Lists every saved fixture with export / delete controls, plus any
  * session-only custom fixtures (declared via `defineFixture` in the
  * user's code but not yet saved) so the user can promote them into
  * persistent storage. Also hosts the "import from file" flow.
  *
- * Everything lives under a sliding side-panel keyed off a topbar button,
- * mirroring the docs panel's UX.
+ * It sits in a sliding side-panel keyed off a topbar button, mirroring
+ * the docs panel.
  */
 
 import {
@@ -28,10 +28,10 @@ import { getPublicFixtures } from './public-fixtures.js';
  *  is a one-line change. */
 const PUBLIC_REPO_SLUG = 'nicholaspjm/gobo-dmx-live-code';
 
-/** Mount the library panel inside the page. The caller is responsible for
- *  the toggle button visibility — we just wire its click handler. The
- *  optional `onOpen` callback is invoked when the panel becomes visible,
- *  letting the host close other sliding panels for mutual exclusion. */
+/** Mount the library panel inside the page. The caller owns the toggle
+ *  button's visibility; this only wires its click handler. The optional
+ *  `onOpen` callback fires when the panel becomes visible, letting the
+ *  host close other sliding panels for mutual exclusion. */
 export function mountLibraryPanel(opts: {
   panelEl: HTMLElement;
   bodyEl: HTMLElement;
@@ -59,8 +59,8 @@ export function mountLibraryPanel(opts: {
     if (e.key === 'Escape' && panelEl.classList.contains('open')) setOpen(false);
   });
 
-  // Body-level click delegation — buttons are rebuilt on every refresh, so
-  // we read the action off the clicked element's data attributes.
+  // Body-level click delegation. Buttons are rebuilt on every refresh, so
+  // the action is read off the clicked element's data attributes.
   bodyEl.addEventListener('click', (ev) => {
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-lib-action]');
     if (!btn) return;
@@ -134,16 +134,16 @@ export function mountLibraryPanel(opts: {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    // Defer revoke to next tick so the download actually starts.
+    // Defer the revoke so the download has time to start.
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   /**
    * Open a GitHub pre-filled new-file page so the user can propose this
    * fixture as a PR to the public library. GitHub's web UI accepts
-   * `filename` + `value` query params on /new routes — it lands the user
-   * on a "create new file in fork" page with everything filled in. They
-   * click "propose change" and the PR is open.
+   * `filename` and `value` query params on /new routes, which lands the
+   * user on a "create new file in fork" page with everything filled in.
+   * They click "propose change" and the PR is open.
    */
   function handleShare(id: string): void {
     const def = findDef(id);
@@ -153,7 +153,7 @@ export function mountLibraryPanel(opts: {
     const confirmed = confirm(
       `Propose "${id}" for the public library?\n\n` +
       `A new tab will open on GitHub with the fixture pre-filled into fixtures/${id}.json. ` +
-      `You'll click "Propose change" — GitHub forks the repo for you and opens a pull request. ` +
+      `You'll click "Propose change"; GitHub forks the repo for you and opens a pull request. ` +
       `Once reviewed and merged, the fixture ships to everyone using gobo.`,
     );
     if (!confirmed) return;
@@ -210,14 +210,15 @@ export function mountLibraryPanel(opts: {
   function renderRow(entry: { id: string; def: FixtureDef }, tier: RowTier): string {
     const idAttr = escapeAttr(entry.id);
     // Action buttons differ per tier:
-    //   builtin — shipped with the core, always present, view-only.
-    //   public  — community-contributed, already usable in code, can export.
-    //   saved   — user-pinned locally, can export / share / delete.
-    //   session — defined in current code but not yet pinned, can save / export / share.
+    //   builtin  shipped with the core, always present, view-only.
+    //   public   community-contributed, already usable in code, can export.
+    //   saved    user-pinned locally, can export / share / delete.
+    //   session  defined in current code but not yet pinned, can save /
+    //            export / share.
     let actions = '';
     if (tier === 'builtin') {
-      // No actions — built-ins are part of the core and can't be edited
-      // or removed. Listed so users can see what's available.
+      // No actions. Built-ins are part of the core and can't be edited or
+      // removed. Listed so users can see what's available.
       actions = '';
     } else if (tier === 'public') {
       actions = `
@@ -252,8 +253,8 @@ export function mountLibraryPanel(opts: {
       </div>`;
   }
 
-  /** Comma-joined channel names — gives users a quick read of what
-   *  setters / generics will be available on a fixture instance. */
+  /** Comma-joined channel names, so users can see which setters and
+   *  generics will be available on a fixture instance. */
   function channelNamesSummary(def: FixtureDef): string {
     return def.channels.map((c) => c.name).join(', ');
   }
@@ -261,17 +262,16 @@ export function mountLibraryPanel(opts: {
   function refresh(): void {
     const publicFixtures = getPublicFixtures();
     const saved = getLibraryFixtures();
-    // Built-ins straight from the core registry. Filter out any session
-    // entries that shadow a built-in (defineFixture('rgbw', …)) — those
-    // surface in the session block instead.
+    // Built-ins straight from the core registry. Session entries that
+    // shadow a built-in (defineFixture('rgbw', …)) are filtered out here
+    // and surface in the session block instead.
     const builtIns = Object.entries(BUILT_IN_FIXTURES)
       .map(([id, def]) => ({ id, def }))
       .sort((a, b) => a.id.localeCompare(b.id));
     const runtime = Object.entries(getCustomFixtures())
       .map(([id, def]) => ({ id, def }))
-      // Don't surface session entries that also happen to be in the library
-      // or already shipped in the public bundle — would just be confusing
-      // duplicates.
+      // Session entries already in the library or in the public bundle
+      // would show up twice, so drop them here.
       .filter((e) =>
         !isInLibrary(e.id) &&
         !publicFixtures.some((p) => p.id === e.id) &&
@@ -287,7 +287,7 @@ export function mountLibraryPanel(opts: {
 
     const savedBlock = saved.length
       ? saved.map((e) => renderRow(e, 'saved')).join('')
-      : `<div class="lib-empty">Nothing pinned locally yet — save a session fixture or import one.</div>`;
+      : `<div class="lib-empty">Nothing pinned locally yet. Save a session fixture or import one.</div>`;
 
     const runtimeBlock = runtime.length
       ? `<h3 class="lib-heading">Defined this session</h3>${runtime.map((e) => renderRow(e, 'session')).join('')}`
@@ -308,7 +308,7 @@ export function mountLibraryPanel(opts: {
       ${publicBlock}
 
       <h3 class="lib-heading">Your library</h3>
-      <p class="lib-note">Pinned to this browser — auto-restored on reload.</p>
+      <p class="lib-note">Pinned to this browser. Restored on reload.</p>
       ${savedBlock}
 
       ${runtimeBlock}

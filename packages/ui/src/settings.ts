@@ -1,11 +1,10 @@
 /**
- * User settings panel — small, durable preferences persisted in
- * localStorage. Mounted as a sliding side-panel mirroring the docs /
- * library panels.
+ * User settings panel: small preferences persisted in localStorage.
+ * Mounted as a sliding side-panel mirroring the docs / library panels.
  *
  * Each setting has:
  *   - a stable key in the persisted JSON blob
- *   - a default value applied on first run + when "reset" is clicked
+ *   - a default value applied on first run and when "reset" is clicked
  *   - a UI control (toggle or select)
  *   - (optional) an onChange callback the host wires in
  *
@@ -31,9 +30,9 @@ migrateLegacyKey(STORAGE_KEY, 'lumen-settings-v1');
  *               hardware hold their colour until the next eval. */
 export type StopAction = 'blackout' | 'freeze';
 
-/** Maximum send rate to the bridge in Hz. Higher = smoother, more network
- *  traffic. 60 is a safe default; 30 saves bandwidth for wireless rigs;
- *  120 is for local rigs running at high refresh. */
+/** Maximum send rate to the bridge in Hz. Higher is smoother and uses
+ *  more network traffic. 60 is the default, 30 saves bandwidth on
+ *  wireless rigs, 120 suits local rigs running at high refresh. */
 export type SendRate = 30 | 60 | 120;
 
 export interface Settings {
@@ -50,11 +49,11 @@ export interface Settings {
   /** Maximum send rate to the bridge, in Hz. Default 60. */
   sendRate: SendRate;
   /** Active colour theme. Default 'tungsten' (the original warm-brown,
-   *  formerly stored as 'ember' — see resolveThemeId()). */
+   *  formerly stored as 'ember'; see resolveThemeId()). */
   theme: ThemeId;
   /** Format the editor buffer with prettier every time the code runs
-   *  (Ctrl+Enter). Off by default — opt-in because rewriting the doc
-   *  mid-performance changes the cursor anchor and can be jarring. */
+   *  (Ctrl+Enter). Off by default, because rewriting the doc
+   *  mid-performance moves the cursor anchor. */
   formatOnRun: boolean;
 }
 
@@ -78,8 +77,8 @@ function readRaw(): Partial<Settings> {
     const parsed = JSON.parse(raw) as unknown;
     if (parsed && typeof parsed === 'object') return parsed as Partial<Settings>;
   } catch {
-    // Corrupt blob — fall through to defaults so a broken localStorage
-    // entry can't brick the page. Next write fixes it.
+    // Corrupt blob. Fall through to defaults so a broken localStorage
+    // entry can't brick the page. The next write fixes it.
   }
   return {};
 }
@@ -93,11 +92,9 @@ function writeRaw(s: Settings): void {
  *
  * The theme ids were renamed (ember → tungsten, slate → moonbox, and so
  * on). The stored value is whatever id was current when the user picked
- * it, so for anyone who chose a theme before the rename it is now a
- * legacy id. applyTheme() falls back to the default for an id it does
- * not know, which means without this the rename would quietly undo a
- * preference the user set deliberately — the app would come up in the
- * default palette and nothing would explain why.
+ * it, so anyone who chose a theme before the rename has a legacy id.
+ * applyTheme() falls back to the default for an id it does not know, so
+ * without this the rename would silently reset their choice.
  *
  * Returns null for a value that is neither current nor legacy (a hand-
  * edited or corrupt blob), so the caller can fall back to the default.
@@ -110,7 +107,7 @@ function resolveThemeId(stored: unknown): ThemeId | null {
   return LEGACY_THEME_IDS[stored] ?? null;
 }
 
-/** Merge persisted values over defaults — unknown keys are dropped and
+/** Merge persisted values over defaults. Unknown keys are dropped and
  *  missing ones inherit defaults. Cached for fast repeat reads. */
 export function getSettings(): Settings {
   if (_cached) return _cached;
@@ -120,10 +117,10 @@ export function getSettings(): Settings {
   _cached = merged;
   // Write the adopted id straight back. Settings are otherwise only
   // persisted when the user changes one, so a legacy id would sit in
-  // storage indefinitely — and the moment LEGACY_THEME_IDS is retired,
-  // the choice it stands for is lost. Rewriting on first read makes the
-  // adoption permanent while the map is still here. Guarded on an actual
-  // change so a first run (no stored theme at all) doesn't write.
+  // storage indefinitely and be lost the moment LEGACY_THEME_IDS is
+  // retired. Rewriting on first read makes the adoption permanent while
+  // the map is still here. Guarded on an actual change so a first run
+  // (no stored theme at all) doesn't write.
   if (raw.theme !== undefined && raw.theme !== merged.theme) writeRaw(merged);
   return _cached;
 }
@@ -156,7 +153,7 @@ export function mountSettingsPanel(opts: {
   bodyEl: HTMLElement;
   toggleEl: HTMLButtonElement;
   closeEl: HTMLButtonElement;
-  /** Called whenever the user opens the panel — host uses this to
+  /** Called whenever the user opens the panel. The host uses this to
    *  close the other sliding panels for mutual exclusion. */
   onOpen?: () => void;
 }): { setOpen: (open: boolean) => void; isOpen: () => boolean } {
@@ -181,8 +178,8 @@ export function mountSettingsPanel(opts: {
 
   function render(): void {
     const s = getSettings();
-    // Each section is a definition list-shaped row: label + control + hint.
-    // No frameworks — vanilla string template + a couple delegated listeners.
+    // Each section is a definition list-shaped row: label, control, hint.
+    // A string template plus a couple of delegated listeners, no framework.
     bodyEl.innerHTML = `
       <div class="settings-list">
         ${row({
@@ -241,8 +238,8 @@ export function mountSettingsPanel(opts: {
     `;
   }
 
-  // Delegated change/click handlers — simpler than attaching to each control
-  // and survives the innerHTML rebuild on every render().
+  // Delegated change/click handlers. Simpler than attaching to each
+  // control, and they survive the innerHTML rebuild in render().
   bodyEl.addEventListener('change', (ev) => {
     const t = ev.target as HTMLElement;
     const key = t.dataset.settingKey as keyof Settings | undefined;

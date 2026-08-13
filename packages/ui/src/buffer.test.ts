@@ -15,9 +15,8 @@
  *      cases: no reference point recorded, and an edit undone by hand.
  *
  * The suite runs in the default node environment, so localStorage is
- * stubbed below — buffer.ts touches storage only inside its functions,
- * never at module load, which is what makes the stub-then-import order
- * safe here.
+ * stubbed below. buffer.ts touches storage only inside its functions, never
+ * at module load, which is what makes the stub-then-import order safe.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -39,7 +38,7 @@ import { EXAMPLES } from './examples.js';
 // ─── localStorage stub ───────────────────────────────────────────────────────
 
 /** Minimal Storage implementation. `failWrites` simulates an exhausted
- *  quota / private mode, which browsers signal by throwing from setItem. */
+ *  quota or private mode, which browsers signal by throwing from setItem. */
 class MemoryStorage {
   private map = new Map<string, string>();
   failWrites = false;
@@ -206,8 +205,8 @@ describe('isUnsavedSinceFileSave', () => {
     saveBuffer('work in progress');
     store.failWrites = true;
     markSavedToFile();
-    // The download may have succeeded, but we could not record it — so we
-    // keep prompting rather than risk discarding the buffer.
+    // The download may have succeeded, but the reference was not recorded,
+    // so keep prompting rather than risk discarding the buffer.
     expect(isUnsavedSinceFileSave()).toBe(true);
   });
 });
@@ -248,7 +247,7 @@ describe('legacy scenes', () => {
 
   it('reads the pre-rename key when the renamed one is absent', () => {
     // Nothing copies lumen-* forward once scenes.ts is gone, so the old
-    // name has to be readable directly — still without writing it.
+    // name has to be readable directly, still without writing it.
     store.setItem('lumen-scenes-v1', JSON.stringify({ 'old set': '// old\n' }));
     expect(listLegacyScenes()).toEqual([{ name: 'old set', code: '// old\n' }]);
     expect(store.getItem(SCENES_KEY)).toBeNull();
@@ -307,8 +306,8 @@ describe('legacy scenes', () => {
     for (const bad of ['not json at all', '{"unclosed": ', '[1,2,3]', 'null', '42', '"a string"']) {
       seedLegacy(bad);
       expect(listLegacyScenes()).toEqual([]);
-      // The corrupt value is still the user's data — leave it for a
-      // future build (or the user) to recover.
+      // The corrupt value is still the user's data. Leave it for a future
+      // build (or the user) to recover.
       expectLegacyUntouched(bad);
     }
   });

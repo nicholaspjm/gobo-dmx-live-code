@@ -6,9 +6,8 @@
  * input, the zero-and-rebuild-per-tick model, the staged scene swap that
  * makes an eval all-or-nothing, and the per-def guard that keeps a pattern
  * throwing at query time from taking the whole frame down with it. Fixture
- * channel mapping is tested here too —
- * fixtures are just a naming layer over uni(), and the offset arithmetic is
- * where addressing bugs hide.
+ * channel mapping is tested here too: fixtures are a naming layer over uni(),
+ * and the offset arithmetic is where addressing bugs hide.
  *
  * No strudel dependency: patterns are stubbed as `{ queryArc() }`, which is
  * the entire surface dmx.ts touches, and the eval tests drive scenes made of
@@ -41,7 +40,7 @@ import { fixture, type FixtureInstance } from './fixtures.js';
 
 // eval.ts reaches websocket.ts, which resolves the bridge host from
 // `window.location` at module-load time. These tests run headless, so give it
-// the one property it reads before the module graph is pulled in — hence the
+// the one property it reads before the module graph is pulled in, hence the
 // dynamic import rather than a static one at the top of the file.
 const g = globalThis as { window?: { location: { hostname: string } } };
 if (g.window === undefined) g.window = { location: { hostname: 'localhost' } };
@@ -49,7 +48,7 @@ const { evalCode } = await import('./eval.js');
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-/** Minimal strudel-shaped pattern — dmx.ts only ever calls queryArc(). */
+/** Minimal strudel-shaped pattern; dmx.ts only ever calls queryArc(). */
 function stubPattern(value: unknown, calls?: Array<[number, number]>): PatternLike {
   return {
     queryArc(begin: number, end: number) {
@@ -62,8 +61,8 @@ function stubPattern(value: unknown, calls?: Array<[number, number]>): PatternLi
 /** A pattern that yields nothing for the queried arc (a rest / gap). */
 const silentPattern: PatternLike = { queryArc: () => [] };
 
-/** A pattern that throws when queried — i.e. user code that only fails at
- *  tick time, long after the eval that installed it reported success. */
+/** A pattern that throws when queried: user code that only fails at tick
+ *  time, long after the eval that installed it reported success. */
 function throwingPattern(message = 'pattern exploded'): PatternLike {
   return {
     queryArc() {
@@ -72,12 +71,12 @@ function throwingPattern(message = 'pattern exploded'): PatternLike {
   };
 }
 
-/** Escape hatch for the invalid-input tests — these values are off-contract. */
+/** Escape hatch for the invalid-input tests; these values are off-contract. */
 const bad = (v: unknown): PatternOrValue => v as PatternOrValue;
 
 /**
  * Named channel accessors (`par.red(v)`) hang off the fixture's index
- * signature, which is typed `unknown` — narrow one back to a callable.
+ * signature, which is typed `unknown`, so narrow one back to a callable.
  */
 function setter(inst: FixtureInstance, name: string): (v: PatternOrValue) => void {
   return inst[name] as (v: PatternOrValue) => void;
@@ -93,7 +92,7 @@ function nonZeroIndices(buf: Uint8Array): number[] {
 }
 
 // dmx.ts holds module-level state, so every test starts from a clean slate.
-// clearDefs() only drops definitions — buffers are zeroed here explicitly
+// clearDefs() only drops definitions; buffers are zeroed here explicitly
 // because nothing but a tick (or a deliberate blackout) darkens them now.
 beforeEach(() => {
   abortStaging();
@@ -114,14 +113,14 @@ describe('value scaling', () => {
     expect(buf[1]).toBe(255);
   });
 
-  it('maps 0.5 → 128 — the scale ROUNDS, it does not floor', () => {
+  it('maps 0.5 → 128: the scale ROUNDS, it does not floor', () => {
     uni(1, 1, 0.5);
     uni(1, 2, 0.25);
     tick(0);
 
     const buf = getUniverseBuffer(1);
     // Math.round(0.5 * 255) === Math.round(127.5) === 128.
-    // Flooring would give 127 here and 63 for 0.25 — it does neither.
+    // Flooring would give 127 here and 63 for 0.25; it does neither.
     expect(buf[0]).toBe(128);
     expect(buf[1]).toBe(64);
   });
@@ -142,7 +141,7 @@ describe('value scaling', () => {
   it('resolves the ambiguous value 1 as full, not as raw DMX 1', () => {
     // 1 sits on the boundary of both ranges and the float branch wins
     // (`v > 1` is false). There is no way to express raw DMX 1 as a number
-    // literal — 1.5 is the nearest raw value that survives, and it lands at 2.
+    // literal: 1.5 is the nearest raw value that survives, and it lands at 2.
     uni(1, 1, 1);
     uni(1, 2, 1.5);
     tick(0);
@@ -169,7 +168,7 @@ describe('clamping', () => {
 
   it('clamps over-range numbers to 255 rather than wrapping', () => {
     // A raw value over 255 divides to > 1 and is then clamped. Note this
-    // means the clamp only bites above 255 — 2 is "raw DMX 2", not "200%".
+    // means the clamp only bites above 255: 2 is "raw DMX 2", not "200%".
     uni(1, 1, 300);
     uni(1, 2, 1e9);
     uni(1, 3, Infinity);
@@ -184,8 +183,8 @@ describe('clamping', () => {
   });
 
   it('clamps pattern values, which are NOT rescaled like raw numbers', () => {
-    // Asymmetry worth knowing: the number 2 means raw DMX 2, but a pattern
-    // yielding 2 is an over-range float and clamps to full.
+    // The number 2 means raw DMX 2, but a pattern yielding 2 is an over-range
+    // float and clamps to full.
     uni(1, 1, stubPattern(2));
     uni(1, 2, stubPattern(-1));
     tick(0);
@@ -208,7 +207,7 @@ describe('invalid values', () => {
     uni(1, 6, bad([1, 2, 3]));
     tick(0);
 
-    // Nothing throws and nothing is left dirty — a bad value reads as "off".
+    // Nothing throws and nothing is left dirty; a bad value reads as "off".
     // (NaN survives to the buffer write and Uint8Array coerces it to 0.)
     const buf = getUniverseBuffer(1);
     expect(Array.from(buf.slice(0, 6))).toEqual([0, 0, 0, 0, 0, 0]);
@@ -238,7 +237,7 @@ describe('channel addressing (1-based)', () => {
     expect(nonZeroIndices(buf)).toEqual([0]);
   });
 
-  it('writes channel 512 to buffer index 511 — the last legal slot', () => {
+  it('writes channel 512 to buffer index 511, the last legal slot', () => {
     uni(1, 512, 1);
     tick(0);
 
@@ -255,7 +254,7 @@ describe('channel addressing (1-based)', () => {
     uni(1, -5, 1);
     expect(() => tick(0)).not.toThrow();
 
-    // Out-of-range defs are dropped at tick time — no wrap to index 511,
+    // Out-of-range defs are dropped at tick time: no wrap to index 511,
     // no write into a neighbouring channel, no exception.
     expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([]);
   });
@@ -297,7 +296,7 @@ describe('universes', () => {
     expect(u4[1]).toBe(128);
   });
 
-  it('hands out the live buffer, not a copy — the bridge reads through it', () => {
+  it('hands out the live buffer, not a copy, so the bridge reads through it', () => {
     const buf = getUniverseBuffer(5);
     uni(5, 1, 1);
     tick(0);
@@ -307,7 +306,7 @@ describe('universes', () => {
     expect(getUniverseBuffer(5)).toBe(buf);
   });
 
-  it('allocates on read as well — getUniverseBuffer() never returns undefined', () => {
+  it('allocates on read as well: getUniverseBuffer() never returns undefined', () => {
     expect(getAllUniverses().has(99)).toBe(false);
     const buf = getUniverseBuffer(99);
     expect(buf).toHaveLength(512);
@@ -348,7 +347,7 @@ describe('zero-and-rebuild per tick', () => {
     expect(getUniverseBuffer(1)[0]).toBe(255);
 
     // Stand-in for a scene swap: drop the old defs, register the new ones.
-    // (evalCode() does this through the staging map — see below.)
+    // (evalCode() does this through the staging map; see below.)
     clearDefs();
     uni(1, 2, 1);
     tick(0);
@@ -361,7 +360,7 @@ describe('zero-and-rebuild per tick', () => {
 
   it('lets a later def on the same channel replace the earlier one', () => {
     uni(1, 1, 1);
-    uni(1, 1, 0.25); // same universe:channel key — last write wins
+    uni(1, 1, 0.25); // same universe:channel key, so the last write wins
     tick(0);
 
     expect(getUniverseBuffer(1)[0]).toBe(64);
@@ -397,11 +396,10 @@ describe('clearDefs()', () => {
 
     clearDefs();
 
-    // The buffers still hold the last frame — clearDefs() does NOT zero
-    // them. That is the whole point: clearing defs is a cheap, reversible
-    // bookkeeping step, so it must not be able to darken live hardware on
-    // its own. Callers that want black *now* (the stop/blackout path in the
-    // UI) zero the buffers themselves.
+    // The buffers still hold the last frame; clearDefs() does NOT zero them.
+    // Clearing defs is a cheap, reversible bookkeeping step, so it must not
+    // be able to darken live hardware on its own. Callers that want black
+    // *now* (the stop/blackout path in the UI) zero the buffers themselves.
     expect(getUniverseBuffer(1)[0]).toBe(255);
     expect(getUniverseBuffer(2)[0]).toBe(255);
 
@@ -422,9 +420,9 @@ describe('clearDefs()', () => {
   });
 
   it('supports the blackout path: clear defs, zero buffers, stay dark', () => {
-    // What runStop() does when stopAction is 'blackout'. No tick follows —
-    // the scheduler is stopped — so the explicit fill(0) is what darkens
-    // the outputs, and the cleared defs are what keeps them dark.
+    // What runStop() does when stopAction is 'blackout'. No tick follows,
+    // because the scheduler is stopped, so the explicit fill(0) is what
+    // darkens the outputs and the cleared defs are what keep them dark.
     uni(1, 1, 1);
     uni(1, 5, 0.5);
     tick(0);
@@ -449,7 +447,7 @@ describe('staging', () => {
     beginStaging();
     uni(1, 2, 1);
 
-    // Mid-staging ticks still resolve the OLD scene — the staged channel is
+    // Mid-staging ticks still resolve the OLD scene; the staged channel is
     // invisible until it is committed.
     tick(0);
     const buf = getUniverseBuffer(1);
@@ -523,14 +521,13 @@ describe('staging', () => {
 });
 
 // ─── transactional eval ───────────────────────────────────────────────────────
-// The defining contract of the tool: an eval that does not complete must
-// leave the rig running exactly what it was running before. These drive
-// evalCode() rather than the staging primitives directly, because the
-// ordering inside evalCode (compile first, stage, commit last) is the part
-// that has to hold.
+// An eval that does not complete must leave the rig running what it was
+// running before. These drive evalCode() rather than the staging primitives
+// directly, because the ordering inside evalCode (compile first, stage, commit
+// last) is the part that has to hold.
 //
-// No strudel here — these scenes use plain numbers, which is all dmx.ts
-// needs. Patterns are covered above.
+// No strudel here: these scenes use plain numbers, which is all dmx.ts needs.
+// Patterns are covered above.
 
 describe('transactional eval', () => {
   it('swaps the scene atomically on success', () => {
@@ -553,13 +550,13 @@ describe('transactional eval', () => {
     tick(0);
     expect(getUniverseBuffer(1)[0]).toBe(255);
 
-    // A stray paren — the everyday mid-set typo.
+    // A stray paren: the everyday typo.
     const result = evalCode('uni(1, 2, 1');
     expect(result.success).toBe(false);
     expect(result.error).toBeTruthy();
 
-    // Nothing was cleared, so the rig is still lit BEFORE any further tick —
-    // this is the case that used to drive the whole rig to black.
+    // Nothing was cleared, so the rig is still lit BEFORE any further tick.
+    // This is the case that used to drive the whole rig to black.
     expect(getUniverseBuffer(1)[0]).toBe(255);
 
     tick(0.25);
@@ -571,8 +568,8 @@ describe('transactional eval', () => {
     tick(0);
     expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([0, 1]);
 
-    // Parses fine, registers one channel, then dies. The half-scene must not
-    // survive — neither the channel it managed to write nor the loss of the
+    // Parses fine, registers one channel, then dies. Neither half of that
+    // survives: not the channel it managed to write, and not the loss of the
     // channels it never reached.
     const result = evalCode('uni(1, 10, 1); nope(); uni(1, 11, 1)');
     expect(result.success).toBe(false);
@@ -599,7 +596,7 @@ describe('transactional eval', () => {
     expect(nonZeroIndices(getUniverseBuffer(7))).toEqual([0, 1, 2]);
   });
 
-  it('recovers cleanly — a good eval after a failed one still swaps', () => {
+  it('recovers: a good eval after a failed one still swaps', () => {
     evalCode('uni(1, 1, 1)');
     expect(evalCode('uni(1, 2,').success).toBe(false);
     expect(evalCode('uni(1, 3, 1); boom()').success).toBe(false);
@@ -621,7 +618,7 @@ describe('transactional eval', () => {
 // ─── patterns ─────────────────────────────────────────────────────────────────
 
 describe('pattern values', () => {
-  it('scales the first hap value like a 0–1 float', () => {
+  it('scales the first hap value like a 0-1 float', () => {
     uni(1, 1, stubPattern(0.5));
     uni(1, 2, stubPattern(1));
     uni(1, 3, stubPattern(0));
@@ -679,10 +676,10 @@ describe('pattern values', () => {
 });
 
 // ─── pattern query failures ───────────────────────────────────────────────────
-// A pattern's body runs at QUERY time, so a scene that evaluated cleanly can
-// still throw on every tick afterwards. Before this was guarded, that throw
+// A pattern's body runs at QUERY time, so a scene that evaluated without
+// throwing can still throw on every tick afterwards. Before this was guarded, that throw
 // escaped tick() with the buffers already zeroed and half-rewritten, and the
-// caller never got to send the frame — the rig latched its last look while
+// caller never got to send the frame, so the rig latched its last look while
 // the status bar still read "running". These pin the containment.
 
 function spyConsoleError() {
@@ -759,7 +756,7 @@ describe('pattern query failures', () => {
     const afterFirst = getQueryFailureGeneration();
     expect(afterFirst).not.toBe(before);
 
-    // Same def still throwing — nothing new to tell the operator.
+    // Same def still throwing, so nothing new to tell the operator.
     tick(0.1);
     tick(0.2);
     expect(getQueryFailureGeneration()).toBe(afterFirst);
@@ -784,7 +781,7 @@ describe('pattern query failures', () => {
 
   it('survives a value whose queryArc probe itself throws', () => {
     // isPattern() reads .queryArc off the value, so a throwing getter fails
-    // before the call is ever made — outside the obvious guard.
+    // before the call is ever made, outside the obvious guard.
     const trap = bad(Object.defineProperty({}, 'queryArc', {
       get() { throw new Error('trapped getter'); },
     }));
@@ -847,8 +844,8 @@ describe('ch / dim / rgb', () => {
     const buf = getUniverseBuffer(1);
     expect(buf[0]).toBe(255);
     expect(buf[1]).toBe(128);
-    // Note: fixture() defaults to universe 0, ch() to universe 1 — see the
-    // fixture tests below. Universe 0 stays untouched here.
+    // fixture() defaults to universe 0, ch() to universe 1; see the fixture
+    // tests below. Universe 0 stays untouched here.
     expect(nonZeroIndices(getUniverseBuffer(0))).toEqual([]);
   });
 
@@ -862,7 +859,7 @@ describe('ch / dim / rgb', () => {
   });
 
   it('rgb() at the top of the universe drops the channels that overflow', () => {
-    rgb(511, 1, 1, 1); // 511, 512, 513 — the last one has nowhere to go
+    rgb(511, 1, 1, 1); // 511, 512, 513: the last one has nowhere to go
     expect(() => tick(0)).not.toThrow();
 
     const buf = getUniverseBuffer(1);
@@ -877,7 +874,7 @@ describe('ch / dim / rgb', () => {
 describe('fixture channel mapping', () => {
   it('maps an rgb fixture at start channel N onto N, N+1, N+2', () => {
     const par = fixture(10, 'rgb');
-    // Named accessors — the shape user code actually writes.
+    // Named accessors: the shape user code writes.
     setter(par, 'red')(1);
     setter(par, 'green')(0.5);
     setter(par, 'blue')(0);
@@ -948,9 +945,9 @@ describe('fixture channel mapping', () => {
     expect(() => par.set('amber', 1)).toThrow(/no channel "amber"/);
   });
 
-  it('color() covers the channels a fixture actually has', () => {
+  it('color() covers the channels a fixture has', () => {
     const par = fixture(1, 'rgb', 3);
-    par.color(1, 0.5, 0, 1); // white arg ignored — no white channel on rgb
+    par.color(1, 0.5, 0, 1); // white arg ignored: no white channel on rgb
     tick(0);
 
     const buf = getUniverseBuffer(3);

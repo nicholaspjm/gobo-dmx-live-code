@@ -2,11 +2,11 @@
  * CodeMirror 6 theme for gobo.
  *
  * All colours come from CSS custom properties so the active theme
- * (set via themes.ts → applyTheme()) propagates into the editor
- * without rebuilding the EditorView. Previously these were JS
- * constants — switching is now zero-cost.
+ * (set via themes.ts → applyTheme()) propagates into the editor without
+ * rebuilding the EditorView. These used to be JS constants, which meant
+ * a rebuild on every switch.
  *
- * Two colour families are in play and they are deliberately separate:
+ * Two colour families are in play and are kept separate:
  *   - the chrome vars (--bg, --accent, --text-muted …) style the editor
  *     surface: gutters, cursor, selection, tooltips.
  *   - the syntax vars (--syn-*) style the code itself. goboHighlight
@@ -14,8 +14,8 @@
  *     strings, comments, operators); the regex ViewPlugin in
  *     code-highlight.ts owns the gobo-specific half.
  * Base JS used to borrow --accent / --accent2 / --sage / --text-muted,
- * which put it in direct competition with the gobo tokens for the same
- * three colours. It has its own vars now so neither family has to shout.
+ * putting it in competition with the gobo tokens for the same three
+ * colours. It has its own vars now.
  */
 
 import { EditorView } from '@codemirror/view';
@@ -162,9 +162,9 @@ export const goboTheme = EditorView.theme(
     },
   },
   // The `dark` flag tells CodeMirror to invert default colour calculations
-  // for things we don't override. Light themes will look slightly off
-  // because of this, but the override surface above covers nearly all
-  // visible colours so the difference is minor and worth the simplicity.
+  // for anything we don't override. That leaves light themes slightly off,
+  // but the overrides above cover nearly every visible colour, so the
+  // difference is small.
   { dark: true },
 );
 
@@ -182,8 +182,8 @@ export const goboHighlight = syntaxHighlighting(
     // --syn-keyword is the --syn-factory hue at roughly half the chroma,
     // because `const wash = fixture(…)` is one gesture: the binding word
     // and the factory call belong to the same family, with the factory
-    // carrying the emphasis. `this` / booleans / null are keywords in the
-    // same sense — fixed words of the language, not values you tune.
+    // carrying the emphasis. `this`, booleans and null are keywords in
+    // the same sense: fixed words of the language, not values you tune.
     { tag: t.keyword, color: v('syn-keyword') },
     { tag: t.controlKeyword, color: v('syn-keyword') },
     { tag: t.operatorKeyword, color: v('syn-keyword') },
@@ -228,9 +228,9 @@ export const goboHighlight = syntaxHighlighting(
     { tag: t.brace, color: v('syn-operator') },
     { tag: t.squareBracket, color: v('syn-operator') },
 
-    // Type and class names are identifiers too, and they are rare in a
-    // live-coding buffer — neutral rather than accented, and not italic:
-    // italic is reserved for the inert tokens (viz, meta, comments).
+    // Type and class names are identifiers too, and rare in a live-coding
+    // buffer, so they stay neutral. Not italic either: italic is reserved
+    // for the inert tokens (viz, meta, comments).
     { tag: t.typeName, color: v('text') },
     { tag: t.className, color: v('text') },
 

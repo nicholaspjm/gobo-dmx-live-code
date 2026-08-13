@@ -1,11 +1,11 @@
 /**
- * Clock worker — drives gobo's scheduler from a background thread so
- * that DMX output continues even when the browser tab is hidden.
+ * Clock worker: drives gobo's scheduler from a background thread so DMX
+ * output continues when the browser tab is hidden.
  *
- * Main-thread timers in Chromium get heavily throttled on hidden tabs:
- * requestAnimationFrame pauses entirely and setInterval is clamped to
- * 1 Hz. Workers are exempt from that throttling, so a setInterval here
- * keeps firing at the requested rate even during alt-tab or minimize.
+ * Chromium throttles main-thread timers on hidden tabs: requestAnimationFrame
+ * pauses entirely and setInterval is clamped to 1 Hz. Workers are exempt, so a
+ * setInterval here keeps firing at the requested rate during alt-tab or
+ * minimize.
  *
  * Protocol:
  *   main → worker: { type: 'start', intervalMs: number }

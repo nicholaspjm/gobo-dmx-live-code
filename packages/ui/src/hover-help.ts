@@ -2,15 +2,14 @@
  * Editor hover-help: tooltip that shows signature + description + example
  * when the cursor lingers over a gobo API identifier.
  *
- * The data source is `help-data.ts` — shared with autocomplete so a single
+ * The data source is `help-data.ts`, shared with autocomplete so a single
  * edit updates both surfaces. The tooltip only fires for identifiers we
- * recognise; hovering over user-named variables yields nothing rather than
- * a noisy "no info" tooltip.
+ * recognise; hovering a user-named variable yields nothing rather than a
+ * "no info" tooltip.
  *
- * Word boundary detection is deliberately ECMAScript-identifier shaped
- * (matches /[A-Za-z_$][\w$]+/) so it ignores punctuation and whitespace;
- * that keeps us from popping a tooltip when the user mouses over `(` or
- * `.` by accident.
+ * Word boundary detection is ECMAScript-identifier shaped (it matches
+ * /[A-Za-z_$][\w$]+/) so it ignores punctuation and whitespace. Mousing
+ * over `(` or `.` does not pop a tooltip.
  */
 
 import { hoverTooltip, type Tooltip } from '@codemirror/view';
@@ -46,9 +45,9 @@ function identifierAt(
   if (lo === hi) return null;
 
   const word = text.slice(lo, hi);
-  // Reject pure-numeric tokens — `120` in `setBPM(120)` would otherwise
-  // fall through and just not match HELP_INDEX, which is fine but worth
-  // short-circuiting for speed.
+  // Reject pure-numeric tokens. `120` in `setBPM(120)` would otherwise
+  // fall through and fail to match HELP_INDEX anyway; short-circuiting
+  // saves the lookup.
   if (/^\d+$/.test(word)) return null;
 
   return { word, from: left + lo, to: left + hi };

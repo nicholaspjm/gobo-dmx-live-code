@@ -28,7 +28,7 @@ export interface ChannelDef {
   name: string;
   /**
    * Semantic type hint. Most types map 1:1 to a single DMX channel; 'strip'
-   * is special — it claims `pixelCount * channelsPerPixel` channels starting
+   * is special: it claims `pixelCount * channelsPerPixel` channels starting
    * at `offset` and exposes a nested StripInstance on the fixture under this name.
    */
   type: 'intensity' | 'color' | 'position' | 'strobe' | 'control' | 'generic' | 'strip';
@@ -56,7 +56,7 @@ export interface FixtureDef {
 // ─── Built-in fixture library ─────────────────────────────────────────────────
 
 export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
-  // Short names — what user code should reference. The legacy `generic-*`
+  // Short names, which user code should reference. The legacy `generic-*`
   // ids resolve to these via FIXTURE_ALIASES below so existing scenes
   // keep working.
   'dim': {
@@ -187,8 +187,7 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
 /**
  * Backward-compat: pre-rename fixture ids resolve to the new short names.
  * Scenes saved against `generic-rgbw` etc. keep working without a forced
- * migration. Pure-data ergonomics — write `fixture(1, 'rgbw')`, not
- * `fixture(1, 'generic-rgbw')`.
+ * migration. New code writes `fixture(1, 'rgbw')`.
  */
 const FIXTURE_ALIASES: Record<string, string> = {
   'generic-dimmer':   'dim',
@@ -202,9 +201,9 @@ const FIXTURE_ALIASES: Record<string, string> = {
 
 // ─── Sim registry ────────────────────────────────────────────────────────────
 // Every fixture / strip the user creates in a scene pushes itself onto this
-// list so the UI's sim panel can render exactly what's in play — no more,
-// no less. Cleared at the start of each evalCode() cycle alongside the
-// pattern registry, so you get a fresh snapshot per scene.
+// list, so the UI's sim panel renders what is in play and nothing else.
+// Cleared at the start of each evalCode() cycle alongside the pattern
+// registry, giving a fresh snapshot per scene.
 //
 // Each entry carries what the sim renderer needs and nothing else:
 //   - how to draw it (globe / dimmer / rgb strip / rgbw strip)
@@ -218,8 +217,8 @@ export type SimRenderKind = 'globe-rgbw' | 'globe-dim' | 'strip-rgb' | 'strip-rg
  * Optional movement-channel hints. When present, the sim panel applies a
  * CSS transform each tick so the element visibly tracks `pan` / `tilt` /
  * `direction` channel values. Numbers here are *absolute* 1-based DMX
- * channels — keeps the renderer simple at the cost of one extra add at
- * registration time.
+ * channels, which keeps the renderer simple at the cost of one extra add
+ * at registration time.
  *
  *  pan        0 → -50% x, 0.5 → centred, 1 → +50% x (horizontal travel)
  *  tilt       0 → -50% y, 0.5 → centred, 1 → +50% y (vertical travel)
@@ -235,12 +234,12 @@ export interface SimFixture {
   /** Short label shown under the element in the sim panel (falls back to
    *  `id` when no better name is available). */
   label: string;
-  /** Debug/tooltip detail — the human-readable fixture type. */
+  /** Debug/tooltip detail: the human-readable fixture type. */
   type: string;
   universe: number;
   /** 1-based DMX start channel. */
   startChannel: number;
-  /** Total channels this entry occupies — tooltip-only. */
+  /** Total channels this entry occupies. Tooltip-only. */
   channelCount: number;
   /** Live movement channel hints; absent = element doesn't move. */
   movement?: SimMovement;
@@ -300,11 +299,11 @@ function pickSourceIdx(strip: number, inputPixels: number, mode: FillMode): numb
  * Write the strip's pixels from an array-of-rows under the given fill
  * mode. Each inner array is one pixel: [r, g, b] for RGB strips,
  * [r, g, b, w] for RGBW. Missing channels default to 0 so callers can
- * be terse — `[1]` is a valid "red only" row.
+ * be terse: `[1]` is a valid "red only" row.
  *
  * Called once on the initial `pixelGrid(rows)` (mode 'none') and again
  * on each chained .repeat() / .hold() / .mirror() with the appropriate
- * mode — the second pass overwrites the first.
+ * mode; the second pass overwrites the first.
  */
 export function applyPixelGrid(
   rows: PatternOrValue[][],
@@ -319,7 +318,7 @@ export function applyPixelGrid(
     const base = startChannel + i * stride;
     const src = pickSourceIdx(i, inputPixels, mode);
     if (src < 0) {
-      // Blank pixel — zero every channel in the stride.
+      // Blank pixel: zero every channel in the stride.
       for (let j = 0; j < stride; j++) uni(universe, base + j, 0);
       continue;
     }
@@ -334,7 +333,7 @@ export function applyPixelGrid(
  * Resolve movement-channel hints for a fixture from its declared channel
  * layout. Picks `pan` / `tilt` / `direction` channels and converts each
  * to an absolute 1-based DMX channel. Returns undefined if none of the
- * three are present — keeps the SimFixture payload lean for static
+ * three are present, which keeps the SimFixture payload lean for static
  * fixtures.
  */
 function collectMovement(def: FixtureDef, startChannel: number): SimMovement | undefined {
@@ -390,7 +389,7 @@ function resolveFixture(id: string): FixtureDef {
 // ─── Fixture instance ─────────────────────────────────────────────────────────
 
 /**
- * A live fixture instance — named accessors bound to real DMX channels.
+ * A live fixture instance: named accessors bound to real DMX channels.
  *
  * For normal channels (intensity/color/position/strobe/control/generic), the
  * accessor is a setter function: `fixture.red(sine())`.
@@ -421,7 +420,7 @@ export type FixtureInstance = {
    */
   viz(...kinds: VizKind[]): FixtureInstance;
 
-  // ── Generic helpers — work on any fixture, ignore channels that don't exist
+  // ── Generic helpers: work on any fixture, ignore channels that don't exist
   /**
    * Set red / green / blue (and optionally white) in one call. Channels
    * absent on this fixture are skipped silently so the same call works
@@ -453,13 +452,13 @@ export type FixtureInstance = {
  * Load a fixture at a DMX address and return a named-channel setter object.
  *
  * @param startChannel  1-based DMX channel (first channel of the fixture). The
- *                      whole fixture must fit inside the universe — a patch
+ *                      whole fixture must fit inside the universe. A patch
  *                      that would run past channel 512 throws rather than
- *                      quietly dropping the channels that don't fit.
+ *                      dropping the channels that don't fit.
  * @param fixtureId     Built-in id ('rgbw', 'dim-rgb', 'moving-head-basic', …) or custom id
  * @param universe      DMX universe (default: 0). Art-Net / TouchDesigner
- *                      label the first universe as "Universe 0" — if your node
- *                      is configured for universe 0 this works out of the box.
+ *                      label the first universe as "Universe 0", so a node
+ *                      configured for universe 0 works out of the box.
  *                      Pass 1, 2, 3, … to address additional universes. Note
  *                      sACN E1.31 requires universe ≥ 1.
  *
@@ -481,11 +480,10 @@ export function fixture(
   const def = resolveFixture(fixtureId);
 
   // Patch-address guard, same contract as rgbStrip/rgbwStrip: a fixture that
-  // doesn't fit the universe is a patching mistake, not something to clamp.
-  // Clamping would light the channels that fit and silently drop the rest,
-  // which on stage reads as "that head is broken" rather than "that patch is
-  // wrong" — the operator loses the one clue they need. Throwing surfaces the
-  // address in the editor's error banner before the scene ever goes out.
+  // does not fit the universe is a patching mistake, not something to clamp.
+  // Clamping would light the channels that fit and drop the rest, which reads
+  // as a broken fixture rather than a bad patch. Throwing surfaces the address
+  // in the editor's error banner before the scene goes out.
   if (!Number.isInteger(universe) || universe < 0) {
     throw new Error(`fixture: universe must be a non-negative integer (got ${universe})`);
   }
@@ -495,7 +493,7 @@ export function fixture(
   const lastChannel = startChannel + def.channelCount - 1;
   if (lastChannel > 512) {
     throw new Error(
-      `fixture: "${fixtureId}" (${def.channelCount} channels) starting at ${startChannel} would run to channel ${lastChannel} — exceeds 512 by ${lastChannel - 512}. Move it to a lower address or split across universes.`,
+      `fixture: "${fixtureId}" (${def.channelCount} channels) starting at ${startChannel} would run to channel ${lastChannel}, which exceeds 512 by ${lastChannel - 512}. Move it to a lower address or split across universes.`,
     );
   }
 
@@ -513,7 +511,7 @@ export function fixture(
       }
       if (ch.type === 'strip') {
         throw new Error(
-          `Fixture "${def.name}" channel "${channelName}" is a pixel strip segment — use .${channelName}.fill(r,g,b), .${channelName}.pixel(i, r, g, b), or .${channelName}.red(v) instead of .set().`,
+          `Fixture "${def.name}" channel "${channelName}" is a pixel strip segment. Use .${channelName}.fill(r,g,b), .${channelName}.pixel(i, r, g, b), or .${channelName}.red(v) instead of .set().`,
         );
       }
       uni(universe, startChannel + ch.offset, value);
@@ -540,7 +538,7 @@ export function fixture(
     color(r, g, b, w) {
       // Skip channels that don't exist on this fixture so the same call
       // is portable across rgb / rgbw / dim-rgbw / moving-head etc. Each
-      // channel is set independently — patterns and constants both flow
+      // channel is set independently; patterns and constants both flow
       // through inst.set() the same way as a named-channel setter would.
       const has = (name: string): boolean =>
         def.channels.some((c) => c.name === name && c.type !== 'strip');
@@ -553,8 +551,8 @@ export function fixture(
     off() {
       // Walk every channel; zero the standard light-emitting ones and
       // fill embedded strips. Other channels (pan, tilt, strobe, gobo,
-      // colour wheel, etc.) are intentionally left alone — they describe
-      // STATE rather than brightness and the user usually wants them
+      // colour wheel, etc.) are intentionally left alone: they describe
+      // STATE rather than brightness, and the user usually wants them
       // preserved across a blackout.
       const lightChannels = new Set(['red', 'green', 'blue', 'white', 'amber', 'dim']);
       for (const ch of def.channels) {
@@ -622,7 +620,7 @@ export function fixture(
 
   // ── Register with the sim panel ──
   // If the fixture has a strip channel the embedded rgbStrip/rgbwStrip call
-  // above registers the visible element — skip the "main" globe here to
+  // above registers the visible element, so skip the "main" globe here to
   // avoid showing an extra ghost face for dim/strobe control channels.
   // Otherwise, pick a renderer based on whichever standard channels the
   // def exposes (rgb/w preferred; fall back to just a dimmer).
@@ -659,9 +657,9 @@ export function fixture(
         render: { kind: 'globe-dim', dim: dimOffset },
       });
     }
-    // else: nothing visible to render (no colour, no dim) — don't clutter
-    // the sim. Movement-only fixtures (rare) need a colour or dim channel
-    // to get an element to track.
+    // else: nothing visible to render (no colour, no dim), so nothing is
+    // added to the sim. Movement-only fixtures (rare) need a colour or dim
+    // channel to get an element to track.
   }
 
   return inst;
@@ -688,8 +686,8 @@ export function listFixtures(): string[] {
  *   .hold()    keep the last input pixel for every pixel after it
  *   .mirror()  reflect the input back so the pattern reads symmetrically
  *
- * Returns `void` from the chain methods — the operation is destructive,
- * not a transform you can keep chaining onto.
+ * The chain methods return `void`: the operation is destructive, not a
+ * transform you can keep chaining onto.
  */
 export interface PixelGridFill {
   repeat(): void;
@@ -711,7 +709,7 @@ export interface StripInstance {
    * Set a single pixel (0-indexed). Two shapes:
    *   pixel(i, brightness)         → monochrome (R = G = B = brightness)
    *   pixel(i, r, g, b)            → full RGB
-   * The monochrome form is the typical chase-loop shorthand — saves
+   * The monochrome form is the usual chase-loop shorthand: it saves
    * repeating the same pattern three times.
    */
   pixel(
@@ -738,7 +736,7 @@ export interface StripInstance {
   /**
    * Run a callback per pixel. Return a single value for a monochrome
    * chase (applied to R=G=B) or `[r, g, b]` for full colour control.
-   * The callback receives `(phase, i, count)` — phase is `i / count`,
+   * The callback receives `(phase, i, count)`, where phase is `i / count`,
    * the common chase parameter you'd otherwise hand-compute every time.
    *
    * @example
@@ -765,7 +763,7 @@ export interface StripInstance {
   viz(...kinds: VizKind[]): StripInstance;
 
   /**
-   * Built-in rainbow chase — a single bright pixel sweeps across the strip
+   * Built-in rainbow chase: a single bright pixel sweeps across the strip
    * while its colour slowly walks through the full hue wheel. Options:
    * `speed` (beats/pass), `narrow` (peak sharpness), `rainbowSpeed`
    * (beats/cycle), `packets` (simultaneous chase dots). See 'effects' in
@@ -810,7 +808,7 @@ export function rgbStrip(
   }
   if (lastChannel > 512) {
     throw new Error(
-      `rgbStrip: ${pixelCount} pixels starting at ${startChannel} would run to channel ${lastChannel} — exceeds 512. Split across universes.`,
+      `rgbStrip: ${pixelCount} pixels starting at ${startChannel} would run to channel ${lastChannel}, which exceeds 512. Split across universes.`,
     );
   }
 
@@ -923,8 +921,8 @@ export function rgbStrip(
 
 // ─── RGBW pixel strip ─────────────────────────────────────────────────────────
 // Same shape as rgbStrip but 4 channels per pixel (R, G, B, W). Matches the
-// layout used by RGBW pixel bars — adds a dedicated white channel on top of
-// RGB so you can dial in true warm/cool highlights without fighting colour mix.
+// layout used by RGBW pixel bars. The dedicated white channel on top of RGB
+// gives warm/cool highlights without fighting the colour mix.
 
 export interface RgbwStripInstance {
   readonly universe: number;
@@ -945,7 +943,7 @@ export interface RgbwStripInstance {
    * Set a single pixel (0-indexed). Two shapes:
    *   pixel(i, brightness)             → monochrome (R = G = B = brightness, W = 0)
    *   pixel(i, r, g, b, w)             → full RGBW
-   * The monochrome form is the typical chase-loop shorthand — saves
+   * The monochrome form is the usual chase-loop shorthand: it saves
    * repeating the same pattern four times.
    */
   pixel(
@@ -972,7 +970,7 @@ export interface RgbwStripInstance {
   /**
    * Run a callback per pixel. Return a single value for a monochrome
    * chase (applied to R=G=B with W=0) or `[r, g, b, w]` for full colour
-   * control. The callback receives `(phase, i, count)` — phase is
+   * control. The callback receives `(phase, i, count)`, where phase is
    * `i / count`, the common chase parameter you'd otherwise hand-compute.
    *
    * @example
@@ -993,7 +991,7 @@ export interface RgbwStripInstance {
   /** Opt into an inline editor visualization (default kind 'strip'). */
   viz(...kinds: VizKind[]): RgbwStripInstance;
 
-  /** Built-in rainbow chase — see {@link StripInstance.rainbowChase}. */
+  /** Built-in rainbow chase. See {@link StripInstance.rainbowChase}. */
   rainbowChase(opts?: RainbowChaseOptions): void;
 }
 
@@ -1022,7 +1020,7 @@ export function rgbwStrip(
   }
   if (lastChannel > 512) {
     throw new Error(
-      `rgbwStrip: ${pixelCount} pixels starting at ${startChannel} would run to channel ${lastChannel} — exceeds 512. Split across universes.`,
+      `rgbwStrip: ${pixelCount} pixels starting at ${startChannel} would run to channel ${lastChannel}, which exceeds 512. Split across universes.`,
     );
   }
 
@@ -1125,15 +1123,14 @@ export function rgbwStrip(
 // ─── Effect helpers (strip methods) ──────────────────────────────────────────
 // Higher-level scene recipes exposed as methods on the strip instances. They
 // need access to the waveform factories (sine / cosine), which live in the
-// eval sandbox — so eval.ts injects them here via setStripEffectWaveforms()
-// once strudel is loaded. If a user calls rainbowChase()
-// before that's happened the method is a no-op rather than a thrown error,
-// since the setup is otherwise automatic.
+// eval sandbox, so eval.ts injects them here via setStripEffectWaveforms()
+// once strudel is loaded. rainbowChase() called before that is a no-op rather
+// than a thrown error, since the setup is otherwise automatic.
 
 export interface RainbowChaseOptions {
   /** Beats per packet pass across the strip (default 2). */
   speed?: number;
-  /** Peak narrowness — bigger = narrower lit window (default 8). */
+  /** Peak narrowness: bigger = narrower lit window (default 8). */
   narrow?: number;
   /** Beats per full rainbow cycle (default 12). */
   rainbowSpeed?: number;
@@ -1142,7 +1139,7 @@ export interface RainbowChaseOptions {
 }
 
 // The waveform types are `any` because sine() / cosine() return values carry
-// chain methods added dynamically by strudel's prototype — they don't fit the
+// chain methods added dynamically by strudel's prototype, which don't fit the
 // static PatternLike interface.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _sineFactory: (() => any) | null = null;
@@ -1166,7 +1163,7 @@ export function setStripEffectWaveforms(
 /**
  * Shared rainbow-chase implementation used by both RGB and RGBW strip
  * instances. Builds a thresholded-cosine brightness envelope per pixel
- * and multiplies it by a shared three-phase RGB colour cycle — see the
+ * and multiplies it by a shared three-phase RGB colour cycle. See the
  * 'effects' section of the docs for the full mechanism.
  */
 function rainbowChaseImpl(
@@ -1212,7 +1209,7 @@ function rainbowChaseImpl(
 
 // ─── Inline visualization registry ────────────────────────────────────────────
 // `.viz(kind)` on a fixture or strip opts into an inline editor widget. This
-// module only stores the runtime-derived channel layout — it has no idea
+// module only stores the runtime-derived channel layout; it has no idea
 // where in the source the call lives. The UI-side extension scans the doc
 // text for `.viz(...)` occurrences in the same top-to-bottom order the eval
 // pushes entries and zips them 1:1, which avoids fragile stack-trace parsing.
@@ -1257,7 +1254,7 @@ export function getVizEntries(): readonly VizEntry[] {
 
 /**
  * Walk a FixtureDef and pick out the channel offsets the visualizations
- * actually care about. Handles plain RGB/RGBW/RGBA PARs, dim-RGB(W), and
+ * care about. Handles plain RGB/RGBW/RGBA PARs, dim-RGB(W), and
  * moving heads with an embedded color engine.
  */
 function extractChannelLayout(def: FixtureDef): {
@@ -1271,7 +1268,7 @@ function extractChannelLayout(def: FixtureDef): {
     else if (c.name === 'green') rgbw.g = c.offset;
     else if (c.name === 'blue')  rgbw.b = c.offset;
     else if (c.name === 'white') rgbw.w = c.offset;
-    // 'amber' falls through — treated as red-ish but we don't try to fake it
+    // 'amber' falls through: treated as red-ish, not faked as a colour channel
     else if (c.name === 'dim')   dim = c.offset;
   }
   const hasAnyColor =

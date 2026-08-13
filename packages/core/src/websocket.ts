@@ -1,5 +1,5 @@
 /**
- * WebSocket client — sends DMX universe state to the bridge on each tick.
+ * WebSocket client: sends DMX universe state to the bridge on each tick.
  *
  * Runs in the browser. The bridge listens on ws://localhost:3001.
  *
@@ -69,7 +69,7 @@ export function connectBridge(url = BRIDGE_URL): void {
   _ws.onclose = () => {
     _connected = false;
     _onStatusChange?.(false);
-    console.log('[gobo] bridge disconnected — reconnecting…');
+    console.log('[gobo] bridge disconnected, reconnecting…');
     scheduleReconnect(url);
   };
 
@@ -98,16 +98,16 @@ export function sendConfig(config: Record<string, unknown>): void {
 /**
  * Send universe state to the bridge. Called on each scheduler tick.
  *
- * Skips idle universes (those that have never carried data) to cut
- * traffic. A universe that WAS non-zero and is now all-zero gets one
- * final zero-frame sent so downstream fixtures actually go dark —
- * without it Art-Net / sACN / OSC receivers latch their last value and
- * a commented-out pattern leaves the rig stuck on its last colour.
+ * Skips idle universes (those that have never carried data) to cut traffic. A
+ * universe that was non-zero and is now all-zero gets one final zero-frame so
+ * downstream fixtures go dark. Without it, Art-Net / sACN / OSC receivers latch
+ * their last value and a commented-out pattern leaves the rig on its last
+ * colour.
  *
- * `_wasNonZero` tracks the per-universe "has been live" state across
- * calls so we can detect the dark transition. A universe is added when
- * we send live data and removed after the trailing zero-frame; from
- * that point subsequent idle frames are skipped again.
+ * `_wasNonZero` tracks the per-universe "has been live" state across calls so
+ * we can detect the dark transition. A universe is added when we send live data
+ * and removed after the trailing zero-frame; from then on idle frames are
+ * skipped again.
  */
 const _wasNonZero = new Set<number>();
 
@@ -121,9 +121,8 @@ export function sendUniverseState(universes: Map<number, Uint8Array>): void {
       payload[String(universe)] = Array.from(buffer);
       _wasNonZero.add(universe);
     } else if (_wasNonZero.has(universe)) {
-      // Just went dark — emit one zero-frame to clear downstream
-      // fixtures, then drop out of the set so subsequent idle frames
-      // are skipped.
+      // Just went dark: emit one zero-frame to clear downstream fixtures,
+      // then drop out of the set so subsequent idle frames are skipped.
       payload[String(universe)] = Array.from(buffer);
       _wasNonZero.delete(universe);
     }

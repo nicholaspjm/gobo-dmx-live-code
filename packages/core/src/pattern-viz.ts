@@ -11,7 +11,7 @@
  *      entry into _registry with a ref to the pattern that produced it.
  *   2. After eval, the UI layer scans the doc for `.flash(`, `.glow(`,
  *      `.wave(` call sites in top-to-bottom order and zips 1:1 with the
- *      registry (same trick as fixtures' .viz() — avoids stack parsing).
+ *      registry (same trick as fixtures' .viz(), which avoids stack parsing).
  *   3. On each scheduler tick, the UI samples each entry's pattern at the
  *      current cycle position and updates its editor decoration (background
  *      gradient, flash pulse, or sparkline).

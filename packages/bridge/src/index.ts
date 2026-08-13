@@ -1,5 +1,5 @@
 /**
- * gobo bridge — WebSocket server that routes DMX universe data to
+ * gobo bridge: a WebSocket server that routes DMX universe data to
  * Art-Net UDP, sACN E1.31, OSC, or mock (console log).
  *
  * Listens on ws://localhost:3001
@@ -10,9 +10,9 @@
  * Wire format expected from the UI:
  *   { type: "dmx", universes: { "1": [0, 128, 255, ...], ... } }
  *
- * Nothing a running show depends on is allowed to throw: every socket and
- * server here has an error handler and every send has a callback, so a bad
- * host or an unplugged cable costs frames, never the process.
+ * Every socket and server here has an error handler and every send has a
+ * callback, so a bad host or an unplugged cable costs frames rather than the
+ * process.
  */
 
 import { createServer } from 'http';
@@ -25,7 +25,7 @@ import { randomBytes } from 'crypto';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-/** The output modes the router below actually implements. */
+/** The output modes the router below implements. */
 const OUTPUT_MODES = ['artnet', 'sacn', 'osc', 'mock'] as const;
 
 type OutputMode = (typeof OUTPUT_MODES)[number];
@@ -40,17 +40,17 @@ interface BridgeConfig {
 
 /**
  * An unrecognised mode used to fall through the router's `default:` branch
- * into mock, which logs cheerfully while nothing reaches the rig — one typo
- * ("artnett") was indistinguishable from a working bridge. Both entry points
- * (the config file and runtime config messages) check this before assigning
- * config.mode, so an invalid value can never reach the router.
+ * into mock, so a typo like "artnett" logged happily while nothing reached the
+ * rig. Both entry points (the config file and runtime config messages) check
+ * this before assigning config.mode, so an invalid value cannot reach the
+ * router.
  */
 function isOutputMode(value: unknown): value is OutputMode {
   return typeof value === 'string' && (OUTPUT_MODES as readonly string[]).includes(value);
 }
 
 function unknownModeMessage(value: unknown): string {
-  return `unknown output mode ${JSON.stringify(value)} — valid modes are ${OUTPUT_MODES.join(', ')}`;
+  return `unknown output mode ${JSON.stringify(value)}; valid modes are ${OUTPUT_MODES.join(', ')}`;
 }
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -61,48 +61,47 @@ try {
   const loaded = JSON.parse(readFileSync(configPath, 'utf-8')) as BridgeConfig;
   if (isOutputMode(loaded.mode)) {
     config = loaded;
-    console.log(`[bridge] config loaded — mode: ${config.mode}`);
+    console.log(`[bridge] config loaded, mode: ${config.mode}`);
   } else {
-    // Keep the rest of the file so correcting the mode is the only edit needed,
-    // but shout about it — this must never look like a working output.
+    // Keep the rest of the file so correcting the mode is the only edit
+    // needed. Say so loudly: this must not look like a working output.
     config = { ...loaded, mode: 'mock' };
     console.error(`[bridge] bridge.config.json: ${unknownModeMessage(loaded.mode)}`);
-    console.error('[bridge] falling back to mock — NOTHING will be sent to the rig until the mode is corrected');
+    console.error('[bridge] falling back to mock. NOTHING will be sent to the rig until the mode is corrected.');
   }
 } catch (err) {
-  // A missing file is a normal first run; unreadable or malformed JSON is a
-  // mistake worth naming, since both otherwise land on the same silent default.
+  // A missing file is a normal first run. Unreadable or malformed JSON is a
+  // mistake, and both otherwise land on the same silent default.
   if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
     console.warn(`[bridge] no bridge.config.json at ${configPath}, using mock mode`);
   } else {
-    console.error(`[bridge] could not read ${configPath} — ${(err as Error).message}`);
-    console.error('[bridge] falling back to mock — NOTHING will be sent to the rig until that is fixed');
+    console.error(`[bridge] could not read ${configPath}: ${(err as Error).message}`);
+    console.error('[bridge] falling back to mock. NOTHING will be sent to the rig until that is fixed.');
   }
 }
 
 // ─── Error reporting ─────────────────────────────────────────────────────────
 
 /**
- * Best guess at what a socket error actually means, in one line someone can
- * act on. Node's own messages ("send EHOSTUNREACH") say what broke but never
- * what to do about it, and these get read in a dark room during a show.
+ * What a socket error means, in one line someone can act on. Node's own
+ * messages ("send EHOSTUNREACH") say what broke but not what to do about it.
  */
 function explainSocketError(err: NodeJS.ErrnoException): string {
   switch (err.code) {
     case 'EACCES':
     case 'EPERM':
-      return 'the OS refused the send — a firewall or security policy is blocking outbound UDP';
+      return 'the OS refused the send; a firewall or security policy is blocking outbound UDP';
     case 'EADDRINUSE':
       return 'the local port is already taken, probably by another bridge or lighting app';
     case 'ENETUNREACH':
     case 'EHOSTUNREACH':
     case 'ENETDOWN':
-      return 'no route to that address — check the interface is up and on the same subnet as the node';
+      return 'no route to that address: check the interface is up and on the same subnet as the node';
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
-      return 'that host name could not be resolved — pass a literal IP address instead';
+      return 'that host name could not be resolved: pass a literal IP address instead';
     case 'EADDRNOTAVAIL':
-      return 'the local address is not available — the network it was bound to may have gone away';
+      return 'the local address is not available; the network it was bound to may have gone away';
     case 'ERR_SOCKET_DGRAM_NOT_RUNNING':
       return 'the UDP socket has been closed';
     default:
@@ -111,13 +110,12 @@ function explainSocketError(err: NodeJS.ErrnoException): string {
 }
 
 /**
- * Send failures arrive at frame rate — one unreachable host would print
- * thousands of identical lines a minute (OSC sends one packet per channel, so
- * far worse) and bury everything else. Print the first of each kind at once,
- * then at most one line per interval with a count of what was swallowed.
+ * Send failures arrive at frame rate. One unreachable host prints thousands of
+ * identical lines a minute (worse under OSC, which sends one packet per
+ * channel) and buries everything else. Print the first of each kind
+ * immediately, then at most one line per interval with a count of the rest.
  *
- * A dropped frame is never fatal here: the next frame is 16ms away and the
- * show keeps running.
+ * A dropped frame is not fatal: the next frame is 16ms away.
  */
 const SEND_ERROR_REPEAT_MS = 5000;
 const _sendErrors = new Map<string, { last: number; suppressed: number }>();
@@ -135,7 +133,7 @@ function reportSendError(protocol: string, target: string, err: NodeJS.ErrnoExce
 
   const repeats = seen && seen.suppressed > 0 ? ` (+${seen.suppressed} more since the last line)` : '';
   console.error(
-    `[bridge] ${protocol} send to ${target} failed — ${code}: ${explainSocketError(err)}${repeats}`,
+    `[bridge] ${protocol} send to ${target} failed, ${code}: ${explainSocketError(err)}${repeats}`,
   );
   _sendErrors.set(key, { last: now, suppressed: 0 });
 }
@@ -147,24 +145,24 @@ let udp: Socket | null = null;
 /**
  * Create the shared output socket with its error handling already attached.
  * A dgram socket that emits 'error' with no listener throws out of the event
- * loop and takes the whole bridge down, so wiring this up is not optional —
- * hence a factory rather than two hand-rolled call sites.
+ * loop and takes the bridge down, so this is a factory rather than two
+ * hand-rolled call sites.
  */
 function createUdpSocket(reason: string): Socket {
   const socket = createSocket('udp4');
 
   socket.on('error', (err: NodeJS.ErrnoException) => {
-    console.error(`[bridge] UDP socket error — ${err.code ?? 'error'}: ${explainSocketError(err)}`);
+    console.error(`[bridge] UDP socket error ${err.code ?? 'error'}: ${explainSocketError(err)}`);
   });
 
   // Node closes the socket after a fatal socket error. Drop the reference so
   // the send paths no-op on their `if (!udp)` guard instead of throwing on
-  // every frame from then on. Guarded because a later mode switch may already
-  // have replaced this socket with a live one.
+  // every frame. Guarded because a later mode switch may already have replaced
+  // this socket with a live one.
   socket.on('close', () => {
     if (udp === socket) {
       udp = null;
-      console.warn('[bridge] UDP socket closed — no output until an output mode is selected again');
+      console.warn('[bridge] UDP socket closed. No output until an output mode is selected again.');
     }
   });
 
@@ -175,7 +173,7 @@ function createUdpSocket(reason: string): Socket {
       socket.setBroadcast(true);
     } catch (err) {
       console.error(
-        `[bridge] could not enable UDP broadcast — ${(err as Error).message}; unicast and multicast still work`,
+        `[bridge] could not enable UDP broadcast: ${(err as Error).message}. Unicast and multicast still work.`,
       );
     }
     console.log(`[bridge] UDP socket ready (${reason})`);
@@ -188,7 +186,7 @@ if (config.mode === 'artnet' || config.mode === 'sacn' || config.mode === 'osc')
   udp = createUdpSocket(`startup, mode ${config.mode}`);
 }
 
-// sACN CID — 16-byte identifier, generated once per process
+// sACN CID: 16-byte identifier, generated once per process
 const SACN_CID = randomBytes(16);
 
 // ─── ArtNet ──────────────────────────────────────────────────────────────────
@@ -201,21 +199,19 @@ const ARTNET_DEFAULT_HOST = '255.255.255.255';
  *
  * Layout (530 bytes total = 18 header + 512 data):
  *   0..7   ID string "Art-Net" + null terminator (8 bytes, ASCII)
- *   8..9   OpCode  — OpOutput = 0x5000, transmitted LOW BYTE FIRST on the wire
- *                   (so bytes are 0x00, 0x50 — writeUInt16LE(0x5000) does this)
- *   10..11 ProtVer — 14, HIGH BYTE FIRST (big-endian)
+ *   8..9   OpCode:  OpOutput = 0x5000, transmitted LOW BYTE FIRST on the wire
+ *                   (bytes 0x00, 0x50; writeUInt16LE(0x5000) does this)
+ *   10..11 ProtVer: 14, HIGH BYTE FIRST (big-endian)
  *   12     Sequence (0 disables ordering enforcement on the receiver)
  *   13     Physical input port on the sender (cosmetic, 0 is fine)
- *   14     SubUni — low byte of the 15-bit universe address (sub-net << 4 | uni)
- *   15     Net    — upper 7 bits of the universe address
- *   16..17 Length — DMX data byte count, HIGH BYTE FIRST (512 for a full frame)
+ *   14     SubUni:  low byte of the 15-bit universe address (sub-net << 4 | uni)
+ *   15     Net:     upper 7 bits of the universe address
+ *   16..17 Length:  DMX data byte count, HIGH BYTE FIRST (512 for a full frame)
  *   18..529 DMX data (start-code is implicit 0 and NOT included here)
  *
- * The OpCode value is the one protocol-level detail most buggy implementations
- * get wrong: `OpOutput` is 0x5000, not 0x0050. A receiver interprets the two
- * OpCode bytes as a little-endian uint16, so the byte pattern 0x50 0x00 reads
- * as 0x0050 (unknown → silently dropped), while 0x00 0x50 reads as 0x5000
- * (ArtDmx → accepted).
+ * `OpOutput` is 0x5000, not 0x0050. A receiver reads the two OpCode bytes as a
+ * little-endian uint16, so the byte pattern 0x50 0x00 reads as 0x0050 (unknown,
+ * silently dropped) and 0x00 0x50 reads as 0x5000 (ArtDmx, accepted).
  */
 function buildArtDmxPacket(universe: number, data: number[]): Buffer {
   const buf = Buffer.alloc(530);
@@ -269,12 +265,11 @@ function sendArtNet(universe: number, data: number[]): void {
 
 const SACN_PORT = 5568;
 
-// Source name, and the exact width of the framing-layer field that carries it.
-// E1.31 §6.2.2 fixes that field at 64 bytes: null-terminated, null-padded, and
-// followed immediately by Priority at offset 108. The name is ASCII and shorter
-// than the field, so the write below is capped at SACN_SOURCE_NAME_BYTES — a
-// name that ever outgrew the field would be truncated rather than allowed to
-// run over Priority and shift every field after it.
+// Source name, and the width of the framing-layer field that carries it.
+// E1.31 §6.2.2 fixes that field at 64 bytes: null-terminated, null-padded,
+// followed immediately by Priority at offset 108. The write below is capped at
+// SACN_SOURCE_NAME_BYTES, so a longer name would be truncated rather than run
+// over Priority and shift every field after it.
 const SACN_SOURCE_NAME = 'gobo';
 const SACN_SOURCE_NAME_BYTES = 64;
 
@@ -282,7 +277,7 @@ const ACN_IDENT = Buffer.from([
   0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00,
 ]);
 
-// E1.31 reserves universe 0 and everything from 64000 up; 1–63999 is all a
+// E1.31 reserves universe 0 and everything from 64000 up; 1-63999 is all a
 // conformant receiver will look at.
 const SACN_UNIVERSE_MIN = 1;
 const SACN_UNIVERSE_MAX = 63999;
@@ -290,15 +285,14 @@ const SACN_DEFAULT_BASE = 1;
 
 /**
  * Sequence numbers are per universe (E1.31 §6.2.5): a receiver compares each
- * packet against the last one it saw *for that universe* and discards anything
- * that looks out of order. A single process-wide counter therefore looked like
- * a jump of however many universes were in the rotation, and receivers threw
- * away frames until the numbers caught up — roughly 170ms of black per gap.
+ * packet against the last one it saw for that universe and discards anything
+ * out of order. A single process-wide counter looked like a jump of however
+ * many universes were in the rotation, and receivers dropped frames until the
+ * numbers caught up, roughly 170ms of black per gap.
  *
- * Keyed on the WIRE universe, not the scene universe: the receiver only ever
- * sees the wire number, so that is the only key that matches what it compares
- * against. This matters where two scene universes share one wire universe —
- * they must draw from the same counter or every packet looks out of order.
+ * Keyed on the WIRE universe, not the scene universe, because the wire number
+ * is the only one the receiver sees. Two scene universes sharing one wire
+ * universe must draw from the same counter or every packet looks out of order.
  */
 const _sacnSeq = new Map<number, number>();
 
@@ -312,14 +306,13 @@ function nextSacnSeq(wireUniverse: number): number {
 const _sacnBaseWarned = new Set<number>();
 
 /**
- * The base universe actually used, which is the configured one only if it can
- * legally go on the wire.
+ * The base universe to use: the configured one if it can legally go on the
+ * wire, otherwise the default.
  *
- * sacn(0) is a call scene code can make — the argument defaults to 1 but
- * nothing stops a 0 — and 0 is precisely the universe E1.31 reserves. An
- * unchecked base is therefore a direct route to packets no conformant receiver
- * will accept, which looks exactly like a dead rig. Fall back to the default
- * rather than emitting illegal packets or going dark, but never quietly.
+ * Scene code can call sacn(0). The argument defaults to 1, but nothing stops a
+ * 0, and E1.31 reserves universe 0. An unchecked base produces packets no
+ * conformant receiver accepts, which looks like a dead rig. Fall back to the
+ * default and log the fallback.
  */
 function sacnBase(): number {
   const configured = config.sacn?.universe;
@@ -336,7 +329,7 @@ function sacnBase(): number {
     _sacnBaseWarned.add(configured);
     console.error(
       `[bridge] sACN: base universe ${JSON.stringify(configured)} is not a whole number in the legal E1.31 ` +
-      `range ${SACN_UNIVERSE_MIN}-${SACN_UNIVERSE_MAX} — using ${SACN_DEFAULT_BASE} instead. ` +
+      `range ${SACN_UNIVERSE_MIN}-${SACN_UNIVERSE_MAX}; using ${SACN_DEFAULT_BASE} instead. ` +
       `Correct the sacn(<base>) call or bridge.config.json.`,
     );
   }
@@ -348,13 +341,12 @@ function sacnBase(): number {
  *
  * ONLY scene universe 0 is remapped; everything else goes out verbatim.
  *
- * Scene universes do not all start at 0 — the fixture family (fixture(),
- * rgbStrip(), rgbwStrip()) defaults to universe 0, while the channel family
- * (ch(), dim(), rgb()) writes universe 1, and the shipped demo scene patches
- * on universe 1. Only the 0 is a problem: E1.31 reserves it, so a default
- * fixture scene was multicasting to a universe conformant receivers drop.
- * Remapping just that value fixes it without moving a single rig that works
- * today — scene uni 1 stays sACN uni 1, scene uni 7 stays 7.
+ * Scene universes do not all start at 0. The fixture family (fixture(),
+ * rgbStrip(), rgbwStrip()) defaults to universe 0, the channel family (ch(),
+ * dim(), rgb()) writes universe 1, and the shipped demo scene patches on
+ * universe 1. E1.31 reserves 0, so a default fixture scene was multicasting to
+ * a universe conformant receivers drop. Remapping only that value leaves
+ * working rigs alone: scene uni 1 stays sACN uni 1, scene uni 7 stays 7.
  *
  * Art-Net and OSC addressing is unchanged: both use the scene universe as-is.
  */
@@ -367,9 +359,9 @@ function sacnUniverseFor(sceneUniverse: number): number {
  * have been reported.
  *
  * Setting the base to B while the scene also writes universe B directly points
- * scene uni 0 and scene uni B at the same wire universe. Both still send, one
- * frame overwrites the other, and the symptom is a fixture that flickers
- * between two looks — worth a line naming both rather than a silent merge.
+ * scene uni 0 and scene uni B at the same wire universe. Both still send and
+ * each frame overwrites the other, so a fixture flickers between two looks.
+ * Log both scene universes rather than merging silently.
  */
 const _sacnWireOwner = new Map<number, number>();
 const _sacnCollisionWarned = new Set<number>();
@@ -384,9 +376,9 @@ function checkWireCollision(sceneUniverse: number, wireUniverse: number): void {
 
   _sacnCollisionWarned.add(wireUniverse);
   console.error(
-    `[bridge] sACN: scene uni ${owner} and scene uni ${sceneUniverse} both map to sACN uni ${wireUniverse} — ` +
-    `they are NOT merged, each frame overwrites the other on the wire. Scene uni 0 is remapped to the base ` +
-    `universe (currently ${sacnBase()}); move one of them or pick another base with sacn(<base>).`,
+    `[bridge] sACN: scene uni ${owner} and scene uni ${sceneUniverse} both map to sACN uni ${wireUniverse}. ` +
+    `They are NOT merged; each frame overwrites the other on the wire. Scene uni 0 is remapped to the base ` +
+    `universe (currently ${sacnBase()}). Move one of them or pick another base with sacn(<base>).`,
   );
 }
 
@@ -453,15 +445,15 @@ function sendSACN(sceneUniverse: number, data: number[]): void {
   const universe = sacnUniverseFor(sceneUniverse);
 
   if (universe < SACN_UNIVERSE_MIN || universe > SACN_UNIVERSE_MAX) {
-    // Only a scene universe can land here — scene uni 0 maps to the base, which
-    // sacnBase() has already forced into range. This runs per universe per
-    // frame, so warn once and then stay quiet: at 60Hz the honest version of
-    // this line is a denial of service on the log.
+    // Only a scene universe can land here: scene uni 0 maps to the base, which
+    // sacnBase() has already forced into range. This runs once per universe per
+    // frame, so warn once and stay quiet after that; at 60Hz an unthrottled
+    // line floods the log.
     if (!_sacnRangeWarned.has(sceneUniverse)) {
       _sacnRangeWarned.add(sceneUniverse);
       console.error(
         `[bridge] sACN: scene uni ${sceneUniverse} is outside the legal E1.31 range ` +
-        `${SACN_UNIVERSE_MIN}-${SACN_UNIVERSE_MAX} — skipping this universe. Scene universes go on the wire ` +
+        `${SACN_UNIVERSE_MIN}-${SACN_UNIVERSE_MAX}; skipping this universe. Scene universes go on the wire ` +
         `unchanged; only scene uni 0 is remapped, to the base universe.`,
       );
     }
@@ -527,7 +519,7 @@ function sendOSC(universe: number, data: number[]): void {
     const address = `/gobo/${universe}/${i + 1}`;
     const msg = buildOscMessage(address, raw / 255);
     // One packet per channel, so an error here can fire hundreds of times per
-    // frame — reportSendError collapses the repeats.
+    // frame; reportSendError collapses the repeats.
     udp.send(msg, port, host, (err) => {
       if (err) reportSendError('OSC', `${host}:${port}`, err);
     });
@@ -549,8 +541,8 @@ let _mockFrame = 0;
 /**
  * Console output for when no rig is attached. The interval is configurable
  * (mock.logIntervalFrames) because the send rate is: the default of 30 frames
- * is about two lines a second at the UI's default 60 Hz, and wants doubling
- * if the send rate is raised to 120.
+ * is about two lines a second at the UI's default 60 Hz, and wants doubling if
+ * the send rate is raised to 120.
  */
 function sendMock(universe: number, data: number[]): void {
   _mockFrame++;
@@ -570,19 +562,19 @@ function sendMock(universe: number, data: number[]): void {
 // ─── Where output is going ───────────────────────────────────────────────────
 
 /**
- * One line describing where frames are actually going. The startup banner and
- * the runtime config log both use this so they cannot drift apart from each
- * other or from the sender: the old sACN line printed a universe number that
- * the sender never put on the wire.
+ * One line describing where frames are going. The startup banner and the
+ * runtime config log both use this, so they cannot drift from each other or
+ * from the sender: the old sACN line printed a universe number the sender
+ * never put on the wire.
  */
 function describeOutput(): string {
   switch (config.mode) {
     case 'artnet':
       return `artnet → ${config.artnet?.host ?? ARTNET_DEFAULT_HOST}:${config.artnet?.port ?? ARTNET_PORT}`;
     case 'sacn': {
-      // sacnBase(), not the raw config value: this line has to describe what
-      // the sender will actually do, including the fallback when the configured
-      // base is unusable. It is the sender's own function, so it cannot drift.
+      // sacnBase(), not the raw config value: this line describes what the
+      // sender does, including the fallback when the configured base is
+      // unusable. It calls the sender's own function, so it cannot drift.
       const base = sacnBase();
       return `sacn → multicast :${SACN_PORT}, priority ${config.sacn?.priority ?? 100} ` +
         `(scene uni 0 → sACN uni ${base}; every other scene uni goes out unchanged, 1 → 1, 7 → 7)`;
@@ -598,14 +590,14 @@ function describeOutput(): string {
 
 function handleConfigMessage(msg: Record<string, unknown>): void {
   if (msg.mode === undefined) {
-    console.warn('[bridge] config message carried no mode — ignored');
+    console.warn('[bridge] config message carried no mode, ignored');
     return;
   }
 
   if (!isOutputMode(msg.mode)) {
-    // Deliberately keep the current mode: a typo mid-show must not silently
-    // take away a working output, and dropping to mock would look like success.
-    console.error(`[bridge] config message: ${unknownModeMessage(msg.mode)} — staying in ${config.mode} mode`);
+    // Keep the current mode: a typo must not take away a working output, and
+    // dropping to mock would look like success.
+    console.error(`[bridge] config message: ${unknownModeMessage(msg.mode)}. Staying in ${config.mode} mode.`);
     return;
   }
 
@@ -627,9 +619,9 @@ function handleConfigMessage(msg: Record<string, unknown>): void {
       priority: typeof s.priority === 'number' ? s.priority : config.sacn?.priority ?? 100,
     };
     // A new base moves scene uni 0 to a different wire universe, so the old
-    // collision bookkeeping describes a mapping that no longer exists. Clear
-    // the warn-once state too, so a base that is still wrong is named again
-    // rather than being reported only for the first show that hit it.
+    // collision bookkeeping describes a mapping that no longer exists. The
+    // warn-once state is cleared too, so a base that is still wrong is
+    // reported again.
     _sacnRangeWarned.clear();
     _sacnBaseWarned.clear();
     _sacnWireOwner.clear();
@@ -649,7 +641,7 @@ function handleConfigMessage(msg: Record<string, unknown>): void {
     udp = createUdpSocket(`switched to ${newMode}`);
   }
 
-  console.log(`[bridge] config updated — ${describeOutput()}`);
+  console.log(`[bridge] config updated: ${describeOutput()}`);
 }
 
 // ─── Route DMX message ───────────────────────────────────────────────────────
@@ -665,9 +657,9 @@ function handleDmxMessage(universes: Record<string, number[]>): void {
     const universe = parseInt(uniStr, 10);
     if (isNaN(universe) || channels.length < 1) continue;
 
-    // No `default:` here on purpose. Every mode is listed, config.mode is
-    // validated before it is ever assigned, and a catch-all branch is what
-    // used to route typo'd modes into mock with no complaint.
+    // No `default:` here on purpose. Every mode is listed and config.mode is
+    // validated before it is assigned; a catch-all branch is what used to
+    // route typo'd modes into mock with no complaint.
     switch (config.mode) {
       case 'artnet':
         sendArtNet(universe, channels);
@@ -700,7 +692,7 @@ wss.on('error', (err) => {
   // Until the server is up this is only the HTTP server's own error re-emitted,
   // and the handler below says the same thing in terms someone can act on.
   if (!listening) return;
-  console.error(`[bridge] WebSocket server error — ${(err as NodeJS.ErrnoException).code ?? 'error'}: ${err.message}`);
+  console.error(`[bridge] WebSocket server error ${(err as NodeJS.ErrnoException).code ?? 'error'}: ${err.message}`);
 });
 
 wss.on('connection', (ws: WebSocket) => {
@@ -710,7 +702,7 @@ wss.on('connection', (ws: WebSocket) => {
   // its socket; with no listener that throws and kills the bridge along with
   // every other client's output.
   ws.on('error', (err) => {
-    console.error(`[bridge] client socket error — ${err.message}`);
+    console.error(`[bridge] client socket error: ${err.message}`);
   });
 
   ws.on('message', (raw) => {
@@ -735,20 +727,19 @@ wss.on('connection', (ws: WebSocket) => {
 
 const PORT = 3001;
 
-// Failing to listen at all is unrecoverable — there is nothing for the editor
-// to connect to — so say why in one line and stop, rather than throwing a
-// stack trace. Anything that goes wrong after we are up is survivable and must
-// not interrupt a running show.
+// Failing to listen is unrecoverable: there is nothing for the editor to
+// connect to. Print one line and exit rather than throwing a stack trace.
+// Errors after the server is up are survivable and must not stop output.
 httpServer.on('error', (err: NodeJS.ErrnoException) => {
   if (!listening) {
     if (err.code === 'EADDRINUSE') {
-      console.error(`[bridge] port ${PORT} is already in use — another bridge is probably running already. Close it, then start this one.`);
+      console.error(`[bridge] port ${PORT} is already in use. Another bridge is probably running; close it, then start this one.`);
     } else {
-      console.error(`[bridge] could not listen on port ${PORT} — ${err.code ?? 'error'}: ${err.message}`);
+      console.error(`[bridge] could not listen on port ${PORT}, ${err.code ?? 'error'}: ${err.message}`);
     }
     process.exit(1);
   }
-  console.error(`[bridge] HTTP server error — ${err.code ?? 'error'}: ${err.message}`);
+  console.error(`[bridge] HTTP server error ${err.code ?? 'error'}: ${err.message}`);
 });
 
 httpServer.listen(PORT, () => {

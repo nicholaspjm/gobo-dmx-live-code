@@ -5,10 +5,10 @@
  * (`scripts/validate-fixtures.mjs` runs it over every file in `fixtures/`),
  * so the suite leans on boundary cases: for each documented limit there is a
  * pair of tests, one just inside and one just outside. Error strings are
- * asserted verbatim where they are stable — contributors read them in CI
+ * asserted verbatim where they are stable: contributors read them in CI
  * output, so a reworded message is a change worth noticing.
  *
- * Two tests are marked `it.fails` — they assert behaviour the docs promise
+ * Two tests are marked `it.fails`. They assert behaviour the docs promise
  * but the validator does not implement. See the comments on each.
  */
 
@@ -73,7 +73,7 @@ const repeat = (n: number, ch = 'a'): string => ch.repeat(n);
 
 // ─── Happy paths ─────────────────────────────────────────────────────────────
 
-describe('validateFixture — accepting valid definitions', () => {
+describe('validateFixture: accepting valid definitions', () => {
   it('accepts a minimal one-channel fixture', () => {
     const result = validateFixture(
       'tiny-dimmer',
@@ -169,7 +169,7 @@ describe('validateFixture — accepting valid definitions', () => {
     expect(ok.def.channels[0].description).toBe('');
   });
 
-  it('returns a fresh def — mutating the result cannot reach the caller input', () => {
+  it('returns a fresh def, so mutating the result cannot reach the caller input', () => {
     const input = validDef();
     const ok = expectOk(validateFixture('fresh', input));
     expect(ok.def).not.toBe(input);
@@ -185,14 +185,14 @@ describe('validateFixture — accepting valid definitions', () => {
 
 // ─── Result shape ────────────────────────────────────────────────────────────
 
-describe('validateFixture — result shape', () => {
+describe('validateFixture: result shape', () => {
   it('returns exactly { ok, id, def } on success', () => {
     const result = validateFixture('shape-ok', validDef());
     expect(Object.keys(result).sort()).toEqual(['def', 'id', 'ok']);
     expect(result.ok).toBe(true);
   });
 
-  it('returns exactly { ok, error } on failure — never a partial def', () => {
+  it('returns exactly { ok, error } on failure, never a partial def', () => {
     const result = validateFixture('BAD ID', validDef());
     expect(Object.keys(result).sort()).toEqual(['error', 'ok']);
     expect(result.ok).toBe(false);
@@ -258,7 +258,7 @@ describe('fixture id', () => {
     expect(expectErr(validateFixture(id, validDef()))).toBe('Fixture id longer than 64 chars.');
   });
 
-  it('checks id length before charset — an over-long bad-charset id reports length', () => {
+  it('checks id length before charset, so an over-long bad-charset id reports length', () => {
     expect(expectErr(validateFixture(repeat(65, 'A'), validDef()))).toBe(
       'Fixture id longer than 64 chars.',
     );
@@ -297,7 +297,7 @@ describe('fixture id', () => {
   it('rejects collision with every built-in fixture id', () => {
     for (const id of Object.keys(BUILT_IN_FIXTURES)) {
       expect(expectErr(validateFixture(id, validDef()))).toBe(
-        `Fixture id "${id}" collides with a built-in — pick a different name.`,
+        `Fixture id "${id}" collides with a built-in. Pick a different name.`,
       );
     }
   });
@@ -320,8 +320,8 @@ describe('fixture id', () => {
    * BUILT_IN_FIXTURES`, which walks the prototype chain, so the lone
    * all-lowercase Object.prototype member is reported as a built-in
    * collision. It fails closed (rejects), and "constructor" is a poor
-   * fixture id anyway — but the message is misleading, and this test
-   * exists so a future switch to Object.hasOwn is a conscious change.
+   * fixture id anyway, but the message is misleading. This test exists so
+   * a future switch to Object.hasOwn is a conscious change.
    */
   it('rejects the id "constructor" as a built-in collision (prototype-chain quirk)', () => {
     expect(expectErr(validateFixture('constructor', validDef()))).toContain(
@@ -336,15 +336,15 @@ describe('fixture id', () => {
   });
 
   /**
-   * KNOWN GAP — expected to fail.
+   * KNOWN GAP, expected to fail.
    *
-   * fixtures/README.md states: "Built-in fixture ids (`generic-dimmer`,
-   * `generic-rgbw`, `moving-head-basic`, etc.) can't be reused — the
-   * validator will reject a PR that tries."
+   * fixtures/README.md says built-in fixture ids (`generic-dimmer`,
+   * `generic-rgbw`, `moving-head-basic`, etc.) cannot be reused and that
+   * the validator will reject a PR that tries.
    *
    * `moving-head-basic` is a real key of BUILT_IN_FIXTURES and is rejected.
    * `generic-dimmer` / `generic-rgbw` / `strobe-basic` and the rest of
-   * FIXTURE_ALIASES are NOT — the validator only consults
+   * FIXTURE_ALIASES are NOT: the validator only consults
    * BUILT_IN_FIXTURES, and FIXTURE_ALIASES is module-private to
    * fixtures.ts. A contributed fixture using one of those ids passes CI
    * but is unreachable at runtime, because resolveFixture() maps the
@@ -394,7 +394,7 @@ describe('fixture name', () => {
   });
 
   it('places no charset restriction on the name', () => {
-    expectOk(validateFixture('n', validDef({ name: 'Chauvet COLORado 2 Solo — <b>&amp;</b>' })));
+    expectOk(validateFixture('n', validDef({ name: 'Chauvet COLORado 2 Solo · <b>&amp;</b>' })));
   });
 });
 
@@ -485,7 +485,7 @@ describe('channelCount', () => {
     }
   });
 
-  it('rejects a numeric string — no coercion', () => {
+  it('rejects a numeric string, with no coercion', () => {
     expect(expectErr(validateFixture('cc', validDef({ channelCount: '3' })))).toBe(expected);
   });
 
@@ -807,9 +807,9 @@ describe('strip channels', () => {
     ).toBe(rangeErr);
   });
 
-  it('lets pixelCount 512 past the range check — it fails later on extent, not range', () => {
+  it('lets pixelCount 512 past the range check, failing later on extent', () => {
     // 512 px x 3 chs = 1536 > any legal channelCount, so this can never
-    // actually pass. The point is *which* error fires: proving 512 is
+    // pass. The point is *which* error fires: proving 512 is
     // inside the pixelCount bound and 513 is outside it.
     const error = expectErr(
       validateFixture('s', defWithStrip({ pixelCount: FIXTURE_LIMITS.MAX_PIXEL_COUNT }, 512)),
@@ -952,15 +952,15 @@ describe('strip channels', () => {
   });
 
   /**
-   * KNOWN GAP — expected to fail.
+   * KNOWN GAP, expected to fail.
    *
    * `const layout = pixelLayout ?? 'rgb'` uses nullish coalescing, so an
    * explicit JSON `null` is silently coerced to 'rgb' rather than
    * rejected. Every other wrong-type value in this module is rejected,
-   * and the module docstring promises out-of-range values are "rejected
-   * with a specific error message rather than silently coerced" — so
-   * null is the one hole. `pixelLayout: undefined` legitimately means
-   * "absent"; `null` does not.
+   * and the module docstring promises out-of-range values are rejected
+   * with a specific error message rather than coerced, so null is the one
+   * hole. `pixelLayout: undefined` legitimately means "absent"; `null`
+   * does not.
    *
    * Fix belongs in fixture-validator.ts (test for `undefined` explicitly,
    * or run the VALID_PIXEL_LAYOUTS check before defaulting). Delete
@@ -1052,12 +1052,12 @@ describe('unknown fields', () => {
 describe('schema version (goboFixture)', () => {
   /**
    * The `goboFixture` version field lives on the file envelope, not on
-   * the def — scripts/validate-fixtures.mjs checks `parsed.goboFixture
+   * the def: scripts/validate-fixtures.mjs checks `parsed.goboFixture
    * !== 1` and only then calls validateFixture(parsed.id, parsed.def).
    * These tests pin that split so nobody moves the check by accident.
    */
 
-  it('is not the validator concern — a def with no version still validates', () => {
+  it('is not the validator concern: a def with no version still validates', () => {
     expectOk(validateFixture('v', validDef()));
   });
 
@@ -1094,7 +1094,7 @@ describe('schema version (goboFixture)', () => {
 
 // ─── envelope parsing (deprecated schema-field alias) ────────────────────────
 
-describe('parseImportString — schema field', () => {
+describe('parseImportString: schema field', () => {
   /**
    * The version field was called `lumenFixture` before the project was
    * renamed to gobo. Users have already exported files carrying the old
@@ -1182,7 +1182,7 @@ describe('documented non-goals', () => {
   });
 
   it('does not require the fixture type to match the channels present', () => {
-    // Declared 'rgbw' with only a dimmer channel — semantically wrong,
+    // Declared 'rgbw' with only a dimmer channel: semantically wrong,
     // structurally valid.
     expectOk(
       validateFixture(

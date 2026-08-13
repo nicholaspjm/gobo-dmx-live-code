@@ -6,10 +6,10 @@
  * that add to `fixtures/*.json`. Built-in fixtures hard-coded in
  * BUILT_IN_FIXTURES are trusted by construction and skip this path.
  *
- * The validator is strict on purpose — unknown keys, out-of-range
- * values, and id collisions with built-ins are all rejected with a
- * specific error message rather than silently coerced. Downstream code
- * can rely on a validated def having the exact shape it claims.
+ * The validator is strict on purpose: unknown keys, out-of-range values
+ * and id collisions with built-ins are rejected with a specific error
+ * message rather than coerced. Downstream code can rely on a validated
+ * def having the shape it claims.
  *
  * What we're defending against:
  *   - Denial of service via absurd sizes (50k-pixel strips, etc.)
@@ -19,8 +19,8 @@
  *     the id becomes a filename when exported)
  *
  * What this is NOT defending against:
- *   - Arbitrary code execution — the def is pure JSON, never eval'd.
- *   - Rendered HTML injection — the library UI HTML-escapes all text.
+ *   - Arbitrary code execution: the def is pure JSON, never eval'd.
+ *   - Rendered HTML injection: the library UI HTML-escapes all text.
  *   - Logic errors in an otherwise-valid def (e.g. wrong channel offset
  *     for a real-world fixture). That's a review concern, not a
  *     validation concern.
@@ -59,10 +59,10 @@ const VALID_CHANNEL_TYPES = new Set([
 
 const VALID_PIXEL_LAYOUTS = new Set(['rgb', 'rgbw']);
 
-/** Permitted id characters — kebab-case-ish, no uppercase, no paths, no dots. */
+/** Permitted id characters: kebab-case-ish, no uppercase, no paths, no dots. */
 const VALID_ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 
-/** Permitted channel name — identifier-ish. Allowed lowercase or camelCase so
+/** Permitted channel name, identifier-ish. Lowercase or camelCase allowed so
  *  existing fixtures (direction, pixelCount, etc.) round-trip. */
 const VALID_CHANNEL_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_-]*$/;
 
@@ -127,7 +127,7 @@ export function validateFixture(id: unknown, rawDef: unknown): ValidationResult 
   if (id in BUILT_IN_FIXTURES) {
     return {
       ok: false,
-      error: `Fixture id "${id}" collides with a built-in — pick a different name.`,
+      error: `Fixture id "${id}" collides with a built-in. Pick a different name.`,
     };
   }
 

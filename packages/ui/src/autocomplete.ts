@@ -3,19 +3,19 @@
  *
  * Two contexts are recognised:
  *
- *   1. Bare identifier — `sin|` — we suggest top-level commands (fixture,
- *      sine, artnet, setBPM, …) plus any light names the user has
- *      declared via `const X = fixture(…)` / `rgbStrip(…)` / `rgbwStrip(…)`.
+ *   1. Bare identifier (`sin|`): top-level commands (fixture, sine,
+ *      artnet, setBPM, …) plus any light names the user has declared via
+ *      `const X = fixture(…)` / `rgbStrip(…)` / `rgbwStrip(…)`.
  *
- *   2. After a dot — `wash.|` or `sine().slow(4).|` — we suggest common
- *      method names: channel setters (.red, .dim, …), pattern chains
- *      (.slow, .range, …), pixel/strip ops (.pixel, .fill, …), and
- *      the viz methods (.viz, .flash, .glow, .wave).
+ *   2. After a dot (`wash.|` or `sine().slow(4).|`): common method names,
+ *      meaning channel setters (.red, .dim, …), pattern chains (.slow,
+ *      .range, …), pixel/strip ops (.pixel, .fill, …), and the viz
+ *      methods (.viz, .flash, .glow, .wave).
  *
- * The completion set is deliberately curated rather than derived at eval
- * time — eval runs in a sandbox and its fixture metadata isn't available
- * to the editor. The lists here are the same names used by the
- * code-highlight plugin so colouring and suggestions agree.
+ * The completion set is curated rather than derived at eval time: eval
+ * runs in a sandbox and its fixture metadata is not available to the
+ * editor. The lists here use the same names as the code-highlight plugin,
+ * so colouring and suggestions agree.
  */
 
 import {
@@ -31,10 +31,9 @@ import { HELP_ENTRIES, type HelpEntry } from './help-data.js';
 // Derived from the shared help index so signatures/examples are authored once
 // and surface in both the autocomplete popup and the hover tooltip.
 
-/** Build a CM Completion from a HelpEntry. The `info` field (the longer
- *  doc panel shown when an entry is selected) gets a small DOM render
- *  with description + example, so users can preview an example without
- *  needing to accept the completion first. */
+/** Build a CM Completion from a HelpEntry. The `info` field (the doc
+ *  panel shown when an entry is selected) renders description plus
+ *  example, so the example is visible before accepting the completion. */
 function toCompletion(e: HelpEntry): Completion {
   return {
     label: e.label,
@@ -78,7 +77,7 @@ const fixtureMethods: Completion[] = HELP_ENTRIES
 const allMethods: Completion[] = [...patternMethods, ...fixtureMethods];
 
 // ─── Light-name discovery (pre-scan user's doc) ──────────────────────────────
-/** Mirrors the regex used in code-highlight.ts — kept in sync manually. */
+/** Mirrors the regex used in code-highlight.ts. Kept in sync manually. */
 const LIGHT_DECL_RE =
   /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:fixture|rgbStrip|rgbwStrip)\s*\(/g;
 
@@ -95,7 +94,7 @@ function collectLightNames(doc: string): string[] {
 // ─── Completion source ───────────────────────────────────────────────────────
 
 function goboCompletions(context: CompletionContext): CompletionResult | null {
-  // Skip inside strings and comments — typing "re" in a comment shouldn't
+  // Skip inside strings and comments. Typing "re" in a comment shouldn't
   // pop the whole API up.
   const tree = syntaxTree(context.state);
   const nodeBefore = tree.resolveInner(context.pos, -1);
@@ -104,16 +103,16 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
     return null;
   }
 
-  // Case 1: method context — something before the cursor ends in `.word`
-  // (the word may be empty). Show the merged pattern + fixture method
-  // pool; the autocomplete UI handles prefix filtering.
+  // Case 1: method context, where the text before the cursor ends in
+  // `.word` (the word may be empty). Show the merged pattern + fixture
+  // method pool; the autocomplete UI handles prefix filtering.
   const dotMatch = context.matchBefore(/([A-Za-z_$][\w$]*)\.(\w*)$/);
   if (dotMatch) {
     const methodStart = dotMatch.from + dotMatch.text.indexOf('.') + 1;
     return { from: methodStart, options: allMethods, validFor: /^\w*$/ };
   }
 
-  // Case 2: bare identifier — commands + user-declared light names.
+  // Case 2: bare identifier. Commands plus user-declared light names.
   const wordMatch = context.matchBefore(/[A-Za-z_$][\w$]*$/);
   if (!wordMatch) return null;
   if (wordMatch.from === wordMatch.to && !context.explicit) return null;

@@ -1,35 +1,30 @@
 /**
- * Share links — a whole scene encoded into the URL hash.
+ * Share links: a whole scene encoded into the URL hash.
  *
  * WHY the payload lives in the URL: gobo is a static site. The hosted build
- * on GitHub Pages is nothing but files on a CDN — there is no backend, no
- * database, no accounts, nowhere to put a scene and hand back a short id.
- * Anything server-side would also mean the thing this project deliberately
- * avoids: your work leaving your browser. Putting the scene *in* the link
- * keeps the whole feature client-side, and a self-contained link never
- * expires, never 404s when someone stops paying for a host, and survives
- * being pasted into a text file for a year.
+ * on GitHub Pages is files on a CDN, with no backend to store a scene and
+ * hand back a short id. A server would also mean the user's work leaving
+ * their browser. Putting the scene in the link keeps the feature
+ * client-side, and there is no id registered anywhere, so a link cannot
+ * expire or 404.
  *
- * The honest trade-off is size. The entire scene rides in the URL, so links
- * grow with the scene. Deflate gets typical live-coding source to roughly a
- * third of its length and base64 adds about a third back, so a 2 kB scene
- * lands near 900 characters of link — fine. But there is no free lunch:
- * browsers themselves handle very long URLs, while chat clients, QR codes,
- * mail gateways and some proxies start truncating somewhere around 2 kB.
- * A big set makes an unwieldy link, and a scene past MAX_JSON_BYTES is
- * refused by the decoder outright (see that constant). For anything large,
- * Save to file is the right tool — sharing is for passing a patch to
- * someone, not for archiving a show.
+ * The trade-off is size, since the whole scene rides in the URL. Deflate
+ * gets typical live-coding source to roughly a third of its length and
+ * base64 adds about a third back, so a 2 kB scene lands near 900 characters
+ * of link. Browsers handle very long URLs, but chat clients, QR codes, mail
+ * gateways and some proxies start truncating somewhere around 2 kB. A scene
+ * past MAX_JSON_BYTES is refused by the decoder (see that constant). Use
+ * Save to file for anything large.
  *
  * SECURITY: this module decodes, it does not execute. Scene code runs
  * unsandboxed with full page privileges (see SECURITY.md and
  * packages/core/src/eval.ts), so a share link is a stranger's code aimed at
  * your origin, where it could read your saved work or repoint your DMX
- * output. A decoded scene must therefore be loaded stopped, behind a visible
- * notice, and run only on a deliberate keystroke. Enforcing that is the
- * caller's job; all this module promises is that it will never run the code
- * itself and never throw on hostile input. The returned `name` is likewise
- * untrusted text — render it as text, never as HTML.
+ * output. A decoded scene must be loaded stopped, behind a visible notice,
+ * and run only on a deliberate keystroke. Enforcing that is the caller's
+ * job; this module only promises never to run the code itself and never to
+ * throw on hostile input. The returned `name` is untrusted text too. Render
+ * it as text, never as HTML.
  */
 
 // Version prefixes. The hash is `#<version>=<base64url>`, so the decoder
@@ -45,26 +40,25 @@ const VERSION_PLAIN = 's1u';    // JSON → UTF-8 → base64url  (no Compression
  * incrementally and abandoned the moment it crosses this line.
  *
  * 512 kB is far beyond any real scene (the bundled examples are single-digit
- * kB) and far beyond what a pasteable URL can carry anyway. Note the ceiling
- * is enforced on decode only — encodeShareLink will happily build a link for
- * a larger buffer, and that link will not decode. That is the documented
- * limit of the format, not a bug to route around.
+ * kB) and far beyond what a pasteable URL can carry. The ceiling is enforced
+ * on decode only: encodeShareLink will build a link for a larger buffer, and
+ * that link will not decode. That is the documented limit of the format.
  */
 const MAX_JSON_BYTES = 512 * 1024;
 
 /**
  * Ceiling on the base64 text we are willing to even look at. A coarse guard
  * so a multi-megabyte hash is rejected before we allocate anything to decode
- * it; MAX_JSON_BYTES is the limit that actually matters.
+ * it. MAX_JSON_BYTES is the limit that matters.
  */
 const MAX_PAYLOAD_CHARS = 2 * 1024 * 1024;
 
 /**
  * Bytes backed by a plain ArrayBuffer. The stream APIs take `BufferSource`,
- * which deliberately excludes views over SharedArrayBuffer, and a bare
- * `Uint8Array` might be either. Everything here is freshly allocated or comes
- * from TextEncoder, so it is always the unshared kind — this alias just says
- * so rather than casting the difference away at each call site.
+ * which excludes views over SharedArrayBuffer, and a bare `Uint8Array` might
+ * be either. Everything here is freshly allocated or comes from TextEncoder,
+ * so it is always the unshared kind. This alias says so, rather than casting
+ * the difference away at each call site.
  */
 type Bytes = Uint8Array<ArrayBuffer>;
 
@@ -72,8 +66,8 @@ type Bytes = Uint8Array<ArrayBuffer>;
 
 /** Encode bytes as base64url: URL-safe alphabet, padding stripped. */
 function bytesToBase64Url(bytes: Uint8Array): string {
-  // btoa() takes a binary string. Build it in chunks — spreading a large
-  // typed array into one fromCharCode call blows the argument limit.
+  // btoa() takes a binary string. Build it in chunks, because spreading a
+  // large typed array into one fromCharCode call blows the argument limit.
   let binary = '';
   const CHUNK = 0x8000;
   for (let i = 0; i < bytes.length; i += CHUNK) {
@@ -82,12 +76,12 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-/** Decode base64url back to bytes. Returns null for anything that is not
- *  valid base64url, rather than throwing — this input is attacker-supplied. */
+/** Decode base64url back to bytes. This input is attacker-supplied, so
+ *  anything that is not valid base64url returns null rather than throwing. */
 function base64UrlToBytes(text: string): Bytes | null {
   // Reject foreign characters up front so atob() never sees them. This also
   // rejects '=' padding and any extra hash parameters, which is intended:
-  // we only accept a hash that is exactly one of our payloads.
+  // only a hash that is one of our payloads is accepted.
   if (!/^[A-Za-z0-9_-]+$/.test(text)) return null;
   const b64 = text.replace(/-/g, '+').replace(/_/g, '/');
   const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
@@ -104,7 +98,7 @@ function base64UrlToBytes(text: string): Bytes | null {
 
 // ─── streams ─────────────────────────────────────────────────────────────────
 
-// Typed as BufferSource, not Uint8Array, so the stream pairs cleanly with
+// Typed as BufferSource, not Uint8Array, so the stream pairs with
 // CompressionStream.writable (which lib.dom declares as WritableStream<BufferSource>).
 function streamOf(bytes: Bytes): ReadableStream<BufferSource> {
   return new ReadableStream<BufferSource>({
@@ -117,8 +111,8 @@ function streamOf(bytes: Bytes): ReadableStream<BufferSource> {
 
 /**
  * Read a byte stream to completion, giving up as soon as the total crosses
- * `cap`. Incremental by design: the point is to stop a decompression bomb
- * mid-inflate rather than to discover afterwards that we allocated too much.
+ * `cap`. The check is incremental so a decompression bomb is stopped
+ * mid-inflate rather than found after the allocation.
  * Returns null on overflow or on any stream error (corrupt deflate data).
  */
 async function drainStream(
@@ -141,7 +135,7 @@ async function drainStream(
       chunks.push(value);
     }
   } catch {
-    // Truncated or non-deflate payload — the transform rejects here.
+    // Truncated or non-deflate payload: the transform rejects here.
     return null;
   }
   const out = new Uint8Array(total);
@@ -156,7 +150,7 @@ async function drainStream(
 /**
  * Compress with the browser's native CompressionStream. Returns null when the
  * API is missing (older Safari) or refuses the format, so the caller can fall
- * back to an uncompressed payload. The `typeof` guard is deliberate: a bare
+ * back to an uncompressed payload. The `typeof` guard is there because a bare
  * reference to an undeclared global throws a ReferenceError, and nothing in
  * this module may throw at load time.
  */
@@ -189,9 +183,9 @@ async function inflateRaw(bytes: Bytes): Promise<Bytes | null> {
  * Build an absolute, self-contained share URL for a scene.
  *
  * The URL is derived from the current location, so it carries whatever base
- * path the app is served under — this works on GitHub Pages at `/gobo/` and
- * on a localhost dev server alike, with no configured origin to get wrong.
- * Any existing hash is replaced, never appended to.
+ * path the app is served under. That covers GitHub Pages at `/gobo/` and a
+ * localhost dev server alike, with no configured origin to get wrong. Any
+ * existing hash is replaced, never appended to.
  */
 export async function encodeShareLink(code: string, name: string): Promise<string> {
   const json = JSON.stringify({ name, code });
@@ -236,8 +230,8 @@ export async function decodeShareFromLocation(): Promise<{ code: string; name: s
   if (version === VERSION_DEFLATE) {
     jsonBytes = await inflateRaw(bytes);
   } else {
-    // Uncompressed payloads are capped too — the base64 is only a 4/3
-    // expansion, so MAX_PAYLOAD_CHARS alone would let a 1.5 MB scene through.
+    // Uncompressed payloads are capped too: base64 is only a 4/3 expansion,
+    // so MAX_PAYLOAD_CHARS alone would let a 1.5 MB scene through.
     jsonBytes = bytes.byteLength > MAX_JSON_BYTES ? null : bytes;
   }
   if (!jsonBytes) return null;
@@ -259,8 +253,8 @@ export async function decodeShareFromLocation(): Promise<{ code: string; name: s
   }
 
   // Validate the shape before trusting it. An attacker controls this object,
-  // so anything that isn't a plain record of two strings is rejected — a
-  // number where `code` should be would otherwise reach the editor.
+  // so anything that isn't a plain record of two strings is rejected;
+  // otherwise a number where `code` should be would reach the editor.
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
   const { code, name } = parsed as { code?: unknown; name?: unknown };
   if (typeof code !== 'string' || typeof name !== 'string') return null;
@@ -273,11 +267,11 @@ export async function decodeShareFromLocation(): Promise<{ code: string; name: s
 /**
  * Strip the share payload from the address bar once it has been consumed.
  *
- * Uses history.replaceState so the page does not reload — a reload would
- * throw away the scene we just loaded — and so no history entry is added.
- * That last part matters: pushing an entry (or assigning location.hash) would
- * leave Back pointing at the same URL with the payload still on it, which
- * either does nothing visible or re-prompts the user forever.
+ * Uses history.replaceState so the page does not reload, which would throw
+ * away the scene just loaded, and so no history entry is added. Pushing an
+ * entry (or assigning location.hash) would leave Back pointing at the same
+ * URL with the payload still on it, which either does nothing visible or
+ * re-prompts the user forever.
  */
 export function clearShareFromLocation(): void {
   const loc = globalThis.location;
@@ -286,11 +280,11 @@ export function clearShareFromLocation(): void {
   if (typeof hist?.replaceState !== 'function') return; // no safe way to do this; leave the URL alone
 
   try {
-    // pathname + search, with the hash simply omitted. Passing '' or '#'
+    // pathname + search, with the hash omitted. Passing '' or '#'
     // would keep a bare '#' hanging off the URL in some browsers.
     hist.replaceState(hist.state, '', `${loc.pathname}${loc.search}`);
   } catch {
     // Some embedded/sandboxed contexts refuse replaceState for a URL they
-    // consider cross-origin. Cosmetic only — the scene is already loaded.
+    // consider cross-origin. Cosmetic only: the scene is already loaded.
   }
 }

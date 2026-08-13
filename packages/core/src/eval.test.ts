@@ -9,9 +9,9 @@
  *
  * Every test loads its own copy of the module graph (loadHarness) because
  * eval.ts, dmx.ts and scheduler.ts all hold module-level state and the pattern
- * engine is a one-way state machine — 'loading' cannot be re-entered once a
- * load has finished. A fresh graph per test is cheaper than trying to rewind
- * one, and it means no test can depend on the order it runs in.
+ * engine is a one-way state machine: 'loading' cannot be re-entered once a
+ * load has finished. A fresh graph per test is cheaper than rewinding one, and
+ * no test can depend on the order it runs in.
  *
  * The bridge is stubbed at websocket.ts, the one seam eval.ts uses to reach
  * the wire; the pattern engine is stubbed at @strudel/core behind a gate the
@@ -22,7 +22,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 
 // websocket.ts reads `window.location.hostname` at module-load time. It is
-// stubbed below, but fixtures/dmx are pulled in for real — give the headless
+// stubbed below, but fixtures/dmx are pulled in for real, so give the headless
 // runner the one property the graph might reach for.
 const g = globalThis as { window?: { location: { hostname: string } } };
 if (g.window === undefined) g.window = { location: { hostname: 'localhost' } };
@@ -78,7 +78,7 @@ interface Harness {
   getSimFixtures(): readonly unknown[];
   /** Configs the sandbox managed to push to the bridge, oldest first. */
   sends: BridgeConfig[];
-  /** Runs inside the stubbed sendConfig — used to observe commit ordering. */
+  /** Runs inside the stubbed sendConfig, to observe commit ordering. */
   setSendHook(fn: (() => void) | null): void;
   /** Flip the switchable clearSimFixtures() (needs `breakSimClear` set). */
   setSimClearBroken(on: boolean): void;
@@ -166,7 +166,7 @@ async function loadHarness(opts: HarnessOptions = {}): Promise<Harness> {
   };
 }
 
-/** A harness with the pattern engine fully loaded — the normal show state. */
+/** A harness with the pattern engine fully loaded: the normal show state. */
 async function readyHarness(opts: HarnessOptions = {}): Promise<Harness> {
   const h = await loadHarness(opts);
   const loading = h.initStrudel();
@@ -200,8 +200,8 @@ afterEach(() => {
 // ─── bridge config ────────────────────────────────────────────────────────────
 // artnet() / sacn() / osc() / mock() used to send the moment they were called.
 // A scene whose first line switched the bridge and whose last line threw had
-// its channel defs rolled back and left the bridge pointed somewhere else —
-// the previous scene kept running, into a void.
+// its channel defs rolled back and left the bridge pointed somewhere else, so
+// the previous scene kept running into a void.
 
 describe('bridge config is part of the transaction', () => {
   it('does not reach the bridge when the scene later throws', async () => {
@@ -331,13 +331,13 @@ describe('setBPM is part of the transaction', () => {
 // register() writes its body onto the shared Pattern prototype, which outlives
 // the eval that defined it on purpose. The body closes over that eval's
 // artnet()/setBPM() bindings, so a call it makes later used to be judged
-// against a transaction that had already settled and went straight out — while
-// the scene that actually made the call rolled back. That left the rig on the
-// previous scene's defs at the new scene's tempo, pointed at a new host.
+// against a transaction that had already settled and went straight out, while
+// the scene that made the call rolled back. That left the rig on the previous
+// scene's defs at the new scene's tempo, pointed at a new host.
 //
 // FakePattern.prototype is shared by every harness in this file (the class is
-// declared once, above), which is exactly the cross-eval prototype the bug
-// lives on — so each test below registers under its own method name.
+// declared once, above), which is the cross-eval prototype the bug lives on, so
+// each test below registers under its own method name.
 
 describe('an output call belongs to the eval in flight, not the one that bound it', () => {
   it('rolls back a register() body\'s config and tempo when the invoking scene throws', async () => {
@@ -356,8 +356,8 @@ describe('an output call belongs to the eval in flight, not the one that bound i
     // A live scene for the failed one to fall back to.
     expect(h.evalCode('uni(1, 5, 1)').success).toBe(true);
 
-    // Scene B invokes the body — through scene A's captured bindings — and
-    // then dies on the next statement.
+    // Scene B invokes the body through scene A's captured bindings, then dies
+    // on the next statement.
     const sceneB = h.evalCode('ch(1, sine().boom()); nope()');
 
     expect(sceneB.success).toBe(false);
@@ -390,9 +390,9 @@ describe('an output call belongs to the eval in flight, not the one that bound i
   });
 
   it('sends an escaped config only after the invoking scene is live', async () => {
-    // Joining the transaction has to mean joining its ordering too — the
-    // bridge must not be redirected while the defs behind it are still the
-    // previous scene's.
+    // Joining the transaction has to mean joining its ordering too: the bridge
+    // must not be redirected while the defs behind it are still the previous
+    // scene's.
     const h = await readyHarness();
 
     expect(h.evalCode("register('boomOrder', (p) => { artnet('10.9.9.9'); return p })").success).toBe(true);
@@ -418,7 +418,7 @@ describe('an output call belongs to the eval in flight, not the one that bound i
       h.evalCode("register('boomLazy', (p) => { setBPM(200); artnet('10.9.9.9'); return p })").success,
     ).toBe(true);
 
-    // The chain method is not called while the scene runs — it is called from
+    // The chain method is not called while the scene runs. It is called from
     // inside queryArc, so it fires when a frame asks for a value and not
     // before.
     expect(h.evalCode('ch(1, { queryArc: (b, e) => sine().boomLazy().queryArc(b, e) })').success).toBe(true);
@@ -426,9 +426,9 @@ describe('an output call belongs to the eval in flight, not the one that bound i
     expect(h.sends).toEqual([]);
 
     // The tick is where the body finally runs. There is no run in flight for
-    // it to be committed or rolled back with, so it applies straight away —
-    // the documented choice, and what these calls did before any buffering
-    // existed.
+    // it to be committed or rolled back with, so it applies straight away.
+    // That is the documented choice, and what these calls did before any
+    // buffering existed.
     h.tick(0);
 
     expect(h.getBPM()).toBe(200);
@@ -495,9 +495,9 @@ describe('pattern engine gate', () => {
     const h = await readyHarness({ strudel: 'reject' });
 
     expect(h.isStrudelReady()).toBe(false);
-    // The exact wording comes from whatever the loader threw, so assert the
-    // shape — a reason was recorded — and that the refusal carries it through
-    // to the operator instead of inventing its own.
+    // The wording comes from whatever the loader threw, so assert the shape
+    // (a reason was recorded) and that the refusal carries it through to the
+    // operator rather than inventing its own.
     const reason = h.getStrudelError();
     expect(reason).toBeTruthy();
 
@@ -512,7 +512,7 @@ describe('pattern engine gate', () => {
     const h = await readyHarness({ strudel: 'reject' });
     expect(h.getStrudelError()).toBeTruthy();
 
-    // A retry clears the error before it awaits the import — the same window
+    // A retry clears the error before it awaits the import: the same window
     // as a cold start, reached from a state the operator can see is broken.
     const retry = h.initStrudel();
     expect(h.getStrudelError()).toBeNull();
@@ -542,7 +542,7 @@ describe('a failed run leaves no state behind', () => {
 
   it('never leaves the staging map open when a registry clear throws', async () => {
     // The clears used to sit outside the try, so a throw from one of them
-    // escaped evalCode with the staging map still open — every subsequent
+    // escaped evalCode with the staging map still open, and every subsequent
     // uni() call, from any caller, silently went nowhere.
     const h = await readyHarness({ breakSimClear: true });
 
@@ -566,7 +566,7 @@ describe('a failed run leaves no state behind', () => {
     expect(h.getSimFixtures().length).toBe(0);
   });
 
-  it('still swaps cleanly on the next good run', async () => {
+  it('still swaps the scene on the next good run', async () => {
     const h = await readyHarness();
 
     expect(h.evalCode('mock(); setBPM(100); uni(1, 1, 1); boom()').success).toBe(false);

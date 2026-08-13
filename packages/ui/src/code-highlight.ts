@@ -3,36 +3,36 @@
  * category, so a scene reads as lighting rather than as generic JavaScript.
  *
  * The default `@codemirror/lang-javascript` highlighter paints every function
- * call and identifier the same. That is fine for a language whose verbs are
- * arbitrary; it is wasteful here, where the verbs are a small fixed vocabulary
- * and the difference between "changes the colour" and "changes where the light
- * physically goes" is the thing you most need to see at a glance mid-set.
+ * call and identifier the same. That suits a language whose verbs are
+ * arbitrary. Here the verbs are a small fixed vocabulary, and the difference
+ * between "changes the colour" and "changes where the light physically goes"
+ * has to be readable at a glance.
  *
- * The taxonomy this plugin emits (base JavaScript tokens — keywords, numbers,
- * strings, comments, operators — are NOT here; they are lezer tags styled by
+ * The taxonomy this plugin emits (base JavaScript tokens are NOT here:
+ * keywords, numbers, strings, comments and operators are lezer tags styled by
  * the HighlightStyle in theme.ts):
  *
  *   gobo-fixture-decl   the name being BOUND to a fixture, at its declaration
- *                       site only — `wash` in `const wash = fixture(…)`
- *   gobo-fixture-ref    every later use of that same name — `wash` in
+ *                       site only: `wash` in `const wash = fixture(…)`
+ *   gobo-fixture-ref    every later use of that same name: `wash` in
  *                       `wash.red(…)`, `bar` in `bar.pixels.fill(…)`
  *   gobo-factory        fixture/type constructors: fixture, rgbStrip,
  *                       rgbwStrip, defineFixture, listFixtures
  *   gobo-output         wire configuration: artnet, sacn, osc, mock. Loudest
- *                       token in the buffer — it decides where light goes
+ *                       token in the buffer; it decides where light goes
  *   gobo-clock          setBPM. One call retimes the whole show
  *   gobo-pattern        waveform/sequence SOURCES: sine, cosine, square, saw,
  *                       rand, mini, m, sequence, cat, stack
  *   gobo-pattern-chain  pattern TRANSFORMS: .slow .fast .early .late .range
  *                       .add .mul, plus bare `register` (it defines a new
  *                       chain method, so it belongs to this family)
- *   gobo-color          .color — the multi-channel setter that is no one hue
+ *   gobo-color          .color, the multi-channel setter that is no one hue
  *   gobo-color-red      .red        \
  *   gobo-color-green    .green       |  per-channel colour setters, each
  *   gobo-color-blue     .blue        |  tinted towards the channel it drives
  *   gobo-color-white    .white       |
  *   gobo-color-amber    .amber      /
- *   gobo-intensity      .dim .strobe .full .off — how much light, not what
+ *   gobo-intensity      .dim .strobe .full .off: how much light, not what
  *                       colour. Note bare `dim` is the low-level DMX function
  *                       and takes gobo-dmx instead; only `.dim` is intensity
  *   gobo-move           beam aim and optics: .pan .tilt .panFine .tiltFine
@@ -54,8 +54,8 @@
  * no overlap; two marks over one range from a single builder throws or renders
  * unpredictably. Rather than emit a category per regex and reconcile overlaps
  * afterwards, this walks the document once with a single identifier regex and
- * classifies each occurrence, so a token can only ever receive one class and
- * the ranges are ascending and disjoint by construction.
+ * classifies each occurrence. A token can then only receive one class, and the
+ * ranges are ascending and disjoint by construction.
  *
  * Classification, in precedence order:
  *
@@ -66,25 +66,25 @@
  *      happens to be named `color` or `each`.
  *   2. Otherwise, at a fixture declaration site → gobo-fixture-decl.
  *   3. Otherwise, a name bound to a fixture anywhere in the document →
- *      gobo-fixture-ref. Fixture bindings deliberately outrank every bare
- *      keyword below: a name the user actually bound is definitively a
- *      fixture in this buffer, and `const mock = fixture(1,'rgbw')` shadows
- *      the output binding in JS anyway.
+ *      gobo-fixture-ref. Fixture bindings outrank every bare keyword below: a
+ *      name the user bound is a fixture in this buffer, and
+ *      `const mock = fixture(1,'rgbw')` shadows the output binding in JS
+ *      anyway.
  *   4. Otherwise, look the name up in the BARE table (factory, output, clock,
  *      pattern, register, dmx).
- *   5. Otherwise, no decoration — it is a user identifier and stays var(--text).
+ *   5. Otherwise, no decoration. It is a user identifier and stays var(--text).
  *
  * Within the two tables the name sets are disjoint, which buildTable()
  * asserts at module load, so table order carries no meaning.
  *
- * ## Deliberate limitations
+ * ## Known limitations
  *
- * As before, the scan does not consult the syntax tree, so it does not skip
- * strings or comments: `fixture(1, 'rgb')` paints the `rgb` inside the string
- * literal as gobo-dmx, and a command name written in a comment is coloured
- * too. Full tokenisation on every keystroke costs more than the mistake does.
- * With the wider palette this is more visible than it was with two colours,
- * so it is worth revisiting — but it is a known trade, not an oversight.
+ * The scan does not consult the syntax tree, so it does not skip strings or
+ * comments: `fixture(1, 'rgb')` paints the `rgb` inside the string literal as
+ * gobo-dmx, and a command name written in a comment is coloured too. Full
+ * tokenisation on every keystroke costs more than the mistake does. The wider
+ * palette makes it more visible than it was with two colours, so it may be
+ * worth revisiting.
  *
  * Two smaller accepted false positives: `m` is a one-letter pattern
  * constructor and will also paint a user variable called `m`; and a receiver
@@ -120,10 +120,10 @@ const metaMark         = Decoration.mark({ class: 'gobo-meta'          });
 
 /**
  * Flatten `[mark, names]` groups into one lookup. Throws on a name claimed by
- * two categories: the whole design rests on a token landing in exactly one
- * category, and a silent last-wins collision would break that invisibly. This
- * runs once at module load, so a bad edit fails immediately and identically
- * everywhere rather than mis-colouring one token in production.
+ * two categories: the design rests on a token landing in one category, and a
+ * silent last-wins collision would break that invisibly. This runs once at
+ * module load, so a bad edit fails on startup rather than mis-colouring one
+ * token in production.
  */
 function buildTable(groups: readonly (readonly [Decoration, readonly string[]])[]): Map<string, Decoration> {
   const table = new Map<string, Decoration>();
@@ -139,9 +139,9 @@ function buildTable(groups: readonly (readonly [Decoration, readonly string[]])[
 }
 
 /**
- * Names recognised as gobo tokens when written WITHOUT a leading dot — the
- * free functions injected into the eval sandbox (see the `ctx` object in
- * packages/core/src/eval.ts, which is the authoritative list).
+ * Names recognised as gobo tokens when written WITHOUT a leading dot: the
+ * free functions injected into the eval sandbox. The `ctx` object in
+ * packages/core/src/eval.ts is the authoritative list.
  */
 const BARE_TOKENS = buildTable([
   [factoryMark,      ['fixture', 'rgbStrip', 'rgbwStrip', 'defineFixture', 'listFixtures']],

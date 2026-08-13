@@ -2,25 +2,22 @@
  * Colour theme presets.
  *
  * Each theme is a flat map of CSS custom-property values written onto
- * `:root` via `applyTheme()`. Everything visible — the page CSS, the
- * CodeMirror editor styles, the hover tooltip — reads these variables,
- * so swapping themes is a single function call with no editor rebuild.
+ * `:root` via `applyTheme()`. The page CSS, the CodeMirror editor styles
+ * and the hover tooltip all read these variables, so swapping themes is a
+ * single function call with no editor rebuild. Themes share one variable
+ * schema, so `var(--accent)` and friends work in user-facing places like
+ * the docs panel without theme-specific code paths.
  *
- * Themes share the same variable schema, which means we can also expose
- * `var(--accent)` etc. in user-facing places like the docs panel without
- * theme-specific code paths.
- *
- * The schema is in two halves. The first 14 variables are UI chrome —
+ * The schema is in two halves. The first 14 variables are UI chrome:
  * ground, text, borders, one accent pair. The remaining 24 are the syntax
- * palette: one variable per token class the editor can paint, so the
- * highlighter never has to know which theme is active and no theme needs
- * a per-theme CSS branch.
+ * palette, one variable per token class the editor can paint, so the
+ * highlighter never has to know which theme is active.
  *
- * Adding a theme: drop a new entry into THEMES, give it a name + all 38
- * colours. The settings panel populates its dropdown from the keys
- * automatically. Every syntax colour should clear 4.5:1 against that
- * theme's own `bg` — the values below sit at 4.87:1 or better so rounding
- * cannot flip a pass into a fail.
+ * Adding a theme: drop a new entry into THEMES with a name and all 38
+ * colours. The settings panel populates its dropdown from the keys.
+ * Every syntax colour should clear 4.5:1 against that theme's own `bg`.
+ * The values below sit at 4.87:1 or better so rounding cannot flip a pass
+ * into a fail.
  */
 
 export type ThemeId =
@@ -38,9 +35,9 @@ export type ThemeId =
   | 'worklight'
   | 'followspot';
 
-/** The variables each theme must supply. Every addition here means every
- *  theme needs an update, so a new variable has to earn its place by
- *  naming a distinction the editor genuinely draws. */
+/** The variables each theme must supply. Every addition here means
+ *  updating every theme, so a new variable has to name a distinction the
+ *  editor draws. */
 export interface ThemeVars {
   // ---- UI chrome (14) ----
   bg: string;
@@ -58,8 +55,8 @@ export interface ThemeVars {
   /** Background of code-example blocks inside tooltips. Slightly darker
    *  than `surface` on dark themes; slightly lighter on light themes. */
   codeBg: string;
-  /** Selection / bracket-match background for the editor — needs slightly
-   *  more contrast than `selection` for dark themes. */
+  /** Selection / bracket-match background for the editor. Needs slightly
+   *  more contrast than `selection` on dark themes. */
   selectionBg: string;
 
   // ---- Syntax palette (24) ----
@@ -67,86 +64,86 @@ export interface ThemeVars {
   // as .gobo-* classes, except the last five, which are bound to lezer
   // tags in the HighlightStyle.
 
-  /** `.gobo-fixture-decl` — the name being BOUND to a fixture, at its
+  /** `.gobo-fixture-decl`: the name being BOUND to a fixture, at its
    *  declaration site only. The brightest, boldest thing on the line. */
   synFixtureDecl: string;
-  /** `.gobo-fixture-ref` — every later use of a bound fixture name, i.e.
+  /** `.gobo-fixture-ref`: every later use of a bound fixture name, i.e.
    *  the receiver of a method chain. Same hue as the declaration, one
    *  clear step dimmer. */
   synFixtureRef: string;
-  /** `.gobo-factory` — the calls that create fixtures and fixture types:
-   *  fixture, rgbStrip, rgbwStrip, defineFixture, listFixtures. */
+  /** `.gobo-factory`: the calls that create fixtures and fixture types
+   *  (fixture, rgbStrip, rgbwStrip, defineFixture, listFixtures). */
   synFactory: string;
-  /** `.gobo-output` — output / wire configuration (artnet, sacn, osc,
+  /** `.gobo-output`: output / wire configuration (artnet, sacn, osc,
    *  mock). Changes where light physically goes, so it is the loudest
    *  token in the buffer: bold plus an underline, so it never depends on
    *  hue alone to separate from --syn-clock and --syn-color-red. */
   synOutput: string;
-  /** `.gobo-clock` — tempo (setBPM). One call retimes the whole show, so
+  /** `.gobo-clock`: tempo (setBPM). One call retimes the whole show, so
    *  it shares the warm consequential family with output, a step below. */
   synClock: string;
-  /** `.gobo-pattern` — pattern / waveform SOURCES: where movement in a
+  /** `.gobo-pattern`: pattern / waveform SOURCES, where movement in a
    *  scene comes from (sine, saw, rand, mini, sequence, stack, …). */
   synPattern: string;
-  /** `.gobo-pattern-chain` — pattern TRANSFORMS (.slow .fast .range …
+  /** `.gobo-pattern-chain`: pattern TRANSFORMS (.slow .fast .range …
    *  plus `register`). Same hue as the sources at much lower chroma, so a
    *  chain reads as one gesture: bright head, quiet tail. */
   synPatternChain: string;
-  /** `.gobo-color` — `.color`, the multi-channel setter that is not any
-   *  one hue: the neutral member of the colour-setter family. */
+  /** `.gobo-color`: `.color`, the multi-channel setter that is not any
+   *  one hue. The neutral member of the colour-setter family. */
   synColor: string;
-  /** `.gobo-color-red` — the `.red` channel setter, tinted red. */
+  /** `.gobo-color-red`: the `.red` channel setter, tinted red. */
   synColorRed: string;
-  /** `.gobo-color-green` — the `.green` channel setter, tinted green. */
+  /** `.gobo-color-green`: the `.green` channel setter, tinted green. */
   synColorGreen: string;
-  /** `.gobo-color-blue` — the `.blue` channel setter, tinted blue. */
+  /** `.gobo-color-blue`: the `.blue` channel setter, tinted blue. */
   synColorBlue: string;
-  /** `.gobo-color-white` — the `.white` channel setter. The neutral of
-   *  the hue-hinted set: near-zero chroma, same contrast band as the
-   *  others so no setter outranks another. */
+  /** `.gobo-color-white`: the `.white` channel setter. The neutral of the
+   *  hue-hinted set: near-zero chroma, same contrast band as the others
+   *  so no setter outranks another. */
   synColorWhite: string;
-  /** `.gobo-color-amber` — the `.amber` channel setter (rgba fixtures),
+  /** `.gobo-color-amber`: the `.amber` channel setter (rgba fixtures),
    *  tinted amber. */
   synColorAmber: string;
-  /** `.gobo-intensity` — intensity and shutter (.dim .strobe .full .off):
-   *  how much light, not what colour. The BARE `dim` is the low-level DMX
-   *  function and takes --syn-dmx instead. */
+  /** `.gobo-intensity`: intensity and shutter (.dim .strobe .full .off),
+   *  how much light rather than what colour. The BARE `dim` is the
+   *  low-level DMX function and takes --syn-dmx instead. */
   synIntensity: string;
-  /** `.gobo-move` — movement, beam and optics (.pan .tilt .zoom .gobo
-   *  .prism …): channels that aim or shape the beam without changing its
+  /** `.gobo-move`: movement, beam and optics (.pan .tilt .zoom .gobo
+   *  .prism …). Channels that aim or shape the beam without changing its
    *  colour or level. */
   synMove: string;
-  /** `.gobo-pixel` — strip / pixel methods (.pixel .fill .each …) plus
-   *  the pixelGrid fill-mode chain: addressing many emitters at once. */
+  /** `.gobo-pixel`: strip / pixel methods (.pixel .fill .each …) plus the
+   *  pixelGrid fill-mode chain. Addressing many emitters at once. */
   synPixel: string;
-  /** `.gobo-viz` — editor-only decorations (.viz .flash .glow .wave).
+  /** `.gobo-viz`: editor-only decorations (.viz .flash .glow .wave).
    *  These change nothing on the rig, so they are the only gobo tokens in
-   *  italic at deliberately low chroma: annotation, not command. */
+   *  italic, at low chroma: annotation, not command. */
   synViz: string;
-  /** `.gobo-dmx` — low-level DMX (ch, uni, dim, rgb, .set): raw channel
+  /** `.gobo-dmx`: low-level DMX (ch, uni, dim, rgb, .set), raw channel
    *  writes that bypass the fixture layer. Utilitarian: plumbing, not
    *  language. */
   synDmx: string;
-  /** `.gobo-meta` — read-only introspection (.channels .def .universe
+  /** `.gobo-meta`: read-only introspection (.channels .def .universe
    *  .startChannel .channelCount .pixelCount). Reading a fixture never
    *  changes output, so these recede. Italic. */
   synMeta: string;
-  /** `.gobo-keyword` — JavaScript keywords. Same hue as --syn-factory at
+  /** `.gobo-keyword`: JavaScript keywords. Same hue as --syn-factory at
    *  roughly half the chroma, because `const wash = fixture(…)` is one
    *  gesture: the binding word and the factory belong together. */
   synKeyword: string;
-  /** `.gobo-number` — numeric literals, the values you nudge live. Given
+  /** `.gobo-number`: numeric literals, the values you nudge live. Given
    *  their own hue rather than an accent so they stay findable without
    *  competing with the verbs. */
   synNumber: string;
-  /** `.gobo-string` — string literals: fixture ids and mini-notation. Hue
+  /** `.gobo-string`: string literals, fixture ids and mini-notation. Hue
    *  adjacent to --syn-pattern. Replaces the old use of `sage`. */
   synString: string;
-  /** `.gobo-comment` — comments. The lowest-chroma colour in every
-   *  palette so it recedes, but still held at >= 4.5:1 rather than the
-   *  usual near-invisible grey. Italic. */
+  /** `.gobo-comment`: comments. The lowest-chroma colour in every palette
+   *  so it recedes, but still held at >= 4.5:1 rather than the usual
+   *  near-invisible grey. Italic. */
   synComment: string;
-  /** `.gobo-operator` — operators, punctuation and separators: structure
+  /** `.gobo-operator`: operators, punctuation and separators, structure
    *  you read past. Replaces the old use of `textMuted`. */
   synOperator: string;
 }
@@ -159,10 +156,9 @@ export interface ThemeDef {
 }
 
 export const THEMES: Record<ThemeId, ThemeDef> = {
-  // An incandescent tungsten lamp at ~3200K — the warm brown-amber ground
-  // every theatre still measures colour against. Kept as default and kept
-  // first in the list, so existing users see no visible change: the 14
-  // chrome values are byte-identical to the old 'ember'.
+  // An incandescent tungsten lamp at ~3200K: the warm brown-amber ground
+  // theatres measure colour against. Default, and first in the list. The
+  // 14 chrome values are byte-identical to the old 'ember'.
   tungsten: {
     id: 'tungsten',
     label: 'tungsten (default)',
@@ -207,9 +203,8 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#8f867c',
     },
   },
-  // The moonbox — the cold blue-white fixture hung high to fake moonlight
-  // over a set. A cool blue-grey room with a pale blue accent is exactly
-  // what one throws. Chrome values byte-identical to the old 'slate'.
+  // The moonbox: the cold blue-white fixture hung high to fake moonlight
+  // over a set. Chrome values byte-identical to the old 'slate'.
   moonbox: {
     id: 'moonbox',
     label: 'moonbox',
@@ -254,10 +249,9 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#818993',
     },
   },
-  // The greenroom — the offstage room performers wait in, traditionally
-  // painted green to rest the eye after stage light. A deep green room
-  // with a mint accent already was one. Chrome values byte-identical to
-  // the old 'forest'.
+  // The greenroom: the offstage room performers wait in, traditionally
+  // painted green to rest the eye after stage light. Chrome values
+  // byte-identical to the old 'forest'.
   greenroom: {
     id: 'greenroom',
     label: 'greenroom',
@@ -302,11 +296,8 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#798c7c',
     },
   },
-  // A UV blacklight wash — the violet-into-pink glow of a blacklit stage.
-  // A violet room with a purple accent and a pink accent2 is precisely
-  // what a blacklight does to a room, and it is an honest replacement for
-  // a name that only meant 'dark blue'. Chrome values byte-identical to
-  // the old 'midnight'.
+  // A UV blacklight wash: the violet-into-pink glow of a blacklit stage.
+  // Chrome values byte-identical to the old 'midnight'.
   blacklight: {
     id: 'blacklight',
     label: 'blacklight',
@@ -351,10 +342,9 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#8c8295',
     },
   },
-  // Rosco Bastard Amber (R02) — the pale warm gel that flatters skin and
-  // reads as 'no colour at all'. A warm cream light theme with a
-  // burnt-orange accent is what it looks like on a white cyc. Chrome
-  // values byte-identical to the old 'paper'.
+  // Rosco Bastard Amber (R02): the pale warm gel that flatters skin and
+  // reads as 'no colour at all'. Chrome values byte-identical to the old
+  // 'paper'.
   bastardAmber: {
     id: 'bastardAmber',
     label: 'bastard amber (light)',
@@ -399,10 +389,9 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#6c665c',
     },
   },
-  // A house blackout — every instrument dead, and the only thing still lit
-  // is the red panic lamp. Monochrome by design: the six colour setters
-  // collapse to one value rather than a fake brightness ladder, because a
-  // ladder would falsely imply one channel matters more than another.
+  // A house blackout: every instrument dead, red panic lamp still lit.
+  // Monochrome, so the six colour setters collapse to one value; a
+  // brightness ladder would imply one channel matters more than another.
   // Chrome values byte-identical to the old 'ikeda'.
   blackout: {
     id: 'blackout',
@@ -448,11 +437,10 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#6e7e8c',
     },
   },
-  // Photoluminescent glow tape — the green strips stuck to stage edges and
-  // set legs so the crew can find their marks in a blackout. Green
-  // phosphor on black, so the old aesthetic survives intact. Monochrome:
-  // the colour setters share one value. Chrome values byte-identical to
-  // the old 'datamatrix'.
+  // Photoluminescent glow tape: the green strips on stage edges and set
+  // legs that let the crew find their marks in a blackout. Green phosphor
+  // on black. Monochrome, so the colour setters share one value. Chrome
+  // values byte-identical to the old 'datamatrix'.
   glowtape: {
     id: 'glowtape',
     label: 'glow tape',
@@ -497,11 +485,10 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#5b837e',
     },
   },
-  // A darkroom safelight — the amber-red lamp you can work under without
-  // spoiling anything, which is exactly what a warm amber CRT is for. The
-  // old name collided with a theme name in another live-coding tool, so it
-  // had to go. Monochrome: the colour setters share one value. Chrome
-  // values byte-identical to the old 'terminal'.
+  // A darkroom safelight: the amber-red lamp you can work under without
+  // spoiling anything. Renamed because the old name collided with a theme
+  // in another live-coding tool. Monochrome, so the colour setters share
+  // one value. Chrome values byte-identical to the old 'terminal'.
   safelight: {
     id: 'safelight',
     label: 'safelight',
@@ -546,10 +533,10 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#877e61',
     },
   },
-  // A dimmer-rack patchbay — grey steel panel, blue and orange jumper
-  // leads, everything labelled and nothing decorative. Replaces another
-  // audio product's name; stays a light theme for projection. Chrome
-  // values byte-identical to the old 'puredata'.
+  // A dimmer-rack patchbay: grey steel panel, blue and orange jumper
+  // leads, everything labelled. Replaces another audio product's name and
+  // stays a light theme for projection. Chrome values byte-identical to
+  // the old 'puredata'.
   patchbay: {
     id: 'patchbay',
     label: 'patchbay (light)',
@@ -597,10 +584,9 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
   // New below this line. Appended rather than inserted so the dropdown
   // order THEME_LIST produces stays stable for existing users.
 
-  // A cyclorama wash — the deep saturated blue field the back wall throws
-  // when the whole cyc is one colour. A real cyc blue rather than a UI
-  // blue-grey; the accent is the pale sky-blue you get where the cyc meets
-  // the floor lights.
+  // A cyclorama wash: the deep saturated blue the back wall throws when
+  // the whole cyc is one colour. A real cyc blue, not a UI blue-grey; the
+  // accent is the pale sky-blue where the cyc meets the floor lights.
   cyclorama: {
     id: 'cyclorama',
     label: 'cyclorama',
@@ -645,10 +631,9 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#828a95',
     },
   },
-  // Rosco Surprise Pink (R337) — a hot pink gel burning against a
-  // plum-dark house. Rendered as a dark plum ground with a hot magenta
-  // accent rather than a pink background, so it stays a surface you can
-  // read for hours while still being unmistakably pink.
+  // Rosco Surprise Pink (R337): a hot pink gel against a plum-dark house.
+  // A dark plum ground with a hot magenta accent rather than a pink
+  // background, so it stays readable for hours.
   surprisePink: {
     id: 'surprisePink',
     label: 'surprise pink',
@@ -693,10 +678,9 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#96838f',
     },
   },
-  // Worklight — the undesigned white practical that comes up when the show
-  // stops and you can see the whole room. Nearly white rather than cream,
-  // because bastard amber already owns warm cream: the two light themes
-  // need to read as clearly different rooms.
+  // Worklight: the undesigned white practical that comes up when the show
+  // stops. Nearly white rather than cream, because bastard amber already
+  // owns warm cream and the two light themes need to look different.
   worklight: {
     id: 'worklight',
     label: 'worklight (light)',
@@ -741,12 +725,11 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#736d61',
     },
   },
-  // A followspot in a dead house — one brilliant straw-white beam and
-  // nothing else lit anywhere. Distinguished from blackout by what is
-  // still on: blackout keeps a red panic lamp and a mid-grey ladder,
-  // followspot runs a near-white base at very high contrast with a single
-  // straw beam for the consequential tokens. Monochrome: the colour
-  // setters share one value.
+  // A followspot in a dead house: one straw-white beam, nothing else lit.
+  // Differs from blackout in what is still on. Blackout keeps a red panic
+  // lamp and a mid-grey ladder; followspot runs a near-white base at very
+  // high contrast with a single straw beam for the consequential tokens.
+  // Monochrome, so the colour setters share one value.
   followspot: {
     id: 'followspot',
     label: 'followspot',
@@ -798,14 +781,13 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
  *
  * DO NOT DELETE THIS AS DEAD CODE. Every theme above was renamed, but
  * settings.ts persists the raw id string to localStorage, so anyone who
- * saved a theme before the rename has a now-unknown id sitting in their
- * browser. `applyTheme()` falls back to the default for an unknown id, so
- * without this map those users silently lose their chosen theme on the
- * next load. Read the stored value through here before handing it to
- * `applyTheme()`.
+ * saved a theme before the rename has a now-unknown id in their browser.
+ * `applyTheme()` falls back to the default for an unknown id, so without
+ * this map those users silently lose their chosen theme on the next load.
+ * Read the stored value through here before handing it to `applyTheme()`.
  *
- * Keyed by plain `string`, not by a union of the old ids, precisely
- * because the caller is looking up an untrusted value out of storage.
+ * Keyed by plain `string` rather than a union of the old ids, because the
+ * caller is looking up an untrusted value out of storage.
  */
 export const LEGACY_THEME_IDS: Record<string, ThemeId> = {
   ember: 'tungsten',
@@ -820,11 +802,11 @@ export const LEGACY_THEME_IDS: Record<string, ThemeId> = {
 };
 
 /**
- * Concrete colour values for the active theme. Mutable so canvas consumers
- * (the visualizer) can keep a stable reference and just re-read it after
- * a theme change — no observer plumbing needed. Mirrors the CSS variables
- * for code that can't use them (canvas 2D context only accepts hex/rgb,
- * not `var()` references).
+ * Concrete colour values for the active theme. Mutable, so canvas
+ * consumers (the visualizer) can hold a stable reference and re-read it
+ * after a theme change instead of subscribing to one. Mirrors the CSS
+ * variables for code that can't use them: a canvas 2D context accepts
+ * hex/rgb but not `var()` references.
  */
 export const COLORS: ThemeVars = { ...THEMES.tungsten.vars };
 

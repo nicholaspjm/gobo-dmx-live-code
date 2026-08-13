@@ -1,17 +1,17 @@
 /**
- * The working buffer — one editor document, autosaved to the browser.
+ * The working buffer: one editor document, autosaved to the browser.
  *
- * This replaces the old multi-scene model (scenes.ts): a dropdown of named
- * buffers that the user had to remember to switch, plus a protected
- * "default" they could not overwrite. gobo behaves like a text editor
- * instead. There is exactly one document open. It is saved to localStorage
- * on every keystroke so a crash mid-set costs nothing, and durable copies
- * live in files (scene-file.ts) or in a share link (share.ts), not in a
- * pile of browser keys nobody can back up.
+ * This replaces the old multi-scene model (scenes.ts), which had a
+ * dropdown of named buffers the user had to remember to switch plus a
+ * protected "default" they could not overwrite. gobo behaves like a text
+ * editor instead: one document open, saved to localStorage on every
+ * keystroke so a crash costs nothing. Durable copies live in files
+ * (scene-file.ts) or in a share link (share.ts) rather than in browser
+ * keys nobody can back up.
  *
  * Storage keys are new (gobo-buffer-*). The old scene keys are read here
- * for the one-time migration notice and are NEVER written — see
- * listLegacyScenes() below, which explains why that matters.
+ * for the one-time migration notice and are NEVER written. See
+ * listLegacyScenes() below for why that matters.
  */
 
 import { EXAMPLES } from './examples.js';
@@ -19,7 +19,7 @@ import { EXAMPLES } from './examples.js';
 const BUFFER_KEY = 'gobo-buffer-v1';
 const NAME_KEY = 'gobo-buffer-name-v1';
 /** Snapshot of the buffer at the last moment it was known to be safe to
- *  discard — see isUnsavedSinceFileSave(). */
+ *  discard. See isUnsavedSinceFileSave(). */
 const FILE_REF_KEY = 'gobo-buffer-file-ref-v1';
 const LEGACY_NOTICE_KEY = 'gobo-legacy-notice-dismissed-v1';
 
@@ -47,8 +47,8 @@ function writeKey(key: string, value: string): void {
   try {
     localStorage.setItem(key, value);
   } catch {
-    // Quota exhausted or storage disabled. Nothing to do but carry on —
-    // the buffer still lives in the editor, and Save to file still works.
+    // Quota exhausted or storage disabled. Carry on: the buffer still
+    // lives in the editor, and Save to file still works.
   }
 }
 
@@ -57,8 +57,8 @@ function writeKey(key: string, value: string): void {
 /**
  * Load the working buffer. On a browser that has never run gobo there is
  * nothing to load, so the buffer is seeded from the first bundled example
- * and written straight back — that way the very next load is an ordinary
- * load, and the seed is not re-applied over anything the user has typed.
+ * and written straight back. The next load is then an ordinary load, and
+ * the seed is never re-applied over anything the user has typed.
  */
 export function loadBuffer(): { code: string; name: string } {
   const stored = readKey(BUFFER_KEY);
@@ -77,9 +77,9 @@ export function loadBuffer(): { code: string; name: string } {
 /**
  * Persist the buffer. Called from the editor's change handler on every
  * edit, so it does the minimum: one write, plus a second only when the
- * caller is also renaming. Deliberately no debounce or dirty-check here —
- * an extra localStorage write is cheaper than a lost set, and skipping
- * writes based on a cached value would let a second tab's write win.
+ * caller is also renaming. No debounce or dirty-check, because an extra
+ * localStorage write is cheaper than a lost set, and skipping writes
+ * based on a cached value would let a second tab's write win.
  */
 export function saveBuffer(code: string, name?: string): void {
   writeKey(BUFFER_KEY, code);
@@ -96,16 +96,15 @@ export function setBufferName(name: string): void {
 }
 
 /**
- * True when the buffer differs from the last copy the user secured — the
+ * True when the buffer differs from the last copy the user secured: the
  * last file they saved, or the pristine example a new buffer was seeded
  * from. This is the guard behind "you have unsaved work, replace it?"
  * before a share link or an example overwrites the buffer, so it errs
- * towards true: with no reference point recorded at all (storage was
- * unwritable when we tried, or the key was cleared), any non-empty buffer
- * counts as unsaved rather than silently discardable.
+ * towards true. With no reference point recorded (storage was unwritable,
+ * or the key was cleared), any non-empty buffer counts as unsaved.
  *
  * It compares the full text rather than tracking a dirty flag, so editing
- * something and then undoing it back correctly reads as "no changes".
+ * something and then undoing it reads as "no changes".
  */
 export function isUnsavedSinceFileSave(): boolean {
   const code = readKey(BUFFER_KEY) ?? '';
@@ -116,7 +115,7 @@ export function isUnsavedSinceFileSave(): boolean {
 
 /**
  * Record that the buffer as it now stands has been written to a file.
- * Call this only after the download actually happened; calling it early
+ * Call this only after the download has happened; calling it early
  * would tell the user their work is safe when it is not.
  */
 export function markSavedToFile(): void {
@@ -125,12 +124,12 @@ export function markSavedToFile(): void {
 
 // ─── Legacy scenes (READ-ONLY) ───────────────────────────────────────────────
 
-/** The pre-buffer scene store. Listed here so the keys are named in one
- *  place — and so the read-only rule below is impossible to miss. */
+/** The pre-buffer scene store. Named here so the keys sit in one place,
+ *  next to the read-only rule below. */
 const LEGACY_SCENES_KEY = 'gobo-scenes-v1';
 /** Same store under the pre-rename name. scenes.ts used to copy this
  *  forward on import; once that module is gone nothing does, so read it
- *  as a fallback. Read only — the copy is not ours to make either. */
+ *  as a fallback. Read only: the copy is not ours to make either. */
 const LEGACY_SCENES_KEY_PRERENAME = 'lumen-scenes-v1';
 
 /**
@@ -139,16 +138,15 @@ const LEGACY_SCENES_KEY_PRERENAME = 'lumen-scenes-v1';
  * !!! READ-ONLY. NEVER WRITE OR DELETE THESE KEYS. !!!
  *
  * gobo-scenes-v1 (and its lumen-* predecessor, and the sibling
- * gobo-active-scene-v1 / gobo-scene-meta-v1) hold work that exists in
- * exactly one place: this browser. There is no server, no export, no undo.
- * If the new buffer code has a bug, those keys are the only thing standing
- * between the user and losing months of rehearsal — including a live
- * performance template. So they are left exactly as they are, forever.
- * Do not "clean up" after the migration notice is dismissed; the notice
- * being dismissed is not evidence the user saved anything.
+ * gobo-active-scene-v1 / gobo-scene-meta-v1) hold work that exists only
+ * in this browser. There is no server copy to restore from. If the new
+ * buffer code has a bug, those keys are all that stands between the user
+ * and losing months of work, so they are left as they are. Do not "clean
+ * up" after the migration notice is dismissed; dismissing the notice is
+ * not evidence the user saved anything.
  *
- * Returns [] for absent, empty, or malformed data — a broken blob must
- * show up as "nothing to migrate" in the notice, never as a boot failure.
+ * Returns [] for absent, empty, or malformed data. A broken blob shows up
+ * as "nothing to migrate" in the notice rather than as a boot failure.
  */
 export function listLegacyScenes(): Array<{ name: string; code: string }> {
   const raw = readKey(LEGACY_SCENES_KEY) ?? readKey(LEGACY_SCENES_KEY_PRERENAME);
@@ -165,7 +163,7 @@ export function listLegacyScenes(): Array<{ name: string; code: string }> {
   const out: Array<{ name: string; code: string }> = [];
   for (const [name, code] of Object.entries(parsed as Record<string, unknown>)) {
     // Skip entries whose value was mangled rather than dropping the whole
-    // set — one bad key should not hide the rest of the user's scenes.
+    // set. One bad key should not hide the rest of the user's scenes.
     if (typeof code === 'string') out.push({ name, code });
   }
   // Sorted so the notice lists the same scenes in the same order every
@@ -180,9 +178,9 @@ export function legacyNoticeDismissed(): boolean {
   return readKey(LEGACY_NOTICE_KEY) === '1';
 }
 
-/** Dismiss the migration notice permanently. Does not remove, alter, or
- *  even read the legacy scenes — dismissing is about the notice, not the
- *  data, which stays put (see listLegacyScenes). */
+/** Dismiss the migration notice permanently. Does not remove, alter or
+ *  even read the legacy scenes; that data stays put (see
+ *  listLegacyScenes). */
 export function dismissLegacyNotice(): void {
   writeKey(LEGACY_NOTICE_KEY, '1');
 }

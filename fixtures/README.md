@@ -1,8 +1,8 @@
 # Public fixture library
 
 One JSON file per fixture, any of which can be pulled into the gobo app's
-library with one click. Contributions are welcome — open a PR adding your
-file here and the automated validator + a human review will gate it.
+library with one click. Contributions are welcome: open a PR adding your
+file here, and the automated validator plus a human review will gate it.
 
 ## File format
 
@@ -31,30 +31,30 @@ file here and the automated validator + a human review will gate it.
 ```
 
 The version field was called `lumenFixture` before the project was renamed.
-It is still accepted as a deprecated alias so fixture files exported by
-older builds keep importing — write `goboFixture` in anything new, and
+It is still accepted as a deprecated alias, so fixture files exported by
+older builds keep importing. Write `goboFixture` in anything new, and
 don't set both.
 
 Channel `type` is one of `intensity`, `color`, `position`, `strobe`,
-`control`, `generic`, `strip`. The built-in ids — `dim`, `rgb`, `rgbw`,
+`control`, `generic`, `strip`. The built-in ids (`dim`, `rgb`, `rgbw`,
 `rgba`, `dim-rgb`, `dim-rgbw`, `moving-head-basic`, `moving-head-spot`,
-`strobe` — can't be reused; the validator will reject a PR that tries.
+`strobe`) can't be reused; the validator will reject a PR that tries.
 Their pre-0.2 `generic-*` spellings still resolve as aliases, so don't
 claim one of those either: the validator doesn't currently catch it, but
-a fixture named `generic-rgbw` would shadow the alias and confuse
-everyone's scenes. Pick a manufacturer-and-model id.
+a fixture named `generic-rgbw` would shadow the alias. Pick a
+manufacturer-and-model id.
 
 ## Writing a fixture by exporting from the app
 
 Define it in the editor with `defineFixture('your-id', {…})`, run it, then
 use the **library** panel's *share* (opens a pre-filled PR) or *export*
-(downloads `your-id.gobo-fixture.json` — rename it to `your-id.json`, the
-validator rejects any other filename). Full contribution flow in
-[`../CONTRIBUTING.md`](../CONTRIBUTING.md).
+(downloads `your-id.gobo-fixture.json`, which you rename to
+`your-id.json`; the validator rejects any other filename). Full
+contribution flow in [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## Limits
 
-Strictly enforced by the validator on every PR:
+Enforced by the validator on every PR:
 
 | Field | Limit |
 |---|---|
