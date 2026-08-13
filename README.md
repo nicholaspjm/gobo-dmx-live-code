@@ -45,16 +45,30 @@ Powered by [@strudel/core](https://strudel.cc): the same waveform and cycle synt
 
 Open the [live link](https://nicholaspjm.github.io/gobo-dmx-live-code/) and start coding. The visualizer shows DMX output in real time.
 
-### With hardware (local dev)
+### With hardware
 
 ```bash
 git clone https://github.com/nicholaspjm/gobo-dmx-live-code.git
 cd gobo-dmx-live-code
 npm install
-npm run dev
+npm start
 ```
 
-This starts both the **UI** (http://localhost:3000) and the **bridge** (ws://localhost:3001).
+That is the whole thing: one process serving the app and speaking UDP, on
+http://localhost:3001, with a browser opened for you.
+
+A browser cannot open a UDP socket, so Art-Net and sACN need a native process
+to exist. `npm start` makes it the only thing you run, and because the app is
+served from that same process the page talks to it over a same-origin
+WebSocket. Nothing to start twice, nothing to forget.
+
+Use `npm run dev` while working on gobo itself: Vite on http://localhost:3000
+with hot reload, and the bridge alongside it.
+
+If nothing reaches the rig, run `npm run doctor`. It checks each link in the
+chain and reports what it measured, including the two mistakes that fail
+silently: sending to your own machine's IP, and the computer being on a
+different subnet from the node.
 
 `packages/bridge/bridge.config.json` sets the bridge's startup output. It ships in `artnet`
 mode pointed at `127.0.0.1`, which only reaches software on the same machine. Edit the host
