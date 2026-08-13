@@ -32,6 +32,15 @@ let _connected = false;
 let _onStatusChange: ((connected: boolean) => void) | null = null;
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
+// The last output config the scene asked for, kept so it can be re-sent.
+// The bridge only knows what it has been told since it started, and it falls
+// back to bridge.config.json on boot. Without this, restarting the bridge (tsx
+// watch does that on every file save) silently moves output back to the config
+// file's host while the UI still reads "bridge", so a rig goes quiet with
+// nothing on screen explaining why.
+let _lastConfig: Record<string, unknown> | null = null;
+let _configDelivered = false;
+
 export function onStatusChange(fn: (connected: boolean) => void): void {
   _onStatusChange = fn;
 }
@@ -62,12 +71,18 @@ export function connectBridge(url = BRIDGE_URL): void {
 
   _ws.onopen = () => {
     _connected = true;
+    // Re-apply the scene's output config. A fresh bridge starts on whatever
+    // bridge.config.json says, which is not where the scene asked to send.
+    flushConfig();
     _onStatusChange?.(true);
     console.log('[gobo] bridge connected');
   };
 
   _ws.onclose = () => {
     _connected = false;
+    // The next bridge to accept us is a fresh process that has not been told
+    // anything, so the config counts as undelivered until it is re-sent.
+    _configDelivered = false;
     _onStatusChange?.(false);
     console.log('[gobo] bridge disconnected, reconnecting…');
     scheduleReconnect(url);
@@ -87,12 +102,32 @@ function scheduleReconnect(url: string): void {
  * Reconfigures output mode, host, port, universe at runtime.
  */
 export function sendConfig(config: Record<string, unknown>): void {
+  // Recorded even when the socket is down, so it can be applied on connect and
+  // so the UI can tell the operator their output is not going anywhere yet.
+  _lastConfig = config;
+  _configDelivered = false;
+  flushConfig();
+}
+
+function flushConfig(): void {
+  if (!_lastConfig) return;
   if (!_ws || _ws.readyState !== WebSocket.OPEN) return;
   try {
-    _ws.send(JSON.stringify({ type: 'config', ...config }));
+    _ws.send(JSON.stringify({ type: 'config', ..._lastConfig }));
+    _configDelivered = true;
   } catch {
-    // Socket might have closed
+    // Socket might have closed between the readyState check and the send.
   }
+}
+
+/**
+ * The output the scene last asked for, and whether the bridge has been told.
+ * `delivered: false` means DMX is not reaching the configured target, either
+ * because no bridge is running or because it dropped after the config was set.
+ * Returns null when the scene has not selected an output at all.
+ */
+export function getOutputConfig(): { config: Record<string, unknown>; delivered: boolean } | null {
+  return _lastConfig ? { config: _lastConfig, delivered: _configDelivered } : null;
 }
 
 /**
