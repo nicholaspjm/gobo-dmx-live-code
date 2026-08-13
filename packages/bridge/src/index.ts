@@ -22,6 +22,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
+import { networkInterfaces } from 'os';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -642,6 +643,34 @@ function handleConfigMessage(msg: Record<string, unknown>): void {
   }
 
   console.log(`[bridge] config updated: ${describeOutput()}`);
+  warnIfSendingToSelf();
+}
+
+/**
+ * Warn when the output host is one of this machine's own interface addresses.
+ *
+ * Writing your computer's IP instead of the node's is the most common Art-Net
+ * mistake, and it fails silently: the frames are sent, the socket reports
+ * success, and nothing reaches the rig. The bridge is the only part of the
+ * system that can see the local interface list, so the check belongs here.
+ */
+function warnIfSendingToSelf(): void {
+  const host = config.mode === 'artnet' ? config.artnet?.host
+    : config.mode === 'osc' ? config.osc?.host
+    : undefined;
+  if (!host || host === '127.0.0.1' || host === 'localhost') return;
+
+  for (const addrs of Object.values(networkInterfaces())) {
+    for (const a of addrs ?? []) {
+      if (a.family === 'IPv4' && !a.internal && a.address === host) {
+        console.warn(
+          `[bridge] ${host} is this machine's own address, so nothing reaches the rig. ` +
+          `Use the node's IP, or the broadcast address for that subnet.`,
+        );
+        return;
+      }
+    }
+  }
 }
 
 // ─── Route DMX message ───────────────────────────────────────────────────────
