@@ -105,6 +105,13 @@ const DOCS: DocSection[] = [
         example: 'sacn(1, 100)',
       },
       {
+        name: 'td',
+        signature: "td(host='localhost', port=9980)",
+        description:
+          "Send straight to a TouchDesigner WebSocket DAT from the browser, with no gobo bridge running. TD receives the frames and puts Art-Net on the wire, so this works from the hosted site on any machine that already has TD open. A page served over https can only reach localhost this way, since browsers block insecure WebSockets to any other host, so TD has to be on the same machine. Setup recipe is in docs/touchdesigner.md.",
+        example: "td('localhost', 9980)",
+      },
+      {
         name: 'mock',
         signature: 'mock()',
         description:

@@ -27,6 +27,9 @@ import {
   connectBridge,
   onStatusChange,
   getOutputConfig,
+  getDirectUrl,
+  isDirectConnected,
+  onDirectStatusChange,
   sendUniverseState,
   restoreLibraryFixtures,
   getSimFixtures,
@@ -108,7 +111,7 @@ async function runEval(code: string): Promise<void> {
   if (result.success) {
     const out = describeOutput();
     if (out && !out.delivered) {
-      setStatus('error', `running, but ${out.text} was never reached. Start the bridge: npm run dev:bridge`);
+      setStatus('error', `running, but ${out.text} was never reached. ${out.text.startsWith('direct') ? 'Is the receiver listening?' : 'Start the bridge: npm start'}`);
     } else if (out) {
       setStatus('ok', `✓ running · ${out.text}`);
     } else {
@@ -171,6 +174,11 @@ let _statusAtMs = 0;
  * the target on every run, and says when it was never reached.
  */
 function describeOutput(): { text: string; delivered: boolean } | null {
+  // Direct output bypasses the bridge entirely: the page holds the socket, so
+  // its own connection state is what matters, not the bridge's.
+  const direct = getDirectUrl();
+  if (direct) return { text: `direct to ${direct}`, delivered: isDirectConnected() };
+
   const out = getOutputConfig();
   if (!out) return null;
   const c = out.config as {
@@ -528,8 +536,24 @@ document.addEventListener('keydown', (e) => {
 // ─── Bridge connection ───────────────────────────────────────────────────────
 
 onStatusChange((connected) => {
+  if (getDirectUrl()) return; // direct output owns the indicator, see below
   wsDotEl.className = connected ? 'ws-dot connected' : 'ws-dot disconnected';
   wsLabelEl.textContent = connected ? 'bridge' : 'disconnected';
+});
+
+/**
+ * Direct output opens its socket asynchronously, so the status written the
+ * instant an eval finishes always says "not reached". Correct it when the
+ * socket actually settles, otherwise a working setup reads as broken.
+ */
+onDirectStatusChange((connected) => {
+  wsDotEl.className = connected ? 'ws-dot connected' : 'ws-dot disconnected';
+  wsLabelEl.textContent = connected ? 'direct' : 'disconnected';
+  if (!isRunning()) return;
+  const out = describeOutput();
+  if (!out) return;
+  if (out.delivered) setStatus('ok', `✓ running · ${out.text}`);
+  else setStatus('error', `running, but ${out.text} was never reached. Is the receiver listening?`);
 });
 
 connectBridge();

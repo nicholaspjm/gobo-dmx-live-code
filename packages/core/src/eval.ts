@@ -45,7 +45,7 @@ import {
   clearSimFixtures,
   setStripEffectWaveforms,
 } from './fixtures.js';
-import { sendConfig } from './websocket.js';
+import { sendConfig, connectDirect, isBlockedAsMixedContent } from './websocket.js';
 import { clearPatternVizRegistry, registerPatternViz } from './pattern-viz.js';
 
 // Strudel functions, loaded once via initStrudel()
@@ -237,6 +237,7 @@ function mockConfig(): BridgeConfig {
 interface SideEffectBuffer {
   config: BridgeConfig | null;
   bpm: number | null;
+  direct: { host: string; port: number } | null;
 }
 
 /**
@@ -308,13 +309,46 @@ const sandboxOutputBindings: Record<string, unknown> = {
   sacn: (universe?: number, priority?: number): void => stageConfig(sacnConfig(universe, priority)),
   osc: (host?: string, port?: number): void => stageConfig(oscConfig(host, port)),
   mock: (): void => stageConfig(mockConfig()),
+  td: (host?: string, port?: number): void => stageDirect(host, port),
   setBPM: (value: number): void => stageBPM(value),
 };
+
+/**
+ * Direct output to a WebSocket receiver, TouchDesigner in practice.
+ *
+ * Unlike the other output calls this one does not go through the bridge: the
+ * page opens the socket itself. The scene's frames land in TD, and TD puts
+ * Art-Net on the wire, so the hosted build drives a rig with no gobo process
+ * running. Connecting is a side effect like any other, so it is held with the
+ * eval and only opened once the run commits.
+ */
+function stageDirect(host = 'localhost', port = 9980): void {
+  const buffer = _activeBuffer;
+  if (buffer === null) {
+    applyDirect(host, port);
+    return;
+  }
+  buffer.direct = { host, port };
+}
+
+function applyDirect(host: string, port: number): void {
+  if (isBlockedAsMixedContent(host)) {
+    // Chrome allows ws:// to localhost from an https page but blocks every
+    // other host. Failing here with the reason beats a socket that never
+    // opens and looks like the receiver is down.
+    throw new Error(
+      `td('${host}') is blocked: this page is served over https, and browsers only allow an insecure ` +
+      `WebSocket to localhost. Run TouchDesigner on this machine and use td('localhost'), or serve gobo over http.`,
+    );
+  }
+  connectDirect(host, port);
+}
 
 /** Apply a run's buffered calls. Call after the staged defs are committed. */
 function flushSideEffects(buffer: SideEffectBuffer): void {
   if (buffer.config !== null) sendConfig(buffer.config);
   if (buffer.bpm !== null) setBPM(buffer.bpm);
+  if (buffer.direct !== null) applyDirect(buffer.direct.host, buffer.direct.port);
 }
 
 // ─── register: extend Pattern with a custom chain method ───────────────────
@@ -376,7 +410,7 @@ export function evalCode(code: string): EvalResult {
   const refusal = strudelRefusal();
   if (refusal !== null) return { success: false, error: refusal };
 
-  const sideEffects: SideEffectBuffer = { config: null, bpm: null };
+  const sideEffects: SideEffectBuffer = { config: null, bpm: null, direct: null };
 
   const ctx: Record<string, unknown> = {
     // DMX API

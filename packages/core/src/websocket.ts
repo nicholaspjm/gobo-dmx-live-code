@@ -147,7 +147,9 @@ export function getOutputConfig(): { config: Record<string, unknown>; delivered:
 const _wasNonZero = new Set<number>();
 
 export function sendUniverseState(universes: Map<number, Uint8Array>): void {
-  if (!_ws || _ws.readyState !== WebSocket.OPEN) return;
+  const bridgeOpen = _ws?.readyState === WebSocket.OPEN;
+  const directOpen = isDirectOpen();
+  if (!bridgeOpen && !directOpen) return;
 
   const payload: Record<string, number[]> = {};
   for (const [universe, buffer] of universes) {
@@ -164,10 +166,152 @@ export function sendUniverseState(universes: Map<number, Uint8Array>): void {
   }
 
   if (Object.keys(payload).length === 0) return;
+  const frame = JSON.stringify({ type: 'dmx', universes: payload });
+
+  if (bridgeOpen) {
+    try {
+      _ws!.send(frame);
+    } catch {
+      // Socket might have closed between the check and the send
+    }
+  }
+  sendDirect(frame);
+}
+
+// ─── Direct output: browser straight to a WebSocket receiver ─────────────────
+//
+// A browser cannot open a UDP socket, so it can never speak Art-Net itself.
+// It can speak WebSocket, though, and anything already running on the machine
+// that receives WebSocket can do the UDP part. TouchDesigner's WebSocket DAT
+// is the usual one: the page sends frames straight to TD, and TD puts Art-Net
+// on the wire. That removes gobo's own bridge from the picture, so the hosted
+// build works with nothing installed beyond what is already open.
+//
+// The catch is mixed content. A page served over https may only open ws:// to
+// localhost or 127.0.0.1, which browsers treat as trustworthy. A receiver on
+// another machine needs the page served over http, or the receiver behind wss.
+
+let _direct: WebSocket | null = null;
+let _directUrl: string | null = null;
+let _directConnected = false;
+let _directReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let _onDirectStatusChange: ((connected: boolean) => void) | null = null;
+
+export function onDirectStatusChange(fn: (connected: boolean) => void): void {
+  _onDirectStatusChange = fn;
+}
+
+export function isDirectConnected(): boolean {
+  return _directConnected;
+}
+
+export function getDirectUrl(): string | null {
+  return _directUrl;
+}
+
+function isDirectOpen(): boolean {
+  return _direct?.readyState === WebSocket.OPEN;
+}
+
+/**
+ * True when the browser will refuse this connection as mixed content. Worth
+ * reporting up front: the failure otherwise looks identical to "the receiver
+ * is not running", and no amount of restarting the receiver fixes it.
+ */
+export function isBlockedAsMixedContent(host: string): boolean {
+  const secure = typeof window !== 'undefined' && window.location?.protocol === 'https:';
+  const trusted = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  return secure && !trusted;
+}
+
+/** Open a direct output socket to a WebSocket receiver such as TouchDesigner. */
+export function connectDirect(host = 'localhost', port = 9980): void {
+  const url = `ws://${host}:${port}`;
+  _directUrl = url;
+
+  if (_directReconnectTimer) {
+    clearTimeout(_directReconnectTimer);
+    _directReconnectTimer = null;
+  }
+  closeDirectSocket();
 
   try {
-    _ws.send(JSON.stringify({ type: 'dmx', universes: payload }));
+    _direct = new WebSocket(url);
   } catch {
-    // Socket might have closed between the check and the send
+    scheduleDirectReconnect();
+    return;
+  }
+
+  _direct.onopen = () => {
+    _directConnected = true;
+    _onDirectStatusChange?.(true);
+    console.log(`[gobo] direct output connected (${url})`);
+  };
+  _direct.onclose = () => {
+    if (_directConnected) {
+      _directConnected = false;
+      _onDirectStatusChange?.(false);
+    }
+    scheduleDirectReconnect();
+  };
+  _direct.onerror = () => {
+    // onclose follows, which handles the retry.
+  };
+}
+
+/** Stop direct output and close the socket. */
+export function disconnectDirect(): void {
+  _directUrl = null;
+  if (_directReconnectTimer) {
+    clearTimeout(_directReconnectTimer);
+    _directReconnectTimer = null;
+  }
+  closeDirectSocket();
+  if (_directConnected) {
+    _directConnected = false;
+    _onDirectStatusChange?.(false);
+  }
+}
+
+function closeDirectSocket(): void {
+  if (!_direct) return;
+  _direct.onopen = null;
+  _direct.onclose = null;
+  _direct.onerror = null;
+  try { _direct.close(); } catch { /* already closed */ }
+  _direct = null;
+}
+
+function scheduleDirectReconnect(): void {
+  if (!_directUrl) return;
+  if (_directReconnectTimer) return;
+  _directReconnectTimer = setTimeout(() => {
+    _directReconnectTimer = null;
+    if (_directUrl) {
+      const [, host, port] = /^ws:\/\/([^:]+):(\d+)$/.exec(_directUrl) ?? [];
+      if (host && port) connectDirect(host, Number(port));
+    }
+  }, RECONNECT_DELAY_MS);
+}
+
+function sendDirect(frame: string): void {
+  if (!isDirectOpen()) return;
+  try {
+    _direct!.send(frame);
+  } catch {
+    // Socket might have closed between the check and the send.
+  }
+}
+
+/**
+ * Push the editor's text to the receiver, for showing the running code inside
+ * TouchDesigner. Ignored by receivers that only handle `dmx` messages.
+ */
+export function sendDirectCode(text: string): void {
+  if (!isDirectOpen()) return;
+  try {
+    _direct!.send(JSON.stringify({ type: 'code', text }));
+  } catch {
+    // Socket might have closed between the check and the send.
   }
 }
