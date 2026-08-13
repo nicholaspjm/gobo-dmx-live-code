@@ -14,7 +14,7 @@
  * current value at the point of decision rather than caching it.
  */
 
-import { THEME_LIST, type ThemeId } from './themes.js';
+import { THEMES, THEME_LIST, LEGACY_THEME_IDS, type ThemeId } from './themes.js';
 import { migrateLegacyKey } from './storage-migration.js';
 
 const STORAGE_KEY = 'gobo-settings-v1';
@@ -49,7 +49,8 @@ export interface Settings {
   simTooltips: boolean;
   /** Maximum send rate to the bridge, in Hz. Default 60. */
   sendRate: SendRate;
-  /** Active colour theme. Default 'ember' (the original warm-brown). */
+  /** Active colour theme. Default 'tungsten' (the original warm-brown,
+   *  formerly stored as 'ember' — see resolveThemeId()). */
   theme: ThemeId;
   /** Format the editor buffer with prettier every time the code runs
    *  (Ctrl+Enter). Off by default — opt-in because rewriting the doc
@@ -63,7 +64,7 @@ const DEFAULTS: Settings = {
   inlineViz: true,
   simTooltips: true,
   sendRate: 60,
-  theme: 'ember',
+  theme: 'tungsten',
   formatOnRun: false,
 };
 
@@ -87,12 +88,43 @@ function writeRaw(s: Settings): void {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch { /* quota / private mode */ }
 }
 
+/**
+ * Resolve a persisted theme id to one that still exists.
+ *
+ * The theme ids were renamed (ember → tungsten, slate → moonbox, and so
+ * on). The stored value is whatever id was current when the user picked
+ * it, so for anyone who chose a theme before the rename it is now a
+ * legacy id. applyTheme() falls back to the default for an id it does
+ * not know, which means without this the rename would quietly undo a
+ * preference the user set deliberately — the app would come up in the
+ * default palette and nothing would explain why.
+ *
+ * Returns null for a value that is neither current nor legacy (a hand-
+ * edited or corrupt blob), so the caller can fall back to the default.
+ */
+function resolveThemeId(stored: unknown): ThemeId | null {
+  if (typeof stored !== 'string') return null;
+  // Current ids win over the legacy map: an id that exists today is
+  // never reinterpreted, even if some future rename reuses the spelling.
+  if (Object.prototype.hasOwnProperty.call(THEMES, stored)) return stored as ThemeId;
+  return LEGACY_THEME_IDS[stored] ?? null;
+}
+
 /** Merge persisted values over defaults — unknown keys are dropped and
  *  missing ones inherit defaults. Cached for fast repeat reads. */
 export function getSettings(): Settings {
   if (_cached) return _cached;
   const raw = readRaw();
-  _cached = { ...DEFAULTS, ...raw };
+  const merged: Settings = { ...DEFAULTS, ...raw };
+  merged.theme = resolveThemeId(raw.theme) ?? DEFAULTS.theme;
+  _cached = merged;
+  // Write the adopted id straight back. Settings are otherwise only
+  // persisted when the user changes one, so a legacy id would sit in
+  // storage indefinitely — and the moment LEGACY_THEME_IDS is retired,
+  // the choice it stands for is lost. Rewriting on first read makes the
+  // adoption permanent while the map is still here. Guarded on an actual
+  // change so a first run (no stored theme at all) doesn't write.
+  if (raw.theme !== undefined && raw.theme !== merged.theme) writeRaw(merged);
   return _cached;
 }
 

@@ -29,10 +29,13 @@ Powered by [@strudel/core](https://strudel.cc) — the same waveform and cycle s
 - **Fixture system** — built-in profiles for RGB, RGBW, moving heads, strobes, and custom definitions
 - **Pixel strips** — `rgbStrip()` / `rgbwStrip()` with per-pixel, grid and chase helpers
 - **Multiple outputs** — Art-Net 4, sACN (E1.31), OSC, or mock
-- **Scenes** — named code buffers in the top bar, autosaved to the browser
+- **One working scene** — autosaved to the browser as you type, saved to `.gobo` files when you want a durable copy
+- **Share links** — a link that carries the whole scene, no server involved
+- **Examples** — three bundled demo scenes, loaded from the top bar
 - **Fixture library** — built-in, bundled public, saved and session fixtures in one panel, with JSON import/export
 - **Reference panel** — click `docs` in the top bar for inline function reference, plus hover help and autocomplete
-- **Nine themes** — ember (warm charcoal / terracotta) by default, through to paper, terminal and ikeda
+- **Thirteen themes** — named after the lights they look like: `tungsten` (warm charcoal / terracotta) by default, through `bastardAmber`, `cyclorama`, `blackout`, `glowtape` and `surprisePink`
+- **Semantic highlighting** — fixtures, patterns, colour channels, movement, pixel methods and output config each get their own colour, so a line's job is legible at a glance
 
 ---
 
@@ -100,6 +103,63 @@ uni(2, 1, sine().slow(4))
 
 ---
 
+## Scenes, files and links
+
+gobo works like a text editor, not like a console with a show file browser. There is **one
+working scene**. It autosaves to the browser as you type (debounced, ~0.5 s — switch it off
+under **autosave** in settings), so a refresh, a crash or a closed laptop costs you nothing.
+Click the name in the top bar to rename it; the dot next to the name means "this has changes
+that are not in a file yet".
+
+Everything durable is a file or a link:
+
+| Top bar | What it does |
+|---------|--------------|
+| **save** | Downloads the scene as `<name>.gobo` — JSON holding the name, the code, and a timestamp. Same as `Ctrl+S` |
+| **open** | File picker for `.gobo`, `.js` or `.txt`. Raw code files open too, taking their name from the filename |
+| **share** | Copies a link containing the entire scene (see below) |
+| **examples** | The three bundled demos — starter demo, ultratronics 11, four-colour bar demo |
+
+Anything that replaces the whole buffer — open, share link, example — **arrives stopped** and
+waits for `Ctrl+Enter`, and asks first if the current scene has changes you have not saved to
+a file. Nothing loads a scene and runs it for you.
+
+### Share links
+
+**share** copies a URL of the form `<wherever gobo is served>/#s1=<the whole scene>`. The scene
+really is in the link: JSON, deflated with the browser's own `CompressionStream`, then
+base64url-encoded into the fragment. (If the clipboard is unavailable — an insecure context,
+or a browser that refuses — the link is shown in a dialog to copy by hand.) There is no
+server, nothing is uploaded, no id is registered, so a link cannot expire, 404, or be revoked
+— and because a URL fragment is never sent in an HTTP request, even the host serving gobo
+never sees your code.
+
+The trade-off is length. Deflate gets typical scene source to around a third of its size and
+base64 adds about a third back, so a 2 kB scene lands near 900 characters of link. Browsers
+handle far longer URLs than that, but chat apps, mail gateways and QR codes start truncating
+somewhere past ~2000 characters, and a truncated link fails at the far end where nobody can
+fix it. gobo tells you the character count when it copies and warns when a link crosses that
+mark. **For a big set, save a file and send the file.**
+
+A link carries the code and the name — nothing else. Saved fixtures, settings and themes stay
+in your browser, so a scene relying on a fixture you imported needs its `defineFixture()` call
+in the scene itself to work on someone else's machine.
+
+> **Opening someone else's link runs their code on your machine — eventually, if you let it.**
+> Scene code is not sandboxed. A shared scene never auto-runs: it loads stopped, behind a
+> banner saying where it came from, and only a deliberate `Ctrl+Enter` runs it. Read it first.
+> [SECURITY.md](SECURITY.md#share-links-carry-someone-elses-code-into-your-browser) covers this
+> properly.
+
+### Scenes from the old multi-scene version
+
+Earlier builds kept several named scenes in a top-bar dropdown. If you have any, a one-time
+notice lists them with a download button each, so you can turn them into `.gobo` files. The
+old storage is left exactly as it was — dismissing the notice does not delete anything, and
+neither does anything else in this version.
+
+---
+
 ## Keyboard shortcuts
 
 | Key | Action |
@@ -107,8 +167,7 @@ uni(2, 1, sine().slow(4))
 | `Ctrl+Enter` | Evaluate code |
 | `Ctrl+.` | Stop — blackout by default, `freeze` if set that way in settings |
 | `Ctrl+Space` | Stop, as an alias that also preempts the autocomplete popup |
-| `Ctrl+S` | Save the current scene |
-| `Ctrl+Shift+S` | Save as a new scene |
+| `Ctrl+S` | Save the scene to a `.gobo` file — the browser copy saves itself |
 | `Ctrl+Shift+F` | Format the buffer |
 | `T` | Tap tempo (ignored while typing in the editor or any input) |
 
@@ -223,6 +282,8 @@ Full setup and Art-Net alternative: **[docs/touchdesigner.md](docs/touchdesigner
 | Hosted https page can't reach a bridge on another machine | From `github.io` the page always dials `ws://localhost:3001` — browsers allow loopback from https, but block `ws://` to any other host | Run the bridge on the browser's machine, or `npm run dev` locally and open the UI on that machine's LAN IP (`http://192.168.x.x:3000`) |
 | Nothing arrives in TouchDesigner | Bridge still in Art-Net or mock mode, or the `OSC In CHOP` port doesn't match `osc(host, port)` | See [docs/touchdesigner.md](docs/touchdesigner.md); only channels you drive are transmitted |
 | Stutter, or a saturated network | Send rate too high for the link | Drop **send rate** to 30 Hz in settings |
+| A share link opens gobo but loads no scene | The link was truncated in transit — chat apps and mail clients cut long URLs, and half a payload cannot be decoded | Re-send it as a link, not as text that wraps, or send a saved `.gobo` file instead |
+| Opened a shared scene and nothing happens | Shared scenes arrive stopped on purpose — they are someone else's code | Read the code, then `Ctrl+Enter` |
 
 ---
 
@@ -240,7 +301,7 @@ Full setup and Art-Net alternative: **[docs/touchdesigner.md](docs/touchdesigner
 
 - [CHANGELOG.md](CHANGELOG.md) — what landed in each release
 - [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup, fixture contributions, PR expectations
-- [SECURITY.md](SECURITY.md) — threat model, and why the eval and the bridge are unguarded on purpose
+- [SECURITY.md](SECURITY.md) — threat model, what a share link really hands you, and why the eval and the bridge are unguarded on purpose
 - [fixtures/README.md](fixtures/README.md) — public fixture file format
 
 ---
