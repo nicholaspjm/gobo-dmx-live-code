@@ -122,11 +122,16 @@ await new Promise((r) => sender.bind(r));
 try { sender.setBroadcast(true); ok('broadcast enabled on the sending socket'); }
 catch (err) { bad(`could not enable broadcast: ${err.message}`); }
 
+const ownAddresses = new Set(live.map((i) => i.address));
 for (const host of [...new Set(targets)]) {
+  if (ownAddresses.has(host)) {
+    bad(`${host} is THIS machine's own address, so the frames never leave it. Use the node's IP, or the broadcast address of that subnet.`);
+  }
   const err = await new Promise((resolve) => {
     sender.send(packet, port, host, (e) => resolve(e));
   });
-  if (!err) ok(`sent to ${host}:${port}`);
+  if (!err && ownAddresses.has(host)) warn(`sent to ${host}:${port}, but see above`);
+  else if (!err) ok(`sent to ${host}:${port}`);
   else if (err.code === 'EACCES') bad(`${host}:${port} refused (EACCES). Broadcast is being blocked, usually a firewall.`);
   else if (err.code === 'ENETUNREACH') bad(`${host}:${port} unreachable. This machine has no route to that subnet, so check the rig's IP against yours.`);
   else bad(`${host}:${port} failed: ${err.code ?? err.message}`);
