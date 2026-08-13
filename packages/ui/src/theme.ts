@@ -5,6 +5,17 @@
  * (set via themes.ts → applyTheme()) propagates into the editor
  * without rebuilding the EditorView. Previously these were JS
  * constants — switching is now zero-cost.
+ *
+ * Two colour families are in play and they are deliberately separate:
+ *   - the chrome vars (--bg, --accent, --text-muted …) style the editor
+ *     surface: gutters, cursor, selection, tooltips.
+ *   - the syntax vars (--syn-*) style the code itself. goboHighlight
+ *     below owns the base-JavaScript half of that (keywords, numbers,
+ *     strings, comments, operators); the regex ViewPlugin in
+ *     code-highlight.ts owns the gobo-specific half.
+ * Base JS used to borrow --accent / --accent2 / --sage / --text-muted,
+ * which put it in direct competition with the gobo tokens for the same
+ * three colours. It has its own vars now so neither family has to shout.
  */
 
 import { EditorView } from '@codemirror/view';
@@ -159,34 +170,69 @@ export const goboTheme = EditorView.theme(
 
 export const goboHighlight = syntaxHighlighting(
   HighlightStyle.define([
-    { tag: t.comment, color: v('text-muted'), fontStyle: 'italic' },
-    { tag: t.lineComment, color: v('text-muted'), fontStyle: 'italic' },
-    { tag: t.blockComment, color: v('text-muted'), fontStyle: 'italic' },
+    // Comments are the lowest-chroma colour in every palette so they
+    // recede, but --syn-comment is still solved to >= 4.5:1 rather than
+    // the usual near-invisible grey. They used to take --text-muted,
+    // which on some themes fails contrast against --bg.
+    { tag: t.comment, color: v('syn-comment'), fontStyle: 'italic' },
+    { tag: t.lineComment, color: v('syn-comment'), fontStyle: 'italic' },
+    { tag: t.blockComment, color: v('syn-comment'), fontStyle: 'italic' },
+    { tag: t.docComment, color: v('syn-comment'), fontStyle: 'italic' },
 
-    { tag: t.keyword, color: v('accent') },
-    { tag: t.controlKeyword, color: v('accent') },
-    { tag: t.operatorKeyword, color: v('accent') },
+    // --syn-keyword is the --syn-factory hue at roughly half the chroma,
+    // because `const wash = fixture(…)` is one gesture: the binding word
+    // and the factory call belong to the same family, with the factory
+    // carrying the emphasis. `this` / booleans / null are keywords in the
+    // same sense — fixed words of the language, not values you tune.
+    { tag: t.keyword, color: v('syn-keyword') },
+    { tag: t.controlKeyword, color: v('syn-keyword') },
+    { tag: t.operatorKeyword, color: v('syn-keyword') },
+    { tag: t.definitionKeyword, color: v('syn-keyword') },
+    { tag: t.moduleKeyword, color: v('syn-keyword') },
+    { tag: t.self, color: v('syn-keyword') },
+    { tag: t.bool, color: v('syn-keyword') },
+    { tag: t.null, color: v('syn-keyword') },
 
-    { tag: t.string, color: v('sage') },
-    { tag: t.regexp, color: v('sage') },
+    // Strings are fixture ids and mini-notation, so they sit next to the
+    // pattern hue. Replaces --sage, which the gobo tokens now need.
+    { tag: t.string, color: v('syn-string') },
+    { tag: t.special(t.string), color: v('syn-string') },
+    { tag: t.regexp, color: v('syn-string') },
 
-    { tag: t.number, color: v('accent2') },
-    { tag: t.bool, color: v('accent2') },
-    { tag: t.null, color: v('text-muted') },
+    // Numbers get a hue of their own rather than an accent: they are what
+    // you nudge live, so they must stay findable without competing with
+    // the verbs around them.
+    { tag: t.number, color: v('syn-number') },
+    { tag: t.integer, color: v('syn-number') },
+    { tag: t.float, color: v('syn-number') },
 
-    { tag: t.function(t.variableName), color: v('accent2') },
+    // Identifiers are the neutral ground the gobo marks are read against,
+    // so they get no colour of their own. t.function(t.variableName) in
+    // particular must stay --text: the ViewPlugin already paints every
+    // call that means something to the rig, and leaving this rule on an
+    // accent would paint user-defined helper calls the same colour as
+    // fixture names.
+    { tag: t.function(t.variableName), color: v('text') },
     { tag: t.definition(t.variableName), color: v('text') },
     { tag: t.variableName, color: v('text') },
 
     { tag: t.propertyName, color: v('text') },
-    { tag: t.definition(t.propertyName), color: v('accent2') },
+    { tag: t.definition(t.propertyName), color: v('text') },
 
-    { tag: t.operator, color: v('text-muted') },
-    { tag: t.punctuation, color: v('text-muted') },
-    { tag: t.separator, color: v('text-muted') },
+    // Structure you read past.
+    { tag: t.operator, color: v('syn-operator') },
+    { tag: t.punctuation, color: v('syn-operator') },
+    { tag: t.separator, color: v('syn-operator') },
+    { tag: t.bracket, color: v('syn-operator') },
+    { tag: t.paren, color: v('syn-operator') },
+    { tag: t.brace, color: v('syn-operator') },
+    { tag: t.squareBracket, color: v('syn-operator') },
 
-    { tag: t.typeName, color: v('accent2'), fontStyle: 'italic' },
-    { tag: t.className, color: v('accent2') },
+    // Type and class names are identifiers too, and they are rare in a
+    // live-coding buffer — neutral rather than accented, and not italic:
+    // italic is reserved for the inert tokens (viz, meta, comments).
+    { tag: t.typeName, color: v('text') },
+    { tag: t.className, color: v('text') },
 
     { tag: t.invalid, color: v('error'), textDecoration: 'underline' },
   ]),

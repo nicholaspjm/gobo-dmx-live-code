@@ -20,8 +20,9 @@ gobo assumes one operator, on a machine they trust, on a network they trust — 
 running the editor and the bridge, wired to a lighting rig or a dedicated art-net VLAN.
 It is not multi-tenant, has no accounts, no roles, no server-side state, and nothing it
 stores is secret. Everything lives in the browser (`localStorage`, under the `gobo-*-v1`
-keys — scenes, saved fixtures, settings; values written under the pre-rename `lumen-*-v1`
-keys are migrated across on first load) and in a local Node process that speaks
+keys — the working scene buffer, saved fixtures, settings; the settings blob and the fixture
+library adopt their pre-rename `lumen-*-v1` values on first load, and the old multi-scene
+store `gobo-scenes-v1` is read but never written) and in a local Node process that speaks
 unencrypted UDP to lighting hardware. The hosted build on GitHub Pages is static — your
 code never leaves your browser; DMX only leaves the machine through a bridge you started
 yourself (`ws://localhost:3001` by default, or the LAN address the UI is served from —
@@ -47,6 +48,79 @@ stranger like an executable, not like a document.
 "Escaping the eval sandbox" is therefore not a vulnerability, because there is no sandbox
 to escape. Reports demonstrating that user code can call `fetch` or reach `window` will be
 closed with a link to this section.
+
+## Share links carry someone else's code into your browser
+
+The section above assumes the code in the editor is yours. Share links break that
+assumption, and they are the one feature in gobo that lets a stranger choose what ends up in
+your buffer, so they get their own threat model.
+
+**The threat.** `share` encodes the whole scene into a URL fragment
+(`packages/ui/src/share.ts`); opening that URL loads the scene into gobo. Since scene code
+runs unsandboxed in the page's own realm, a scene you were sent and then ran is a program
+you granted, at minimum:
+
+- read and write access to everything gobo has stored on that origin — your working scene,
+  your fixture library, your settings — via `localStorage`;
+- your bridge, through `artnet()` / `sacn()` / `osc()` or by opening its unauthenticated
+  socket directly, meaning it can repoint DMX output at any host and port it likes, or drive
+  the rig itself;
+- the network, `fetch` included, from a page you trust.
+
+On the hosted build every user shares one origin, so "this origin's storage" is your storage.
+None of this needs a bug: it is what running the code means. A malicious scene is not
+distinguishable from a clever one by anything but reading it.
+
+**What is actually implemented against it.** All of it is in
+`handleSharedSceneOnBoot()` / `replaceBuffer()` in `packages/ui/src/main.ts` and in
+`share.ts`:
+
+- **A scene from a link never runs on arrival.** It is loaded into the editor and the
+  scheduler is stopped; nothing on the boot path calls `evalCode()`. Running is a deliberate
+  `Ctrl+Enter`, made by a person who has had the chance to read the code.
+- **A banner states the provenance.** It says the scene came from a shared link, that
+  running it grants full access to the page and to DMX output, and that nothing is running
+  yet. It stays up until the scene is successfully run or the banner is dismissed.
+- **Your own work is not silently replaced.** If the buffer differs from the last copy you
+  saved to a file, you are asked to confirm before the shared scene takes its place.
+- **The decoder never executes and never throws.** It refuses anything that is not exactly
+  one of its own payload formats, rejects a hash containing characters outside base64url,
+  drains decompression incrementally and abandons it past 512 kB so a deflate bomb cannot
+  make the tab allocate its way to death, decodes UTF-8 in fatal mode, and requires the
+  result to be an object whose `code` and `name` are both strings. Every failure is "there
+  is no share link here", and your own buffer is left alone.
+- **The scene name is treated as hostile text.** It is stripped of control characters,
+  collapsed to one line, capped at 80 characters, and put into the DOM through `textContent`
+  and text nodes — never as markup.
+- **The payload is stripped from the address bar** with `history.replaceState` before
+  anything is decided, so a reload cannot re-ask the question and the link does not sit in
+  the URL bar afterwards.
+
+**Residual risk, stated plainly.**
+
+- **Reading the scene before running it is your job, and there is no help for it.** gobo
+  does not analyse, lint, diff or restrict what a shared scene may call, because the eval
+  boundary that would make such a check meaningful does not exist by design. Obfuscated or
+  merely long code is code you have not really read. Treat a link from a stranger the way
+  you would treat their `.sh` file.
+- **The stopped state is a delay, not a barrier.** One habitual `Ctrl+Enter` runs it. If you
+  live-code with the keyboard, the banner is the only thing standing between an unread scene
+  and your rig.
+- **A shared scene persists once loaded.** It is written into the working buffer immediately,
+  so it survives a reload — and after that reload the banner is gone, because the hash has
+  been cleared. Code you left unread yesterday looks like your own scene today. Dismissing
+  the banner likewise removes the warning, not the code.
+- **The replace prompt is keyed to file saves, not to edits.** If the buffer matches the last
+  file you saved (or is untouched example text), a shared scene replaces it without asking.
+  Nothing is lost — that copy is on disk — but the editor's contents do change under you.
+- **A link is not signed, and its name is chosen by whoever built it.** "official starter
+  scene" in the top bar means nothing about who wrote the code.
+- **Opening a `.gobo` file someone sent you is the same grant** with less ceremony: files
+  also arrive stopped and never auto-run, but there is no provenance banner, because opening
+  a file is an act you performed deliberately.
+- **A link you create contains everything in your buffer** — node IP addresses, venue
+  details, comments you would not have published. Nothing leaves your browser when the link
+  is made, but the link itself is the scene, and it is as shareable as any other text.
 
 ## The bridge has no authentication
 
@@ -88,6 +162,17 @@ Things that break an expectation gobo actually sets:
   fixture store, getting code to persist into a scene, or otherwise acting inside the app's
   origin without the operator doing it. (Connecting to the unauthenticated bridge socket is
   already covered above and is not this.)
+- **A shared scene reaching evaluation without a deliberate keystroke** — auto-running on
+  load, on a reload, or as a side effect of any other action. Not auto-running is the only
+  hard promise the share feature makes, so a way around it is the most serious bug this app
+  can have.
+- **A share payload getting past the decoder** — a hash that makes `decodeShareFromLocation`
+  return something other than two strings, that hangs or exhausts the tab despite the size
+  caps, or a scene name that reaches the DOM as markup instead of text.
+- **Anything that writes to or clears `gobo-scenes-v1`**, `gobo-active-scene-v1` or
+  `gobo-scene-meta-v1`. Those keys hold scenes from the old multi-scene version and are
+  deliberately read-only forever; for many users the browser is the only copy, so a write
+  there is destroying work that cannot be recovered.
 - **XSS in the UI** — the library panel builds rows with `innerHTML` and escapes every
   fixture-supplied string through `escapeText` / `escapeAttr` (`packages/ui/src/library.ts`).
   A fixture id, name, manufacturer, or channel name that escapes that and executes is a bug.
@@ -106,8 +191,9 @@ Things that break an expectation gobo actually sets:
 
 Not vulnerabilities, and already true by construction: eval sandbox escapes, driving or
 repointing an unauthenticated bridge you exposed, sniffing or spoofing DMX on the wire,
-scene code touching browser storage or the network, and scanner output with no demonstrated
-impact.
+scene code touching browser storage or the network, a scene from a share link doing any of
+that *after you chose to run it*, the length of a share link, and scanner output with no
+demonstrated impact.
 
 ## Reporting
 

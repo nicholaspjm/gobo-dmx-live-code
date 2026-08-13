@@ -19,93 +19,20 @@ import { vizDecorationsField } from './inline-viz.js';
 import { goboCodeHighlight } from './code-highlight.js';
 import { goboAutocomplete } from './autocomplete.js';
 import { goboHoverHelp } from './hover-help.js';
+import { EXAMPLES } from './examples.js';
 
 /**
- * Hardcoded code used the first time a user opens gobo, before any
- * scene has been saved to localStorage. Exported so scenes.ts can seed
- * the "default" scene with this on first run.
+ * The document a brand-new editor starts on.
+ *
+ * This used to be a hardcoded INITIAL_CODE constant here, duplicated
+ * verbatim by the bundled "starter demo" example. Examples now own that
+ * text (examples.ts), and EXAMPLES[0] is the introduction to the language,
+ * so it is the only sensible thing to open on.
+ *
+ * In practice main.ts always passes the user's stored buffer, so this
+ * default is only reached by a caller that has nothing to restore.
  */
-export const INITIAL_CODE = `// gobo — ctrl+enter to run · ctrl+space (or ctrl+.) to stop · open 'docs' for the reference
-
-// Output target — swap in mock() for headless dev, osc() for TouchDesigner,
-// or sacn(universe, priority) for E1.31. Port defaults to 6454 for Art-Net.
-artnet('2.0.0.100')
-
-// ── fixtures ──────────────────────────────────────────────
-// fixture(startChannel, id, universe = 0) returns an object with one setter
-// per named channel. Chain .viz('kind') to drop a live widget at line-end.
-const wash  = fixture(1, 'rgbw').viz('color')          // uni 0, ch 1-4
-const strb  = fixture(5, 'strobe').viz('meter')        // uni 0, ch 5-6
-
-// rgbStrip(startChannel, pixelCount) — pixel bar at 3 channels per pixel.
-const strip = rgbStrip(7, 10).viz('strip')             // uni 0, ch 7-36
-
-// Custom fixture — defineFixture lets you describe any channel layout. The
-// 'pixels' channel below is a nested RGBW strip thanks to pixelLayout:'rgbw'.
-defineFixture('four-color-bar', {
-  name: 'Four-Colour Moving Bar',
-  manufacturer: 'Generic',
-  type: 'generic',
-  channelCount: 38,
-  channels: [
-    { offset: 0, name: 'direction',   type: 'control'   },
-    { offset: 1, name: 'speed',       type: 'control'   },
-    { offset: 2, name: 'effect',      type: 'control'   },   // leave 0 for direct pixel control
-    { offset: 3, name: 'effectSpeed', type: 'control'   },
-    { offset: 4, name: 'dim',         type: 'intensity' },
-    { offset: 5, name: 'strobe',      type: 'strobe'    },
-    { offset: 6, name: 'pixels',      type: 'strip', pixelCount: 8, pixelLayout: 'rgbw' },
-  ],
-})
-const bar = fixture(1, 'four-color-bar', 1)            // uni 1, ch 1-38
-bar.pixels.viz('strip')
-
-// ── patterns ──────────────────────────────────────────────
-// Channels take a number (constant) or a pattern (animated). Patterns
-// come in two flavours: continuous waveforms (sine/cosine/square/saw/
-// rand, chainable with .slow / .range / .mul / etc.) and step sequences
-// (mini, a drum-grid notation — see the docs panel for full syntax).
-
-// Drum-grid on the wash — one mini() string per channel. Each string
-// plays through one scheduler cycle (= 4 beats) with tokens splitting
-// the time equally. '-' rests, numbers pass through as values. Whitespace
-// between tokens is free — group in fours for readability.
-// See the 'sequencing' docs entry for subdivisions, repeats, and more.
-wash.red(  mini('1 - - -  - - 1 -  - - 1 -  - - - -').glow())
-wash.green(mini('- - 1 -  1 - - -  - - - -  - 1 - -'))
-wash.blue( mini('- 1 - -  - - - 1  - 1 - -  1 - - 1'))
-wash.white(mini('- - - 1  - - - -  - - - 1  - - - -'))
-
-// Strobe burst on beats 2 and 4. [1 1 1 1] compresses four hits into
-// one slot (4× the outer step rate), so each bracket gives a rapid
-// roll. Uncomment to fire.
-// strb.dim(0.9)
-// strb.strobe(mini('- [1 1 1 1] - [1 1 1 1]').flash())
-
-// Rainbow chase on the strip — manual for-loop version so the math is
-// visible. strip.rainbowChase() would do the same in one line (see the
-// 'effects' tab in the docs for the full mechanism).
-const hueR = sine().slow(12).range(0, 1)
-const hueG = sine().early(1/3).slow(12).range(0, 1)
-const hueB = sine().early(2/3).slow(12).range(0, 1)
-for (let i = 0; i < strip.pixelCount; i++) {
-  const phase = i / strip.pixelCount
-  const bright = cosine().early(phase).slow(2).range(-8, 1)
-  strip.pixel(i, bright.mul(hueR), bright.mul(hueG), bright.mul(hueB))
-}
-
-// Same chase on the moving bar (universe 1) — one-line helper version.
-bar.dim(1)
-bar.pixels.rainbowChase()
-
-// Kick — flash the whole bar white on every beat, sitting on top of the
-// rainbow. One scheduler cycle = 4 beats, so .fast(4) gives one pulse per
-// beat. .range(-15, 1) sharpens the cosine into a short snap. Writing to
-// .white() alone overrides just the W channel the chase set to 0, so the
-// rainbow's RGB stays visible between kicks.
-//   .fast(2) → half notes · .fast(4) → quarters · .fast(8) → eighths
-bar.pixels.white(cosine().fast(4).range(-15, 1))
-`;
+const DEFAULT_DOC = EXAMPLES[0].code;
 
 export type EvalHandler = (code: string) => void;
 export type StopHandler = () => void;
@@ -116,7 +43,7 @@ export function createEditor(
   onEval: EvalHandler,
   onStop: StopHandler,
   onChange?: ChangeHandler,
-  initialDoc: string = INITIAL_CODE,
+  initialDoc: string = DEFAULT_DOC,
 ): EditorView {
   const evalKeybinding = Prec.highest(
     keymap.of([

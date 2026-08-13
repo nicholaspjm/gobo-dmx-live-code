@@ -429,74 +429,242 @@
         color: var(--sage);
       }
 
-      /* Scene picker — dropdown + new / delete buttons in the top bar.
-         Live-performance UX: switch between named code buffers without
-         losing edits (each scene autosaves to localStorage). */
-      .scene-picker {
+      /* ─── Scene bar ──────────────────────────────────────────────────────
+         There is one working buffer, so the top bar carries a name plus four
+         verbs instead of a picker: rename in place, save to a file, open one,
+         copy a share link, load a bundled example. */
+      .scene-bar {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
       }
-      .scene-label {
-        font-size: 10px;
-        color: var(--text-muted);
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        margin-right: 2px;
-      }
-      .scene-select {
-        background: transparent;
-        border: 1px solid var(--border);
+
+      /* Click-to-rename. Left unadorned until hovered so the bar still reads
+         as a label rather than a form — the BPM field opposite behaves the
+         same way, and following it means one learned gesture covers both. */
+      .scene-name {
+        display: inline-block;
+        max-width: 190px;
+        padding: 2px 6px;
+        border-radius: 2px;
         color: var(--text);
-        font: inherit;
-        font-size: 11px;
-        padding: 3px 7px;
-        border-radius: 3px;
-        max-width: 160px;
-        cursor: pointer;
-        transition: border-color 0.12s;
-      }
-      .scene-select:hover,
-      .scene-select:focus {
-        border-color: var(--accent2);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: text;
         outline: none;
       }
-      .scene-btn {
+      .scene-name:hover {
+        background: rgba(196, 114, 74, 0.08);
+      }
+      .scene-name:focus {
+        background: rgba(196, 114, 74, 0.15);
+        color: var(--accent2);
+        /* An ellipsis mid-edit would hide the characters being typed. */
+        text-overflow: clip;
+      }
+      /* Marks the buffer as differing from the last copy written to a file.
+         Never a colour on its own — a single dot next to the name is as loud
+         as an unsaved-changes hint needs to be during a set. */
+      .scene-dirty {
+        color: var(--accent);
+        font-size: 14px;
+        line-height: 1;
+        margin-left: -3px;
+      }
+      .scene-dirty.hidden {
+        display: none;
+      }
+
+      .scene-action {
         background: transparent;
         border: 1px solid var(--border);
         color: var(--text-muted);
         font: inherit;
-        font-size: 13px;
-        padding: 0 6px;
-        line-height: 1.6;
+        font-size: 11px;
+        padding: 3px 9px;
         border-radius: 3px;
         cursor: pointer;
-        transition: color 0.12s, border-color 0.12s;
+        letter-spacing: 0.06em;
+        text-transform: lowercase;
+        transition: color 0.12s, border-color 0.12s, background 0.12s;
       }
-      .scene-btn:hover {
+      .scene-action:hover {
         color: var(--text);
         border-color: var(--accent2);
       }
-      .scene-btn:disabled {
-        opacity: 0.3;
-        cursor: not-allowed;
+      .scene-action.active {
+        color: var(--accent);
+        border-color: var(--accent);
       }
-      /* Read-only badge — shown next to the scene controls when the
-         active scene is protected (currently just 'default'). Signals
-         that edits won't persist until you save-as. */
-      .scene-readonly-badge {
-        display: inline-block;
-        padding: 2px 8px;
-        margin-left: 2px;
+
+      /* Examples menu — a popover under its button. The wrapper is the
+         positioning context so the menu tracks the button with no JS. */
+      .scene-menu-wrap {
+        position: relative;
+        display: inline-flex;
+      }
+      .scene-menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        min-width: 280px;
+        max-width: 340px;
+        padding: 4px;
+        background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 10px;
-        font-size: 9px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-      }
-      .scene-readonly-badge.hidden {
+        border-radius: 4px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        /* Above the sliding panels, which sit at 100. */
+        z-index: 120;
         display: none;
+      }
+      .scene-menu.open {
+        display: block;
+      }
+      .scene-menu-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: none;
+        border-radius: 3px;
+        padding: 7px 9px;
+        font: inherit;
+        color: var(--text);
+        cursor: pointer;
+      }
+      .scene-menu-item:hover,
+      .scene-menu-item:focus {
+        background: rgba(196, 114, 74, 0.1);
+        outline: none;
+      }
+      .scene-menu-label {
+        display: block;
+        font-size: 12px;
+      }
+      .scene-menu-blurb {
+        display: block;
+        margin-top: 2px;
+        font-size: 10px;
+        line-height: 1.45;
+        color: var(--text-muted);
+        white-space: normal;
+      }
+
+      /* ─── Untrusted-scene banner ─────────────────────────────────────────
+         A scene that arrived in a share link is a stranger's code pointed at
+         this origin, and evaluating it gives it full page privileges (see
+         SECURITY.md). Such a scene is loaded stopped; this banner says where
+         it came from and stays up until the user runs it deliberately or
+         dismisses it. It takes a row in the layout rather than floating over
+         the editor, because an overlay is something you flick away without
+         reading. */
+      .share-banner {
+        display: none;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 16px;
+        background: rgba(196, 114, 74, 0.1);
+        border-bottom: 1px solid var(--accent);
+        font-size: 11px;
+        line-height: 1.5;
+        color: var(--text);
+        flex-shrink: 0;
+      }
+      .share-banner.open {
+        display: flex;
+      }
+      .share-banner-icon {
+        color: var(--accent);
+        font-size: 13px;
+        flex-shrink: 0;
+      }
+      .share-banner-text {
+        flex: 1;
+        min-width: 0;
+      }
+      /* The scene name is attacker-controlled text; it is written with
+         textContent and shown here so it can never be mistaken for our copy. */
+      .share-banner-name {
+        color: var(--accent2);
+      }
+
+      /* ─── Legacy scenes notice ───────────────────────────────────────────
+         One-time panel for scenes saved under the old multi-scene model. The
+         old localStorage keys are never written or deleted, so this is purely
+         an offer to take copies out as files. Anchored bottom-right rather
+         than modal: it must be impossible to miss but must not block the
+         editor for someone who just wants to work. */
+      .legacy-notice {
+        display: none;
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        width: 380px;
+        max-width: calc(100vw - 32px);
+        max-height: 60vh;
+        flex-direction: column;
+        padding: 14px 16px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-left: 2px solid var(--accent);
+        border-radius: 4px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        z-index: 200;
+      }
+      .legacy-notice.open {
+        display: flex;
+      }
+      .legacy-notice-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .legacy-notice-title {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--accent);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .legacy-notice-body {
+        font-size: 11px;
+        line-height: 1.5;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+      }
+      .legacy-notice-list {
+        overflow-y: auto;
+        border-top: 1px solid var(--border);
+      }
+      .legacy-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 7px 0;
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+      }
+      .legacy-row-name {
+        font-size: 11px;
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .legacy-row-size {
+        font-size: 10px;
+        color: var(--text-muted);
+        flex-shrink: 0;
+      }
+      .legacy-notice-actions {
+        display: flex;
+        gap: 8px;
+        padding-top: 12px;
       }
 
       /* Docs toggle button */
@@ -1184,26 +1352,146 @@
         max-width: 280px;
       }
 
-      /* ─── Semantic colour coding (gobo-code-highlight extension) ────── */
-      /* Commands are every gobo API name — fixture, sine, artnet, setBPM,
-         .viz, .flash, .glow, .wave, the audio.* namespace, etc. They wear
-         the accent colour so pattern chains are easy to scan. */
-      .cm-content .gobo-command {
-        color: var(--accent);
+      /* ─── Semantic colour coding (gobo-code-highlight extension) ───────
+         One class per family of the gobo API. Every rule reads a --syn-*
+         custom property that applyTheme() writes onto :root, so switching
+         theme repaints the editor without this file knowing any palette.
+
+         The taxonomy is ranked by consequence, and the ranking is carried
+         by weight and decoration as well as hue so it survives the
+         monochrome themes: what you bind (fixtures) and what changes where
+         light physically goes (output, tempo) are the boldest; pattern
+         sources sit above the transforms they feed; tokens that change
+         nothing on the rig (editor-only viz, read-only introspection) are
+         italic and low-chroma so they read as annotation, not command.
+
+         Base JavaScript tokens (keywords, numbers, strings, comments,
+         operators) are deliberately absent: lezer tags carry no stable
+         class names, so they take their own --syn-* vars from the
+         HighlightStyle in src/theme.ts. The `.cm-content` prefix is what
+         keeps the rules below winning over that HighlightStyle, whose
+         generated selectors are single-class. */
+
+      /* Fixtures: the name being bound, then every later use of it. The
+         declaration is the brightest thing on its line; refs are the same
+         hue one step dimmer, still weighted so chain roots like
+         `wash.red(…)` stay findable. */
+      .cm-content .gobo-fixture-decl {
+        color: var(--syn-fixture-decl);
+        font-weight: 700;
       }
-      /* Lights are identifiers bound to a fixture via `const X =
-         fixture(…) | rgbStrip(…) | rgbwStrip(…)`. They get accent2 with a
-         touch of weight so method-chain roots like `wash.red(…)` pop. */
-      .cm-content .gobo-light {
-        color: var(--accent2);
+      .cm-content .gobo-fixture-ref {
+        color: var(--syn-fixture-ref);
         font-weight: 600;
+      }
+
+      /* The calls that create fixtures and fixture types. Shares a hue
+         with the JS keywords in theme.ts, because `const wash =
+         fixture(…)` is one gesture. */
+      .cm-content .gobo-factory {
+        color: var(--syn-factory);
+      }
+
+      /* Output and tempo. One call here redirects or retimes the entire
+         show, so they are the loudest tokens in the buffer. Output also
+         carries an underline: a second, hue-independent channel that
+         keeps it apart from gobo-clock and gobo-color-red on the
+         monochrome themes, where colour alone says nothing. */
+      .cm-content .gobo-output {
+        color: var(--syn-output);
+        font-weight: 700;
+        text-decoration: underline;
+        text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+        text-underline-offset: 3px;
+      }
+      .cm-content .gobo-clock {
+        color: var(--syn-clock);
+        font-weight: 700;
+      }
+
+      /* Pattern sources and the transforms chained off them: same hue,
+         far lower chroma on the chain, so a chain reads as one gesture
+         with a bright head and a quiet tail. */
+      .cm-content .gobo-pattern {
+        color: var(--syn-pattern);
+      }
+      .cm-content .gobo-pattern-chain {
+        color: var(--syn-pattern-chain);
+      }
+
+      /* Colour setters, each tinted towards the channel it drives. The
+         tints are capped in chroma and solved to one shared contrast band
+         so the hint never reads as importance — no setter outranks
+         another, and none of them outranks a fixture or an output call. */
+      .cm-content .gobo-color {
+        color: var(--syn-color);
+      }
+      .cm-content .gobo-color-red {
+        color: var(--syn-color-red);
+      }
+      .cm-content .gobo-color-green {
+        color: var(--syn-color-green);
+      }
+      .cm-content .gobo-color-blue {
+        color: var(--syn-color-blue);
+      }
+      .cm-content .gobo-color-white {
+        color: var(--syn-color-white);
+      }
+      .cm-content .gobo-color-amber {
+        color: var(--syn-color-amber);
+      }
+
+      /* How much light (.dim .strobe .full .off) versus where the beam
+         points and what shape it is (.pan .tilt .zoom .gobo …). */
+      .cm-content .gobo-intensity {
+        color: var(--syn-intensity);
+      }
+      .cm-content .gobo-move {
+        color: var(--syn-move);
+      }
+
+      /* Strip and pixel-grid methods — addressing many emitters at once. */
+      .cm-content .gobo-pixel {
+        color: var(--syn-pixel);
+      }
+
+      /* Editor-only decorations (.viz .flash .glow .wave). Italic because
+         they emit no DMX: they annotate the buffer, they do not drive the
+         rig. The inline viz WIDGETS further down share this class name but
+         contain only graphics, so the colour and italic are inert there. */
+      .cm-content .gobo-viz {
+        color: var(--syn-viz);
+        font-style: italic;
+      }
+
+      /* Raw channel writes that bypass the fixture layer — plumbing, so
+         it is deliberately utilitarian rather than expressive. */
+      .cm-content .gobo-dmx {
+        color: var(--syn-dmx);
+      }
+
+      /* Read-only introspection. Reading a fixture never changes output,
+         so these recede in the same italic register as the viz calls. */
+      .cm-content .gobo-meta {
+        color: var(--syn-meta);
+        font-style: italic;
       }
 
       /* ─── Inline editor visualizations (.viz) ─────────────────────────── */
       /* Placed at line-end via CodeMirror WidgetType. They must not take
-         part in the text flow's caret positioning, so they're inline-block
-         with negative vertical alignment to sit on the baseline cleanly. */
-      .gobo-viz {
+         part in the text flow's caret positioning, so they're inline-flex
+         and middle-aligned rather than sitting on the text baseline.
+         Selected per kind rather than through the `gobo-viz` class the
+         widgets also carry: the syntax taxonomy above owns `.gobo-viz`
+         for the `.viz` call itself, and that mark span must not inherit
+         widget chrome (border, background, inline-flex). The kinds are
+         VizKind in packages/core/src/fixtures.ts — a new kind needs a new
+         selector here. */
+      .gobo-viz-color,
+      .gobo-viz-meter,
+      .gobo-viz-wave,
+      .gobo-viz-strip {
         display: inline-flex;
         align-items: center;
         gap: 3px;
@@ -1338,15 +1626,37 @@
             <span class="ws-dot disconnected" id="ws-dot"></span>
             <span id="ws-label">disconnected</span>
           </span>
-          <div class="scene-picker">
-            <label for="scene-select" class="scene-label">scene</label>
-            <select id="scene-select" class="scene-select" title="switch scene"></select>
-            <button type="button" class="scene-btn" id="scene-new" title="new empty scene">+</button>
-            <button type="button" class="scene-btn" id="scene-save-as" title="save current buffer as a new scene (ctrl+shift+s)">⎘</button>
-            <button type="button" class="scene-btn" id="scene-rename" title="rename current scene">✎</button>
-            <button type="button" class="scene-btn" id="scene-reset" title="reset current scene to its built-in template (only works on bundled seed scenes)">↺</button>
-            <button type="button" class="scene-btn" id="scene-delete" title="delete current scene">×</button>
-            <span id="scene-readonly-badge" class="scene-readonly-badge hidden" title="This scene is read-only. Ctrl+S saves your edits as a new scene.">read-only</span>
+          <div class="scene-bar">
+            <!-- contenteditable rather than an <input>, matching the BPM field:
+                 it inherits the top-bar typography and only looks editable on
+                 hover. main.ts commits on Enter / blur and reverts on Escape. -->
+            <span
+              id="scene-name"
+              class="scene-name"
+              contenteditable="plaintext-only"
+              spellcheck="false"
+              title="click to rename this scene"
+              role="textbox"
+              aria-label="scene name"
+            >untitled</span>
+            <span id="scene-dirty" class="scene-dirty hidden" title="not yet saved to a file" aria-hidden="true">•</span>
+            <button type="button" class="scene-action" id="scene-save" title="save this scene to a .gobo file (ctrl+s)">save</button>
+            <button type="button" class="scene-action" id="scene-open" title="open a .gobo, .js or .txt scene from disk">open</button>
+            <button type="button" class="scene-action" id="scene-share" title="copy a link containing this whole scene">share</button>
+            <div class="scene-menu-wrap">
+              <button
+                type="button"
+                class="scene-action"
+                id="scene-examples"
+                title="load a bundled example scene"
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-controls="examples-menu"
+              >examples</button>
+              <!-- Populated from EXAMPLES in main.ts so the menu and the
+                   bundled scenes can never drift apart. -->
+              <div class="scene-menu" id="examples-menu" role="menu" aria-hidden="true"></div>
+            </div>
           </div>
           <button type="button" class="docs-toggle" id="library-toggle" title="custom fixture library">library</button>
           <button type="button" class="docs-toggle" id="docs-toggle" title="function reference">docs</button>
@@ -1358,6 +1668,14 @@
           </button>
         </div>
       </header>
+
+      <!-- Shown only when a scene arrived in a share link. Sits in the column
+           flow so it displaces the editor instead of hovering over it. -->
+      <div class="share-banner" id="share-banner" role="alert" aria-hidden="true">
+        <span class="share-banner-icon" aria-hidden="true">⚠</span>
+        <span class="share-banner-text" id="share-banner-text"></span>
+        <button type="button" class="scene-action" id="share-banner-dismiss">dismiss</button>
+      </div>
 
       <aside class="docs-panel" id="docs-panel" aria-hidden="true">
         <div class="docs-header">
@@ -1407,6 +1725,27 @@
     </div>
 
     <div class="fixture-tooltip" id="fixture-tooltip" aria-hidden="true"></div>
+
+    <!-- One-time offer to take the old multi-scene saves out as files. The
+         rows are built in main.ts from the legacy localStorage keys, which are
+         only ever READ — dismissing this notice leaves them exactly as they
+         are, so nothing here can lose a scene. -->
+    <aside class="legacy-notice" id="legacy-notice" aria-hidden="true">
+      <div class="legacy-notice-head">
+        <span class="legacy-notice-title">scenes from the old version</span>
+        <button type="button" class="docs-close" id="legacy-close" title="dismiss">×</button>
+      </div>
+      <p class="legacy-notice-body">
+        gobo now keeps one working scene and saves to files. These were saved under
+        the old multi-scene menu. They are still in this browser and nothing here
+        deletes them — download any you want to keep as a file.
+      </p>
+      <div class="legacy-notice-list" id="legacy-list"></div>
+      <div class="legacy-notice-actions">
+        <button type="button" class="scene-action" id="legacy-download-all">download all</button>
+        <button type="button" class="scene-action" id="legacy-dismiss">don't show again</button>
+      </div>
+    </aside>
 
     <script type="module" src="/src/main.ts"></script>
   </body>
