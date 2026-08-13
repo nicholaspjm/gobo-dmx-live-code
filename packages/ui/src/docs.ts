@@ -1,7 +1,7 @@
 /**
- * Reference panel — renders the user-facing API docs.
+ * Reference panel. Renders the user-facing API docs.
  *
- * The content here mirrors what's actually available in the eval sandbox
+ * The content here mirrors what is available in the eval sandbox
  * (see packages/core/src/eval.ts). Keep this in sync when the API changes.
  */
 
@@ -12,9 +12,8 @@ interface DocEntry {
   example?: string;
   /**
    * When present, the entry renders as a compact clickable row that
-   * switches the docs panel to the named tab when clicked. Used on the
-   * welcome page to keep the overview tight: each "step" is a one-liner
-   * that takes you to its own tab rather than duplicating content here.
+   * switches the docs panel to the named tab. Used on the welcome page so
+   * each step links to its own tab instead of duplicating content here.
    */
   tabLink?: DocCategory;
 }
@@ -24,20 +23,19 @@ interface DocSection {
   blurb?: string;
   entries: DocEntry[];
   /** Tab this section lives under. Sections without a category fall into
-   *  'reference' so nothing ever gets lost. */
+   *  'reference'. */
   category?: DocCategory;
 }
 
 /**
  * Tab categories shown across the top of the docs panel. Order here is the
- * order they appear. 'start' is intentionally the default so new users land
- * on the walkthrough instead of the reference wall.
+ * order they appear. DEFAULT_TAB is the walkthrough, so new users do not
+ * land on the reference list.
  */
 type DocCategory = 'welcome' | 'patterns' | 'fixtures' | 'viz' | 'output' | 'reference';
 
 // Tab layout: welcome · patterns · fixtures · viz · output · reference.
-// "fixtures" is our equivalent output target, and the viz tab covers
-// gobo's inline-decoration features.
+// The viz tab covers the inline editor decorations.
 const DOC_TABS: Array<{ id: DocCategory; label: string }> = [
   { id: 'welcome',   label: 'welcome' },
   { id: 'patterns',  label: 'patterns' },
@@ -51,20 +49,20 @@ const DEFAULT_TAB: DocCategory = 'welcome';
 
 const DOCS: DocSection[] = [
   // ─── welcome ────────────────────────────────────────────────────────────
-  // Deliberately compact. Everything actionable lives in its own tab — this
-  // page is just a one-paragraph intro plus link-list of jump-off points.
+  // Everything actionable lives in its own tab. This page is a short intro
+  // plus a link list.
   {
     category: 'welcome',
     title: 'gobo',
     blurb:
-      'Live DMX coding in the browser. JavaScript patterns drive real fixtures — Art-Net hardware, TouchDesigner via OSC, or pure simulation. Ctrl+Enter runs your code, Ctrl+. stops. Hover any fixture in the sim panel for its live channel values. Switch between named code buffers with the scene picker in the top bar.',
+      'Live DMX coding in the browser. JavaScript patterns drive real fixtures: Art-Net hardware, TouchDesigner via OSC, or simulation. Ctrl+Enter runs your code, Ctrl+. stops. Hover a fixture in the sim panel for its live channel values.',
     entries: [],
   },
   {
     category: 'welcome',
-    title: 'scenes',
+    title: 'scenes and files',
     blurb:
-      "Multiple named code buffers live in the browser's localStorage. Use the dropdown in the top bar to switch between them; + makes a new one, × deletes the current (the 'default' scene is protected). Each scene autosaves as you type — no explicit save step. A live-performance template for Ryoji Ikeda's ultratonics 11 is seeded on first run as an example of how to structure a scene around instrument functions you toggle in and out while the track plays.",
+      "You edit one scene at a time. It autosaves to the browser as you type, so a refresh costs nothing. Click its name in the top bar to rename it. save downloads the scene as a .js file, open reads one back, share copies a link that carries the whole scene, and examples loads a bundled demo. Anything that replaces the buffer arrives stopped, and asks first if you have changes not yet saved to a file. One example, ultratronics 11, is a live-performance template built around instrument functions you toggle while a track plays.",
     entries: [],
   },
   {
@@ -89,14 +87,14 @@ const DOCS: DocSection[] = [
         name: 'artnet',
         signature: "artnet(host='127.0.0.1', port=6454)",
         description:
-          "Send Art-Net DMX packets via the bridge. Port defaults to the standard Art-Net port 6454, so you almost never need to pass it. Use your node's IP to unicast, or a subnet broadcast (e.g. 2.255.255.255) to hit every node. One ArtDmx packet is transmitted per universe per tick, so multi-universe is automatic — just assign fixtures to different universes.",
+          "Send Art-Net DMX packets via the bridge. Port defaults to 6454, the standard Art-Net port, so you rarely need to pass it. Use your node's IP to unicast, or a subnet broadcast (e.g. 2.255.255.255) to reach every node. One ArtDmx packet is transmitted per universe per tick, so multi-universe works by assigning fixtures to different universes.",
         example: "artnet('2.0.0.100')",
       },
       {
         name: 'osc',
         signature: "osc(host='127.0.0.1', port=9000)",
         description:
-          'Send every active channel as an OSC message via the bridge. Address format: /gobo/<universe>/<channel>, one float arg in [0,1]. Works great with TouchDesigner OSC In CHOP.',
+          'Send every active channel as an OSC message via the bridge. Address format: /gobo/<universe>/<channel>, one float arg in [0,1]. Works with the TouchDesigner OSC In CHOP.',
         example: "osc('127.0.0.1', 9000)",
       },
       {
@@ -110,7 +108,7 @@ const DOCS: DocSection[] = [
         name: 'mock',
         signature: 'mock()',
         description:
-          "Console-log mode. No UDP, no WebSocket — the bridge prints active channels ~2x per second. Useful when you just want to verify patterns without touching a network.",
+          "Console-log mode. Nothing goes out over UDP or WebSocket; the bridge prints active channels ~2x per second. Use it to verify patterns without touching a network.",
         example: 'mock()',
       },
     ],
@@ -170,7 +168,7 @@ const DOCS: DocSection[] = [
         name: 'rgbwStrip',
         signature: 'rgbwStrip(startChannel, pixelCount, universe=0)',
         description:
-          'RGBW pixel strip. Each pixel = 4 channels (R,G,B,W) laid out contiguously, so 8 pixels = 32 channels. Same shape as rgbStrip but every setter takes an extra white arg and adds a .white(v) setter. The white channel is a separate LED emitter that adds to the colour mix, great for warm highlights or true whites.',
+          'RGBW pixel strip. Each pixel = 4 channels (R,G,B,W) laid out contiguously, so 8 pixels = 32 channels. Same shape as rgbStrip, but every setter takes an extra white arg and there is a .white(v) setter. The white channel is a separate LED emitter that adds to the colour mix, for warm highlights or true whites.',
         example:
           "const bar = rgbwStrip(1, 8, 1)    // 8 px, universe 1\nbar.fill(sine().slow(4), 0, cosine().slow(4), 0.2)\nbar.pixel(0, 1, 0, 0, 0)           // pixel 0 red\nbar.white(0.1)                      // low white on every pixel",
       },
@@ -178,7 +176,7 @@ const DOCS: DocSection[] = [
         name: 'strip channel (in defineFixture)',
         signature: "{ offset, name, type: 'strip', pixelCount: N, pixelLayout?: 'rgb' | 'rgbw' }",
         description:
-          "Inside defineFixture(), a channel with type 'strip' claims pixelCount × channelsPerPixel DMX channels starting at its offset and exposes a nested StripInstance on the fixture. pixelLayout defaults to 'rgb' (3 chs/pixel); set it to 'rgbw' for a 4-ch-per-pixel RGBW strip — you then get .fill(r,g,b,w), .pixel(i,r,g,b,w), and a .white(v) setter. Scalar channels before/after work normally, so you can mix a dimmer, strobe, and pixel segment in one fixture.",
+          "Inside defineFixture(), a channel with type 'strip' claims pixelCount × channelsPerPixel DMX channels starting at its offset and exposes a nested StripInstance on the fixture. pixelLayout defaults to 'rgb' (3 chs/pixel); set it to 'rgbw' for a 4-ch-per-pixel RGBW strip, which gives you .fill(r,g,b,w), .pixel(i,r,g,b,w), and a .white(v) setter. Scalar channels before and after work normally, so a dimmer, a strobe, and a pixel segment can live in one fixture.",
         example:
           "defineFixture('my-bar', {\n  name: 'Custom Bar', manufacturer: 'Generic', type: 'generic',\n  channelCount: 12,\n  channels: [\n    { offset: 0,  name: 'dim',    type: 'intensity' },\n    { offset: 1,  name: 'strobe', type: 'strobe' },\n    { offset: 2,  name: 'pixels', type: 'strip', pixelCount: 3 }, // ch 3-11\n    { offset: 11, name: 'mode',   type: 'control' },\n  ],\n})\nconst bar = fixture(100, 'my-bar')\nbar.dim(0.8)\nbar.pixels.fill(sine(), 0, 0)\nbar.pixels.pixel(1, 1, 0, 0)",
       },
@@ -186,7 +184,7 @@ const DOCS: DocSection[] = [
         name: 'fixture library',
         signature: "open the 'library' panel in the top bar",
         description:
-          "Three tiers of fixture definitions: (1) built-ins in the core (dim, rgb, rgbw, etc.), always available; (2) public library — community-contributed files in fixtures/ at the repo root, bundled into the app; (3) your library — anything you defined and pinned locally via localStorage. The library panel shows the public bundle and your pinned/session entries with save / export / delete / share actions. Share opens a pre-filled GitHub page to propose your fixture as a PR to the public library. Every incoming fixture (file import or public bundle) is schema-validated against strict size/type limits and rejected if its id collides with a built-in.",
+          "Three tiers of fixture definitions: (1) built-ins in the core (dim, rgb, rgbw, etc.), always available; (2) public library, community-contributed files in fixtures/ at the repo root, bundled into the app; (3) your library, anything you defined and pinned locally via localStorage. The library panel shows the public bundle and your pinned/session entries with save / export / delete / share actions. Share opens a pre-filled GitHub page to propose your fixture as a PR to the public library. Every incoming fixture (file import or public bundle) is schema-validated against size and type limits, and rejected if its id collides with a built-in.",
       },
     ],
   },
@@ -201,14 +199,14 @@ const DOCS: DocSection[] = [
         name: '.flash',
         signature: "sine().fast(2).flash()",
         description:
-          "Pulses the editor line's background on each rising edge above mid-scale. Best for beats, strobes, square waves — things with a clear on/off shape. Refractory ~140ms so a sustained-high value doesn't strobe the UI.",
+          "Pulses the editor line's background on each rising edge above mid-scale. Best for anything with a clear on/off shape: beats, strobes, square waves. Refractory period is ~140ms, so a sustained-high value doesn't strobe the UI.",
         example: 'spot.dim(square().fast(1).flash())',
       },
       {
         name: '.glow',
         signature: 'sine().slow(4).glow()',
         description:
-          "Subtle left-to-right background rail whose intensity tracks the pattern's current value 0..1. Best for slow/smooth patterns (sines, envelopes) — you can literally watch the value breathe.",
+          "Left-to-right background rail whose intensity tracks the pattern's current value 0..1. Best for slow, smooth patterns such as sines and envelopes.",
         example: 'washA.red(sine().slow(4).range(0, 0.9).glow())',
       },
       {
@@ -225,13 +223,13 @@ const DOCS: DocSection[] = [
     category: 'viz',
     title: 'fixture viz',
     blurb:
-      'Opt-in per-fixture editor visualizations. Chain .viz(kind) onto a fixture or strip and a live widget appears at the end of that line, driven from the current DMX buffer at ~60fps. Never on by default — nothing happens until you add a .viz() call.',
+      'Opt-in per-fixture editor visualizations. Chain .viz(kind) onto a fixture or strip and a live widget appears at the end of that line, driven from the current DMX buffer at ~60fps. Nothing happens until you add a .viz() call.',
     entries: [
       {
         name: '.viz',
         signature: ".viz(...kinds)",
         description:
-          "Attach one or more inline widgets to this fixture. Kinds: 'color' (mixed-output swatch), 'wave' (scrolling intensity scope), 'meter' (vertical bar), 'strip' (row of mini pixels — for rgbStrip). Multiple kinds stack side-by-side. Returns the fixture so you can keep chaining.",
+          "Attach one or more inline widgets to this fixture. Kinds: 'color' (mixed-output swatch), 'wave' (scrolling intensity scope), 'meter' (vertical bar), 'strip' (row of mini pixels, for rgbStrip). Multiple kinds stack side-by-side. Returns the fixture so you can keep chaining.",
         example:
           "const washA = fixture(1, 'rgbw').viz('color')\nconst spot  = fixture(9, 'dim').viz('wave', 'meter')\nconst strip = rgbStrip(12, 10).viz('strip')",
       },
@@ -245,19 +243,19 @@ const DOCS: DocSection[] = [
         name: 'wave',
         signature: ".viz('wave')",
         description:
-          "Mini scrolling oscilloscope. Plots the fixture's dominant intensity over the last ~1 second. Best for dimmer and strobe fixtures where you care about the shape of the modulation — square, sine, saw, etc.",
+          "Mini scrolling oscilloscope. Plots the fixture's dominant intensity over the last ~1 second. Best for dimmer and strobe fixtures, where the shape of the modulation matters: square, sine, saw.",
       },
       {
         name: 'meter',
         signature: ".viz('meter')",
         description:
-          'Vertical bar showing current intensity 0-100%. Compact — good when you want many fixtures visualised on adjacent lines without eating horizontal space.',
+          'Vertical bar showing current intensity 0-100%. Compact enough to put many fixtures on adjacent lines without eating horizontal space.',
       },
       {
         name: 'strip',
         signature: ".viz('strip')",
         description:
-          'Row of tiny pixel dots, one per rgbStrip pixel, each showing its current RGB colour. Only makes sense for rgbStrip — on a regular fixture it renders an empty row.',
+          'Row of tiny pixel dots, one per rgbStrip pixel, each showing its current RGB colour. Only makes sense for rgbStrip; on a regular fixture it renders an empty row.',
       },
     ],
   },
@@ -266,7 +264,7 @@ const DOCS: DocSection[] = [
     category: 'fixtures',
     title: 'generic helpers',
     blurb:
-      'Every fixture instance — built-in or user-defined — has these helpers in addition to per-channel setters. They\'re portable: the same call works regardless of whether the fixture has a master dimmer, RGB, RGBW, or an embedded strip.',
+      'Every fixture instance, built-in or user-defined, has these helpers in addition to per-channel setters. The same call works whether the fixture has a master dimmer, RGB, RGBW, or an embedded strip.',
     entries: [
       {
         name: '.color',
@@ -280,7 +278,7 @@ const DOCS: DocSection[] = [
         name: '.off',
         signature: '.off()',
         description:
-          'Zero every light-emitting channel (red, green, blue, white, amber, dim) and every pixel of any embedded strip. State channels (pan, tilt, strobe, gobo, colour wheel) are intentionally left alone so blackout doesn\'t lose your aim.',
+          'Zero every light-emitting channel (red, green, blue, white, amber, dim) and every pixel of any embedded strip. State channels (pan, tilt, strobe, gobo, colour wheel) are left alone, so a blackout does not lose your aim.',
         example: 'wash.off()',
       },
       {
@@ -299,7 +297,7 @@ const DOCS: DocSection[] = [
       {
         name: '.channels',
         signature: '.channels()',
-        description: 'List the channel names exposed by this fixture — handy for discovery.',
+        description: 'List the channel names exposed by this fixture.',
         example: 'console.log(wash.channels())',
       },
     ],
@@ -309,12 +307,12 @@ const DOCS: DocSection[] = [
     category: 'fixtures',
     title: 'built-in fixture catalogue',
     blurb:
-      'Short ids — write fixture(1, \'rgbw\') not fixture(1, \'generic-rgbw\'). Old generic-* ids still resolve via alias so legacy scenes keep working.',
+      'Short ids: write fixture(1, \'rgbw\'), not fixture(1, \'generic-rgbw\'). Old generic-* ids still resolve via alias, so legacy scenes keep working.',
     entries: [
       {
         name: 'dim',
         signature: '.dim(v)',
-        description: 'Single-channel dimmer — tungsten par, smoke machine, UV flood.',
+        description: 'Single-channel dimmer: tungsten par, smoke machine, UV flood.',
       },
       {
         name: 'rgb',
@@ -329,7 +327,7 @@ const DOCS: DocSection[] = [
       {
         name: 'rgba',
         signature: '.red(v)  .green(v)  .blue(v)  .amber(v)',
-        description: '4-channel RGBA. Amber takes the role of W on some fixtures — better warm tones.',
+        description: '4-channel RGBA. Amber takes the role of W on some fixtures, giving better warm tones.',
       },
       {
         name: 'dim-rgb',
@@ -363,7 +361,7 @@ const DOCS: DocSection[] = [
     category: 'reference',
     title: 'low-level dmx',
     blurb:
-      "Direct channel addressing — use these when a fixture abstraction isn't worth it.",
+      "Direct channel addressing. Use these when a fixture abstraction isn't worth it.",
     entries: [
       {
         name: 'ch',
@@ -402,7 +400,7 @@ const DOCS: DocSection[] = [
         name: '.rainbowChase',
         signature: 'strip.rainbowChase({ speed?, narrow?, rainbowSpeed?, packets? })',
         description:
-          "A single bright pixel sweeps across the strip; its colour slowly walks through the full hue wheel. Under the hood: each pixel gets a cosine brightness envelope offset by its position (.early(i/N) shifts pixel i's peak later in the cycle), and that cosine is thresholded via .range(-narrow, 1) so most of its cycle sits below zero — the DMX pipeline clamps negatives to 0, leaving just the sharp tip above zero as the visible lit window. Bigger `narrow` → narrower window → fewer pixels lit at once. The hue comes from three sines 120° apart on R/G/B so only one primary peaks at a time. Defaults: speed 2 beats/pass, narrow 8, rainbowSpeed 12 beats/cycle, packets 1. Works on both RGB (rgbStrip) and RGBW (rgbwStrip, bar.pixels) instances — RGBW gets W zeroed so colours stay pure.",
+          "A single bright pixel sweeps across the strip while its colour walks the hue wheel. Each pixel gets a cosine brightness envelope offset by its position (.early(i/N) shifts pixel i's peak later in the cycle), thresholded via .range(-narrow, 1) so most of the cycle sits below zero. The DMX pipeline clamps negatives to 0, leaving the tip above zero as the lit window. Bigger `narrow` gives a narrower window and fewer pixels lit at once. The hue comes from three sines 120° apart on R/G/B, so only one primary peaks at a time. Defaults: speed 2 beats/pass, narrow 8, rainbowSpeed 12 beats/cycle, packets 1. Works on RGB (rgbStrip) and RGBW (rgbwStrip, bar.pixels) instances; RGBW gets W zeroed so colours stay pure.",
         example:
           "strip.rainbowChase()\nstrip.rainbowChase({ speed: 0.5, narrow: 16 })\nbar.pixels.rainbowChase({ packets: 2, rainbowSpeed: 4 })",
       },
@@ -410,7 +408,7 @@ const DOCS: DocSection[] = [
         name: 'manual chase',
         signature: 'for (let i = 0; i < strip.pixelCount; i++) strip.pixel(i, …)',
         description:
-          "Any chase can be written inline with a for-loop — useful when you want fine control or a different flavour than the built-in helper. The pattern is always: walk each pixel index i, compute its phase offset (i/pixelCount), and call strip.pixel(i, r, g, b [, w]) with patterns whose time is shifted by that phase. The default example uses this exact form on the universe-0 strip so you can see how it comes together.",
+          "Any chase can be written inline with a for-loop, which gives finer control than the built-in helper. Walk each pixel index i, compute its phase offset (i/pixelCount), and call strip.pixel(i, r, g, b [, w]) with patterns whose time is shifted by that phase. The starter example uses this form on the universe-0 strip.",
         example:
           "for (let i = 0; i < strip.pixelCount; i++) {\n  const phase = i / strip.pixelCount\n  const bright = cosine().early(phase).slow(2).range(-8, 1)\n  strip.pixel(i, bright.mul(hueR), bright.mul(hueG), bright.mul(hueB))\n}",
       },
@@ -420,7 +418,7 @@ const DOCS: DocSection[] = [
         description:
           "Set pixels from an array-of-rows. Each inner array is one pixel: [r, g, b] for RGB strips, [r, g, b, w] for RGBW. Missing channels default to 0 so [1] is a valid 'red only' row. Pixels past the end of the input default to 0; chain a fill method for something else: .repeat() tiles the input across the whole strip, .hold() copies the last input pixel forward, .mirror() reflects the input back so the strip reads symmetrically.",
         example:
-          "// 8-pixel RGBW strip — pattern of 2, tiled\nbar.pixels.pixelGrid([\n  [1, 0, 0, 0],   // red\n  [0, 0, 1, 0],   // blue\n]).repeat()\n\n// 3-pixel input, mirrored: r,g,b,b,g,r,r,b\nbar.pixels.pixelGrid([\n  [1, 0, 0, 0],\n  [0, 1, 0, 0],\n  [0, 0, 1, 0],\n]).mirror()",
+          "// 8-pixel RGBW strip, pattern of 2, tiled\nbar.pixels.pixelGrid([\n  [1, 0, 0, 0],   // red\n  [0, 0, 1, 0],   // blue\n]).repeat()\n\n// 3-pixel input, mirrored: r,g,b,b,g,r,r,b\nbar.pixels.pixelGrid([\n  [1, 0, 0, 0],\n  [0, 1, 0, 0],\n  [0, 0, 1, 0],\n]).mirror()",
       },
     ],
   },
@@ -440,7 +438,7 @@ const DOCS: DocSection[] = [
       {
         name: 'cosine',
         signature: 'cosine()',
-        description: 'Same as sine but 90° ahead — useful for phase-offset pairs.',
+        description: 'Same as sine but 90° ahead. Useful for phase-offset pairs.',
         example: 'washA.red(sine())\nwashA.blue(cosine())',
       },
       {
@@ -468,13 +466,13 @@ const DOCS: DocSection[] = [
     category: 'patterns',
     title: 'sequencing',
     blurb:
-      "Step sequencing via mini-notation. Each string plays through one scheduler cycle (= 4 beats at default BPM); tokens split the time equally. '-' and '~' are silence. Drop in anywhere a channel setter expects a pattern — one mini call per channel gives you the classic drum-grid. Supports subdivisions [a b], repeats *N, speed /N, and alternation <a b c>.",
+      "Step sequencing via mini-notation. Each string plays through one scheduler cycle (= 4 beats at default BPM); tokens split the time equally. '-' and '~' are silence. Use one anywhere a channel setter expects a pattern; one mini call per channel gives the classic drum-grid. Supports subdivisions [a b], repeats *N, speed /N, and alternation <a b c>.",
     entries: [
       {
         name: 'mini',
         signature: "mini('1 - 0.5 -')",
         description:
-          "Parse mini-notation into a Pattern<number>. Each space-separated token is one step; tokens split one scheduler cycle equally. Numeric tokens ('1', '0.5', '0') pass through as values — great for per-step brightness. Non-numeric tokens ('bd', 'sd') become string events; the DMX pipeline treats the unknown ones as 0. Aliased as m() for shorter code. Returns a regular Pattern, so you can chain .slow / .fast / .range / .glow / .flash afterward.",
+          "Parse mini-notation into a Pattern<number>. Each space-separated token is one step; tokens split one scheduler cycle equally. Numeric tokens ('1', '0.5', '0') pass through as values, which gives per-step brightness. Non-numeric tokens ('bd', 'sd') become string events; the DMX pipeline treats unknown ones as 0. Aliased as m(). Returns a regular Pattern, so .slow / .fast / .range / .glow / .flash all chain afterward.",
         example:
           "spot.dim(mini('1 - 1 -'))\nwash.red(mini('1 0.5 0 0.5'))\nstrb.strobe(m('1 - 1 -').flash())",
       },
@@ -482,7 +480,7 @@ const DOCS: DocSection[] = [
         name: 'rests',
         signature: "'-' or '~'",
         description:
-          "Silence — nothing is emitted for that step. Interchangeable; pick whichever reads cleaner (most gobo examples use '-' for grid alignment).",
+          "Silence. Nothing is emitted for that step. The two are interchangeable; most gobo examples use '-' for grid alignment.",
         example: "mini('1 - 1 -')          // hits on beats 1 and 3",
       },
       {
@@ -505,7 +503,7 @@ const DOCS: DocSection[] = [
         name: 'speed',
         signature: "a/N  ·  pattern.slow(N) / .fast(N)",
         description:
-          "'/N' inside the mini string holds a token for N slots (slows just that token). .slow(N) and .fast(N) chained on the Pattern scale the whole string. .slow(2) turns a 4-step pattern into an 8-beat pattern — every token lasts twice as long.",
+          "'/N' inside the mini string holds a token for N slots (slows just that token). .slow(N) and .fast(N) chained on the Pattern scale the whole string. .slow(2) turns a 4-step pattern into an 8-beat pattern, so every token lasts twice as long.",
         example:
           "wash.red(mini('1 - 1 -').slow(2))      // half-time\nwash.red(mini('1 1/2 1 1'))            // second token held for two slots",
       },
@@ -521,7 +519,7 @@ const DOCS: DocSection[] = [
         name: 'sequence',
         signature: 'sequence(a, b, c, …)',
         description:
-          'Same as mini but takes positional args instead of a string. Each arg is one step — and args can be patterns themselves, so you can mix step sequencing with continuous waveforms.',
+          'Same as mini but takes positional args instead of a string. Each arg is one step, and args can be patterns themselves, so step sequencing mixes with continuous waveforms.',
         example:
           "spot.dim(sequence(0, sine().slow(2), 1, 0.5))",
       },
@@ -537,13 +535,13 @@ const DOCS: DocSection[] = [
         name: 'stack',
         signature: 'stack(pat1, pat2, …)',
         description:
-          "Run patterns in parallel — every pat is queried each tick and the value from the last emission wins. In DMX this is rarely what you want directly; usually you get the same effect by applying separate mini() calls to different channels on the same fixture (see the drum-grid example below).",
+          "Run patterns in parallel: every pat is queried each tick and the value from the last emission wins. In DMX this is rarely what you want directly. Applying separate mini() calls to different channels on the same fixture usually gives the effect you're after (see the drum-grid example below).",
       },
       {
         name: 'drum grid',
         signature: "one mini() per channel, same length",
         description:
-          "The most useful composition for lights: split the same 16-step rhythm across R/G/B/W (or across several fixtures). Match the bar count between strings and group tokens in fours so the columns line up visually — pretty much a Roland drum-machine layout. The default init code has a live example on the wash fixture.",
+          "Split the same 16-step rhythm across R/G/B/W, or across several fixtures. Match the bar count between strings and group tokens in fours so the columns line up, the way a drum-machine grid does. The starter example has a live version on the wash fixture.",
         example:
           "wash.red(  mini('1 - - -  - - 1 -  - - 1 -  - - - -'))\nwash.green(mini('- - 1 -  1 - - -  - - - -  - 1 - -'))\nwash.blue( mini('- 1 - -  - - - 1  - 1 - -  1 - - 1'))\nwash.white(mini('- - - 1  - - - -  - - - 1  - - - -'))",
       },
@@ -626,7 +624,7 @@ const DOCS: DocSection[] = [
       {
         name: 'Ctrl+.',
         signature: 'Ctrl+.',
-        description: 'Stop — zero all channels and pause the scheduler.',
+        description: 'Zero all channels and pause the scheduler.',
       },
     ],
   },
@@ -643,9 +641,9 @@ function renderSection(sec: DocSection): string {
   const blurb = sec.blurb ? `<p class="doc-blurb">${escapeHtml(sec.blurb)}</p>` : '';
   const entries = sec.entries
     .map((e) => {
-      // A tab-link entry is a compact clickable row — just the name, a
-      // signature-style subtitle, and an arrow. Full descriptions live
-      // in the target tab's own sections.
+      // A tab-link entry is a compact clickable row: name, signature-style
+      // subtitle, arrow. Full descriptions live in the target tab's own
+      // sections.
       if (e.tabLink) {
         const bag = [e.name, e.signature, e.tabLink].join(' ').toLowerCase();
         return `
@@ -693,11 +691,10 @@ function renderSection(sec: DocSection): string {
 /**
  * Score an entry against a search query. Higher = better match.
  *
- * The old filter just did substring containment on a big bag-of-words,
- * which meant a description that happened to mention "multiply" could
- * rank equal to — or above — the actual `.mul(n)` entry. This function
- * weights match location heavily: an exact name match trounces a prefix
- * match trounces a substring-in-signature trounces a hit in the prose.
+ * Match location dominates: an exact name match beats a prefix match,
+ * which beats a substring in the signature, which beats a hit in the
+ * prose. Plain substring containment over a bag-of-words would rank a
+ * description mentioning "multiply" as high as the `.mul(n)` entry.
  *
  * Returns 0 when nothing hits (caller drops those entries).
  */
@@ -713,9 +710,8 @@ function scoreEntry(entry: DocEntry, section: DocSection, q: string): number {
   // trailing parens / args. ".mul(n)" → "mul"; "fixture channels" stays.
   const shortName = name.replace(/^\.+/, '').replace(/\s*\(.*$/, '').trim();
 
-  // Identifier-like matches on the name — the user's real target 98%
-  // of the time. Shorter names that begin with / equal the query
-  // score higher.
+  // Identifier-like matches on the name are the usual target. Shorter
+  // names that begin with or equal the query score higher.
   if (shortName === q) return 10_000;
   if (name === q) return 9_500;
   if (shortName.startsWith(q)) return 8_000 - shortName.length;
@@ -723,7 +719,7 @@ function scoreEntry(entry: DocEntry, section: DocSection, q: string): number {
   if (shortName.includes(q)) return 6_000 - shortName.indexOf(q) * 10 - shortName.length;
   if (name.includes(q)) return 5_000 - name.indexOf(q) * 10 - name.length;
 
-  // Signature hits — `mul` matches `sine().mul(n)` as a word after a dot
+  // Signature hits: `mul` matches `sine().mul(n)` as a word after a dot
   // or opening paren, meaning the method itself, not a random substring.
   if (sig.startsWith(q)) return 3_000;
   if (
@@ -732,7 +728,7 @@ function scoreEntry(entry: DocEntry, section: DocSection, q: string): number {
   ) return 2_500 - sig.length / 20;
   if (sig.includes(q)) return 1_500 - sig.length / 20;
 
-  // Section title — "patterns" shows every pattern entry.
+  // Section title: "patterns" shows every pattern entry.
   if (sectionTitle === q) return 1_200;
   if (sectionTitle.includes(q)) return 900;
 
@@ -802,7 +798,7 @@ function applyTabFilter(sectionsEl: HTMLElement, activeCategory: DocCategory): v
   sections.forEach((section) => {
     const sectionCategory = (section.getAttribute('data-category') ?? 'reference') as DocCategory;
     section.classList.toggle('hidden', sectionCategory !== activeCategory);
-    // Reveal every entry — the tab view doesn't filter within sections.
+    // Reveal every entry; the tab view doesn't filter within sections.
     section
       .querySelectorAll<HTMLElement>('.doc-entry, .doc-link')
       .forEach((e) => e.classList.remove('hidden'));
@@ -811,9 +807,9 @@ function applyTabFilter(sectionsEl: HTMLElement, activeCategory: DocCategory): v
 
 /** Render the docs content into the panel body. */
 export function renderDocs(body: HTMLElement): void {
-  // Two content views — a browse view (sections grouped by tab) and a
-  // search view (flat list sorted by relevance score). We switch between
-  // them based on whether the search field has content.
+  // Two content views: a browse view (sections grouped by tab) and a
+  // search view (flat list sorted by relevance score). Which one shows
+  // depends on whether the search field has content.
   const searchBar = `
     <div class="doc-search">
       <input type="text" id="doc-search-input" placeholder="search functions…" autocomplete="off" spellcheck="false" />
@@ -825,7 +821,7 @@ export function renderDocs(body: HTMLElement): void {
           `<button type="button" class="doc-tab${t.id === DEFAULT_TAB ? ' active' : ''}" data-tab="${t.id}" role="tab">${escapeHtml(t.label)}</button>`,
       ).join('')}
     </div>
-    <div class="doc-empty hidden" id="doc-empty">no matches — try a different word</div>
+    <div class="doc-empty hidden" id="doc-empty">no matches, try a different word</div>
     <div class="doc-results hidden" id="doc-results"></div>
     <div class="doc-sections" id="doc-sections">${DOCS.map(renderSection).join('')}</div>`;
 
@@ -854,7 +850,7 @@ export function renderDocs(body: HTMLElement): void {
       sectionsEl.classList.add('hidden');
       emptyMsg.classList.toggle('hidden', hits > 0);
     } else {
-      // Browse view — show sections in the current tab.
+      // Browse view: show sections in the current tab.
       applyTabFilter(sectionsEl, activeTab);
       resultsEl.classList.add('hidden');
       sectionsEl.classList.remove('hidden');
@@ -888,7 +884,7 @@ export function renderDocs(body: HTMLElement): void {
     if (next) switchTab(next);
   });
 
-  // Welcome-page link rows — delegate on the body since they're rebuilt
+  // Welcome-page link rows. Delegate on the body since they're rebuilt
   // whenever tabs/search change visibility.
   body.addEventListener('click', (ev) => {
     const link = (ev.target as HTMLElement).closest<HTMLElement>('.doc-link[data-tab-link]');

@@ -1,17 +1,16 @@
 /**
- * Fixture library — persistence + file IO for user-defined fixtures.
+ * Fixture library: persistence and file IO for user-defined fixtures.
  *
- * Custom fixtures (everything declared via `defineFixture(id, def)`) live
- * in memory by default, cleared on every reload. The library layer lets
- * users pin a fixture to the browser so it's always available without
- * pasting the defineFixture call into every new sketch, and lets them
- * share a fixture with someone else as a small JSON file.
+ * Custom fixtures (everything declared via `defineFixture(id, def)`) live in
+ * memory by default, cleared on every reload. The library layer pins a fixture
+ * to the browser so it is available without pasting the defineFixture call into
+ * every new sketch, and exports it as a small JSON file to share.
  *
  * Wire format (single fixture):
  *   {
  *     "goboFixture": 1,           // schema version, bump if we ever reshape
  *     "id": "four-color-bar",     // short identifier used in fixture() calls
- *     "def": {                     // exactly the arg passed to defineFixture
+ *     "def": {                     // the arg passed to defineFixture, verbatim
  *       "name": "Four-Colour Moving Bar",
  *       "manufacturer": "Generic",
  *       "type": "generic",
@@ -36,8 +35,8 @@ const LIBRARY_KEY = 'gobo-fixtures-v1';
  * key in the user's browser. readRaw() adopts it the first time the new key
  * comes back empty, so upgrading doesn't look like a wiped library.
  *
- * Do not delete this until we're confident no browser still holds the old
- * entry — dropping it silently orphans real, unrecoverable user fixtures.
+ * Do not delete this until no browser still holds the old entry. Dropping it
+ * orphans user fixtures with no way to get them back.
  */
 const LEGACY_LIBRARY_KEY = 'lumen-fixtures-v1';
 
@@ -52,18 +51,18 @@ function readRaw(): Record<string, FixtureDef> {
   try {
     let raw = localStorage.getItem(LIBRARY_KEY);
     if (raw === null) {
-      // Nothing under the current key — fall back to the pre-rename one and
+      // Nothing under the current key. Fall back to the pre-rename one and
       // copy it across, so the migration happens once and stays invisible.
-      // The legacy entry is left in place: it costs nothing, and it keeps
-      // an older build of the app working for anyone who rolls back.
+      // The legacy entry is left in place: it costs nothing, and it keeps an
+      // older build of the app working for anyone who rolls back.
       const legacy = localStorage.getItem(LEGACY_LIBRARY_KEY);
       if (legacy === null) return {};
       raw = legacy;
       try {
         localStorage.setItem(LIBRARY_KEY, legacy);
       } catch {
-        // Quota / private mode — the adopted value is still returned below,
-        // we just retry the copy on the next read.
+        // Quota / private mode. The adopted value is still returned below;
+        // the copy is retried on the next read.
       }
     }
     if (!raw) return {};
@@ -79,7 +78,7 @@ function writeRaw(lib: Record<string, FixtureDef>): void {
   try {
     localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib));
   } catch {
-    // Full disk, private mode, etc — library is best-effort, just skip.
+    // Full disk, private mode, and so on. The library is best-effort; skip.
   }
 }
 
@@ -168,8 +167,8 @@ export interface ImportResult {
 }
 
 /**
- * Parse a .gobo-fixture.json string and validate the shape. Doesn't
- * touch storage — caller decides what to do with the result.
+ * Parse a .gobo-fixture.json string and validate the shape. Does not touch
+ * storage; the caller decides what to do with the result.
  *
  * The envelope (goboFixture version + id + def) is checked here; the
  * inner fixture def is handed off to validateFixture() for the strict

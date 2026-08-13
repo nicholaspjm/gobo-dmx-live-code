@@ -1,16 +1,14 @@
 /**
- * Code formatter — Prettier, loaded on demand.
+ * Code formatter: Prettier, loaded on demand.
  *
- * Prettier's standalone browser build is ~1 MB of JS (parser + plugins
- * + core). Pulling it into the initial bundle would bloat first-paint
- * for a feature most sessions don't use, so we lazy-import it the first
- * time the user hits Ctrl+Shift+F. Subsequent formats are instant
- * because the module is cached.
+ * Prettier's standalone browser build is ~1 MB of JS (core, parser and
+ * plugins). In the initial bundle it would slow first paint for a feature
+ * most sessions don't use, so it is lazy-imported the first time the user
+ * hits Ctrl+Shift+F and cached after that.
  *
- * Format options are baked in — users don't configure Prettier per
- * scene. The defaults here match the codebase's own style (2-space
- * indent, single quotes, 80 columns) so formatting a sample scene
- * doesn't produce output that looks alien against the rest of the
+ * Format options are baked in; there is no per-scene Prettier config. The
+ * defaults match the codebase's own style (2-space indent, single quotes,
+ * 80 columns) so a formatted sample scene looks like the rest of the
  * project.
  */
 
@@ -32,8 +30,8 @@ async function loadPrettier(): Promise<{ prettier: PrettierLike; plugins: unknow
     import('prettier/plugins/babel'),
     import('prettier/plugins/estree'),
   ]);
-  // Vite wraps CJS-ish modules so exports can land on .default or the
-  // root — try both for defensiveness.
+  // Vite wraps CJS-ish modules, so exports can land on .default or on the
+  // root. Try both.
   const prettier = (prettierMod.default ?? prettierMod) as unknown as PrettierLike;
   const babel = (babelMod.default ?? babelMod) as unknown;
   const estree = (estreeMod.default ?? estreeMod) as unknown;
@@ -42,10 +40,10 @@ async function loadPrettier(): Promise<{ prettier: PrettierLike; plugins: unknow
 }
 
 /**
- * Format a chunk of gobo code. Resolves to the formatted string or
- * rejects with the parser's error — callers should catch and surface
- * the message in the UI (typical: Prettier throws a friendly "unexpected
- * token at line N" for syntax errors).
+ * Format a chunk of gobo code. Resolves to the formatted string, or
+ * rejects with the parser's error. Callers should catch it and surface the
+ * message in the UI; for syntax errors Prettier throws "unexpected token
+ * at line N".
  */
 export async function formatGoboCode(src: string): Promise<string> {
   const { prettier, plugins } = await loadPrettier();

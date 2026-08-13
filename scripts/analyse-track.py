@@ -7,10 +7,10 @@ to structure a performance around it:
 
   - duration, sample rate
   - tempo (BPM) estimate + beat timestamps
-  - onset timestamps (transient detection — kicks/snares/hits)
+  - onset timestamps (transient detection: kicks/snares/hits)
   - per-beat band energies (bass / mid / treble) at beat grid
   - section boundaries (agglomerative clustering on chroma/MFCC
-    self-similarity — roughly, "where the musical texture changes")
+    self-similarity: roughly, "where the musical texture changes")
   - loudness envelope summarised into 2-second buckets
   - spectral-centroid envelope (proxy for "brightness")
 
@@ -31,7 +31,7 @@ import numpy as np
 
 
 def analyse(path: str) -> dict:
-    # Load at the file's native sample rate — librosa defaults to 22050
+    # Load at the file's native sample rate. librosa defaults to 22050,
     # which loses treble detail that matters for Ikeda-type tracks.
     y, sr = librosa.load(path, sr=None, mono=True)
     duration = float(librosa.get_duration(y=y, sr=sr))
@@ -40,7 +40,7 @@ def analyse(path: str) -> dict:
 
     # ─── Tempo + beat grid ──────────────────────────────────────────
     # librosa's beat tracker is median-filter + dynamic-programming on
-    # onset strength — works well on music with regular pulses.
+    # onset strength; it works well on music with regular pulses.
     tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, units='frames')
     beat_times = librosa.frames_to_time(beat_frames, sr=sr)
     tempo_val = float(tempo if np.isscalar(tempo) else tempo[0])
@@ -91,9 +91,9 @@ def analyse(path: str) -> dict:
     beat_energies = {k: norm01(v) for k, v in beat_energies.items()}
 
     # ─── Section boundaries ─────────────────────────────────────────
-    # Use agglomerative clustering on chroma + MFCC features — a
-    # standard approach for finding where the music changes. Returns
-    # a small handful of boundary times in seconds.
+    # Agglomerative clustering on chroma + MFCC features, a standard
+    # approach for finding where the music changes. Returns a handful
+    # of boundary times in seconds.
     try:
         chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
         mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=12)
@@ -109,8 +109,8 @@ def analyse(path: str) -> dict:
     print(f"  sections={boundaries}", file=sys.stderr)
 
     # ─── Loudness envelope (2-second buckets) ───────────────────────
-    # Simple RMS in 2s windows — gives a "graph" of how loud the track
-    # is across its duration. Great for eyeballing drops.
+    # RMS in 2s windows: a "graph" of how loud the track is across its
+    # duration, useful for eyeballing drops.
     bucket_secs = 2.0
     window = int(bucket_secs * sr)
     loudness = []

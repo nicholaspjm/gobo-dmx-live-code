@@ -11,13 +11,13 @@
  *
  * 1. At eval time, each `.viz()` call pushes a VizEntry into a registry in
  *    @gobo/core. The registry contains channel layout but NOT source
- *    location — fragile stack-trace parsing would be the only way to capture
- *    that at runtime, so we avoid it.
+ *    location. Capturing that at runtime would mean parsing stack traces,
+ *    which is fragile, so it is deliberately not done.
  *
- * 2. After a successful eval, the main app calls `refreshViz(view)`. We scan
- *    the editor doc for lines containing `.viz(` and zip those source
+ * 2. After a successful eval, the main app calls `refreshViz(view)`. That
+ *    scans the editor doc for lines containing `.viz(` and zips those source
  *    locations against the registry (both are walked top-to-bottom so the
- *    orders line up). For each (line, entry) pair, we emit a line-end
+ *    orders line up). Each (line, entry) pair emits a line-end
  *    Decoration.widget.
  *
  * 3. Each widget is a `WidgetType` subclass that, on toDOM(), registers
@@ -154,7 +154,7 @@ abstract class VizWidget extends WidgetType {
 /** Small glowing square showing the fixture's mixed output color. */
 class ColorSwatchWidget extends VizWidget {
   protected build(el: HTMLSpanElement): void {
-    el.title = `color — ch ${this.entry.startChannel}+`;
+    el.title = `color: ch ${this.entry.startChannel}+`;
   }
 
   update(ch: number[]): void {
@@ -278,7 +278,7 @@ class WaveWidget extends VizWidget {
 
 /**
  * Row of tiny coloured dots, one per strip pixel. Works for both RGB (3
- * chs/pixel) and RGBW (4 chs/pixel) strips — the W channel is mixed into
+ * chs/pixel) and RGBW (4 chs/pixel) strips: the W channel is mixed into
  * R/G/B additively so an all-white rgbw strip still lights the dots.
  */
 class StripWidget extends VizWidget {
@@ -294,7 +294,7 @@ class StripWidget extends VizWidget {
       el.appendChild(d);
       this.dots.push(d);
     }
-    el.title = `strip — ${count} px × ${stride} ch`;
+    el.title = `strip: ${count} px × ${stride} ch`;
   }
 
   update(ch: number[]): void {
@@ -308,8 +308,8 @@ class StripWidget extends VizWidget {
       const b = ch[base + 2] ?? 0;
       const w = stride >= 4 ? (ch[base + 3] ?? 0) : 0;
       // Mix white into RGB additively, clamped. Matches how RGBW fixtures
-      // actually render — the white LED is a separate emitter that adds to
-      // whatever the colour LEDs are doing.
+      // render: the white LED is a separate emitter that adds to whatever
+      // the colour LEDs are doing.
       const rr = Math.min(255, r + w);
       const gg = Math.min(255, g + w);
       const bb = Math.min(255, b + w);
@@ -332,16 +332,16 @@ class StripWidget extends VizWidget {
  * to the core scheduler tick iterates the set and pokes each widget with its
  * own universe's buffer. Widgets unregister themselves on destroy().
  *
- * We intentionally piggy-back on `onTick` instead of using
- * `requestAnimationFrame` — the core scheduler runs in a Web Worker so it
- * keeps ticking even when the tab is backgrounded, and it's the same clock
- * that drives the DMX output, so widget visuals stay phase-locked with the
- * fixtures. rAF also gets throttled or paused in some embedded preview
- * environments, which made widgets appear static after the initial build.
+ * This piggy-backs on `onTick` rather than `requestAnimationFrame`. The core
+ * scheduler runs in a Web Worker, so it keeps ticking when the tab is
+ * backgrounded, and it is the same clock that drives the DMX output, so
+ * widget visuals stay phase-locked with the fixtures. rAF also gets
+ * throttled or paused in some embedded preview environments, which made
+ * widgets appear static after the initial build.
  *
  * Multi-universe: widgets can live on any universe (the four-colour bar, for
- * example, is demo'd on universe 1). We cache one number[] snapshot per
- * universe-in-use per tick so two widgets on the same universe don't pay
+ * example, is demo'd on universe 1). One number[] snapshot is cached per
+ * universe-in-use per tick, so two widgets on the same universe don't pay
  * for two copies of the same buffer.
  */
 const _activeWidgets = new Set<VizWidget>();
@@ -382,9 +382,9 @@ interface PatternVizDecoEntry {
   idx: number;
   /** Sparkline widget reference (wave only). */
   sparkline?: PatternWaveWidget;
-  /** Cached line element — avoids a querySelector every tick. Stays null
-   *  until the line gets rendered the first time, and is re-queried if CM
-   *  ever drops the reference (viewport scroll, line DOM recycle). */
+  /** Cached line element, so the tick avoids a querySelector. Stays null
+   *  until the line is first rendered, and is re-queried if CM drops the
+   *  reference (viewport scroll, line DOM recycle). */
   cachedLineEl?: HTMLElement | null;
   /** For flash: decaying intensity driven by rising-edge detection. */
   flashIntensity?: number;
@@ -458,16 +458,16 @@ class PatternWaveWidget extends WidgetType {
  * their patterns' current sample values. Runs on the same worker-clock
  * schedule as the main pattern engine.
  *
- * Deliberately light-touch on the main thread: only CSS custom-property
- * writes and, for wave, a small canvas redraw. No attribute toggles, no
- * forced reflows — an earlier implementation used `void offsetWidth` to
- * restart a keyframe animation on each rising edge, and those synchronous
- * layouts were stalling the DMX tick enough to jitter packet timing, which
- * showed up as subtle physical-light flicker on Art-Net fixtures.
+ * Light-touch on the main thread: only CSS custom-property writes and, for
+ * wave, a small canvas redraw. No attribute toggles and no forced reflows.
+ * An earlier implementation used `void offsetWidth` to restart a keyframe
+ * animation on each rising edge, and those synchronous layouts stalled the
+ * DMX tick enough to jitter packet timing, which showed up as physical-light
+ * flicker on Art-Net fixtures.
  *
- * Flash is now driven the same way glow is: a decaying intensity written
- * as a CSS custom property. Rising edge → bump intensity to 1. Each tick →
- * decay toward zero. CSS multiplies it into the bg colour.
+ * Flash is driven the same way glow is: a decaying intensity written as a
+ * CSS custom property. Rising edge → bump intensity to 1. Each tick → decay
+ * toward zero. CSS multiplies it into the bg colour.
  */
 const FLASH_DECAY_PER_TICK = 0.10;   // ≈170ms to zero at 60Hz
 const FLASH_RISE_THRESHOLD = 0.5;
@@ -503,8 +503,8 @@ onTick(() => {
       lineEl.style.setProperty('--gobo-val', value.toFixed(3));
     } else if (deco.core.kind === 'flash') {
       // Rising edge bumps the decaying intensity; otherwise decay toward 0.
-      // No attribute toggles, no reflow — pure CSS-var write so the tick
-      // handler stays fast and DMX timing stays clean.
+      // A CSS-var write only, with no attribute toggles and no reflow, so
+      // the tick handler stays fast and DMX timing stays even.
       let fi = deco.flashIntensity ?? 0;
       if (value > FLASH_RISE_THRESHOLD && prev <= FLASH_RISE_THRESHOLD) {
         fi = 1;
@@ -543,18 +543,18 @@ export const vizDecorationsField = StateField.define<DecorationSet>({
 /**
  * Rebuild widget decorations to reflect the current registry.
  *
- * Call after every successful eval. We:
+ * Call after every successful eval. The steps:
  *   1. Read VizEntries from @gobo/core (populated by `.viz()` calls during eval).
  *   2. Walk the doc and record the line numbers that contain `.viz(` (in code,
  *      not comments).
- *   3. Zip the two lists 1:1. If the user has more `.viz(` hits in the doc
- *      than entries (e.g. a commented-out one that regex still matched), the
- *      extras are ignored, and vice versa.
+ *   3. Zip the two lists 1:1. If the doc has more `.viz(` hits than there are
+ *      entries (e.g. a commented-out one the regex still matched), the extras
+ *      are ignored, and vice versa.
  *   4. For each (entry, line) pair, emit one widget per kind at line-end.
  */
 export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}): void {
-  // Settings can disable inline viz entirely — dispatch an empty decoration
-  // set to clear any widgets that were placed by a previous successful eval.
+  // Settings can disable inline viz entirely. Dispatch an empty decoration
+  // set to clear any widgets placed by a previous successful eval.
   if (opts.disabled) {
     _patternVizEntries.clear();
     view.dispatch({ effects: setVizDecorations.of(Decoration.set([])) });
@@ -589,8 +589,9 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   }
 
   // ─── Pattern-level viz (.flash / .glow / .wave on pattern calls) ────────
-  // Walk the doc again looking for each kind's call marker. We track kind-
-  // per-line plus a flat in-order list that zips 1:1 with the core registry.
+  // Walk the doc again looking for each kind's call marker, tracking the
+  // kind per line plus a flat in-order list that zips 1:1 with the core
+  // registry.
   _patternVizEntries.clear();
   const patEntries = getPatternVizEntries();
   const patHits: Array<{ line: number; kind: PatternVizKind }> = [];
@@ -599,8 +600,8 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
     const lineObj = doc.line(i);
     const commentIdx = lineObj.text.indexOf('//');
     const code = commentIdx >= 0 ? lineObj.text.slice(0, commentIdx) : lineObj.text;
-    // Order of matches within a line matters for the 1:1 zip — use a single
-    // regex with /g and record each hit in order.
+    // Order of matches within a line matters for the 1:1 zip, so use a
+    // single regex with /g and record each hit in order.
     const re = /\.(flash|glow|wave)\s*\(/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(code)) !== null) {
@@ -612,15 +613,15 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   for (let i = 0; i < patPairs; i++) {
     const coreEntry = patEntries[i];
     const hit = patHits[i];
-    // Skip if the source kind and the registered kind disagree — probably
-    // a comment/identifier collision rather than a real chain call.
+    // Skip if the source kind and the registered kind disagree; that is
+    // usually a comment/identifier collision, not a real chain call.
     if (hit.kind !== coreEntry.kind) continue;
     const lineObj = doc.line(hit.line);
     const deco: PatternVizDecoEntry = { core: coreEntry, line: hit.line, idx: i };
     _patternVizEntries.set(i, deco);
 
     if (coreEntry.kind === 'wave') {
-      // Widget at end-of-line — tick loop pushes samples into its canvas.
+      // Widget at end-of-line. The tick loop pushes samples into its canvas.
       const widget = new PatternWaveWidget(i);
       deco.sparkline = widget;
       ranges.push({
@@ -645,9 +646,8 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   }
 
   // Line decorations sort before widget decorations at the same position.
-  // Decoration.set wants ranges sorted by `from` with secondary ordering
-  // handled internally — we sort by `from` ascending and let CM handle
-  // the rest.
+  // Decoration.set wants ranges sorted by `from` and handles the secondary
+  // ordering itself, so sort by `from` ascending and leave the rest to CM.
   ranges.sort((a, b) => a.from - b.from);
   const deco = Decoration.set(
     ranges.map((r) =>

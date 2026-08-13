@@ -26,5 +26,5 @@ jobs:
           cache: npm
       - run: npm ci
       # tsx runs the .mjs script, which imports the TS validator source
-      # directly — no separate build step to keep CI in sync with runtime.
+      # directly, so CI needs no build step to stay in sync with runtime.
       - run: npx tsx scripts/validate-fixtures.mjs

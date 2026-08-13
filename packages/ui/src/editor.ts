@@ -2,11 +2,11 @@
  * CodeMirror 6 editor setup.
  *
  * Keybindings:
- *   Ctrl+Enter  — evaluate code
- *   Ctrl+.      — stop / clear all channels
- *   Ctrl+Space  — stop / clear all channels (preempts autocompletion;
- *                 callers can still trigger completion by typing a
- *                 trigger character like `.`).
+ *   Ctrl+Enter  evaluate code
+ *   Ctrl+.      stop / clear all channels
+ *   Ctrl+Space  stop / clear all channels (preempts autocompletion;
+ *               callers can still trigger completion by typing a
+ *               trigger character like `.`).
  */
 
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
@@ -26,11 +26,10 @@ import { EXAMPLES } from './examples.js';
  *
  * This used to be a hardcoded INITIAL_CODE constant here, duplicated
  * verbatim by the bundled "starter demo" example. Examples now own that
- * text (examples.ts), and EXAMPLES[0] is the introduction to the language,
- * so it is the only sensible thing to open on.
+ * text (examples.ts), and EXAMPLES[0] is the introduction to the language.
  *
- * In practice main.ts always passes the user's stored buffer, so this
- * default is only reached by a caller that has nothing to restore.
+ * main.ts always passes the user's stored buffer, so this default is only
+ * reached by a caller that has nothing to restore.
  */
 const DEFAULT_DOC = EXAMPLES[0].code;
 
@@ -61,12 +60,11 @@ export function createEditor(
           return true;
         },
       },
-      // Ctrl+Space is the conventional autocomplete trigger in CM; we
-      // override it here at Prec.highest because performers asked for a
-      // "panic stop" that doesn't require the easy-to-miss period key.
-      // Autocomplete still opens automatically as you type (the
-      // autocompletion extension watches for trigger characters), so the
-      // cost of losing the manual trigger is small.
+      // Ctrl+Space is the conventional autocomplete trigger in CM. It is
+      // overridden here at Prec.highest because performers asked for a
+      // panic stop that doesn't require the easy-to-miss period key.
+      // Autocomplete still opens automatically as you type, since the
+      // autocompletion extension watches for trigger characters.
       {
         key: 'Ctrl-Space',
         run() {

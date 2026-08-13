@@ -1,5 +1,5 @@
 /**
- * gobo — main entry point
+ * gobo main entry point
  *
  * Wires together:
  *   - @gobo/core (scheduler, DMX state, eval, WS client)
@@ -54,10 +54,9 @@ import { formatGoboCode } from './formatter.js';
 import { getSettings, mountSettingsPanel, onSettingsChange } from './settings.js';
 import { applyTheme } from './themes.js';
 
-// Apply the persisted theme as early as possible — before the editor
-// mounts and before any CSS-variable-dependent code runs. Otherwise the
-// page would briefly flash the default ember palette while the editor
-// constructs.
+// Apply the persisted theme before the editor mounts and before any
+// CSS-variable-dependent code runs. Otherwise the page flashes the default
+// ember palette while the editor constructs.
 applyTheme(getSettings().theme);
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
@@ -71,7 +70,7 @@ const cycleFillEl = document.getElementById('cycle-fill')!;
 const wsDotEl = document.getElementById('ws-dot')!;
 const wsLabelEl = document.getElementById('ws-label')!;
 
-// Scene bar — name + save / open / share / examples.
+// Scene bar: name plus save / open / share / examples.
 const sceneNameEl = document.getElementById('scene-name') as HTMLElement;
 const sceneDirtyEl = document.getElementById('scene-dirty') as HTMLElement;
 const sceneSaveEl = document.getElementById('scene-save') as HTMLButtonElement;
@@ -96,10 +95,9 @@ const legacyDownloadAllEl = document.getElementById('legacy-download-all') as HT
 
 async function runEval(code: string): Promise<void> {
   // Format-on-run: if the setting is on, reformat the buffer before
-  // evaluation. Failure (e.g. syntax error mid-edit) falls through to
-  // eval, which will surface a clearer message than prettier's parse
-  // trace. Identical to manual Ctrl+Shift+F semantically, just less
-  // visible at the keyboard.
+  // evaluation. A failure (a syntax error mid-edit, say) falls through to
+  // eval, which surfaces a clearer message than prettier's parse trace.
+  // Same behaviour as Ctrl+Shift+F.
   let toRun = code;
   if (getSettings().formatOnRun) {
     const formatted = await formatBuffer({ silent: true });
@@ -109,20 +107,19 @@ async function runEval(code: string): Promise<void> {
   if (result.success) {
     setStatus('ok', '✓ running');
     if (!isRunning()) start();
-    // The "this came from a link" warning has done its job the moment the
-    // user runs the code anyway — they made the call, so stop nagging.
+    // The "this came from a link" warning is done once the user runs the code.
     setShareBannerOpen(false);
     // Rebuild inline editor visualizations to reflect any .viz() calls
     // in the new code. Widgets animate from the live universe buffer; this
     // call only (re)places them in the editor at the right lines. The
-    // inlineViz setting lets users opt out for big scenes or screen recordings.
+    // inlineViz setting opts out for big scenes or screen recordings.
     if (getSettings().inlineViz) refreshViz(editorView);
     else refreshViz(editorView, { disabled: true });
-    // Rebuild the sim panel — one fixture-unit per registered SimFixture
-    // in the new code. Shows exactly what's in the active scene.
+    // Rebuild the sim panel: one fixture-unit per SimFixture registered by
+    // the new code.
     rebuildSimPanel();
-    // Refresh the library panel too — a new defineFixture call might have
-    // just added (or replaced) a custom fixture that the user can now save.
+    // Refresh the library panel: a new defineFixture call may have added or
+    // replaced a custom fixture that the user can now save.
     _refreshLibraryAfterEval();
   } else {
     setStatus('error', result.error ?? 'unknown error');
@@ -135,25 +132,24 @@ function runStop(): void {
   // 'blackout' wipes; 'freeze' leaves the last frame on outputs so the rig
   // holds its state until the next eval.
   //
-  // Going dark is a deliberate operator action, so the zeroing lives here
-  // rather than in clearDefs() — an eval must never be able to black the rig
-  // out as a side effect of clearing defs. clearDefs() stops anything from
-  // being redriven, the fill(0) darkens the buffers now (the scheduler tick
-  // that would normally rewrite them is stopped), and sendUniverseState
-  // pushes that frame so hardware actually goes out.
+  // The zeroing lives here rather than in clearDefs() so that an eval cannot
+  // black the rig out as a side effect of clearing defs. clearDefs() stops
+  // anything from being redriven, fill(0) darkens the buffers now (the
+  // scheduler tick that would rewrite them is stopped), and sendUniverseState
+  // pushes that frame to hardware.
   if (getSettings().stopAction === 'blackout') {
     clearDefs();
     for (const buf of getAllUniverses().values()) buf.fill(0);
     sendUniverseState(getAllUniverses());
     updateVisualizer(getPrimaryUniverseSnapshot());
   }
-  setStatus('', 'stopped — ctrl+enter to run');
+  setStatus('', 'stopped · ctrl+enter to run');
 }
 
 // What is currently on the status bar. setStatus() is the only writer of
-// evalStatusEl anywhere in the app, so these mirror what the operator is
-// actually reading — the tick loop compares against them to notice when an
-// unrelated message has replaced a warning that is still true.
+// evalStatusEl, so these mirror what is on screen. The tick loop compares
+// against them to notice when an unrelated message has replaced a warning
+// that is still true.
 let _statusKind: '' | 'ok' | 'error' = '';
 let _statusMsg = '';
 let _statusAtMs = 0;
@@ -168,13 +164,12 @@ function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
 
 /**
  * Format the current editor buffer via Prettier. Replaces the whole
- * document with the formatted result and restores the cursor to the
- * line it was on (rough, but less jarring than snapping to the top).
+ * document with the formatted result and restores the cursor to the line it
+ * was on (approximate, but less jarring than snapping to the top).
  *
- * Returns the formatted string if changes were applied, or null if no
- * change was needed (or the format failed — both treated as "nothing to
- * do"). `silent: true` suppresses status-bar updates so format-on-run
- * doesn't overwrite the imminent eval status.
+ * Returns the formatted string if changes were applied, or null if no change
+ * was needed or the format failed. `silent: true` suppresses status-bar
+ * updates so format-on-run doesn't overwrite the imminent eval status.
  */
 async function formatBuffer(opts: { silent?: boolean } = {}): Promise<string | null> {
   const src = editorView.state.doc.toString();
@@ -206,32 +201,31 @@ async function formatBuffer(opts: { silent?: boolean } = {}): Promise<string | n
   return formatted;
 }
 
-/** Manual Ctrl+Shift+F handler — surfaces format errors / "already
- *  formatted" in the status bar so the user gets feedback. */
+/** Manual Ctrl+Shift+F handler. Surfaces format errors and "already
+ *  formatted" in the status bar. */
 async function handleFormat(): Promise<void> {
   await formatBuffer();
 }
 
 document.addEventListener('keydown', (e) => {
-  // Ctrl+S / Cmd+S — save the scene to a file. The browser autosaves the
-  // working buffer on its own, so the only save worth a keystroke is the
-  // durable one. Shift is deliberately excluded: Ctrl+Shift+S used to mean
-  // "save as a new scene" and there are no other scenes to save as any more,
-  // so it is left to the browser rather than silently doing something else.
+  // Ctrl+S / Cmd+S saves the scene to a file. The working buffer autosaves on
+  // its own, so the only save worth a keystroke is the durable one. Shift is
+  // excluded: Ctrl+Shift+S used to mean "save as a new scene", and with no
+  // other scenes to save as, it is left to the browser.
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 's' || e.key === 'S')) {
     e.preventDefault();
     handleSaveToFile();
     return;
   }
-  // Ctrl+Shift+F — format current buffer via prettier (lazy-loaded).
+  // Ctrl+Shift+F formats the current buffer via prettier (lazy-loaded).
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
     e.preventDefault();
     handleFormat();
     return;
   }
-  // Ctrl+Space — global "panic stop" alias. Inside the editor the
-  // CodeMirror keymap catches this first (see editor.ts); this listener
-  // handles the case where focus is on the sim panel, top bar, etc.
+  // Ctrl+Space is the global panic-stop alias. Inside the editor the
+  // CodeMirror keymap catches it first (see editor.ts); this listener covers
+  // focus on the sim panel, top bar and elsewhere.
   if ((e.ctrlKey || e.metaKey) && (e.key === ' ' || e.code === 'Space')) {
     e.preventDefault();
     runStop();
@@ -240,23 +234,21 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ─── Editor + working buffer ────────────────────────────────────────────────
-// One document, autosaved to the browser so a refresh or a crash never costs
-// a set. Durable copies are files (Save / Open) or share links — not a pile
-// of localStorage keys the user can neither see nor back up.
+// One document, autosaved to the browser so a refresh or a crash does not lose
+// work. Durable copies are files (Save / Open) or share links.
 
 const boot = loadBuffer();
 
 /**
  * Whether the buffer holds edits that have never been written to a file.
  *
- * This, not localStorage, is what the "replace your work?" prompts consult,
- * for two reasons: it is correct even when autosave is switched off (the
- * persisted copy is stale then, and asking it would under-report unsaved
- * work — the one direction that loses a set), and reading it costs nothing,
- * so the guard can run on every buffer-replacing action.
+ * The "replace your work?" prompts consult this rather than localStorage. It
+ * stays correct when autosave is off, where the persisted copy is stale and
+ * would under-report unsaved work, and reading it costs nothing, so the guard
+ * can run on every buffer-replacing action.
  *
- * Seeded from the persisted state, which is accurate at boot because the
- * previous session's last write is the buffer we just loaded.
+ * Seeded from the persisted state, which is accurate at boot: the previous
+ * session's last write is the buffer we just loaded.
  */
 let _dirtySinceFileSave = isUnsavedSinceFileSave();
 
@@ -265,22 +257,20 @@ function refreshDirtyDot(): void {
   sceneDirtyEl.classList.toggle('hidden', !_dirtySinceFileSave);
 }
 
-// Debounced autosave — every edit rewrites the working buffer. 500ms is
-// plenty given localStorage writes are microseconds, and keeps us from
-// thrashing on every keystroke of a long paste.
+// Debounced autosave: every edit rewrites the working buffer. localStorage
+// writes take microseconds, and 500ms avoids one per keystroke of a long paste.
 let _saveTimer: ReturnType<typeof setTimeout> | null = null;
 function onEditorChange(code: string): void {
-  // Any edit is by definition not in the last file, so the marker flips
-  // immediately rather than waiting out the debounce.
+  // Any edit differs from the last file, so the marker flips immediately
+  // rather than waiting out the debounce.
   if (!_dirtySinceFileSave) {
     _dirtySinceFileSave = true;
     refreshDirtyDot();
   }
   if (_saveTimer) clearTimeout(_saveTimer);
-  // Autosave can be disabled in settings; when it is, the browser copy is
-  // left where it stands and the user secures work with Save instead. The
-  // setting is read per edit, so switching it back on takes effect from the
-  // next keystroke.
+  // Autosave can be disabled in settings; the browser copy is then left as it
+  // stands and Save is the only way to secure work. The setting is read per
+  // edit, so switching it back on takes effect from the next keystroke.
   if (!getSettings().autosave) return;
   _saveTimer = setTimeout(() => {
     _saveTimer = null;
@@ -297,10 +287,10 @@ function flushBuffer(): void {
   saveBuffer(editorView.state.doc.toString());
 }
 
-// A tab closed or hidden inside the debounce window would otherwise lose the
-// last half-second of typing — the exact case autosave exists to prevent.
-// pagehide fires on close, navigation and mobile app-switching alike, where
-// beforeunload is unreliable and blocks the back/forward cache.
+// A tab closed or hidden inside the debounce window would lose the last
+// half-second of typing. pagehide fires on close, navigation and mobile
+// app-switching, where beforeunload is unreliable and blocks the
+// back/forward cache.
 window.addEventListener('pagehide', () => {
   if (getSettings().autosave) flushBuffer();
 });
@@ -311,49 +301,47 @@ initVisualizer(visualizerEl);
 
 // ─── Scheduler tick ──────────────────────────────────────────────────────────
 
-// Cap DMX output rate so 120/144/240 Hz displays don't flood the downstream
-// over a USB DMX node or WiFi. Configurable via settings.sendRate — default
-// 60 Hz, lower for wireless rigs, higher for local dev. Read fresh each
-// tick so the user can change it live without re-evaluating.
+// Cap DMX output rate so 120/144/240 Hz displays don't flood a USB DMX node or
+// a WiFi link. Configurable via settings.sendRate: default 60 Hz, lower for
+// wireless rigs, higher for local dev. Read fresh each tick so it can change
+// live without re-evaluating.
 let _lastSendMs = 0;
 
 // Patterns run user code on every query, so a scene can start throwing long
-// after evalCode() reported success. tick() contains that — the offending
-// channel reads 0 and the frame still ships — but silence would leave a
-// green "✓ running" over a partly-dark rig, which is exactly the state an
-// operator finds out about from the audience rather than the status bar.
+// after evalCode() reported success. tick() contains that: the offending
+// channel reads 0 and the frame still ships. Without a warning the bar would
+// go on showing a green "✓ running" over a partly-dark rig.
 //
 // Polled rather than subscribed: one integer compare per frame, no callback
-// re-entering the tick loop, and the snapshot is only built when the set of
-// failing channels actually changes.
+// re-entering the tick loop, and the snapshot is built only when the set of
+// failing channels changes.
 let _lastQueryFailureGen = getQueryFailureGeneration();
 
 // The warning the bar should be carrying while channels are still failing, or
 // null when nothing is failing.
 //
-// The core generation moves only when a NEW channel starts failing (or the set
-// is reset), so writing the warning once at that moment is not enough to keep
-// it: a save, a format, a scene rename — any unrelated setStatus — erases it,
-// and with the failing set unchanged the generation never moves again. That is
-// how a green line ended up over a partly-dark rig. Holding the message here
-// makes the warning a state rather than an event, so the tick loop can put it
-// back once something else takes the bar.
+// The core generation moves only when a new channel starts failing or the set
+// is reset, so writing the warning once at that moment is not enough to keep
+// it: any unrelated setStatus (a save, a rename) erases it, and with the
+// failing set unchanged the generation never moves again. Holding the message
+// here makes the warning a state rather than an event, so the tick loop can
+// put it back once something else takes the bar.
 let _queryFailureMsg: string | null = null;
 
-// How long an unrelated message gets to stay readable before the warning takes
-// the bar back. Reclaiming on the very next frame would make Ctrl+S flash
-// "saved" for ~16ms and look like the save failed; a second and a half is long
-// enough to read a confirmation and far too short to finish a song under.
+// How long an unrelated message stays readable before the warning takes the bar
+// back. Both bounds matter. Reclaiming on the next frame would flash "saved"
+// for ~16ms and look like the save failed. Waiting much longer leaves a dark
+// channel unreported for most of a song. 1.5s reads a confirmation and no more.
 const QUERY_FAILURE_RECLAIM_MS = 1500;
 
 function formatQueryFailures(failures: QueryFailure[]): string {
   const first = failures[0];
   const rest = failures.length - 1;
   const more = rest > 0 ? ` (+${rest} more channel${rest > 1 ? 's' : ''})` : '';
-  // First line only — a pattern throwing a stack trace would otherwise blow
-  // out the top bar. The console has the full error.
+  // First line only: a pattern throwing a stack trace would blow out the top
+  // bar. The console has the full error.
   const msg = first.message.split('\n')[0];
-  return `pattern error · uni ${first.universe} ch ${first.channel} dark${more} — ${msg}`;
+  return `pattern error · uni ${first.universe} ch ${first.channel} dark${more} · ${msg}`;
 }
 
 onTick((cyclePos, _delta) => {
@@ -361,18 +349,18 @@ onTick((cyclePos, _delta) => {
   tick(cyclePos);
 
   // 2. Surface any channel whose pattern threw during that resolve, and keep
-  //    it surfaced for as long as it is true. Costs one integer compare per
-  //    frame in the steady state, plus two string compares and a clock read on
-  //    the frames where a warning is live but overwritten; the DOM is written
-  //    only when the failure set changes or when the warning is reclaimed,
-  //    never once per tick.
+  //    it surfaced for as long as it is true. One integer compare per frame in
+  //    the steady state, plus two string compares and a clock read on frames
+  //    where a warning is live but overwritten. The DOM is written only when
+  //    the failure set changes or the warning is reclaimed, never once per
+  //    tick.
   const failureGen = getQueryFailureGeneration();
   if (failureGen !== _lastQueryFailureGen) {
     _lastQueryFailureGen = failureGen;
     const failures = getQueryFailures();
     // An empty set means the generation moved because the live scene was
-    // replaced or dropped (re-eval, clearDefs) — the failing defs are gone, so
-    // the warning goes with them, and runEval() keeps the status it just set.
+    // replaced or dropped (re-eval, clearDefs). The failing defs are gone, so
+    // the warning goes with them and runEval() keeps the status it just set.
     _queryFailureMsg = failures.length > 0 ? formatQueryFailures(failures) : null;
     if (_queryFailureMsg !== null) setStatus('error', _queryFailureMsg);
   } else if (
@@ -381,12 +369,11 @@ onTick((cyclePos, _delta) => {
     && _statusKind !== 'error'
     && performance.now() - _statusAtMs >= QUERY_FAILURE_RECLAIM_MS
   ) {
-    // Something unrelated took the bar while those channels are still dark —
-    // reclaim it once that message has had its moment. Not over another error,
-    // though: a red line is already telling the operator something is wrong,
-    // and stomping an eval or format error they never got to read would just
-    // move the silence somewhere else. (The clock is read last so it costs
-    // nothing on the frames where no warning is pending.)
+    // Something unrelated took the bar while those channels are still dark.
+    // Reclaim it once that message has had its moment, but never over another
+    // error: stomping an eval or format error the user has not read yet would
+    // hide one problem behind another. (The clock is read last, so it costs
+    // nothing on frames where no warning is pending.)
     setStatus('error', _queryFailureMsg);
   }
 
@@ -414,9 +401,9 @@ setInterval(() => {
 }, 100);
 
 // ─── BPM inline edit ─────────────────────────────────────────────────────────
-// The top-bar BPM span is contenteditable — click it, type a number, hit
-// Enter (or blur) to commit. Escape cancels and restores the live value.
-// We clamp to the scheduler's 1..400 range; anything invalid reverts.
+// The top-bar BPM span is contenteditable: click it, type a number, press
+// Enter or blur to commit. Escape cancels and restores the live value.
+// Clamped to the scheduler's 1..400 range; anything invalid reverts.
 
 function commitBpmEdit(): void {
   const raw = (bpmValEl.textContent ?? '').trim();
@@ -424,8 +411,8 @@ function commitBpmEdit(): void {
   if (Number.isFinite(v) && v >= 1 && v <= 400) {
     setBPM(v);
   }
-  // Always snap the text to the authoritative value — handles both
-  // successful commits (normalized int) and invalid input (reverted).
+  // Snap the text to the authoritative value: the normalized int on a
+  // successful commit, the previous value on invalid input.
   bpmValEl.textContent = String(getBPM());
 }
 
@@ -457,11 +444,10 @@ bpmValEl.addEventListener('keydown', (e) => {
 });
 
 // ─── Tap tempo ───────────────────────────────────────────────────────────────
-// Click the `tap` button or press T (outside the editor / other inputs) to
-// tap along with the beat. After the second tap we keep a rolling buffer of
-// timestamps, average the intervals, and push the BPM into the scheduler.
-// A 2-second gap without a tap resets the buffer so you don't pollute a new
-// tempo with stale data.
+// Click the `tap` button or press T (outside the editor and other inputs) to
+// tap along with the beat. From the second tap on, a rolling buffer of
+// timestamps is averaged and the resulting BPM pushed into the scheduler.
+// A 2-second gap without a tap resets the buffer so a new tempo starts clean.
 
 const TAP_GAP_RESET_MS = 2000;
 const TAP_BUFFER = 8;
@@ -476,8 +462,8 @@ function tap(): void {
   if (_taps.length > TAP_BUFFER) _taps.shift();
 
   if (_taps.length >= 2) {
-    // Average of consecutive intervals — more forgiving to a single
-    // miss-tap than comparing first-to-last.
+    // Average of consecutive intervals: more forgiving of one miss-tap than
+    // comparing first to last.
     let sum = 0;
     for (let i = 1; i < _taps.length; i++) sum += _taps[i] - _taps[i - 1];
     const avgMs = sum / (_taps.length - 1);
@@ -485,16 +471,15 @@ function tap(): void {
     if (bpm >= 1 && bpm <= 400) setBPM(bpm);
   }
 
-  // Visual feedback — a 100ms flash on the button so you can feel the tap.
+  // 100ms flash on the button as feedback for the tap.
   bpmTapEl.classList.add('flash');
   setTimeout(() => bpmTapEl.classList.remove('flash'), 100);
 }
 
 bpmTapEl.addEventListener('click', tap);
 
-// Global T hotkey — suppressed whenever focus is somewhere you'd actually
-// be typing (editor, BPM field, search input, etc.) so it doesn't collide
-// with normal text entry.
+// Global T hotkey, suppressed whenever focus is somewhere text is typed
+// (editor, BPM field, search input) so it doesn't collide with text entry.
 document.addEventListener('keydown', (e) => {
   if (e.key !== 't' && e.key !== 'T') return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -517,10 +502,9 @@ connectBridge();
 
 // ─── Fixture simulation ──────────────────────────────────────────────────────
 // Rebuilt from scratch after every successful eval. The core sim-fixture
-// registry (populated by each fixture/rgbStrip/rgbwStrip call in the
-// scene) tells us exactly what to draw — one fixture-unit element per
-// entry. Hardcoded addresses are gone; whatever the scene creates, the
-// panel reflects.
+// registry (populated by each fixture/rgbStrip/rgbwStrip call in the scene)
+// says what to draw: one fixture-unit element per entry. No addresses are
+// hardcoded here; the panel follows whatever the scene creates.
 
 const simContainerEl = document.getElementById('fixture-lights') as HTMLElement;
 const simEmptyEl     = document.getElementById('fixture-empty')  as HTMLElement;
@@ -571,17 +555,16 @@ function rebuildSimPanel(): void {
     }
     unit.appendChild(mainEl);
 
-    // Optional XY indicator — a small grid with a dot tracking the
-    // fixture's movement channels. Built only when the SimFixture has
-    // movement hints; otherwise the slot stays empty and the layout is
-    // identical to a static fixture.
+    // Optional XY indicator: a small grid with a dot tracking the fixture's
+    // movement channels. Built only when the SimFixture has movement hints;
+    // otherwise the slot stays empty and the layout matches a static fixture.
     let xyEl: HTMLElement | undefined;
     let xyDotEl: HTMLElement | undefined;
     if (fix.movement) {
       xyEl = document.createElement('div');
       xyEl.className = 'fixture-xy';
-      // Crosshair guides (horizontal + vertical) — pure visual, no class
-      // hooks so the renderer doesn't need to find them later.
+      // Crosshair guides (horizontal and vertical). Decoration only, with no
+      // class hooks, so the renderer never has to find them.
       const hRule = document.createElement('div');
       hRule.className = 'fixture-xy-rule fixture-xy-rule-h';
       const vRule = document.createElement('div');
@@ -604,12 +587,12 @@ function rebuildSimPanel(): void {
   }
 }
 
-/** Single-dimmer globe — fixed white tint scaled by the dimmer value. */
+/** Single-dimmer globe: fixed white tint scaled by the dimmer value. */
 function updateGlobeDim(el: HTMLElement, dimmer: number): void {
   const d = dimmer / 255;
   if (d < 0.02) {
-    // Clear inline background so the CSS rule's `var(--bg)` takes over —
-    // matches whichever theme is active instead of a hardcoded ember tone.
+    // Clear the inline background so the CSS rule's `var(--bg)` takes over and
+    // follows the active theme instead of a hardcoded ember tone.
     el.style.background = '';
     el.style.boxShadow = 'none';
     return;
@@ -620,8 +603,8 @@ function updateGlobeDim(el: HTMLElement, dimmer: number): void {
   el.style.boxShadow = `0 0 ${Math.round(d * 24)}px ${Math.round(d * 12)}px rgba(${glow},${glow},${glow},${(d * 0.7).toFixed(2)})`;
 }
 
-/** RGBW globe — W mixes additively into R/G/B, optional master dim scales
- *  the whole output (used for moving-head-style fixtures with a dim channel). */
+/** RGBW globe: W mixes additively into R/G/B, and an optional master dim
+ *  scales the whole output (moving-head-style fixtures with a dim channel). */
 function updateGlobeRGBW(
   el: HTMLElement,
   r: number, g: number, b: number, w: number,
@@ -643,7 +626,7 @@ function updateGlobeRGBW(
   el.style.boxShadow = `0 0 ${Math.round(brightness * 24)}px ${Math.round(brightness * 12)}px rgba(${glowR},${glowG},${glowB},${(brightness * 0.7).toFixed(2)})`;
 }
 
-/** One pixel in a strip — simple RGB render, caller pre-mixes W if needed. */
+/** One pixel in a strip. Plain RGB render; the caller pre-mixes W if needed. */
 function updateStripPixel(el: HTMLElement, r: number, g: number, b: number): void {
   const brightness = Math.max(r, g, b) / 255;
   if (brightness < 0.02) {
@@ -660,11 +643,11 @@ function updateStripPixel(el: HTMLElement, r: number, g: number, b: number): voi
  *
  *   pan        → x axis (0=left, 1=right)
  *   tilt       → y axis (0=top, 1=bottom)
- *   direction  → x axis (if pan absent) — bars only have direction, not
- *                pan/tilt, so we reuse the x axis to show their travel.
+ *   direction  → x axis (if pan absent). Bars carry direction but no
+ *                pan/tilt, so the x axis shows their travel.
  *
- * Absent axes anchor to centre (0.5). The dot moves within the XY box
- * via `left` / `top` percentages so it scales with whatever size CSS gives
+ * Absent axes anchor to centre (0.5). The dot moves within the XY box via
+ * `left` / `top` percentages, so it scales with whatever size CSS gives
  * the grid.
  */
 function applyMovement(r: RenderedSimFixture): void {
@@ -686,8 +669,8 @@ function applyMovement(r: RenderedSimFixture): void {
   dot.style.top  = `${(y * 100).toFixed(1)}%`;
 }
 
-// ~30fps driver loop — reads universe buffers and paints each rendered
-// sim fixture according to its render kind, then applies movement.
+// ~30fps driver loop. Reads universe buffers, paints each rendered sim fixture
+// according to its render kind, then applies movement.
 setInterval(() => {
   for (const r of _renderedSim) {
     const buf = getUniverseBuffer(r.core.universe);
@@ -722,8 +705,8 @@ setInterval(() => {
         const gv = buf[pb + 1] ?? 0;
         const bv = buf[pb + 2] ?? 0;
         const wv = buf[pb + 3] ?? 0;
-        // Mix W additively into RGB for the on-screen pixel — same approach
-        // the old barPixel renderer used.
+        // Mix W additively into RGB for the on-screen pixel, as the old
+        // barPixel renderer did.
         updateStripPixel(
           pixels[i],
           Math.min(255, rv + wv),
@@ -739,10 +722,9 @@ setInterval(() => {
 
 // ─── Fixture sim tooltips ────────────────────────────────────────────────────
 // Hover any unit in the sim panel → tooltip with name, type, universe,
-// channel range, and live DMX values. Data comes straight from the
-// SimFixture registry, so whatever the scene creates gets a matching
-// tooltip automatically. Bound per-fixture at rebuild time so the
-// elements line up after the panel is wiped + rebuilt.
+// channel range and live DMX values. Data comes from the SimFixture registry,
+// so whatever the scene creates gets a tooltip. Bound per fixture at rebuild
+// time so the elements line up after the panel is wiped and rebuilt.
 
 const tooltipEl = document.getElementById('fixture-tooltip') as HTMLElement;
 let _hoveredSim: RenderedSimFixture | null = null;
@@ -752,8 +734,8 @@ function escapeHtml(s: string): string {
 }
 
 /** Render the tooltip body for a sim fixture based on its render kind.
- *  Globes expose their named channels as percentages; strips surface
- *  the first pixel's raw values so you can see what's going in. */
+ *  Globes expose their named channels as percentages; strips show the first
+ *  pixel's raw values. */
 function renderTooltip(r: RenderedSimFixture): void {
   const { label, type, universe, startChannel, channelCount, render } = r.core;
   const buf = getUniverseBuffer(universe);
@@ -781,7 +763,7 @@ function renderTooltip(r: RenderedSimFixture): void {
       `<div class="tt-row"><span class="tt-key">dim</span><span class="tt-val">${Math.round((v / 255) * 100)}%</span></div>`,
     );
   } else {
-    // Strip — first-pixel preview.
+    // Strip: first-pixel preview.
     const stride = render.kind === 'strip-rgbw' ? 4 : 3;
     const names = render.kind === 'strip-rgbw' ? ['r', 'g', 'b', 'w'] : ['r', 'g', 'b'];
     for (let j = 0; j < stride; j++) {
@@ -821,8 +803,8 @@ function positionTooltip(rect: DOMRect): void {
 
 function bindTooltip(rendered: RenderedSimFixture): void {
   rendered.mainEl.addEventListener('mouseenter', () => {
-    // Honour settings.simTooltips at hover time, not bind time — toggling
-    // the setting takes effect immediately without rebuilding the panel.
+    // Honour settings.simTooltips at hover time, not bind time, so toggling
+    // the setting takes effect without rebuilding the panel.
     if (!getSettings().simTooltips) return;
     _hoveredSim = rendered;
     renderTooltip(rendered);
@@ -843,20 +825,19 @@ setInterval(() => {
 }, 100);
 
 // ─── Scene bar ───────────────────────────────────────────────────────────────
-// Name (click to rename) + save to file / open file / share link / examples.
+// Name (click to rename), save to file, open file, share link, examples.
 // There is no scene list any more: the browser holds one working buffer and
 // everything durable is a file or a link.
 
 /**
- * Scene names are shown on one top-bar line and feed the filename on save,
- * so any name adopted from outside is flattened to a single line and capped.
- * A share link's name is attacker-controlled and otherwise unbounded, and
- * would happily be a megabyte of newlines.
+ * Scene names are shown on one top-bar line and feed the filename on save, so
+ * any name adopted from outside is flattened to a single line and capped. A
+ * share link's name is attacker-controlled and otherwise unbounded: it could
+ * be a megabyte of newlines.
  *
  * 80 is the same ceiling scene-file.ts puts on a name it reads back out of a
- * file, so a name that survives the bar survives a save/open round trip.
- * (The filename is trimmed further there — that is the filesystem's business,
- * not ours.)
+ * file, so a name that survives the bar survives a save/open round trip. (The
+ * filename is trimmed further there, to the filesystem's rules.)
  */
 const MAX_NAME_LEN = 80;
 
@@ -877,9 +858,8 @@ function normalizeSceneName(raw: string): string {
   return out || UNTITLED_NAME;
 }
 
-/** Shorten a name for a status line or a dialog. Separate from the cap
- *  above because a name that is legal can still be too long to read in a
- *  one-line status message. */
+/** Shorten a name for a status line or a dialog. Separate from the cap above:
+ *  a legal name can still be too long to read in a one-line status message. */
 function short(name: string): string {
   return name.length > 32 ? `${name.slice(0, 31)}…` : name;
 }
@@ -888,7 +868,7 @@ function short(name: string): string {
  * Shorten a filename for a status line WITHOUT losing its extension.
  *
  * The extension is the part that answers "what did save just write?", so the
- * ellipsis eats the middle of the name rather than the tail of the string —
+ * ellipsis eats the middle of the name rather than the tail of the string.
  * `short()` on a long name would leave a status line that never says `.js`.
  */
 function shortFilename(filename: string): string {
@@ -899,16 +879,15 @@ function shortFilename(filename: string): string {
   return base.length > 31 ? `${base.slice(0, 30)}…${filename.slice(dot)}` : filename;
 }
 
-/** Write the stored name into the top bar. textContent, never innerHTML —
- *  the name may have come from a share link. */
+/** Write the stored name into the top bar. textContent, never innerHTML: the
+ *  name may have come from a share link. */
 function renderSceneName(): void {
   sceneNameEl.textContent = getBufferName();
 }
 
 // ─── Inline rename ───────────────────────────────────────────────────────────
 // The name span is contenteditable: click, type, Enter or blur to commit,
-// Escape to revert. Same gesture as the BPM readout, so there is one thing
-// to learn and no modal in the way mid-set.
+// Escape to revert. Same gesture as the BPM readout, and no modal.
 
 function commitNameEdit(): void {
   setBufferName(normalizeSceneName(sceneNameEl.textContent ?? ''));
@@ -918,7 +897,7 @@ function commitNameEdit(): void {
 }
 
 sceneNameEl.addEventListener('focus', () => {
-  // Select all so typing replaces the name — matches the BPM field.
+  // Select all so typing replaces the name, matching the BPM field.
   const range = document.createRange();
   range.selectNodeContents(sceneNameEl);
   const sel = window.getSelection();
@@ -944,7 +923,7 @@ sceneNameEl.addEventListener('keydown', (e) => {
 
 /** Replace the editor's document, cursor back at the top. */
 function loadCodeIntoEditor(code: string): void {
-  // Drop any pending autosave for the outgoing text — it would write the old
+  // Drop any pending autosave for the outgoing text; it would write the old
   // contents over the new ones a few hundred milliseconds from now.
   if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
   const current = editorView.state.doc;
@@ -958,8 +937,8 @@ function loadCodeIntoEditor(code: string): void {
 /**
  * Ask before throwing away work that exists nowhere else.
  *
- * Returns true when it is safe to proceed. Called by every path that
- * replaces the whole buffer — a share link, an opened file, an example.
+ * Returns true when it is safe to proceed. Called by every path that replaces
+ * the whole buffer: a share link, an opened file, an example.
  */
 function confirmReplace(headline: string): boolean {
   if (!_dirtySinceFileSave) return true;
@@ -972,10 +951,9 @@ function confirmReplace(headline: string): boolean {
 }
 
 /**
- * Swap the whole buffer for something else — an example, an opened file, a
- * shared scene. Always lands stopped: the operator decides when new code
- * runs, which for a scene out of a link is the difference between reading a
- * stranger's program and running it.
+ * Swap the whole buffer for something else: an example, an opened file, a
+ * shared scene. Always lands stopped, so new code runs only when the operator
+ * asks for it.
  *
  * `dirty` says whether the incoming text exists in a file of the user's.
  */
@@ -1001,20 +979,19 @@ function handleSaveToFile(): void {
   const name = getBufferName();
   // Persist before recording the save point: markSavedToFile() takes its
   // reference from the stored buffer, so a stale one would tell the next
-  // session that this work is secured when it is not. This write happens
-  // even with autosave off — the user just asked for a save.
+  // session that this work is secured when it is not. This write happens even
+  // with autosave off, because the user asked for a save.
   flushBuffer();
   downloadScene(name, code);
-  // downloadScene hands the file to the browser and hears nothing back —
-  // there is no event for "the user kept it" — so the handover is the only
-  // save point available.
+  // downloadScene hands the file to the browser and hears nothing back; there
+  // is no event for "the user kept it", so the handover is the only save point
+  // available.
   markSavedToFile();
   _dirtySinceFileSave = false;
   refreshDirtyDot();
-  // Names the actual file rather than the scene: the sanitiser may have
-  // rewritten the name to something the filesystem accepts ("50/50" lands as
-  // "50 50.js"), and that is exactly what the user will be looking for in
-  // their downloads folder — and what the name will be when they reopen it.
+  // Names the file rather than the scene: the sanitiser may have rewritten the
+  // name to something the filesystem accepts ("50/50" lands as "50 50.js"),
+  // and that is what appears in the downloads folder and on reopen.
   setStatus('ok', `saved ${shortFilename(sceneFilename(name))} to your downloads`);
 }
 
@@ -1032,16 +1009,16 @@ async function handleOpenFile(): Promise<void> {
     setStatus('error', (err as Error).message || 'could not open that file');
     return;
   }
-  if (opened === null) return;   // picker dismissed — say nothing
+  if (opened === null) return;   // picker dismissed; say nothing
   if (!confirmReplace(`Open "${short(opened.name)}"?`)) {
-    setStatus('', 'open cancelled — nothing was replaced');
+    setStatus('', 'open cancelled · nothing replaced');
     return;
   }
-  // Not dirty: what is now in the editor is exactly what is in that file.
+  // Not dirty: the editor now holds what is in that file.
   replaceBuffer(opened.name, opened.code, { dirty: false });
-  // The buffer now matches a file on disk, so record it as the reference
-  // point too — otherwise a reload would report unsaved work that is
-  // sitting safely in the file it was just read from.
+  // The buffer matches a file on disk, so record it as the reference point;
+  // otherwise a reload would report unsaved work that is already in the file
+  // it was read from.
   markSavedToFile();
   setStatus('', `opened "${short(opened.name)}" · ctrl+enter to run`);
 }
@@ -1051,15 +1028,15 @@ sceneOpenEl.addEventListener('click', () => { void handleOpenFile(); });
 // ─── Share link ──────────────────────────────────────────────────────────────
 
 /**
- * Length past which a link starts being risky to paste around. Browsers
- * handle far longer URLs, but chat clients, mail gateways and QR codes start
- * truncating somewhere around here (see the note in share.ts). Worth saying
- * out loud, because a truncated link fails at the other end, not this one.
+ * Length past which a link starts being risky to paste around. Browsers handle
+ * far longer URLs, but chat clients, mail gateways and QR codes truncate
+ * somewhere around here (see the note in share.ts). A truncated link fails at
+ * the other end, not this one, so the status line says the length out loud.
  */
 const LONG_LINK_CHARS = 2000;
 
-/** Copy text to the clipboard. False when the browser refuses — no
- *  permission, or a page that is not a secure context. */
+/** Copy text to the clipboard. False when the browser refuses: no permission,
+ *  or a page that is not a secure context. */
 async function copyText(text: string): Promise<boolean> {
   try {
     if (!navigator.clipboard?.writeText) return false;
@@ -1077,21 +1054,20 @@ async function handleShare(): Promise<void> {
   try {
     url = await encodeShareLink(code, name);
   } catch (err) {
-    setStatus('error', `couldn't build a share link — ${(err as Error).message}`);
+    setStatus('error', `couldn't build a share link: ${(err as Error).message}`);
     return;
   }
 
   if (await copyText(url)) {
     setStatus('ok', url.length > LONG_LINK_CHARS
-      ? `share link copied — ${url.length} characters, long enough that some apps will truncate it; use save for a big set`
+      ? `share link copied · ${url.length} characters · some apps truncate links this long, use save for a big set`
       : `share link copied · ${url.length} characters`);
     return;
   }
-  // A share button that quietly does nothing is worse than no share button,
-  // so when the clipboard is unavailable the link goes somewhere the user
-  // can select it by hand.
+  // When the clipboard is unavailable, show the link somewhere the user can
+  // select it by hand.
   window.prompt('Copy this share link:', url);
-  setStatus('', 'clipboard unavailable — the link was shown so you can copy it');
+  setStatus('', 'clipboard unavailable · the link was shown so you can copy it');
 }
 
 sceneShareEl.addEventListener('click', () => { void handleShare(); });
@@ -1109,12 +1085,12 @@ function setExamplesMenuOpen(open: boolean): void {
 
 function loadExample(ex: Example): void {
   if (!confirmReplace(`Load the "${ex.label}" example?`)) {
-    setStatus('', 'example not loaded — nothing was replaced');
+    setStatus('', 'example not loaded · nothing replaced');
     return;
   }
   // Not dirty: untouched example text is ours, not the user's work, so the
   // next replace has nothing to warn about. buffer.ts seeds a brand-new
-  // browser from EXAMPLES[0] on exactly the same reasoning.
+  // browser from EXAMPLES[0] on the same reasoning.
   replaceBuffer(ex.label, ex.code, { dirty: false });
   setStatus('', `example: ${ex.label} · ctrl+enter to run`);
 }
@@ -1157,10 +1133,9 @@ document.addEventListener('keydown', (e) => {
 
 // ─── Shared-scene banner ─────────────────────────────────────────────────────
 // Scene code is evaluated with full page privileges (SECURITY.md,
-// packages/core/src/eval.ts), so a scene that arrived in a link is a
-// stranger's program aimed at this origin — able to read what is saved here
-// and to repoint DMX output. It is never auto-run, and this banner stays up
-// until the user runs it deliberately or dismisses it.
+// packages/core/src/eval.ts), so a scene that arrived in a link can read what
+// is saved on this origin and repoint DMX output. It is never auto-run, and
+// this banner stays up until the user runs it or dismisses it.
 
 function setShareBannerOpen(open: boolean): void {
   shareBannerEl.classList.toggle('open', open);
@@ -1178,9 +1153,9 @@ function showSharedSceneBanner(name: string): void {
     document.createTextNode('This scene ('),
     nameEl,
     document.createTextNode(
-      ') came from a shared link — it is someone else\'s code, and running it gives it '
-      + 'full access to this page and to your DMX output. Nothing is running yet: read it, '
-      + 'then press ctrl+enter if you trust it.',
+      ') came from a shared link. Running it gives someone else\'s code full access to '
+      + 'this page and to your DMX output. Nothing is running yet: read it, then press '
+      + 'ctrl+enter if you trust it.',
     ),
   );
   setShareBannerOpen(true);
@@ -1201,21 +1176,21 @@ async function handleSharedSceneOnBoot(): Promise<void> {
   clearShareFromLocation();
 
   if (!confirmReplace(`Open the shared scene "${short(normalizeSceneName(shared.name))}"?`)) {
-    setStatus('', 'shared scene not loaded — your work is untouched');
+    setStatus('', 'shared scene not loaded · your work is untouched');
     return;
   }
   // Dirty: a scene from a link exists in no file of the user's, so whatever
   // would replace it next still has to ask.
   replaceBuffer(shared.name, shared.code, { dirty: true });
   showSharedSceneBanner(shared.name);
-  setStatus('', 'shared scene loaded — read it, then ctrl+enter to run');
+  setStatus('', 'shared scene loaded · read it, then ctrl+enter to run');
 }
 
 // ─── Legacy scenes notice ────────────────────────────────────────────────────
-// Scenes saved under the old multi-scene model. The old keys are READ here
-// and nowhere written or cleared (see listLegacyScenes) — this panel only
-// offers to take copies out as files, and dismissing it changes nothing but
-// whether the panel appears again.
+// Scenes saved under the old multi-scene model. The old keys are only read
+// (see listLegacyScenes), never written or cleared. The panel offers to take
+// copies out as files; dismissing it changes nothing but whether the panel
+// appears again.
 
 function closeLegacyNotice(): void {
   legacyNoticeEl.classList.remove('open');
@@ -1233,7 +1208,7 @@ function mountLegacyNotice(): void {
 
     const name = document.createElement('span');
     name.className = 'legacy-row-name';
-    name.textContent = scene.name;   // user data, and possibly odd — text only
+    name.textContent = scene.name;   // user data, possibly odd: text only
     name.title = scene.name;
 
     const size = document.createElement('span');
@@ -1256,12 +1231,11 @@ function mountLegacyNotice(): void {
   legacyDownloadAllEl.addEventListener('click', () => {
     // Spaced out rather than fired in a burst: browsers treat several
     // downloads from one gesture as "multiple downloads" and may drop all but
-    // the first, so each file gets its own turn. Still one deliberate click —
-    // nothing downloads on its own.
+    // the first, so each file gets its own turn.
     scenes.forEach((scene, i) => {
       setTimeout(() => downloadScene(scene.name, scene.code), i * 400);
     });
-    setStatus('ok', `downloading ${scenes.length} old scene${scenes.length === 1 ? '' : 's'} as .js files — your browser may ask to allow multiple files`);
+    setStatus('ok', `downloading ${scenes.length} old scene${scenes.length === 1 ? '' : 's'} as .js files · your browser may ask to allow multiple files`);
   });
 
   legacyCloseEl.addEventListener('click', closeLegacyNotice);
@@ -1275,11 +1249,9 @@ renderSceneName();
 refreshDirtyDot();
 
 // ─── Sliding panels (docs / library / settings) ──────────────────────────────
-// Three independent panels but only one should be visible at a time —
-// otherwise opening "library" over an already-open "docs" stacks them and
-// the user can't tell which one's actually on top. Each panel registers
-// its close fn here; when one opens it calls closeOtherPanels(self) to
-// shut the others first.
+// Three independent panels, one visible at a time: opening "library" over an
+// already-open "docs" would stack them. Each panel registers its close fn
+// here; opening one calls closeOtherPanels(self) to shut the others first.
 
 type PanelCloser = (open: boolean) => void;
 const _panelClosers = new Map<string, PanelCloser>();
@@ -1316,7 +1288,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Fixture library panel — close docs/settings when this opens.
+// Fixture library panel. Closes docs and settings when it opens.
 const libraryPanel = mountLibraryPanel({
   panelEl:  document.getElementById('library-panel')  as HTMLElement,
   bodyEl:   document.getElementById('library-body')   as HTMLElement,
@@ -1326,7 +1298,7 @@ const libraryPanel = mountLibraryPanel({
 });
 _panelClosers.set('library', libraryPanel.setOpen);
 
-// Settings panel — close docs/library when this opens.
+// Settings panel. Closes docs and library when it opens.
 const settingsPanel = mountSettingsPanel({
   panelEl:  document.getElementById('settings-panel')  as HTMLElement,
   bodyEl:   document.getElementById('settings-body')   as HTMLElement,
@@ -1336,9 +1308,9 @@ const settingsPanel = mountSettingsPanel({
 });
 _panelClosers.set('settings', settingsPanel.setOpen);
 
-// Re-apply the theme whenever the setting changes. Other settings are read
-// at the point of use (no subscription needed); themes are special because
-// they have to write CSS variables onto :root to take effect.
+// Re-apply the theme whenever the setting changes. Other settings are read at
+// the point of use and need no subscription; themes need one because they
+// write CSS variables onto :root to take effect.
 onSettingsChange((s) => applyTheme(s.theme));
 
 // After every successful eval, any new defineFixture() calls land in the
@@ -1367,23 +1339,22 @@ runStop();
 mountLegacyNotice();
 
 // A scene may have arrived in the URL hash. Handled after the editor and the
-// stop above exist, so the incoming code lands in a halted app — it is never
-// started for the user, only loaded for them to read.
+// stop above exist, so the incoming code lands in a halted app. It is loaded
+// for the user to read, never started for them.
 void handleSharedSceneOnBoot();
 
 initStrudel().then(() => {
-  // No pattern engine means no waveforms, and evalCode() will refuse every
-  // run rather than quietly resolving scenes to something else. Say so in the
-  // status bar and leave it there — an operator must not discover this
-  // halfway through a set.
+  // No pattern engine means no waveforms, and evalCode() refuses every run
+  // rather than resolving scenes to something else. Say so in the status bar
+  // and leave it there.
   if (!isStrudelReady()) {
-    setStatus('error', `pattern engine failed to load — ${getStrudelError() ?? 'unknown error'}`);
+    setStatus('error', `pattern engine failed to load: ${getStrudelError() ?? 'unknown error'}`);
     return;
   }
   console.log('[gobo] ready');
   // Don't stomp what the shared-scene flow put here. These two resolve in
-  // whichever order the network decides, and its message — that the code on
-  // screen came from a link — says more than the generic hint does.
+  // whichever order the network decides, and its message, that the code on
+  // screen came from a link, says more than the generic hint.
   if (!shareBannerEl.classList.contains('open')) {
     setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop');
   }

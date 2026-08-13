@@ -2,21 +2,21 @@
  * Unit tests for the share-link codec.
  *
  * Two things are being pinned here. First, fidelity: a scene that goes into a
- * link must come back out byte-identical, including unicode, emoji, and the
- * characters that are awkward in URLs (`#`, `%`, `&`, `+`) — a codec that
- * quietly mangles a backslash would corrupt live-coding source in a way no
- * one notices until a show.
+ * link must come back out byte-identical, including unicode, emoji and the
+ * characters that are awkward in URLs (`#`, `%`, `&`, `+`). A codec that
+ * mangles a backslash would corrupt source in a way nobody notices until the
+ * scene is reopened.
  *
- * Second, and more important, hostility: the decoder's input is a stranger's
- * URL, and the scene it produces runs unsandboxed in the page. So every
- * malformed path is exercised explicitly and must return null rather than
- * throw or return a half-trusted object — a thrown error in the boot path
- * would take the whole editor down, and a partially-validated object would
- * put attacker-chosen values into the editor.
+ * Second, hostility: the decoder's input is a stranger's URL, and the scene
+ * it produces runs unsandboxed in the page. Every malformed path is
+ * exercised explicitly and must return null rather than throw or return a
+ * half-trusted object. A thrown error in the boot path would take the editor
+ * down, and a partially-validated object would put attacker-chosen values
+ * into the editor.
  *
  * These run on Node, which has CompressionStream natively, so the real codec
  * is exercised rather than a stub. `location` and `history` do not exist in
- * Node, so they are stubbed per-test — which is also how the fallback paths
+ * Node, so they are stubbed per-test. That is also how the fallback paths
  * (no CompressionStream, no DecompressionStream) get tested: by deleting the
  * global the way an older Safari would have it.
  */
@@ -152,7 +152,7 @@ describe('round-trip fidelity', () => {
   });
 
   it('preserves unicode and emoji, including surrogate pairs', async () => {
-    const code = '// スポット照明 — naïve café\nconst 灯 = 1; // 💡🎛️🔦 flag: 🏳️‍🌈\n';
+    const code = '// スポット照明, naïve café\nconst 灯 = 1; // 💡🎛️🔦 flag: 🏳️‍🌈\n';
     const name = 'ライブ 💡';
     expect(await roundTrip(code, name)).toEqual({ code, name });
   });
@@ -188,7 +188,7 @@ describe('round-trip fidelity', () => {
     expect(out?.code.length).toBe(code.length);
   });
 
-  it('actually compresses — a repetitive scene yields a link far shorter than the source', async () => {
+  it('compresses: a repetitive scene yields a link far shorter than the source', async () => {
     const code = 'dim(1, sine.range(0, 255));\n'.repeat(2000);
     const link = await encodeShareLink(code, 'repetitive');
     expect(link.length).toBeLessThan(code.length / 10);
@@ -237,8 +237,8 @@ describe('link shape', () => {
 
 describe('size cap', () => {
   it('refuses a decompression bomb instead of inflating it', async () => {
-    // 4 MB of zero bytes deflates to a few kB — the classic shape of a
-    // payload that is cheap to send and expensive to expand.
+    // 4 MB of zero bytes deflates to a few kB: cheap to send, expensive to
+    // expand.
     const bomb = new Uint8Array(4 * 1024 * 1024);
     const hash = await compressedHash(bomb);
     expect(hash.length).toBeLessThan(50_000); // cheap to send, as advertised
@@ -390,11 +390,9 @@ describe('malformed input returns null', () => {
   });
 
   it('ignores bytes appended after the end of the deflate stream', async () => {
-    // Documenting real platform behaviour rather than wishing it away: a raw
-    // deflate stream is self-terminating, so DecompressionStream stops at the
-    // final block and never looks at trailing bytes. Appending garbage is
-    // therefore not a way to smuggle anything in — those bytes are never
-    // decompressed, never decoded, and never reach the scene.
+    // A raw deflate stream is self-terminating, so DecompressionStream stops
+    // at the final block and never looks at trailing bytes. Appended garbage
+    // is never decompressed and never reaches the scene.
     const good = await deflateRaw(new TextEncoder().encode('{"name":"a","code":"b"}'));
     const padded = new Uint8Array(good.length + 8);
     padded.set(good, 0);
@@ -510,7 +508,7 @@ describe('clearShareFromLocation', () => {
   });
 
   it('does not push a history entry', () => {
-    // The only history call made is replaceState — pushState would leave Back
+    // The only history call made is replaceState. pushState would leave Back
     // pointing at the payload URL and re-trigger the share prompt forever.
     const calls: string[] = [];
     g.history = {

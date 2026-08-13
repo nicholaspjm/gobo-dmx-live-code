@@ -2,26 +2,25 @@
  * Tests for scene file save / open.
  *
  * A saved scene is now the code itself, in a `.js` file. The first suite
- * pins that literally — the bytes handed to the browser must be the buffer
- * and nothing else — because the whole point of the format is that the file
- * is readable, diffable, highlightable source outside gobo. Anything wrapped
- * around it (an envelope, a header, a normalised trailing newline) breaks
- * that promise quietly, in a file the user only opens weeks later.
+ * pins that literally: the bytes handed to the browser must be the buffer
+ * and nothing else, so the file stays readable, diffable and highlightable
+ * outside gobo. Anything wrapped around it (an envelope, a header, a
+ * normalised trailing newline) breaks that quietly, in a file the user only
+ * opens weeks later.
  *
  * The rest covers the two pure halves: parseSceneText() and the filename
- * sanitiser. Two cases there are load-bearing rather than incidental:
+ * sanitiser. Two cases there are load-bearing:
  *
  *   - JSON that is NOT an envelope must open as code. A scene is JavaScript,
  *     and rejecting a file because it happens to parse as JSON would lock the
  *     user out of their own set.
  *   - Name → filename → name must settle. The name lives only in the
  *     filename now, so a sanitiser and an un-sanitiser that disagree would
- *     rename the user's scene a little more on every save/open cycle.
+ *     rename the user's scene further on every save/open cycle.
  *
  * downloadScene() is a DOM wrapper and the default test environment is node,
  * so its three globals (document, the anchor, URL object-URLs) are stubbed
- * below rather than the function being left untested — what it writes is the
- * format, and the format is worth a test.
+ * below. What it writes is the format, and the format is worth a test.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -67,7 +66,7 @@ let blobs: Blob[];
 
 // Node has real URL.createObjectURL, so these are saved and put back rather
 // than assumed absent. The deferred revoke inside downloadScene fires a
-// second later, by which time the real implementation is back — revoking an
+// second later, by which time the real implementation is back; revoking an
 // id it never issued is a no-op, so nothing escapes into the next test.
 const urlHost = URL as unknown as {
   createObjectURL(blob: Blob): string;
@@ -108,7 +107,7 @@ afterEach(() => {
 
 describe('downloadScene', () => {
   it('writes the code verbatim, with nothing wrapped around it', async () => {
-    // Deliberately awkward: quotes, backslashes, blank lines, non-ASCII and a
+    // Awkward on purpose: quotes, backslashes, blank lines, non-ASCII and a
     // trailing newline are all things a JSON envelope would have escaped or a
     // serialiser might have "tidied".
     const code = 'const spot = fixture(1, "rgbw")\n\n// café ☆ 50\\50\nspot.white(sine())\n';
@@ -160,7 +159,7 @@ describe('downloadScene', () => {
 
 // ─── Legacy envelopes ────────────────────────────────────────────────────────
 
-describe('parseSceneText — legacy .gobo envelopes', () => {
+describe('parseSceneText: legacy .gobo envelopes', () => {
   it('reads a valid envelope, preferring its name over the filename', () => {
     const result = parseSceneText(legacyEnvelope(), 'downloaded (3).gobo');
     expect(result).toEqual({
@@ -177,9 +176,9 @@ describe('parseSceneText — legacy .gobo envelopes', () => {
   });
 
   it('accepts an envelope regardless of the file extension', () => {
-    // Detection keys on the goboScene key, not on the extension — a renamed
-    // .gobo still opens, and a .js file holding an old envelope still
-    // restores its name.
+    // Detection keys on the goboScene key, not on the extension, so a
+    // renamed .gobo still opens and a .js file holding an old envelope
+    // still restores its name.
     const result = parseSceneText(legacyEnvelope(), 'set.js');
     expect(result.ok && result.name).toBe('ultratronics 11');
   });
@@ -208,7 +207,7 @@ describe('parseSceneText — legacy .gobo envelopes', () => {
 
 // ─── Raw code ────────────────────────────────────────────────────────────────
 
-describe('parseSceneText — raw code', () => {
+describe('parseSceneText: raw code', () => {
   it('treats a plain .js file as code and names it from the filename', () => {
     const code = "const spot = fixture(1, 'rgbw')\nspot.white(sine())\n";
     expect(parseSceneText(code, 'my set.js')).toEqual({
@@ -219,8 +218,8 @@ describe('parseSceneText — raw code', () => {
   });
 
   it('treats JSON that is not an envelope as code, not as an error', () => {
-    // No goboScene key, so this is just a file whose contents happen to be
-    // valid JSON. `{"a": 1}` is a legal (if dull) program.
+    // No goboScene key, so this is a file whose contents happen to be valid
+    // JSON. `{"a": 1}` is a legal program.
     const code = '{"a": 1, "b": [2, 3]}';
     expect(parseSceneText(code, 'notes.txt')).toEqual({
       ok: true,
@@ -235,7 +234,7 @@ describe('parseSceneText — raw code', () => {
   });
 
   it('treats a bare JSON scalar as code', () => {
-    // JSON.parse('42') succeeds and returns a number — it must not be
+    // JSON.parse('42') succeeds and returns a number, which must not be
     // mistaken for a document shape.
     expect(parseSceneText('42', 'answer.js')).toEqual({ ok: true, name: 'answer', code: '42' });
     expect(parseSceneText('"hi"', 'greet.js')).toEqual({ ok: true, name: 'greet', code: '"hi"' });
@@ -244,7 +243,7 @@ describe('parseSceneText — raw code', () => {
 
   it('treats a fixture export as code rather than claiming it is a scene', () => {
     // Wrong envelope type: no goboScene key, so it falls through to code.
-    // Better than a false "damaged scene file" — the user can see what it is.
+    // Better than a false "damaged scene file"; the user can see what it is.
     const code = JSON.stringify({ goboFixture: 1, id: 'bar', def: {} });
     expect(parseSceneText(code, 'bar.gobo-fixture.json').ok).toBe(true);
   });
@@ -257,7 +256,7 @@ describe('parseSceneText — raw code', () => {
 
 // ─── Rejections ──────────────────────────────────────────────────────────────
 
-describe('parseSceneText — rejections', () => {
+describe('parseSceneText: rejections', () => {
   it('rejects an empty file', () => {
     const result = parseSceneText('', 'empty.js');
     expect(result.ok).toBe(false);
@@ -318,7 +317,7 @@ describe('parseSceneText — rejections', () => {
 
 // ─── Name derivation from filename ───────────────────────────────────────────
 
-describe('parseSceneText — name from filename', () => {
+describe('parseSceneText: name from filename', () => {
   const nameOf = (filename: string): string => {
     const result = parseSceneText('setBPM(120)', filename);
     return result.ok ? result.name : `<rejected: ${result.reason}>`;
@@ -454,7 +453,7 @@ describe('save / open round trip', () => {
   });
 
   it('returns a name containing dots unchanged', () => {
-    // The extension stripper takes the .js and stops — "act 2" would be a
+    // The extension stripper takes the .js and stops. "act 2" would be a
     // silent rename of the user's scene.
     expect(roundTrip('act 2.5 final')).toEqual({
       filename: 'act 2.5 final.js',
@@ -471,10 +470,10 @@ describe('save / open round trip', () => {
   });
 
   it('settles after one save, however awkward the name', () => {
-    // The sanitiser may rename a scene ONCE — "50/50" cannot be a filename.
-    // What must not happen is a name that keeps changing: the second cycle
-    // has to produce exactly the same file as the first, or a scene would
-    // drift a little further from its name every time it is saved.
+    // The sanitiser may rename a scene ONCE, because "50/50" cannot be a
+    // filename. What must not happen is a name that keeps changing: the
+    // second cycle has to produce the same file as the first, or a scene
+    // drifts further from its name on every save.
     const awkward = [
       '50/50 mix',
       'con',
@@ -497,7 +496,7 @@ describe('save / open round trip', () => {
 
   it('renames "50/50 mix" visibly, and only once', () => {
     // Pinned by name rather than only in the loop above: this is the case a
-    // user actually hits, and the new name is the one they will see in their
+    // user hits, and the new name is the one they will see in their
     // downloads folder and in the topbar when they reopen it.
     expect(roundTrip('50/50 mix')).toEqual({ filename: '50 50 mix.js', name: '50 50 mix' });
   });

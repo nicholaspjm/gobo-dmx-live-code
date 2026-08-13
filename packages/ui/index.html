@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>gobo</title>
-    <!-- Inline SVG favicon — a small four-pointed "spark" in the accent
-         colour. Drop-in replace this <link> later with a real icon file. -->
+    <!-- Inline SVG favicon: a small four-pointed "spark" in the accent
+         colour. Replace this <link> with a real icon file later. -->
     <link
       rel="icon"
       type="image/svg+xml"
@@ -88,8 +88,8 @@
       }
 
       .bpm-display {
-        /* Already declared above as .bpm-display — keep the flex layout
-           here so tap button sits neatly next to the number. */
+        /* Already declared above as .bpm-display. The flex layout here puts
+           the tap button next to the number. */
         display: inline-flex;
         align-items: center;
         gap: 6px;
@@ -98,9 +98,9 @@
         color: var(--text);
       }
 
-      /* Editable BPM field. Looks like plain text until hovered / focused.
-         Pauses its own auto-refresh while focused (see main.ts) so the
-         user's in-progress edit isn't stomped by the 10 Hz updater. */
+      /* Editable BPM field. Looks like plain text until hovered or focused.
+         Pauses its own auto-refresh while focused (see main.ts) so the 10 Hz
+         updater does not stomp an in-progress edit. */
       .bpm-val {
         display: inline-block;
         min-width: 2em;
@@ -262,10 +262,10 @@
         cursor: help;
       }
 
-      /* Hover tooltip for the fixture sim elements. Positioned absolutely
-         by JS near the hovered fixture. Hidden by default; the .open class
-         fades it in. Kept deliberately simple — no arrow, just a floating
-         card with the fixture's static metadata and live channel values. */
+      /* Hover tooltip for the fixture sim elements. Positioned absolutely by
+         JS near the hovered fixture. Hidden by default; the .open class fades
+         it in. No arrow: a floating card with the fixture's static metadata
+         and live channel values. */
       .fixture-tooltip {
         position: fixed;
         z-index: 200;
@@ -318,7 +318,7 @@
         color: var(--text);
       }
 
-      /* Pixel-strip sim — horizontal row of small rectangular "LEDs" */
+      /* Pixel-strip sim: horizontal row of small rectangular "LEDs" */
       .fixture-strip {
         display: flex;
         gap: 2px;
@@ -339,10 +339,10 @@
         flex-shrink: 0;
       }
 
-      /* XY indicator — small companion grid that tracks a fixture's
-         pan / tilt / direction channels. Sits between the main viz and
-         the label. Dot positioned via JS as percentages; the crosshair
-         rules are pure decoration. */
+      /* XY indicator: a small companion grid that tracks a fixture's
+         pan / tilt / direction channels. Sits between the main viz and the
+         label. Dot positioned via JS as percentages; the crosshair rules are
+         decoration. */
       .fixture-xy {
         position: relative;
         width: 28px;
@@ -439,9 +439,9 @@
         gap: 6px;
       }
 
-      /* Click-to-rename. Left unadorned until hovered so the bar still reads
-         as a label rather than a form — the BPM field opposite behaves the
-         same way, and following it means one learned gesture covers both. */
+      /* Click-to-rename. Left unadorned until hovered so the bar reads as a
+         label rather than a form. The BPM field opposite behaves the same
+         way, so one gesture covers both. */
       .scene-name {
         display: inline-block;
         max-width: 190px;
@@ -465,8 +465,7 @@
         text-overflow: clip;
       }
       /* Marks the buffer as differing from the last copy written to a file.
-         Never a colour on its own — a single dot next to the name is as loud
-         as an unsaved-changes hint needs to be during a set. */
+         A single dot next to the name, never a colour change on its own. */
       .scene-dirty {
         color: var(--accent);
         font-size: 14px;
@@ -499,8 +498,8 @@
         border-color: var(--accent);
       }
 
-      /* Examples menu — a popover under its button. The wrapper is the
-         positioning context so the menu tracks the button with no JS. */
+      /* Examples menu: a popover under its button. The wrapper is the
+         positioning context, so the menu tracks the button with no JS. */
       .scene-menu-wrap {
         position: relative;
         display: inline-flex;
@@ -554,13 +553,12 @@
       }
 
       /* ─── Untrusted-scene banner ─────────────────────────────────────────
-         A scene that arrived in a share link is a stranger's code pointed at
-         this origin, and evaluating it gives it full page privileges (see
-         SECURITY.md). Such a scene is loaded stopped; this banner says where
-         it came from and stays up until the user runs it deliberately or
-         dismisses it. It takes a row in the layout rather than floating over
-         the editor, because an overlay is something you flick away without
-         reading. */
+         Evaluating a scene that arrived in a share link gives someone else's
+         code full page privileges (see SECURITY.md). Such a scene is loaded
+         stopped; this banner says where it came from and stays up until the
+         user runs it or dismisses it. It takes a row in the layout rather
+         than floating over the editor, so it cannot be flicked away like an
+         overlay. */
       .share-banner {
         display: none;
         align-items: center;
@@ -593,10 +591,9 @@
 
       /* ─── Legacy scenes notice ───────────────────────────────────────────
          One-time panel for scenes saved under the old multi-scene model. The
-         old localStorage keys are never written or deleted, so this is purely
-         an offer to take copies out as files. Anchored bottom-right rather
-         than modal: it must be impossible to miss but must not block the
-         editor for someone who just wants to work. */
+         old localStorage keys are never written or deleted, so this is an
+         offer to take copies out as files. Anchored bottom-right rather than
+         modal, so it does not block the editor. */
       .legacy-notice {
         display: none;
         position: fixed;
@@ -692,9 +689,9 @@
         border-color: var(--accent);
       }
 
-      /* Icon-only variant — the settings gear. Same border + hover treatment
-         as the text toggles, but square so the SVG sits centred without
-         the lopsided text padding. */
+      /* Icon-only variant, the settings gear. Same border and hover treatment
+         as the text toggles, but square so the SVG sits centred without the
+         lopsided text padding. */
       .settings-toggle-btn {
         padding: 0;
         width: 24px;
@@ -870,7 +867,7 @@
         border-color: var(--accent);
       }
 
-      /* Search bar — sticky at top of the scrollable body */
+      /* Search bar, sticky at the top of the scrollable body */
       .doc-search {
         position: sticky;
         top: 0;
@@ -934,8 +931,8 @@
         font-style: italic;
       }
 
-      /* Tab strip under the search bar. Strudel-style — tabs are prominent
-         and clickable, the scroll slider matches the theme. Scrolls
+      /* Tab strip under the search bar. Strudel-style: tabs are prominent and
+         clickable, and the scroll slider matches the theme. Scrolls
          horizontally on narrow panels instead of wrapping. */
       .doc-tabs {
         position: sticky;
@@ -1064,10 +1061,10 @@
         border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
       }
 
-      /* Compact link-row used on the welcome page. Each row is a button
-         that switches the docs panel to a target tab on click. Styled to
-         feel like a nav-list item — hover tints the bg and shifts the
-         arrow to the right. */
+      /* Compact link-row used on the welcome page. Each row is a button that
+         switches the docs panel to a target tab on click. Styled like a
+         nav-list item: hover tints the background and shifts the arrow
+         right. */
       .doc-link {
         display: flex;
         align-items: center;
@@ -1257,7 +1254,7 @@
       .lib-row-unsaved {
         opacity: 0.85;
       }
-      /* Built-in rows are read-only — slightly muted to telegraph that. */
+      /* Built-in rows are read-only, muted to show it. */
       .lib-row-builtin .lib-row-id {
         color: var(--text);
       }
@@ -1357,20 +1354,20 @@
          custom property that applyTheme() writes onto :root, so switching
          theme repaints the editor without this file knowing any palette.
 
-         The taxonomy is ranked by consequence, and the ranking is carried
-         by weight and decoration as well as hue so it survives the
-         monochrome themes: what you bind (fixtures) and what changes where
-         light physically goes (output, tempo) are the boldest; pattern
-         sources sit above the transforms they feed; tokens that change
-         nothing on the rig (editor-only viz, read-only introspection) are
-         italic and low-chroma so they read as annotation, not command.
+         The taxonomy is ranked by consequence, carried by weight and
+         decoration as well as hue so it survives the monochrome themes.
+         Fixtures and the calls that change where light physically goes
+         (output, tempo) are boldest; pattern sources sit above the transforms
+         they feed; tokens that change nothing on the rig (editor-only viz,
+         read-only introspection) are italic and low-chroma, so they read as
+         annotation rather than command.
 
          Base JavaScript tokens (keywords, numbers, strings, comments,
-         operators) are deliberately absent: lezer tags carry no stable
-         class names, so they take their own --syn-* vars from the
-         HighlightStyle in src/theme.ts. The `.cm-content` prefix is what
-         keeps the rules below winning over that HighlightStyle, whose
-         generated selectors are single-class. */
+         operators) are absent: lezer tags carry no stable class names, so
+         they take their own --syn-* vars from the HighlightStyle in
+         src/theme.ts. The `.cm-content` prefix keeps the rules below winning
+         over that HighlightStyle, whose generated selectors are
+         single-class. */
 
       /* Fixtures: the name being bound, then every later use of it. The
          declaration is the brightest thing on its line; refs are the same
@@ -1419,10 +1416,10 @@
         color: var(--syn-pattern-chain);
       }
 
-      /* Colour setters, each tinted towards the channel it drives. The
-         tints are capped in chroma and solved to one shared contrast band
-         so the hint never reads as importance — no setter outranks
-         another, and none of them outranks a fixture or an output call. */
+      /* Colour setters, each tinted towards the channel it drives. The tints
+         are capped in chroma and solved to one shared contrast band so the
+         hint never reads as importance: no setter outranks another, and none
+         outranks a fixture or an output call. */
       .cm-content .gobo-color {
         color: var(--syn-color);
       }
@@ -1451,7 +1448,7 @@
         color: var(--syn-move);
       }
 
-      /* Strip and pixel-grid methods — addressing many emitters at once. */
+      /* Strip and pixel-grid methods: addressing many emitters at once. */
       .cm-content .gobo-pixel {
         color: var(--syn-pixel);
       }
@@ -1465,8 +1462,8 @@
         font-style: italic;
       }
 
-      /* Raw channel writes that bypass the fixture layer — plumbing, so
-         it is deliberately utilitarian rather than expressive. */
+      /* Raw channel writes that bypass the fixture layer. Plumbing, so the
+         styling is utilitarian rather than expressive. */
       .cm-content .gobo-dmx {
         color: var(--syn-dmx);
       }
@@ -1486,7 +1483,7 @@
          widgets also carry: the syntax taxonomy above owns `.gobo-viz`
          for the `.viz` call itself, and that mark span must not inherit
          widget chrome (border, background, inline-flex). The kinds are
-         VizKind in packages/core/src/fixtures.ts — a new kind needs a new
+         VizKind in packages/core/src/fixtures.ts; a new kind needs a new
          selector here. */
       .gobo-viz-color,
       .gobo-viz-meter,
@@ -1560,10 +1557,10 @@
         );
         transition: background 60ms linear;
       }
-      /* Flash: the tick loop maintains a decaying --gobo-flash 0..1 that we
-         multiply into the bg alpha. No keyframes, no attribute toggles, no
-         forced reflows — the previous animation-restart approach was
-         interfering with DMX tick timing enough to flicker physical lights. */
+      /* Flash: the tick loop maintains a decaying --gobo-flash 0..1 that is
+         multiplied into the background alpha. The previous approach restarted
+         a CSS animation on each trigger, and the forced reflows interfered
+         with DMX tick timing enough to flicker physical lights. */
       .gobo-patviz-flash {
         background: rgba(196, 114, 74, calc(var(--gobo-flash, 0) * 0.32));
       }
@@ -1582,7 +1579,7 @@
         display: block;
       }
 
-      /* Pixel strip preview — mini dots */
+      /* Pixel strip preview: mini dots */
       .gobo-viz-strip {
         padding: 2px 3px;
         gap: 1px;
@@ -1653,8 +1650,8 @@
                 aria-expanded="false"
                 aria-controls="examples-menu"
               >examples</button>
-              <!-- Populated from EXAMPLES in main.ts so the menu and the
-                   bundled scenes can never drift apart. -->
+              <!-- Populated from EXAMPLES in main.ts so the menu matches the
+                   bundled scenes. -->
               <div class="scene-menu" id="examples-menu" role="menu" aria-hidden="true"></div>
             </div>
           </div>
@@ -1710,8 +1707,8 @@
       <div class="viz-wrap">
         <div class="fixture-panel">
           <span class="fixture-label">sim</span>
-          <!-- Sim panel is rebuilt dynamically in main.ts after every eval —
-               one fixture-unit element per SimFixture the current scene
+          <!-- Sim panel is rebuilt in main.ts after every eval: one
+               fixture-unit element per SimFixture the current scene
                registered with the core. Empty when nothing is defined. -->
           <div class="fixture-lights" id="fixture-lights"></div>
           <span class="fixture-empty" id="fixture-empty">no fixtures in this scene</span>
@@ -1727,9 +1724,8 @@
     <div class="fixture-tooltip" id="fixture-tooltip" aria-hidden="true"></div>
 
     <!-- One-time offer to take the old multi-scene saves out as files. The
-         rows are built in main.ts from the legacy localStorage keys, which are
-         only ever READ — dismissing this notice leaves them exactly as they
-         are, so nothing here can lose a scene. -->
+         rows are built in main.ts from the legacy localStorage keys, which
+         are only read. Dismissing this notice leaves them as they are. -->
     <aside class="legacy-notice" id="legacy-notice" aria-hidden="true">
       <div class="legacy-notice-head">
         <span class="legacy-notice-title">scenes from the old version</span>
@@ -1738,7 +1734,7 @@
       <p class="legacy-notice-body">
         gobo now keeps one working scene and saves to files. These were saved under
         the old multi-scene menu. They are still in this browser and nothing here
-        deletes them — download any you want to keep as a file.
+        deletes them. Download any you want to keep as a file.
       </p>
       <div class="legacy-notice-list" id="legacy-list"></div>
       <div class="legacy-notice-actions">

@@ -6,9 +6,9 @@
  * exits non-zero on any failure. Run by the validate-fixtures GitHub
  * Action on every PR that touches a file under `fixtures/`.
  *
- * We compile the validator on the fly via tsx so the script can import
- * the TypeScript source directly — keeps the checked logic identical to
- * the one the app uses at runtime without a separate build step.
+ * tsx compiles the validator on the fly so this script can import the
+ * TypeScript source directly. The logic checked here is the same logic the
+ * app runs, with no separate build step.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -52,9 +52,8 @@ for (const file of files) {
   }
 
   // "goboFixture" is the current schema-version field. "lumenFixture" is the
-  // pre-rename spelling and stays accepted as a deprecated alias — fixture
-  // files exported by older builds are already out in the world, and they
-  // should keep validating and importing unchanged.
+  // pre-rename spelling, accepted as a deprecated alias so fixture files
+  // exported by older builds keep validating and importing unchanged.
   const schemaVersion =
     parsed && typeof parsed === 'object' ? (parsed.goboFixture ?? parsed.lumenFixture) : undefined;
 

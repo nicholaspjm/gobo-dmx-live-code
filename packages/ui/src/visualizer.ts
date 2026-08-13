@@ -1,7 +1,7 @@
 /**
  * Canvas-based DMX visualizer.
  *
- * Renders 512 vertical bars representing channels 1–512.
+ * Renders 512 vertical bars representing channels 1-512.
  * Updates at ~30 fps with smooth interpolation toward the current value.
  *
  * Colors use the earth-tone palette; active channels glow in terracotta.
@@ -15,7 +15,7 @@ const CHANNEL_COUNT = 512;
 
 let _canvas: HTMLCanvasElement;
 let _ctx: CanvasRenderingContext2D;
-let _displayValues = new Float32Array(CHANNEL_COUNT); // smoothed 0–255
+let _displayValues = new Float32Array(CHANNEL_COUNT); // smoothed 0-255
 let _targetValues = new Float32Array(CHANNEL_COUNT);  // from scheduler
 let _rafId: number | null = null;
 let _lastFrameTime = 0;
@@ -83,14 +83,14 @@ function draw(): void {
   for (let i = 0; i < CHANNEL_COUNT; i++) {
     const value = _displayValues[i];
     if (value < 0.5) {
-      // Very dim — just draw a subtle tick mark
+      // Very dim: draw a tick mark instead of a bar
       const t = value / 0.5;
       _ctx.fillStyle = `rgba(${dimRgb},${0.3 + t * 0.3})`;
       _ctx.fillRect(i * barW, h - 2, Math.max(1, barW - 0.5), 2);
       continue;
     }
 
-    const t = value / 255; // 0–1
+    const t = value / 255; // 0-1
     const barH = Math.max(2, t * maxH);
     const x = i * barW;
     const y = h - barH;

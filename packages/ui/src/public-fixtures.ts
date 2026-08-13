@@ -1,11 +1,10 @@
 /**
- * Bundled public fixture library — the `fixtures/*.json` folder at the
- * repo root, pulled into the app at build time via Vite's glob import.
+ * Bundled public fixture library: the `fixtures/*.json` folder at the repo
+ * root, pulled into the app at build time via Vite's glob import.
  *
- * Every file is re-validated against `validateFixture` here even though
- * CI runs the same check on PRs. Belt + braces: if a broken file ever
- * makes it to `main`, the app drops it with a console warning rather
- * than crashing — and the UI still loads with whatever's still valid.
+ * Every file is re-validated against `validateFixture` here even though CI
+ * runs the same check on PRs. If a broken file ever reaches `main`, the app
+ * drops it with a console warning and loads with the fixtures that remain.
  */
 
 import { defineFixture, validateFixture, type FixtureDef } from '@gobo/core';
@@ -17,7 +16,7 @@ export interface PublicFixture {
 
 // Vite's import.meta.glob reaches up out of packages/ui to the repo-root
 // `fixtures/` directory. `eager: true` turns each file into a static
-// import so there's no async fetch — everything ships in the bundle.
+// import, so everything ships in the bundle with no async fetch.
 const bundled: Record<string, unknown> = import.meta.glob(
   '../../../fixtures/*.json',
   { eager: true, import: 'default' },
@@ -30,7 +29,7 @@ function loadAll(): PublicFixture[] {
       goboFixture?: number;
       /** @deprecated Pre-rename name for `goboFixture`. Still read so
        *  fixture files exported (or contributed) before the rename keep
-       *  loading — see the version check below. */
+       *  loading. See the version check below. */
       lumenFixture?: number;
       id?: unknown;
       def?: unknown;

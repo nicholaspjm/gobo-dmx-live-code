@@ -10,18 +10,18 @@
  *      from the analyser's frequency data and stores the latest values in
  *      module-scope. Pattern factories (`audio.bass()` etc.) are
  *      `PatternLike` objects whose queryArc returns the current stored value,
- *      so they ignore the cycle-time argument — they're "live" values, not
- *      parametric waveforms. Same `.range / .add / .mul / .slow / .fast`
+ *      so they ignore the cycle-time argument: they are live values rather
+ *      than parametric waveforms. Same `.range / .add / .mul / .slow / .fast`
  *      chain as the strudel waveforms so users can `audio.bass().range(0, 1)`.
  *
  *   3. An external clock provider registered with the scheduler. When a track
  *      is loaded and playing, cyclePos is pinned to (audioPosition * bpm /
  *      60 / BEATS_PER_CYCLE) so pattern phase tracks the music through
- *      pauses and seeks. Mic mode doesn't drive the clock (no meaningful
- *      position) — internal wall-clock keeps running there.
+ *      pauses and seeks. Mic mode does not drive the clock (no meaningful
+ *      position); the internal wall-clock keeps running there.
  *
- * Not a main feature — if no track is loaded and mic isn't enabled, this
- * module sits idle and everything else behaves exactly as before.
+ * Optional: with no track loaded and mic off, this module sits idle and
+ * nothing else changes.
  */
 
 import { setBPM, setClockProvider } from './scheduler.js';
@@ -36,7 +36,7 @@ const BEATS_PER_CYCLE = 4;
 
 let _ctx: AudioContext | null = null;
 let _analyser: AnalyserNode | null = null;
-// Explicit ArrayBuffer generic — getByteFrequencyData rejects the default
+// Explicit ArrayBuffer generic: getByteFrequencyData rejects the default
 // ArrayBufferLike variant (newer TS lib.dom).
 let _freqData: Uint8Array<ArrayBuffer> | null = null;
 
@@ -45,7 +45,7 @@ let _freqData: Uint8Array<ArrayBuffer> | null = null;
 let _bufferSource: AudioBufferSourceNode | null = null;
 let _audioBuffer: AudioBuffer | null = null;
 
-/** Mic source — kept around so we can disconnect cleanly. */
+/** Mic source, kept around so we can disconnect it later. */
 let _micSource: MediaStreamAudioSourceNode | null = null;
 let _micStream: MediaStream | null = null;
 
@@ -83,7 +83,7 @@ const PEAK_DECAY_PER_TICK = 0.07; // ≈150ms to zero at 60Hz
 
 function ensureContext(): AudioContext {
   if (_ctx) return _ctx;
-  // Using the browser's standard constructor — TS's lib.dom types cover this.
+  // The browser's standard constructor; TS's lib.dom types cover this.
   _ctx = new (window.AudioContext ||
     (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
 
@@ -91,7 +91,7 @@ function ensureContext(): AudioContext {
   _analyser.fftSize = 1024;       // 512 freq bins, plenty for 3-band split
   _analyser.smoothingTimeConstant = 0.7;
   // Backing ArrayBuffer explicit so TS picks the tight Uint8Array<ArrayBuffer>
-  // overload that getByteFrequencyData expects — the loose ArrayBufferLike
+  // overload that getByteFrequencyData expects. The loose ArrayBufferLike
   // variant (e.g. SharedArrayBuffer-compatible) won't type-check on newer
   // lib.dom bundles.
   _freqData = new Uint8Array(new ArrayBuffer(_analyser.frequencyBinCount));
@@ -146,7 +146,7 @@ export async function loadTrack(file: File | Blob): Promise<LoadTrackResult> {
       setBPM(_bpm);
     }
   } catch {
-    // Library missing or analysis failed — silently skip, user can setBPM manually.
+    // Library missing or analysis failed. Skip it; the user can setBPM manually.
   }
 
   // Hook the scheduler's external clock once a track is loaded.
@@ -166,7 +166,7 @@ export async function playTrack(): Promise<void> {
   _bufferSource.connect(_analyser);
   _analyser.connect(_ctx.destination);
   _bufferSource.onended = () => {
-    // Ended by the buffer itself (playhead reached end) — not by pause().
+    // Ended by the buffer itself (playhead reached end), not by pause().
     if (_isPlaying) {
       _isPlaying = false;
       _playHeadSec = _duration;
@@ -218,7 +218,7 @@ export async function enableMic(): Promise<void> {
 
   _micSource = ctx.createMediaStreamSource(_micStream);
   _micSource.connect(_analyser!);
-  // Intentionally NOT connected to ctx.destination — would cause feedback.
+  // Intentionally NOT connected to ctx.destination: that would cause feedback.
   _source = 'mic';
 
   // Mic mode doesn't drive the scheduler clock (no track position), so
@@ -254,7 +254,7 @@ function fileClockProvider(): number | null {
 /**
  * Called once per scheduler tick from main.ts. Reads the analyser's frequency
  * bins, splits into 3 bands, writes the module-scope values that pattern
- * factories read. Fast — ~half a millisecond even on low-end hardware.
+ * factories read. Takes ~half a millisecond on low-end hardware.
  */
 export function updateAudioFrame(): void {
   if (!_analyser || !_freqData || _source === null) {
@@ -310,7 +310,7 @@ export function updateAudioFrame(): void {
  * strudel waveforms offer, so `audio.bass().range(0, 1)` works the
  * same way as `sine().slow(4).range(...)`.
  *
- * queryArc ignores begin/end — these are "live" values, not parametric.
+ * queryArc ignores begin/end: these are live values, not parametric.
  */
 function makeReactive(read: () => number): PatternLike {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
