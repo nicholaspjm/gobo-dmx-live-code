@@ -65,6 +65,12 @@ WebSocket. Nothing to start twice, nothing to forget.
 Use `npm run dev` while working on gobo itself: Vite on http://localhost:3000
 with hot reload, and the bridge alongside it.
 
+Want it always available? `npm run autostart` starts the bridge at login, so
+opening the page just works from then on, hosted build included. It is a
+per-user login item, needs no administrator rights, and
+`npm run autostart -- --remove` undoes it. A web page cannot start a process
+itself, so this is the way round to arrange it.
+
 If nothing reaches the rig, run `npm run doctor`. It checks each link in the
 chain and reports what it measured, including the two mistakes that fail
 silently: sending to your own machine's IP, and the computer being on a
