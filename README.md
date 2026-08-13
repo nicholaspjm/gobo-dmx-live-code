@@ -29,7 +29,7 @@ Powered by [@strudel/core](https://strudel.cc) — the same waveform and cycle s
 - **Fixture system** — built-in profiles for RGB, RGBW, moving heads, strobes, and custom definitions
 - **Pixel strips** — `rgbStrip()` / `rgbwStrip()` with per-pixel, grid and chase helpers
 - **Multiple outputs** — Art-Net 4, sACN (E1.31), OSC, or mock
-- **One working scene** — autosaved to the browser as you type, saved to `.gobo` files when you want a durable copy
+- **One working scene** — autosaved to the browser as you type, saved as a plain `.js` file when you want a durable copy
 - **Share links** — a link that carries the whole scene, no server involved
 - **Examples** — three bundled demo scenes, loaded from the top bar
 - **Fixture library** — built-in, bundled public, saved and session fixtures in one panel, with JSON import/export
@@ -115,10 +115,17 @@ Everything durable is a file or a link:
 
 | Top bar | What it does |
 |---------|--------------|
-| **save** | Downloads the scene as `<name>.gobo` — JSON holding the name, the code, and a timestamp. Same as `Ctrl+S` |
-| **open** | File picker for `.gobo`, `.js` or `.txt`. Raw code files open too, taking their name from the filename |
+| **save** | Downloads the scene as `<name>.js` — the code itself, nothing wrapped around it. Same as `Ctrl+S` |
+| **open** | File picker for `.js`, `.txt` or `.gobo`. The scene is named after the file it came from |
 | **share** | Copies a link containing the entire scene (see below) |
 | **examples** | The three bundled demos — starter demo, ultratronics 11, four-colour bar demo |
+
+A saved file holds exactly what was in the editor, byte for byte. A scene *is* JavaScript, so it
+stays JavaScript: it opens with syntax highlighting in any editor, pastes into a gist, and diffs
+line by line, rather than being escaped into a single JSON string that only gobo can read back.
+The name lives in the filename and the save time in the file's own timestamp, so there is nothing
+else to carry. `.gobo` files written by earlier builds still open — whether a file is code or an
+old envelope is decided by reading it, not by its extension.
 
 Anything that replaces the whole buffer — open, share link, example — **arrives stopped** and
 waits for `Ctrl+Enter`, and asks first if the current scene has changes you have not saved to
@@ -154,7 +161,7 @@ in the scene itself to work on someone else's machine.
 ### Scenes from the old multi-scene version
 
 Earlier builds kept several named scenes in a top-bar dropdown. If you have any, a one-time
-notice lists them with a download button each, so you can turn them into `.gobo` files. The
+notice lists them with a download button each, so you can turn them into `.js` files. The
 old storage is left exactly as it was — dismissing the notice does not delete anything, and
 neither does anything else in this version.
 
@@ -167,7 +174,7 @@ neither does anything else in this version.
 | `Ctrl+Enter` | Evaluate code |
 | `Ctrl+.` | Stop — blackout by default, `freeze` if set that way in settings |
 | `Ctrl+Space` | Stop, as an alias that also preempts the autocomplete popup |
-| `Ctrl+S` | Save the scene to a `.gobo` file — the browser copy saves itself |
+| `Ctrl+S` | Save the scene to a `.js` file — the browser copy saves itself |
 | `Ctrl+Shift+F` | Format the buffer |
 | `T` | Tap tempo (ignored while typing in the editor or any input) |
 
@@ -282,7 +289,7 @@ Full setup and Art-Net alternative: **[docs/touchdesigner.md](docs/touchdesigner
 | Hosted https page can't reach a bridge on another machine | From `github.io` the page always dials `ws://localhost:3001` — browsers allow loopback from https, but block `ws://` to any other host | Run the bridge on the browser's machine, or `npm run dev` locally and open the UI on that machine's LAN IP (`http://192.168.x.x:3000`) |
 | Nothing arrives in TouchDesigner | Bridge still in Art-Net or mock mode, or the `OSC In CHOP` port doesn't match `osc(host, port)` | See [docs/touchdesigner.md](docs/touchdesigner.md); only channels you drive are transmitted |
 | Stutter, or a saturated network | Send rate too high for the link | Drop **send rate** to 30 Hz in settings |
-| A share link opens gobo but loads no scene | The link was truncated in transit — chat apps and mail clients cut long URLs, and half a payload cannot be decoded | Re-send it as a link, not as text that wraps, or send a saved `.gobo` file instead |
+| A share link opens gobo but loads no scene | The link was truncated in transit — chat apps and mail clients cut long URLs, and half a payload cannot be decoded | Re-send it as a link, not as text that wraps, or send a saved `.js` file instead |
 | Opened a shared scene and nothing happens | Shared scenes arrive stopped on purpose — they are someone else's code | Read the code, then `Ctrl+Enter` |
 
 ---
