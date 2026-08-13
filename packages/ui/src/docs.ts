@@ -122,7 +122,7 @@ const DOCS: DocSection[] = [
         name: 'setBPM',
         signature: 'setBPM(bpm)',
         description:
-          'Set the scheduler tempo. One pattern cycle = one beat, so .fast(4) at 120 BPM fires 4x per beat = 8 per second.',
+          'Set the scheduler tempo. One pattern cycle is 4 beats (a bar), so .fast(4) gives one pulse per beat at any tempo. At 120 BPM a cycle lasts 2 seconds.',
         example: 'setBPM(128)',
       },
     ],
