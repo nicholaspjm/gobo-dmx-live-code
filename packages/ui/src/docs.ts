@@ -87,14 +87,14 @@ const DOCS: DocSection[] = [
         name: 'artnet',
         signature: "artnet(host='127.0.0.1', port=6454)",
         description:
-          "Send Art-Net DMX packets via the bridge. Port defaults to 6454, the standard Art-Net port, so you rarely need to pass it. Use your node's IP to unicast, or a subnet broadcast (e.g. 2.255.255.255) to reach every node. One ArtDmx packet is transmitted per universe per tick, so multi-universe works by assigning fixtures to different universes.",
+          "Send Art-Net DMX packets via the bridge. host is the DESTINATION, never your own machine: either the IP printed on your node, or the broadcast address of the subnet your rig is on (192.168.0.255 reaches everything on 192.168.0.x). Your computer must already be on that same subnet, which is the usual reason nothing arrives. Port defaults to 6454. One ArtDmx packet per universe per tick, so multi-universe works by putting fixtures on different universes.",
         example: "artnet('2.0.0.100')",
       },
       {
         name: 'osc',
         signature: "osc(host='127.0.0.1', port=9000)",
         description:
-          'Send every active channel as an OSC message via the bridge. Address format: /gobo/<universe>/<channel>, one float arg in [0,1]. Works with the TouchDesigner OSC In CHOP.',
+          'Send every active channel as an OSC message via the bridge. host is the DESTINATION: the machine running the receiver, or 127.0.0.1 if that is this machine. Address format: /gobo/<universe>/<channel>, one float arg in [0,1]. Works with the TouchDesigner OSC In CHOP.',
         example: "osc('127.0.0.1', 9000)",
       },
       {

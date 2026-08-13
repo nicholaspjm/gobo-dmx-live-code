@@ -26,6 +26,7 @@ import {
   getStrudelError,
   connectBridge,
   onStatusChange,
+  getOutputConfig,
   sendUniverseState,
   restoreLibraryFixtures,
   getSimFixtures,
@@ -105,7 +106,14 @@ async function runEval(code: string): Promise<void> {
   }
   const result = evalCode(toRun);
   if (result.success) {
-    setStatus('ok', '✓ running');
+    const out = describeOutput();
+    if (out && !out.delivered) {
+      setStatus('error', `running, but ${out.text} was never reached. Start the bridge: npm run dev:bridge`);
+    } else if (out) {
+      setStatus('ok', `✓ running · ${out.text}`);
+    } else {
+      setStatus('ok', '✓ running');
+    }
     if (!isRunning()) start();
     // The "this came from a link" warning is done once the user runs the code.
     setShareBannerOpen(false);
@@ -153,6 +161,32 @@ function runStop(): void {
 let _statusKind: '' | 'ok' | 'error' = '';
 let _statusMsg = '';
 let _statusAtMs = 0;
+
+/**
+ * Where DMX is going, for the run status line.
+ *
+ * artnet() and friends only queue a message for the bridge. With no bridge
+ * running the scene still evaluates and the visualizer still animates, so
+ * nothing on screen says the rig is receiving nothing. The status line names
+ * the target on every run, and says when it was never reached.
+ */
+function describeOutput(): { text: string; delivered: boolean } | null {
+  const out = getOutputConfig();
+  if (!out) return null;
+  const c = out.config as {
+    mode?: string;
+    artnet?: { host?: string; port?: number };
+    osc?: { host?: string; port?: number };
+    sacn?: { universe?: number };
+  };
+  const mode = String(c.mode ?? 'unknown');
+  let text = mode;
+  if (mode === 'artnet') text = `art-net ${c.artnet?.host ?? '?'}:${c.artnet?.port ?? 6454}`;
+  else if (mode === 'osc') text = `osc ${c.osc?.host ?? '?'}:${c.osc?.port ?? 9000}`;
+  else if (mode === 'sacn') text = `sacn base universe ${c.sacn?.universe ?? 1}`;
+  else if (mode === 'mock') text = 'mock (console only)';
+  return { text, delivered: out.delivered };
+}
 
 function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
   evalStatusEl.textContent = msg;
