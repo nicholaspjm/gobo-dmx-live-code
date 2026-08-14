@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node scripts/start.mjs",
     "autostart": "node scripts/autostart.mjs",
+    "package": "node scripts/package-connector.mjs",
     "dev": "concurrently \"npm:dev:*\"",
     "dev:bridge": "npm run dev --workspace=packages/bridge",
     "dev:ui": "npm run dev --workspace=packages/ui",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.0",
+    "postject": "^1.0.0-alpha.6",
     "vitest": "^2.1.0"
   }
 }

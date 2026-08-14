@@ -46,6 +46,7 @@ import {
   setStripEffectWaveforms,
 } from './fixtures.js';
 import { sendConfig, connectDirect, isBlockedAsMixedContent } from './websocket.js';
+import { isUsbConnected, isUsbDmxSupported } from './usb-dmx.js';
 import { clearPatternVizRegistry, registerPatternViz } from './pattern-viz.js';
 
 // Strudel functions, loaded once via initStrudel()
@@ -310,6 +311,7 @@ const sandboxOutputBindings: Record<string, unknown> = {
   osc: (host?: string, port?: number): void => stageConfig(oscConfig(host, port)),
   mock: (): void => stageConfig(mockConfig()),
   td: (host?: string, port?: number): void => stageDirect(host, port),
+  usb: (): void => requireUsb(),
   setBPM: (value: number): void => stageBPM(value),
 };
 
@@ -329,6 +331,21 @@ function stageDirect(host = 'localhost', port = 9980): void {
     return;
   }
   buffer.direct = { host, port };
+}
+
+/**
+ * Select an already-connected USB DMX interface as the output.
+ *
+ * Choosing the device needs a user gesture, which scene code is not, so the UI
+ * owns connecting and this call only asserts that it happened. Saying so here
+ * beats a scene that looks like it runs while nothing is driven.
+ */
+function requireUsb(): void {
+  if (isUsbConnected()) return;
+  if (!isUsbDmxSupported()) {
+    throw new Error('usb() needs WebSerial, which Chrome and Edge have but Firefox and Safari do not.');
+  }
+  throw new Error('No USB DMX interface connected. Click "usb" in the top bar to choose one, then run again.');
 }
 
 function applyDirect(host: string, port: number): void {

@@ -39,18 +39,28 @@ Development with hot reload: npm run dev
   process.exit(0);
 }
 
-function run(label, cmd, cmdArgs) {
+/**
+ * Run a build step by invoking its tool with node directly.
+ *
+ * Not via npm: npm is a .cmd shim on Windows, and Node refuses to spawn .cmd
+ * without shell: true, which in turn prints a deprecation warning. Calling the
+ * tool's own entry point avoids both, and skips an npm process per step.
+ */
+function run(label, toolPath, toolArgs, cwd = root) {
   console.log(`[gobo] ${label}`);
-  // npm is a .cmd shim on Windows. Naming it directly avoids shell: true,
-  // which Node deprecates for arg-escaping reasons and which prints a warning
-  // in the middle of the startup output.
-  const exe = process.platform === 'win32' && cmd === 'npm' ? 'npm.cmd' : cmd;
-  const r = spawnSync(exe, cmdArgs, { cwd: root, stdio: 'inherit' });
+  const r = spawnSync(process.execPath, [toolPath, ...toolArgs], { cwd, stdio: 'inherit' });
+  if (r.error) {
+    console.error(`[gobo] ${label} could not start: ${r.error.message}`);
+    process.exit(1);
+  }
   if (r.status !== 0) {
-    console.error(`[gobo] ${label} failed. Try running it directly to see why: ${cmd} ${cmdArgs.join(' ')}`);
+    console.error(`[gobo] ${label} failed (exit ${r.status}).`);
     process.exit(1);
   }
 }
+
+const viteBin = join(root, 'node_modules', 'vite', 'bin', 'vite.js');
+const tscBin = join(root, 'node_modules', 'typescript', 'bin', 'tsc');
 
 /** Newest mtime under a directory, so a stale build can be noticed. */
 function newestMtime(dir, skip = new Set(['node_modules', 'dist', '.git'])) {
@@ -72,7 +82,8 @@ const uiStale = uiBuilt
   && newestMtime(join(root, 'packages', 'ui')) > statSync(join(uiDist, 'index.html')).mtimeMs;
 
 if (args.includes('--rebuild') || !uiBuilt || uiStale) {
-  run(uiBuilt ? 'UI changed since the last build, rebuilding' : 'building the app', 'npm', ['run', 'build']);
+  run(uiBuilt ? 'UI changed since the last build, rebuilding' : 'building the app',
+      viteBin, ['build'], join(root, 'packages', 'ui'));
 }
 
 const bridgeBuilt = existsSync(bridgeEntry);
@@ -80,7 +91,8 @@ const bridgeStale = bridgeBuilt
   && newestMtime(join(root, 'packages', 'bridge')) > statSync(bridgeEntry).mtimeMs;
 
 if (args.includes('--rebuild') || !bridgeBuilt || bridgeStale) {
-  run(bridgeBuilt ? 'bridge changed since the last build, rebuilding' : 'building the bridge', 'npm', ['run', 'bridge:build']);
+  run(bridgeBuilt ? 'bridge changed since the last build, rebuilding' : 'building the bridge',
+      tscBin, ['-p', join(root, 'packages', 'bridge', 'tsconfig.json')]);
 }
 
 // Hand the bridge its flags, then run it in THIS process rather than spawning

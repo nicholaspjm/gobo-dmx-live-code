@@ -28,7 +28,7 @@ Powered by [@strudel/core](https://strudel.cc): the same waveform and cycle synt
 - **Real-time visualizer**: 512-bar channel strip + fixture simulation, 30 fps
 - **Fixture system**: built-in profiles for RGB, RGBW, moving heads, strobes, and custom definitions
 - **Pixel strips**: `rgbStrip()` / `rgbwStrip()` with per-pixel, grid and chase helpers
-- **Multiple outputs**: Art-Net 4, sACN (E1.31), OSC, or mock
+- **Multiple outputs**: Art-Net 4, sACN (E1.31), OSC, a USB DMX interface over WebSerial with nothing installed, TouchDesigner directly, or mock
 - **One working scene**, autosaved to the browser as you type, saved as a plain `.js` file when you want a durable copy
 - **Share links**: a link that carries the whole scene, no server involved
 - **Examples**: three bundled demo scenes, loaded from the top bar
