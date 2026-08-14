@@ -29,7 +29,10 @@ const RECONNECT_DELAY_MS = 2000;
 
 let _ws: WebSocket | null = null;
 let _connected = false;
-let _onStatusChange: ((connected: boolean) => void) | null = null;
+// A Set rather than one slot: several parts of the UI care about the
+// connection (the status dot, the run status line, the connector prompt), and
+// a single slot silently drops every listener but the last one registered.
+const _onStatusChange = new Set<(connected: boolean) => void>();
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 // The last output config the scene asked for, kept so it can be re-sent.
@@ -42,7 +45,7 @@ let _lastConfig: Record<string, unknown> | null = null;
 let _configDelivered = false;
 
 export function onStatusChange(fn: (connected: boolean) => void): void {
-  _onStatusChange = fn;
+  _onStatusChange.add(fn);
 }
 
 export function isConnected(): boolean {
@@ -74,7 +77,7 @@ export function connectBridge(url = BRIDGE_URL): void {
     // Re-apply the scene's output config. A fresh bridge starts on whatever
     // bridge.config.json says, which is not where the scene asked to send.
     flushConfig();
-    _onStatusChange?.(true);
+    for (const fn of _onStatusChange) fn(true);
     console.log('[gobo] bridge connected');
   };
 
@@ -83,7 +86,7 @@ export function connectBridge(url = BRIDGE_URL): void {
     // The next bridge to accept us is a fresh process that has not been told
     // anything, so the config counts as undelivered until it is re-sent.
     _configDelivered = false;
-    _onStatusChange?.(false);
+    for (const fn of _onStatusChange) fn(false);
     console.log('[gobo] bridge disconnected, reconnecting…');
     scheduleReconnect(url);
   };
@@ -195,10 +198,10 @@ let _direct: WebSocket | null = null;
 let _directUrl: string | null = null;
 let _directConnected = false;
 let _directReconnectTimer: ReturnType<typeof setTimeout> | null = null;
-let _onDirectStatusChange: ((connected: boolean) => void) | null = null;
+const _onDirectStatusChange = new Set<(connected: boolean) => void>();
 
 export function onDirectStatusChange(fn: (connected: boolean) => void): void {
-  _onDirectStatusChange = fn;
+  _onDirectStatusChange.add(fn);
 }
 
 export function isDirectConnected(): boolean {
@@ -244,13 +247,13 @@ export function connectDirect(host = 'localhost', port = 9980): void {
 
   _direct.onopen = () => {
     _directConnected = true;
-    _onDirectStatusChange?.(true);
+    for (const fn of _onDirectStatusChange) fn(true);
     console.log(`[gobo] direct output connected (${url})`);
   };
   _direct.onclose = () => {
     if (_directConnected) {
       _directConnected = false;
-      _onDirectStatusChange?.(false);
+      for (const fn of _onDirectStatusChange) fn(false);
     }
     scheduleDirectReconnect();
   };
@@ -269,7 +272,7 @@ export function disconnectDirect(): void {
   closeDirectSocket();
   if (_directConnected) {
     _directConnected = false;
-    _onDirectStatusChange?.(false);
+    for (const fn of _onDirectStatusChange) fn(false);
   }
 }
 
