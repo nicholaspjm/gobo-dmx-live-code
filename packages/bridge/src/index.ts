@@ -19,7 +19,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createSocket, Socket } from 'dgram';
 import { readFileSync, existsSync, statSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { resolve, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
 import { networkInterfaces } from 'os';
@@ -55,8 +55,26 @@ function unknownModeMessage(value: unknown): string {
   return `unknown output mode ${JSON.stringify(value)}; valid modes are ${OUTPUT_MODES.join(', ')}`;
 }
 
-const __dir = dirname(fileURLToPath(import.meta.url));
-const configPath = resolve(__dir, '..', 'bridge.config.json');
+/**
+ * Where to read bridge.config.json from.
+ *
+ * Three cases. An explicit --config wins. A packaged single-file build looks
+ * beside its own executable, because there is no package directory to be
+ * relative to. Otherwise it is the usual spot inside the repo.
+ *
+ * "Packaged" is detected from the executable's name: a single-file build runs
+ * as gobo-connector, not as node.
+ */
+const PACKAGED = !/^node(\.exe)?$/i.test(basename(process.execPath));
+
+function resolveConfigPath(): string {
+  const flag = process.argv.indexOf('--config');
+  if (flag !== -1 && process.argv[flag + 1]) return resolve(process.argv[flag + 1]);
+  if (PACKAGED) return resolve(dirname(process.execPath), 'bridge.config.json');
+  return resolve(dirname(fileURLToPath(import.meta.url)), '..', 'bridge.config.json');
+}
+
+const configPath = resolveConfigPath();
 
 let config: BridgeConfig = { mode: 'mock' };
 try {
@@ -75,7 +93,13 @@ try {
   // A missing file is a normal first run. Unreadable or malformed JSON is a
   // mistake, and both otherwise land on the same silent default.
   if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-    console.warn(`[bridge] no bridge.config.json at ${configPath}, using mock mode`);
+    if (PACKAGED) {
+      // Expected: a connector is configured by the app's artnet() / sacn() /
+      // osc() call, not by a file the user was never asked to create.
+      console.log('[gobo] no config file, waiting for the app to choose an output');
+    } else {
+      console.warn(`[bridge] no bridge.config.json at ${configPath}, using mock mode`);
+    }
   } else {
     console.error(`[bridge] could not read ${configPath}: ${(err as Error).message}`);
     console.error('[bridge] falling back to mock. NOTHING will be sent to the rig until that is fixed.');

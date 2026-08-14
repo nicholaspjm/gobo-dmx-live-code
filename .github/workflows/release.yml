@@ -1,0 +1,85 @@
+name: Release connector
+
+# Builds the standalone connector for each OS and attaches it to a release.
+# A single executable is built by copying the running node binary and injecting
+# the app into it, so each platform's binary has to be built on that platform.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: gobo-connector-windows.exe
+          - os: macos-latest
+            artifact: gobo-connector-macos
+          - os: ubuntu-latest
+            artifact: gobo-connector-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run package
+      - name: Check it starts and serves
+        shell: bash
+        run: |
+          # Proves the binary runs on a clean machine rather than only building.
+          ./release/${{ matrix.artifact }} &
+          PID=$!
+          sleep 5
+          curl -sf --max-time 5 http://localhost:3001/ > /dev/null && echo "connector responded" || (echo "connector did not respond"; exit 1)
+          kill $PID
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: release/${{ matrix.artifact }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dl
+          merge-multiple: true
+      - run: ls -lh dl
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dl/*
+          generate_release_notes: true
+          body: |
+            ## Running a rig from the hosted app
+
+            A browser cannot open a UDP socket, so Art-Net and sACN need one
+            small native program. Download the connector for your system, run
+            it, then open
+            https://nicholaspjm.github.io/gobo-dmx-live-code/ and press
+            ctrl+enter. Nothing else to install.
+
+            | System | File |
+            |---|---|
+            | Windows | `gobo-connector-windows.exe` |
+            | macOS | `gobo-connector-macos` |
+            | Linux | `gobo-connector-linux` |
+
+            The binaries are unsigned, so Windows SmartScreen and macOS
+            Gatekeeper will warn on first run. On macOS you may need
+            `chmod +x gobo-connector-macos` and to allow it under Privacy and
+            Security.
+
+            Using a USB DMX interface instead? No download is needed: pick it
+            with the `usb()` output straight from the browser.

@@ -143,9 +143,11 @@ if (args.includes('--remove')) {
 
 if (!existsSync(bridgeEntry)) {
   console.log('[gobo] building the bridge first');
-  const exe = platform() === 'win32' ? 'npm.cmd' : 'npm';
-  const r = spawnSync(exe, ['run', 'bridge:build'], { cwd: root, stdio: 'inherit' });
-  if (r.status !== 0) {
+  // Invoke tsc directly: Node refuses to spawn npm's .cmd shim on Windows
+  // without a shell, and a shell brings its own deprecation warning.
+  const tsc = join(root, 'node_modules', 'typescript', 'bin', 'tsc');
+  const r = spawnSync(process.execPath, [tsc, '-p', join(root, 'packages', 'bridge', 'tsconfig.json')], { cwd: root, stdio: 'inherit' });
+  if (r.error || r.status !== 0) {
     console.error('[gobo] bridge build failed, nothing installed');
     process.exit(1);
   }

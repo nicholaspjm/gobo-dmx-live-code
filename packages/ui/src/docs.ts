@@ -112,6 +112,13 @@ const DOCS: DocSection[] = [
         example: "td('localhost', 9980)",
       },
       {
+        name: 'usb',
+        signature: 'usb()',
+        description:
+          "Drive a USB DMX interface straight from the browser, with nothing installed at all. Click usb in the top bar first to choose the device (browsers require a click for that, so a scene cannot do it), then call usb() to select it as the output. Speaks the Enttec DMX USB Pro protocol, which most interfaces use; raw FTDI dongles that expect the host to time the DMX break are not supported. One universe, the primary one. Chrome and Edge only.",
+        example: 'usb()',
+      },
+      {
         name: 'mock',
         signature: 'mock()',
         description:

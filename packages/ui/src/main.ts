@@ -31,6 +31,13 @@ import {
   isDirectConnected,
   onDirectStatusChange,
   sendUniverseState,
+  sendUsbDmx,
+  isUsbConnected,
+  getUsbDroppedFrames,
+  connectUsbDmx,
+  disconnectUsbDmx,
+  isUsbDmxSupported,
+  onUsbStatusChange,
   restoreLibraryFixtures,
   getSimFixtures,
   clearDefs,
@@ -94,6 +101,7 @@ const legacyListEl = document.getElementById('legacy-list') as HTMLElement;
 const legacyCloseEl = document.getElementById('legacy-close') as HTMLButtonElement;
 const legacyDismissEl = document.getElementById('legacy-dismiss') as HTMLButtonElement;
 const legacyDownloadAllEl = document.getElementById('legacy-download-all') as HTMLButtonElement;
+const usbToggleEl = document.getElementById('usb-toggle') as HTMLButtonElement;
 
 // ─── Eval ────────────────────────────────────────────────────────────────────
 
@@ -152,6 +160,7 @@ function runStop(): void {
     clearDefs();
     for (const buf of getAllUniverses().values()) buf.fill(0);
     sendUniverseState(getAllUniverses());
+    if (isUsbConnected()) sendUsbDmx(getUniverseBuffer(0));
     updateVisualizer(getPrimaryUniverseSnapshot());
   }
   setStatus('', 'stopped · ctrl+enter to run');
@@ -428,6 +437,10 @@ onTick((cyclePos, _delta) => {
   if (now - _lastSendMs >= sendIntervalMs) {
     _lastSendMs = now;
     sendUniverseState(getAllUniverses());
+    // A USB DMX interface carries one universe, so it gets the primary one.
+    // Anything on another universe is a network output's job. Sent on the same
+    // throttle: the interface tops out near 40Hz and drops what it cannot take.
+    if (isUsbConnected()) sendUsbDmx(getUniverseBuffer(0));
   }
 });
 
@@ -1415,5 +1428,39 @@ initStrudel().then(() => {
   // screen came from a link, says more than the generic hint.
   if (!shareBannerEl.classList.contains('open')) {
     setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop');
+  }
+});
+
+// ─── USB DMX ─────────────────────────────────────────────────────────────────
+//
+// The one output that needs nothing installed: WebSerial talks to an Enttec
+// DMX USB Pro style interface directly. Choosing the device needs a user
+// gesture, so it is a button rather than something usb() can do from a scene.
+
+onUsbStatusChange((connected) => {
+  usbToggleEl.classList.toggle('active', connected);
+  usbToggleEl.title = connected
+    ? 'USB DMX interface connected. Click to disconnect.'
+    : 'connect a USB DMX interface (Enttec DMX USB Pro protocol)';
+});
+
+usbToggleEl.addEventListener('click', async () => {
+  if (isUsbConnected()) {
+    await disconnectUsbDmx();
+    setStatus('', 'usb interface disconnected');
+    return;
+  }
+  if (!isUsbDmxSupported()) {
+    setStatus('error', 'this browser has no WebSerial. Chrome and Edge support it, Firefox and Safari do not');
+    return;
+  }
+  try {
+    await connectUsbDmx();
+    setStatus('ok', 'usb interface connected · add usb() to your scene and press ctrl+enter');
+  } catch (err) {
+    // Cancelling the chooser is the common case and is not an error.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/No port selected|cancell?ed/i.test(msg)) setStatus('', 'no interface chosen');
+    else setStatus('error', `could not open the interface: ${msg}`);
   }
 });
