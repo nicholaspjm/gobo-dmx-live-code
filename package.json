@@ -9,6 +9,7 @@
     "start": "node scripts/start.mjs",
     "autostart": "node scripts/autostart.mjs",
     "package": "node scripts/package-connector.mjs",
+    "winget": "node scripts/winget-manifest.mjs",
     "dev": "concurrently \"npm:dev:*\"",
     "dev:bridge": "npm run dev --workspace=packages/bridge",
     "dev:ui": "npm run dev --workspace=packages/ui",

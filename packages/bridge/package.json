@@ -1,12 +1,48 @@
 {
-  "name": "@gobo/bridge",
+  "name": "gobo-connector",
   "version": "0.2.0",
+  "description": "Sends DMX from the gobo browser app to Art-Net, sACN or OSC. A browser cannot open a UDP socket, so this does that part.",
+  "keywords": [
+    "dmx",
+    "art-net",
+    "artnet",
+    "sacn",
+    "e1.31",
+    "osc",
+    "lighting",
+    "stage-lighting",
+    "gobo"
+  ],
+  "homepage": "https://nicholaspjm.github.io/gobo-dmx-live-code/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nicholaspjm/gobo-dmx-live-code.git",
+    "directory": "packages/bridge"
+  },
+  "bugs": "https://github.com/nicholaspjm/gobo-dmx-live-code/issues",
+  "license": "MIT",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "bin": {
+    "gobo-connector": "bin/gobo-connector.mjs"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "bridge.config.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "build": "tsc"
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "ws": "^8.16.0"
