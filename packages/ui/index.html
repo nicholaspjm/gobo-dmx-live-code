@@ -1675,6 +1675,16 @@
         <button type="button" class="scene-action" id="share-banner-dismiss">dismiss</button>
       </div>
 
+      <!-- Shown when a scene asks for network output but nothing is there to
+           send it. A browser cannot open a UDP socket, so this is the point at
+           which a visitor needs the connector. -->
+      <div class="share-banner" id="connector-banner" role="alert" aria-hidden="true">
+        <span class="share-banner-icon" aria-hidden="true">⚠</span>
+        <span class="share-banner-text" id="connector-banner-text"></span>
+        <a class="scene-action" id="connector-banner-link" href="#" target="_blank" rel="noopener">download</a>
+        <button type="button" class="scene-action" id="connector-banner-dismiss">dismiss</button>
+      </div>
+
       <aside class="docs-panel" id="docs-panel" aria-hidden="true">
         <div class="docs-header">
           <span class="docs-title">reference</span>
