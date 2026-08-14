@@ -18,11 +18,11 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createSocket, Socket } from 'dgram';
-import { readFileSync, existsSync, statSync } from 'fs';
+import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { resolve, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
-import { networkInterfaces } from 'os';
+import { networkInterfaces, homedir } from 'os';
 import { spawn } from 'child_process';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -853,19 +853,133 @@ httpServer.on('error', (err: NodeJS.ErrnoException) => {
   console.error(`[bridge] HTTP server error ${err.code ?? 'error'}: ${err.message}`);
 });
 
+// ─── Self install (packaged connector only) ──────────────────────────────────
+//
+// A browser cannot open a UDP socket, so reaching a lighting node always needs
+// something native running. Asking someone to keep launching it defeats the
+// point of a browser tool, so the connector registers itself as a per-user
+// login item the first time it runs. After that, opening the app is the whole
+// workflow.
+//
+// Per-user only: no administrator rights, no registry, no system service, and
+// one flag to undo it.
+
+function loginItemPath(): string {
+  const home = homedir();
+  if (process.platform === 'win32') {
+    return resolve(home, 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'gobo-connector.vbs');
+  }
+  if (process.platform === 'darwin') {
+    return resolve(home, 'Library', 'LaunchAgents', 'dev.gobo.connector.plist');
+  }
+  return resolve(home, '.config', 'systemd', 'user', 'gobo-connector.service');
+}
+
+function loginItemBody(): string {
+  const exe = process.execPath;
+  if (process.platform === 'win32') {
+    // .vbs rather than .cmd so no console window appears at every login.
+    // Built with explicit CRLF escapes: Windows Script Host wants CRLF,
+    // and this file must not carry raw control characters.
+    return [
+      "' Starts the gobo connector at login, with no visible window.",
+      "' Remove it by deleting this file, or run the connector with --uninstall.",
+      'Set sh = CreateObject("WScript.Shell")',
+      `sh.Run """${exe}"" --no-install --no-open", 0, False`,
+      '',
+    ].join(String.fromCharCode(13, 10));
+  }
+  if (process.platform === 'darwin') {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>dev.gobo.connector</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${exe}</string>
+    <string>--no-install</string>
+    <string>--no-open</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+</dict>
+</plist>
+`;
+  }
+  return `[Unit]
+Description=gobo connector
+
+[Service]
+ExecStart=${exe} --no-install --no-open
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+`;
+}
+
+function installLoginItem(): void {
+  const path = loginItemPath();
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, loginItemBody(), 'utf8');
+    console.log('[gobo] set to start automatically when you log in.');
+    console.log(`[gobo] undo that any time by running this with --uninstall, or deleting:`);
+    console.log(`       ${path}`);
+  } catch (err) {
+    // Not fatal: the connector still works for this session.
+    console.warn(`[gobo] could not set up automatic start: ${(err as Error).message}`);
+  }
+}
+
+function removeLoginItem(): void {
+  const path = loginItemPath();
+  try {
+    if (existsSync(path)) {
+      unlinkSync(path);
+      console.log(`[gobo] removed ${path}`);
+      console.log('[gobo] it will not start on its own again. This session keeps running until you close it.');
+    } else {
+      console.log('[gobo] automatic start was not set up, nothing to remove.');
+    }
+  } catch (err) {
+    console.error(`[gobo] could not remove ${path}: ${(err as Error).message}`);
+  }
+}
+
+if (PACKAGED && process.argv.includes('--uninstall')) {
+  removeLoginItem();
+  process.exit(0);
+}
+
 httpServer.listen(PORT, () => {
   listening = true;
   console.log(`[bridge] WebSocket server on ws://localhost:${PORT}`);
   console.log(`[bridge] output: ${describeOutput()}`);
   warnIfSendingToSelf();
 
+  // First run of a downloaded connector sets itself up, so this is the only
+  // time the user has to do anything. --no-install skips it, and the login
+  // item itself passes that flag so it never re-registers.
+  if (PACKAGED && !process.argv.includes('--no-install') && !existsSync(loginItemPath())) {
+    installLoginItem();
+  }
+
   if (UI_DIR) {
     const url = `http://localhost:${PORT}`;
     console.log(`[bridge] serving the app from ${UI_DIR}`);
     console.log(`[bridge] open ${url}`);
     if (process.argv.includes('--open')) openBrowser(url);
+  } else if (PACKAGED) {
+    // No local copy of the app is bundled, so send them to the hosted one.
+    console.log('[gobo] connector running. Open the app and press ctrl+enter:');
+    console.log(`[gobo] ${HOSTED_APP}`);
+    if (!process.argv.includes('--no-open')) openBrowser(HOSTED_APP);
   }
 });
+
+/** Where the app lives when the connector is not serving a local copy. */
+const HOSTED_APP = 'https://nicholaspjm.github.io/gobo-dmx-live-code/';
 
 /** Open the default browser. Best effort: a failure here is not worth exiting
  *  over, since the URL has already been printed. */
