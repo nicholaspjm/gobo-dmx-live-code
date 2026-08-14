@@ -33,7 +33,14 @@ export type StopAction = 'blackout' | 'freeze';
 /** Maximum send rate to the bridge in Hz. Higher is smoother and uses
  *  more network traffic. 60 is the default, 30 saves bandwidth on
  *  wireless rigs, 120 suits local rigs running at high refresh. */
-export type SendRate = 30 | 60 | 120;
+export type SendRate = 25 | 30 | 40 | 44;
+
+/**
+ * Rates that used to be offered. A setting saved as 60 or 120 is migrated to
+ * the nearest useful value rather than left as a number the select cannot
+ * show, which would silently reset it to the default on the next write.
+ */
+const LEGACY_SEND_RATES: Record<number, SendRate> = { 60: 40, 120: 44 };
 
 export interface Settings {
   /** What runStop() does. Default 'blackout'. */
@@ -46,7 +53,12 @@ export interface Settings {
   inlineViz: boolean;
   /** Whether sim panel tooltips show on hover. Default true. */
   simTooltips: boolean;
-  /** Maximum send rate to the bridge, in Hz. Default 60. */
+  /** Maximum send rate to the bridge, in Hz. Default 40.
+   *
+   *  DMX512 carries at most about 44 full frames a second: 512 channels plus
+   *  break and start code at 250 kbit/s. Sending faster than the wire can
+   *  carry buys nothing, and the Art-Net spec asks senders not to exceed that
+   *  rate. 40 sits just under it. */
   sendRate: SendRate;
   /** Active colour theme. Default 'tungsten' (the original warm-brown,
    *  formerly stored as 'ember'; see resolveThemeId()). */
@@ -62,7 +74,7 @@ const DEFAULTS: Settings = {
   autosave: true,
   inlineViz: true,
   simTooltips: true,
-  sendRate: 60,
+  sendRate: 40,
   theme: 'tungsten',
   formatOnRun: false,
 };
@@ -114,6 +126,8 @@ export function getSettings(): Settings {
   const raw = readRaw();
   const merged: Settings = { ...DEFAULTS, ...raw };
   merged.theme = resolveThemeId(raw.theme) ?? DEFAULTS.theme;
+  // 60 and 120 Hz used to be offered, and both are above what DMX can carry.
+  merged.sendRate = LEGACY_SEND_RATES[merged.sendRate as number] ?? merged.sendRate;
   _cached = merged;
   // Write the adopted id straight back. Settings are otherwise only
   // persisted when the user changes one, so a legacy id would sit in
@@ -121,7 +135,8 @@ export function getSettings(): Settings {
   // retired. Rewriting on first read makes the adoption permanent while
   // the map is still here. Guarded on an actual change so a first run
   // (no stored theme at all) doesn't write.
-  if (raw.theme !== undefined && raw.theme !== merged.theme) writeRaw(merged);
+  if ((raw.theme !== undefined && raw.theme !== merged.theme)
+    || (raw.sendRate !== undefined && raw.sendRate !== merged.sendRate)) writeRaw(merged);
   return _cached;
 }
 
@@ -224,11 +239,12 @@ export function mountSettingsPanel(opts: {
         ${row({
           key: 'sendRate',
           label: 'send rate',
-          hint: 'cap on bridge updates per second. lower for wireless rigs, higher for local dev.',
+          hint: 'cap on bridge updates per second. DMX itself carries about 44, so 40 is the useful ceiling. Lower it for wireless rigs.',
           control: select('sendRate', String(s.sendRate), [
+            { value: '25',  label: '25 Hz' },
             { value: '30',  label: '30 Hz' },
-            { value: '60',  label: '60 Hz (default)' },
-            { value: '120', label: '120 Hz' },
+            { value: '40',  label: '40 Hz (default)' },
+            { value: '44',  label: '44 Hz (DMX maximum)' },
           ]),
         })}
         <div class="settings-footer">

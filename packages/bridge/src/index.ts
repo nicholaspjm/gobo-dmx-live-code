@@ -702,6 +702,38 @@ function warnIfSendingToSelf(): void {
 
 let _dmxMsgCount = 0;
 
+/**
+ * Universes this bridge has actually sent data for, so they can be darkened
+ * when the app goes away. Nothing else knows which ones are in play: the
+ * bridge holds no scene, only what has passed through it.
+ */
+const _liveUniverses = new Set<number>();
+
+/**
+ * Send one all-zero frame for every universe that has carried data, then
+ * forget them.
+ *
+ * A closed tab, a crashed browser or a shut laptop lid ends the WebSocket
+ * without any final frame, and DMX receivers hold their last value forever,
+ * so the rig would stay lit on whatever was on screen at the time. The stop
+ * action in the app blacks out when the operator asks; this covers the case
+ * where nobody got to ask.
+ */
+function blackoutAll(reason: string): void {
+  if (_liveUniverses.size === 0) return;
+  const zeros = new Array<number>(512).fill(0);
+  console.log(`[bridge] ${reason}: blacking out universe ${[..._liveUniverses].join(', ')}`);
+  for (const universe of _liveUniverses) {
+    switch (config.mode) {
+      case 'artnet': sendArtNet(universe, zeros); break;
+      case 'sacn': sendSACN(universe, zeros); break;
+      case 'osc': sendOSC(universe, zeros); break;
+      default: break;
+    }
+  }
+  _liveUniverses.clear();
+}
+
 function handleDmxMessage(universes: Record<string, number[]>): void {
   _dmxMsgCount++;
   if (_dmxMsgCount === 1) {
@@ -710,6 +742,8 @@ function handleDmxMessage(universes: Record<string, number[]>): void {
   for (const [uniStr, channels] of Object.entries(universes)) {
     const universe = parseInt(uniStr, 10);
     if (isNaN(universe) || channels.length < 1) continue;
+    // Remember it so a disconnect can darken it, see blackoutAll().
+    if (channels.some((v) => v > 0)) _liveUniverses.add(universe);
 
     // No `default:` here on purpose. Every mode is listed and config.mode is
     // validated before it is assigned; a catch-all branch is what used to
@@ -833,6 +867,9 @@ wss.on('connection', (ws: WebSocket) => {
 
   ws.on('close', () => {
     console.log(`[bridge] client disconnected (${wss.clients.size} remaining)`);
+    // Last one out turns the lights off. A closed tab sends no final
+    // frame, and receivers hold their last value indefinitely.
+    if (wss.clients.size === 0) blackoutAll('app disconnected');
   });
 });
 
