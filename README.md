@@ -65,6 +65,28 @@ WebSocket. Nothing to start twice, nothing to forget.
 Use `npm run dev` while working on gobo itself: Vite on http://localhost:3000
 with hot reload, and the bridge alongside it.
 
+### Just visiting the site?
+
+You still need something native, because a browser cannot open a UDP socket and
+Art-Net is UDP. Pick whichever is least annoying:
+
+```bash
+npx gobo-connector                 # if you have Node: nothing downloaded, nothing left behind
+winget install nicholaspjm.gobo    # Windows 11, no download and no security warning
+```
+
+Or download one file from
+[Releases](https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest).
+It sets itself to start at login the first time it runs, so it is a one time
+step; `--uninstall` undoes that.
+
+Then open the app and press `ctrl+enter`.
+
+Using a USB DMX interface? None of the above. The browser drives it directly:
+click **usb** in the top bar. That is the only path with genuinely nothing
+installed, and it works because a serial port is something browsers are allowed
+to open.
+
 Want it always available? `npm run autostart` starts the bridge at login, so
 opening the page just works from then on, hosted build included. It is a
 per-user login item, needs no administrator rights, and
