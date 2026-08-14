@@ -103,6 +103,12 @@ const legacyDismissEl = document.getElementById('legacy-dismiss') as HTMLButtonE
 const legacyDownloadAllEl = document.getElementById('legacy-download-all') as HTMLButtonElement;
 const usbToggleEl = document.getElementById('usb-toggle') as HTMLButtonElement;
 
+// "You need the connector" banner.
+const connectorBannerEl = document.getElementById('connector-banner') as HTMLElement;
+const connectorBannerTextEl = document.getElementById('connector-banner-text') as HTMLElement;
+const connectorBannerLinkEl = document.getElementById('connector-banner-link') as HTMLAnchorElement;
+const connectorBannerDismissEl = document.getElementById('connector-banner-dismiss') as HTMLButtonElement;
+
 // ─── Eval ────────────────────────────────────────────────────────────────────
 
 async function runEval(code: string): Promise<void> {
@@ -119,8 +125,10 @@ async function runEval(code: string): Promise<void> {
   if (result.success) {
     const out = describeOutput();
     if (out && !out.delivered) {
-      setStatus('error', `running, but ${out.text} was never reached. ${out.text.startsWith('direct') ? 'Is the receiver listening?' : 'Start the bridge: npm start'}`);
+      setStatus('error', `running, but ${out.text} was never reached. ${undeliveredHint()}`);
+      if (!out.text.startsWith('direct')) showConnectorBanner(out.text);
     } else if (out) {
+      setConnectorBannerOpen(false);
       setStatus('ok', `✓ running · ${out.text}`);
     } else {
       setStatus('ok', '✓ running');
@@ -1464,3 +1472,61 @@ usbToggleEl.addEventListener('click', async () => {
     else setStatus('error', `could not open the interface: ${msg}`);
   }
 });
+
+// ─── Connector prompt ────────────────────────────────────────────────────────
+//
+// A browser cannot open a UDP socket, so Art-Net and sACN need a native helper.
+// Someone running from a checkout has one command for that. Someone who just
+// opened the hosted site has no repository to run anything from, and telling
+// them to run npm is worse than useless, so they get the download instead.
+
+const RELEASES_URL = 'https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest';
+
+/** True when this page came from a local dev server or a local connector. */
+function servedLocally(): boolean {
+  // location.hostname wraps an IPv6 literal in brackets, so ::1 arrives as
+  // "[::1]" and a bare equality check misses it.
+  const h = window.location.hostname.replace(/^\[|\]$/g, '');
+  return h === 'localhost' || h === '127.0.0.1' || h === '::1';
+}
+
+function undeliveredHint(): string {
+  const out = describeOutput();
+  if (out?.text.startsWith('direct')) return 'Is the receiver listening?';
+  if (out?.text.startsWith('usb')) return 'Click usb in the top bar to choose the interface.';
+  return servedLocally() ? 'Start it with: npm start' : 'You need the connector, see the banner.';
+}
+
+/** Best guess at which file to offer, so the visitor is not made to choose. */
+function connectorFileName(): string {
+  const ua = navigator.userAgent;
+  if (/Windows/i.test(ua)) return 'gobo-connector-windows.exe';
+  if (/Mac OS X|Macintosh/i.test(ua)) return 'gobo-connector-macos';
+  return 'gobo-connector-linux';
+}
+
+function setConnectorBannerOpen(open: boolean): void {
+  connectorBannerEl.classList.toggle('open', open);
+  connectorBannerEl.setAttribute('aria-hidden', open ? 'false' : 'true');
+}
+
+function showConnectorBanner(target: string): void {
+  connectorBannerLinkEl.href = RELEASES_URL;
+  if (servedLocally()) {
+    connectorBannerTextEl.textContent =
+      `Nothing is listening for DMX, so ${target} is going nowhere. Run npm start, `
+      + 'which serves this page and sends the output from one process. Or download the connector.';
+  } else {
+    connectorBannerTextEl.textContent =
+      `Nothing is listening for DMX, so ${target} is going nowhere. A browser cannot send Art-Net `
+      + `by itself. Download ${connectorFileName()}, run it, then press ctrl+enter again. `
+      + 'Using a USB DMX interface instead? Click usb in the top bar, no download needed.';
+  }
+  setConnectorBannerOpen(true);
+}
+
+connectorBannerDismissEl.addEventListener('click', () => setConnectorBannerOpen(false));
+
+// Once something is listening, the banner has served its purpose.
+onStatusChange((connected) => { if (connected) setConnectorBannerOpen(false); });
+onUsbStatusChange((connected) => { if (connected) setConnectorBannerOpen(false); });
