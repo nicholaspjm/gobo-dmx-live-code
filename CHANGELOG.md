@@ -26,8 +26,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 First public release. There was never a published 0.1.0. Everything below landed during pre-0.2 development, and the commit-level detail for that period is in git.
 
+### Changed
+
+- **Licence is now AGPL-3.0-or-later**, replacing MIT. The app bundles
+  `@strudel/core`, which is AGPL, so a work containing it cannot be distributed
+  under MIT terms; the previous licence misdescribed what was being shipped. It
+  is also the intended licence: changes have to stay free, and section 13 covers
+  running a modified version as a network service. The connector
+  (`packages/bridge`) stays MIT, since it contains no AGPL code. Added
+  GOVERNANCE.md recording that there is no contributor licence agreement and
+  will not be one.
+- **Default send rate is 40 Hz**, was 60. DMX512 carries at most about 44 frames
+  a second, so anything above that was buying nothing and exceeding what the
+  Art-Net spec asks of senders. The options are now 25 / 30 / 40 / 44, and a
+  setting saved as 60 or 120 migrates to the nearest useful value.
+- **The rig blacks out when the app disconnects.** A closed tab, a crashed
+  browser or a shut laptop lid ends the WebSocket without a final frame, and DMX
+  receivers hold their last value indefinitely, so the rig stayed lit on whatever
+  was on screen. The bridge now sends one zero frame per live universe when the
+  last client goes.
+
 ### Added
 
+- **Art-Net node discovery in `npm run doctor`** — sends an ArtPoll and reports
+  every node that answers, with its name and the universes it listens on. "The
+  addresses are right but nothing arrives" is usually a universe mismatch, and a
+  reply also proves the path works in both directions.
 - **Pattern engine.** `sine()`, `cosine()`, `square()`, `saw()`, `rand()` built on [@strudel/core](https://strudel.cc), with the usual chain methods (`.slow` / `.fast` / `.range` / `.add` / `.mul` / `.early` / `.late`). Patterns are sampled once per tick and written straight into DMX buffers. If strudel fails to load, evaluation is refused with a clear message rather than degrading to approximate waveforms.
 - **Mini-notation sequencing.** `mini()` / `m()` from `@strudel/mini`, plus `sequence()`, `cat()`, `stack()`. Write a drum grid per channel (`spot.white(mini('1 - - 1'))`) instead of hand-rolling envelopes.
 - **`register(name, fn)`.** Define custom chain methods from editor code. They attach to the Pattern prototype and survive `.slow()` / `.fast()` / `.add()` chains.

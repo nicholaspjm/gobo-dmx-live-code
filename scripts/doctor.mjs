@@ -149,8 +149,86 @@ if (held) warn(`port ${port} is in use, most likely by a receiver such as TouchD
 else ok(`port ${port} is free, so nothing on this machine is receiving Art-Net`);
 
 // 6. Windows firewall profile, the usual cause of silently dropped broadcast.
+// ─── Art-Net discovery ───────────────────────────────────────────────────────
+
+/**
+ * Ask the network what Art-Net nodes are out there, and which universe each
+ * one listens on.
+ *
+ * "The IPs are right but nothing arrives" is usually a universe mismatch:
+ * gobo puts fixtures on universe 0 by default, and plenty of nodes ship
+ * configured for universe 1. A node answering ArtPoll proves the path works
+ * in both directions and reports the number it actually wants.
+ */
+async function discoverNodes(timeoutMs = 2500) {
+  const poll = Buffer.alloc(14);
+  poll.write('Art-Net', 0, 'ascii');
+  poll.writeUInt16LE(0x2000, 8);   // OpPoll
+  poll.writeUInt16BE(14, 10);      // protocol version
+  poll[12] = 0;                    // TalkToMe
+  poll[13] = 0;                    // Priority
+
+  const found = new Map();
+  const sock = createSocket({ type: 'udp4', reuseAddr: true });
+  sock.on('error', () => {});
+  sock.on('message', (msg, rinfo) => {
+    if (msg.length < 200) return;
+    if (msg.toString('ascii', 0, 7) !== 'Art-Net') return;
+    if (msg.readUInt16LE(8) !== 0x2100) return;   // OpPollReply
+
+    const netSwitch = msg[18];
+    const subSwitch = msg[19];
+    const numPorts = msg.readUInt16BE(172);
+    const universes = [];
+    for (let i = 0; i < Math.min(numPorts, 4); i += 1) {
+      // Art-Net addresses are Net (7 bits), Sub-Net (4 bits), Universe (4 bits).
+      universes.push(((netSwitch & 0x7f) << 8) | ((subSwitch & 0x0f) << 4) | (msg[190 + i] & 0x0f));
+    }
+    const clean = (b) => b.toString('ascii').replace(/.*$/, '').trim();
+    found.set(rinfo.address, {
+      ip: rinfo.address,
+      short: clean(msg.subarray(26, 44)),
+      long: clean(msg.subarray(44, 108)),
+      report: clean(msg.subarray(108, 172)),
+      universes,
+    });
+  });
+
+  await new Promise((r) => sock.bind(6454, r));
+  try { sock.setBroadcast(true); } catch { /* unicast still works */ }
+
+  // Broadcast on every live interface: with more than one NIC the OS picks
+  // just one for a plain broadcast, which may not be the lighting network.
+  const targets = ['255.255.255.255', ...live.map((i) => i.bcast)];
+  for (const t of new Set(targets)) {
+    await new Promise((r) => sock.send(poll, ARTNET_PORT, t, () => r()));
+  }
+  await new Promise((r) => setTimeout(r, timeoutMs));
+  sock.close();
+  return [...found.values()];
+}
+
+head(`6. Art-Net nodes on the network`);
+const nodes = await discoverNodes();
+if (nodes.length === 0) {
+  warn('no node answered ArtPoll within 2.5s.');
+  warn('Not proof of a fault: plenty of nodes never reply. But if yours does normally, check the cable, the subnet, and the firewall.');
+} else {
+  for (const n of nodes) {
+    ok(`${n.ip}  ${n.short || '(no name)'}${n.long && n.long !== n.short ? ` / ${n.long}` : ''}`);
+    if (n.universes.length) {
+      console.log(`            listening on universe ${n.universes.join(', ')}`);
+      if (!n.universes.includes(0)) {
+        warn(`this node does NOT listen on universe 0, which is where gobo puts fixtures by default.`);
+        warn(`Either set the node to 0, or put your fixtures on ${n.universes[0]}: fixture(1, 'rgbw', ${n.universes[0]})`);
+      }
+    }
+    if (n.report) console.log(`            reports: ${n.report}`);
+  }
+}
+
 if (platform() === 'win32') {
-  head('6. windows firewall');
+  head('7. windows firewall');
   const out = await new Promise((resolve) => {
     execFile('netsh', ['advfirewall', 'show', 'currentprofile'], { timeout: 5000 }, (e, stdout) => resolve(e ? '' : stdout));
   });

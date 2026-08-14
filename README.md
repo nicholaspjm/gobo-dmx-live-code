@@ -349,6 +349,20 @@ Full setup and Art-Net alternative: **[docs/touchdesigner.md](docs/touchdesigner
 
 ---
 
-## License
+## Licence
 
-[MIT](LICENSE)
+**AGPL-3.0-or-later.** Use it, study it, change it, share it. A changed version
+has to stay under the same terms, and because of section 13 that includes
+running it as a network service: host a modified gobo and you have to publish
+your changes. Nobody can take this, close it, and sell it.
+
+Partly that is a choice and partly it is arithmetic: the app bundles
+[@strudel/core](https://strudel.cc), which is AGPL, so the distributed app
+cannot be anything else.
+
+The connector under [`packages/bridge`](packages/bridge) is **MIT**. It contains
+no AGPL code, depending only on `ws`, so other lighting projects can reuse it
+freely.
+
+There is no contributor licence agreement and there will not be one:
+contributors keep their own copyright. See [GOVERNANCE.md](GOVERNANCE.md).
