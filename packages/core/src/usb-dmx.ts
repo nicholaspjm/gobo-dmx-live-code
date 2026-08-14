@@ -54,7 +54,9 @@ export function isUsbDmxSupported(): boolean {
 let _port: SerialPortLike | null = null;
 let _writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
 let _connected = false;
-let _onStatusChange: ((connected: boolean) => void) | null = null;
+// A Set, for the same reason as the bridge listener: more than one part of the
+// UI reacts to the interface appearing or going away.
+const _onStatusChange = new Set<(connected: boolean) => void>();
 // One frame in flight at a time. A DMX frame at 40Hz takes about 23ms on the
 // wire, so without this a slow port would queue frames faster than it drains
 // and the rig would lag further behind by the second.
@@ -62,7 +64,7 @@ let _writing = false;
 let _dropped = 0;
 
 export function onUsbStatusChange(fn: (connected: boolean) => void): void {
-  _onStatusChange = fn;
+  _onStatusChange.add(fn);
 }
 
 export function isUsbConnected(): boolean {
@@ -95,7 +97,7 @@ export async function connectUsbDmx(): Promise<void> {
   _writer = port.writable.getWriter();
   _connected = true;
   _dropped = 0;
-  _onStatusChange?.(true);
+  for (const fn of _onStatusChange) fn(true);
 }
 
 /** Reopen a port the user has already granted, with no prompt. */
@@ -110,7 +112,7 @@ export async function reconnectUsbDmx(): Promise<boolean> {
     _port = port;
     _writer = port.writable.getWriter();
     _connected = true;
-    _onStatusChange?.(true);
+    for (const fn of _onStatusChange) fn(true);
     return true;
   } catch {
     return false;
@@ -133,7 +135,7 @@ export async function disconnectUsbDmx(): Promise<void> {
   _writing = false;
   if (_connected) {
     _connected = false;
-    _onStatusChange?.(false);
+    for (const fn of _onStatusChange) fn(false);
   }
 }
 

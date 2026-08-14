@@ -1482,6 +1482,33 @@ usbToggleEl.addEventListener('click', async () => {
 
 const RELEASES_URL = 'https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest';
 
+/**
+ * Whether a connector has ever reached this browser.
+ *
+ * Someone who already installed one does not need to be sold the download
+ * again. If output is not arriving, their connector is simply not running, and
+ * offering the file a second time reads as though the first install failed.
+ */
+const SEEN_CONNECTOR_KEY = 'gobo-seen-connector-v1';
+
+function hasSeenConnector(): boolean {
+  try { return localStorage.getItem(SEEN_CONNECTOR_KEY) === '1'; } catch { return false; }
+}
+
+function rememberConnector(): void {
+  try { localStorage.setItem(SEEN_CONNECTOR_KEY, '1'); } catch { /* private mode */ }
+}
+
+/**
+ * How long to let the socket finish connecting before calling it a failure.
+ *
+ * Pressing ctrl+enter as the page loads beats the WebSocket to it, so declaring
+ * "nothing is listening" straight away would flash a download prompt at someone
+ * whose connector is running perfectly well.
+ */
+const CONNECT_GRACE_MS = 2500;
+let _connectorPromptTimer: ReturnType<typeof setTimeout> | null = null;
+
 /** True when this page came from a local dev server or a local connector. */
 function servedLocally(): boolean {
   // location.hostname wraps an IPv6 literal in brackets, so ::1 arrives as
@@ -1511,7 +1538,30 @@ function setConnectorBannerOpen(open: boolean): void {
 }
 
 function showConnectorBanner(target: string): void {
+  // Wait out the grace period, and say nothing if the bridge turns up meanwhile.
+  if (_connectorPromptTimer) clearTimeout(_connectorPromptTimer);
+  _connectorPromptTimer = setTimeout(() => {
+    _connectorPromptTimer = null;
+    const out = describeOutput();
+    if (!out || out.delivered) return;
+    renderConnectorBanner(target);
+  }, CONNECT_GRACE_MS);
+}
+
+function renderConnectorBanner(target: string): void {
   connectorBannerLinkEl.href = RELEASES_URL;
+
+  if (hasSeenConnector()) {
+    // They have one. The download is not the missing piece; running it is.
+    connectorBannerTextEl.textContent =
+      `Nothing is listening for DMX, so ${target} is going nowhere. The connector has run on this `
+      + 'machine before, so start it again. It normally starts itself when you log in.';
+    connectorBannerLinkEl.hidden = true;
+    setConnectorBannerOpen(true);
+    return;
+  }
+  connectorBannerLinkEl.hidden = false;
+
   if (servedLocally()) {
     connectorBannerTextEl.textContent =
       `Nothing is listening for DMX, so ${target} is going nowhere. Run npm start, `
@@ -1528,5 +1578,14 @@ function showConnectorBanner(target: string): void {
 connectorBannerDismissEl.addEventListener('click', () => setConnectorBannerOpen(false));
 
 // Once something is listening, the banner has served its purpose.
-onStatusChange((connected) => { if (connected) setConnectorBannerOpen(false); });
+onStatusChange((connected) => {
+  if (!connected) return;
+  // Seeing one is proof they have it, so never offer the download again.
+  rememberConnector();
+  if (_connectorPromptTimer) {
+    clearTimeout(_connectorPromptTimer);
+    _connectorPromptTimer = null;
+  }
+  setConnectorBannerOpen(false);
+});
 onUsbStatusChange((connected) => { if (connected) setConnectorBannerOpen(false); });

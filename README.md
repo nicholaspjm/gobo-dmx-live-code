@@ -6,7 +6,7 @@ Write pattern code, see results instantly on a 512-channel visualizer, and send 
 
 Powered by [@strudel/core](https://strudel.cc): the same waveform and cycle syntax used for live-coding music, wired up to DMX universes instead of audio.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Licence: AGPL v3](https://img.shields.io/badge/Licence-AGPL%20v3-blue.svg)](LICENSE)
 
 ![gobo editor, visualizer and fixture sim running a pattern](docs/media/demo.gif)
 
