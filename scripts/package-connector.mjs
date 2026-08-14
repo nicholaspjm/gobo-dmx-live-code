@@ -17,6 +17,7 @@
 
 import { mkdirSync, copyFileSync, writeFileSync, rmSync, existsSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { build } from 'esbuild';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { platform } from 'node:os';
@@ -41,18 +42,21 @@ mkdirSync(out, { recursive: true });
 //    find its config file, and the packaged build resolves that from
 //    process.execPath instead, so pointing it at the executable keeps the
 //    expression valid without changing behaviour.
+//    Through esbuild's JS API rather than its bin: on Linux and macOS that
+//    path is the native Go executable, so running it with node parses an ELF
+//    header as JavaScript and dies with a SyntaxError.
 console.log('[package] bundling');
-execFileSync(process.execPath, [
-  join(root, 'node_modules', 'esbuild', 'bin', 'esbuild'),
-  join(root, 'packages', 'bridge', 'src', 'index.ts'),
-  '--bundle',
-  '--platform=node',
-  '--target=node20',
-  '--format=cjs',
-  '--define:import.meta.url=__GOBO_EXEC_URL__',
-  '--banner:js=const __GOBO_EXEC_URL__ = require("url").pathToFileURL(process.execPath).href;',
-  `--outfile=${join(work, 'bundle.cjs')}`,
-], { stdio: 'inherit' });
+await build({
+  entryPoints: [join(root, 'packages', 'bridge', 'src', 'index.ts')],
+  bundle: true,
+  platform: 'node',
+  target: 'node20',
+  format: 'cjs',
+  outfile: join(work, 'bundle.cjs'),
+  define: { 'import.meta.url': '__GOBO_EXEC_URL__' },
+  banner: { js: 'const __GOBO_EXEC_URL__ = require("url").pathToFileURL(process.execPath).href;' },
+  logLevel: 'info',
+});
 
 // 2. Blob.
 console.log('[package] generating the SEA blob');
