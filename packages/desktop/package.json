@@ -1,0 +1,19 @@
+{
+  "name": "gobo-desktop",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Desktop build of gobo: the editor and the bridge in one app, so Art-Net, sACN, OSC and mock work with nothing else installed.",
+  "type": "module",
+  "main": "dist/main.js",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "build": "tsc",
+    "start": "electron .",
+    "package": "electron-builder"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "electron": "^43.4.0",
+    "typescript": "^5.3.0"
+  }
+}

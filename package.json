@@ -18,12 +18,17 @@
     "bridge:build": "npm run build --workspace=packages/bridge",
     "bridge:start": "npm run start --workspace=packages/bridge",
     "bridge:selftest": "node scripts/bridge-selftest.mjs",
+    "desktop": "npm run desktop:build && electron packages/desktop",
+    "desktop:build": "npm run build && npm run bridge:build && npm run build --workspace=packages/desktop",
+    "desktop:package": "npm run desktop:build && electron-builder --projectDir packages/desktop",
     "doctor": "node scripts/doctor.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
     "concurrently": "^8.2.0",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
     "postject": "^1.0.0-alpha.6",
     "vitest": "^2.1.0"
   },

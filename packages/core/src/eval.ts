@@ -45,7 +45,7 @@ import {
   clearSimFixtures,
   setStripEffectWaveforms,
 } from './fixtures.js';
-import { sendConfig, connectDirect, isBlockedAsMixedContent } from './websocket.js';
+import { sendConfig, connectDirect, isBlockedAsMixedContent, isConnected } from './websocket.js';
 import { isUsbConnected, isUsbDmxSupported } from './usb-dmx.js';
 import { clearPatternVizRegistry, registerPatternViz } from './pattern-viz.js';
 
@@ -231,6 +231,62 @@ function mockConfig(): BridgeConfig {
 }
 
 /**
+ * Why each bridge output needs a program running on this machine.
+ *
+ * A scene that calls artnet() in a plain browser with nothing listening runs
+ * clean and lights nothing, and on its own the only sign is the status line
+ * reporting some seconds later that the target "was never reached", which reads
+ * as a fault in the rig. Saying why, on the run that asked for the output, is
+ * the difference between "gobo is broken" and "I have not started the connector
+ * yet".
+ *
+ * Keyed by the `mode` of the config each helper builds, so a mode with no entry
+ * (there is none today) simply produces no warning rather than a wrong one.
+ */
+const OUTPUT_NEEDS_CONNECTOR: Record<string, string> = {
+  artnet:
+    'artnet() sends Art-Net as network packets, and a web page is not allowed to put packets on the network by itself.',
+  sacn:
+    'sacn() sends sACN as network packets, and a web page is not allowed to put packets on the network by itself.',
+  osc:
+    'osc() sends OSC as network packets, the same kind Art-Net uses, so it is not a no-install output either.',
+  mock:
+    'mock() prints the live channels from inside the connector, so it needs the connector as much as the real outputs do.',
+};
+
+/**
+ * What to do about it. One shared tail so the four messages stay identical
+ * where they say the same thing.
+ *
+ * Names only routes core can be sure of: the connector binary, and a checkout's
+ * `npm start`, which serves the page and speaks UDP from one process. Both end
+ * in the same place, a bridge on this machine, which is exactly what
+ * isConnected() below reports on.
+ */
+const CONNECTOR_FIX =
+  'Nothing is listening on this machine right now, so run the connector (or start gobo from a checkout with '
+  + 'npm start) and press ctrl+enter again. Driving a USB DMX box instead? Click usb in the top bar, '
+  + 'nothing to install.';
+
+/**
+ * The plain-language reason a staged output is reaching nothing, or null when
+ * it is arriving (or when the mode does not need the connector).
+ *
+ * A hint, not a verdict, which is why the calls that produce it still succeed.
+ * The bridge socket reconnects on a timer, so "not connected at this instant"
+ * also describes a connector that is three seconds from being up, and blacking
+ * out a scene over that would be worse than the silence it replaces.
+ */
+function unreachableOutputWarning(config: BridgeConfig): string | null {
+  const mode = typeof config.mode === 'string' ? config.mode : null;
+  if (mode === null) return null;
+  const cause = OUTPUT_NEEDS_CONNECTOR[mode];
+  if (cause === undefined) return null;
+  if (isConnected()) return null;
+  return `${cause} ${CONNECTOR_FIX}`;
+}
+
+/**
  * One run's output-changing calls, held until the run is known to have
  * finished. The last call of each kind wins, matching the immediate sends these
  * stand in for, where the last one on the wire is the one that sticks.
@@ -325,6 +381,13 @@ const sandboxOutputBindings: Record<string, unknown> = {
  * eval and only opened once the run commits.
  */
 function stageDirect(host = 'localhost', port = 9980): void {
+  // Refuse a host the browser will not allow here, at call time, rather than
+  // leaving it to applyDirect() at flush time. The flush runs from evalCode()'s
+  // finally, after the scene has been committed, so a throw there leaves
+  // evalCode by exception instead of returning a failed result: the caller gets
+  // no error to show and the half-configured scene is already live. Checked
+  // here it is an ordinary scene error, rolled back with everything else.
+  if (isBlockedAsMixedContent(host)) throw new Error(mixedContentMessage(host));
   const buffer = _activeBuffer;
   if (buffer === null) {
     applyDirect(host, port);
@@ -348,16 +411,23 @@ function requireUsb(): void {
   throw new Error('No USB DMX interface connected. Click "usb" in the top bar to choose one, then run again.');
 }
 
+/**
+ * Chrome allows ws:// to localhost from an https page but blocks every other
+ * host. Saying so beats a socket that never opens and looks like the receiver
+ * is down, which is a fault no amount of restarting TouchDesigner fixes.
+ */
+function mixedContentMessage(host: string): string {
+  return (
+    `td('${host}') is blocked: this page is served over https, and browsers only allow an insecure ` +
+    `WebSocket to localhost. Run TouchDesigner on this machine and use td('localhost'), or serve gobo over http.`
+  );
+}
+
 function applyDirect(host: string, port: number): void {
-  if (isBlockedAsMixedContent(host)) {
-    // Chrome allows ws:// to localhost from an https page but blocks every
-    // other host. Failing here with the reason beats a socket that never
-    // opens and looks like the receiver is down.
-    throw new Error(
-      `td('${host}') is blocked: this page is served over https, and browsers only allow an insecure ` +
-      `WebSocket to localhost. Run TouchDesigner on this machine and use td('localhost'), or serve gobo over http.`,
-    );
-  }
+  // Also checked in stageDirect(), which is where a scene's call lands. This
+  // one covers the path with no eval in flight, where there is no staging step
+  // to have caught it.
+  if (isBlockedAsMixedContent(host)) throw new Error(mixedContentMessage(host));
   connectDirect(host, port);
 }
 
@@ -400,6 +470,13 @@ function register(name: string, fn: (pat: any) => any): (pat: any) => any {
 export interface EvalResult {
   success: boolean;
   error?: string;
+  /**
+   * Set on a run that succeeded but whose output is reaching nothing, with the
+   * reason and the fix in plain language. Separate from `error` because the
+   * scene did run: the patterns are live, the visualizer moves, and only the
+   * wire is silent.
+   */
+  warning?: string;
 }
 
 function errorMessage(err: unknown): string {
@@ -523,6 +600,18 @@ export function evalCode(code: string): EvalResult {
       // channel definitions are not live yet.
       commitStaging();
       flushSideEffects(sideEffects);
+      // The scene is live either way; this only says whether anything is
+      // carrying it out of the page. Read after the flush so it reflects the
+      // output the run actually settled on.
+      const warning =
+        sideEffects.config === null ? null : unreachableOutputWarning(sideEffects.config);
+      if (warning !== null) {
+        // The status line is the UI's to write, and it may be showing something
+        // else by the time anyone looks. The console keeps the reason where it
+        // can be found afterwards.
+        console.warn(`[gobo] ${warning}`);
+        result = { success: true, warning };
+      }
     } else {
       // A throw partway through leaves a fragment of a scene in the staging
       // map, which must not reach the wire. Drop it. Any bridge-config or

@@ -64,6 +64,16 @@ import { registerPublicFixtures } from './public-fixtures.js';
 import { formatGoboCode } from './formatter.js';
 import { getSettings, mountSettingsPanel, onSettingsChange } from './settings.js';
 import { applyTheme } from './themes.js';
+import {
+  mountOutputsPanel,
+  connectionSummary,
+  needsConnectorUnlock,
+  blockedOutputMessage,
+  connectorFileName,
+  hasSeenConnector,
+  rememberConnector,
+  RELEASES_URL,
+} from './outputs.js';
 
 // Apply the persisted theme before the editor mounts and before any
 // CSS-variable-dependent code runs. Otherwise the page flashes the default
@@ -80,6 +90,8 @@ const bpmTapEl = document.getElementById('bpm-tap') as HTMLButtonElement;
 const cycleFillEl = document.getElementById('cycle-fill')!;
 const wsDotEl = document.getElementById('ws-dot')!;
 const wsLabelEl = document.getElementById('ws-label')!;
+const wsLockEl = document.getElementById('ws-lock') as HTMLElement;
+const outputStatusEl = document.getElementById('output-status') as HTMLButtonElement;
 
 // Scene bar: name plus save / open / share / examples.
 const sceneNameEl = document.getElementById('scene-name') as HTMLElement;
@@ -108,6 +120,7 @@ const connectorBannerEl = document.getElementById('connector-banner') as HTMLEle
 const connectorBannerTextEl = document.getElementById('connector-banner-text') as HTMLElement;
 const connectorBannerLinkEl = document.getElementById('connector-banner-link') as HTMLAnchorElement;
 const connectorBannerDismissEl = document.getElementById('connector-banner-dismiss') as HTMLButtonElement;
+const connectorBannerMoreEl = document.getElementById('connector-banner-more') as HTMLButtonElement;
 
 // ─── Eval ────────────────────────────────────────────────────────────────────
 
@@ -123,6 +136,10 @@ async function runEval(code: string): Promise<void> {
   }
   const result = evalCode(toRun);
   if (result.success) {
+    // The scene may have picked a different output, so the connection light,
+    // the lock badge and the outputs panel are resolved again before anything
+    // is reported about this run.
+    refreshOutputIndicator();
     const out = describeOutput();
     if (out && !out.delivered) {
       setStatus('error', `running, but ${out.text} was never reached. ${undeliveredHint()}`);
@@ -556,20 +573,43 @@ document.addEventListener('keydown', (e) => {
 
 // ─── Bridge connection ───────────────────────────────────────────────────────
 
-onStatusChange((connected) => {
-  if (getDirectUrl()) return; // direct output owns the indicator, see below
-  wsDotEl.className = connected ? 'ws-dot connected' : 'ws-dot disconnected';
-  wsLabelEl.textContent = connected ? 'bridge' : 'disconnected';
-});
+// Assigned when the outputs panel is mounted further down. Declared here so the
+// connection listeners registered just below can reach it once it exists, and
+// see null rather than a temporal-dead-zone error if anything fires earlier.
+let _outputsPanel: ReturnType<typeof mountOutputsPanel> | null = null;
+
+/**
+ * Repaint the connection light from every link at once.
+ *
+ * The bridge, direct output and a USB interface are independent, and a scene
+ * can be using two of them. Each listener used to write the label from its own
+ * socket alone, so a rig being driven over USB read "disconnected". One
+ * resolver, called by all three, is the only way that label stays true.
+ *
+ * Also drives the lock badge and the outputs panel, so a connection appearing
+ * updates every place that reports on it.
+ */
+function refreshOutputIndicator(): void {
+  const summary = connectionSummary();
+  wsDotEl.className = summary.state === 'connected'
+    ? 'ws-dot connected'
+    : summary.state === 'disconnected' ? 'ws-dot disconnected' : 'ws-dot';
+  wsLabelEl.textContent = summary.label;
+  outputStatusEl.title = summary.title;
+  wsLockEl.hidden = !needsConnectorUnlock();
+  _outputsPanel?.refresh();
+}
+
+onStatusChange(refreshOutputIndicator);
+onUsbStatusChange(refreshOutputIndicator);
 
 /**
  * Direct output opens its socket asynchronously, so the status written the
  * instant an eval finishes always says "not reached". Correct it when the
  * socket actually settles, otherwise a working setup reads as broken.
  */
-onDirectStatusChange((connected) => {
-  wsDotEl.className = connected ? 'ws-dot connected' : 'ws-dot disconnected';
-  wsLabelEl.textContent = connected ? 'direct' : 'disconnected';
+onDirectStatusChange(() => {
+  refreshOutputIndicator();
   if (!isRunning()) return;
   const out = describeOutput();
   if (!out) return;
@@ -1387,6 +1427,22 @@ const settingsPanel = mountSettingsPanel({
 });
 _panelClosers.set('settings', settingsPanel.setOpen);
 
+// Outputs panel. Opened by the connection light rather than by a button of its
+// own: the light already answers half this question, and the top bar has no
+// room for a fourteenth word. Mounted last, and the reference is kept in
+// _outputsPanel so the connection listeners can repaint it.
+_outputsPanel = mountOutputsPanel({
+  panelEl:  document.getElementById('outputs-panel') as HTMLElement,
+  bodyEl:   document.getElementById('outputs-body')  as HTMLElement,
+  toggleEl: outputStatusEl,
+  closeEl:  document.getElementById('outputs-close') as HTMLButtonElement,
+  // Choosing a serial port needs a user gesture, and a click on the panel row
+  // is one, so the row can share the top-bar button's handler.
+  onUsbRequest: () => { void handleUsbButton(); },
+  onOpen:   () => closeOtherPanels('outputs'),
+});
+_panelClosers.set('outputs', _outputsPanel.setOpen);
+
 // Re-apply the theme whenever the setting changes. Other settings are read at
 // the point of use and need no subscription; themes need one because they
 // write CSS variables onto :root to take effect.
@@ -1405,6 +1461,10 @@ const _refreshLibraryAfterEval = (): void => libraryPanel.refresh();
 // id (if any) wins.
 registerPublicFixtures();
 restoreLibraryFixtures();
+
+// Resolve the connection light once at boot. The markup ships reading
+// "disconnected", which is wrong before a scene has chosen any output at all.
+refreshOutputIndicator();
 
 // Defensive: ensure the scheduler is in the stopped state on boot. Vite's
 // HMR can keep the worker / animation loop alive across reloads in dev,
@@ -1452,7 +1512,9 @@ onUsbStatusChange((connected) => {
     : 'connect a USB DMX interface (Enttec DMX USB Pro protocol)';
 });
 
-usbToggleEl.addEventListener('click', async () => {
+/** Connect or disconnect the interface. Shared with the outputs panel's usb
+ *  row, which is why it is a named function rather than an inline handler. */
+async function handleUsbButton(): Promise<void> {
   if (isUsbConnected()) {
     await disconnectUsbDmx();
     setStatus('', 'usb interface disconnected');
@@ -1471,7 +1533,9 @@ usbToggleEl.addEventListener('click', async () => {
     if (/No port selected|cancell?ed/i.test(msg)) setStatus('', 'no interface chosen');
     else setStatus('error', `could not open the interface: ${msg}`);
   }
-});
+}
+
+usbToggleEl.addEventListener('click', () => { void handleUsbButton(); });
 
 // ─── Connector prompt ────────────────────────────────────────────────────────
 //
@@ -1480,24 +1544,9 @@ usbToggleEl.addEventListener('click', async () => {
 // opened the hosted site has no repository to run anything from, and telling
 // them to run npm is worse than useless, so they get the download instead.
 
-const RELEASES_URL = 'https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest';
-
-/**
- * Whether a connector has ever reached this browser.
- *
- * Someone who already installed one does not need to be sold the download
- * again. If output is not arriving, their connector is simply not running, and
- * offering the file a second time reads as though the first install failed.
- */
-const SEEN_CONNECTOR_KEY = 'gobo-seen-connector-v1';
-
-function hasSeenConnector(): boolean {
-  try { return localStorage.getItem(SEEN_CONNECTOR_KEY) === '1'; } catch { return false; }
-}
-
-function rememberConnector(): void {
-  try { localStorage.setItem(SEEN_CONNECTOR_KEY, '1'); } catch { /* private mode */ }
-}
+// RELEASES_URL, connectorFileName(), hasSeenConnector() and rememberConnector()
+// come from outputs.ts, which the panel reads from too, so the banner and the
+// panel cannot drift apart on what to offer or whom to offer it to.
 
 /**
  * How long to let the socket finish connecting before calling it a failure.
@@ -1521,15 +1570,11 @@ function undeliveredHint(): string {
   const out = describeOutput();
   if (out?.text.startsWith('direct')) return 'Is the receiver listening?';
   if (out?.text.startsWith('usb')) return 'Click usb in the top bar to choose the interface.';
-  return servedLocally() ? 'Start it with: npm start' : 'You need the connector, see the banner.';
-}
-
-/** Best guess at which file to offer, so the visitor is not made to choose. */
-function connectorFileName(): string {
-  const ua = navigator.userAgent;
-  if (/Windows/i.test(ua)) return 'gobo-connector-windows.exe';
-  if (/Mac OS X|Macintosh/i.test(ua)) return 'gobo-connector-macos';
-  return 'gobo-connector-linux';
+  // A hosted visitor has no checkout to run anything from, so point them at the
+  // outputs panel by name: it says what does work here as well as what to get.
+  return servedLocally()
+    ? 'Start it with: npm start'
+    : 'Click the connection light for the outputs panel, which says what works here.';
 }
 
 function setConnectorBannerOpen(open: boolean): void {
@@ -1567,15 +1612,20 @@ function renderConnectorBanner(target: string): void {
       `Nothing is listening for DMX, so ${target} is going nowhere. Run npm start, `
       + 'which serves this page and sends the output from one process. Or download the connector.';
   } else {
+    // Same sentence the outputs panel would give for this output, so the
+    // banner and the panel cannot end up telling two stories.
     connectorBannerTextEl.textContent =
-      `Nothing is listening for DMX, so ${target} is going nowhere. A browser cannot send Art-Net `
-      + `by itself. Download ${connectorFileName()}, run it, then press ctrl+enter again. `
-      + 'Using a USB DMX interface instead? Click usb in the top bar, no download needed.';
+      `${blockedOutputMessage(target)} The file to download is ${connectorFileName()}.`;
   }
   setConnectorBannerOpen(true);
 }
 
 connectorBannerDismissEl.addEventListener('click', () => setConnectorBannerOpen(false));
+
+// The banner says one output is blocked. This opens the panel that says which
+// outputs are not, which is the more useful answer for anyone unwilling to
+// install anything.
+connectorBannerMoreEl.addEventListener('click', () => _outputsPanel?.setOpen(true));
 
 // Once something is listening, the banner has served its purpose.
 onStatusChange((connected) => {

@@ -55,7 +55,7 @@ const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'gobo',
     blurb:
-      'Live DMX coding in the browser. JavaScript patterns drive real fixtures: Art-Net hardware, TouchDesigner via OSC, or simulation. Ctrl+Enter runs your code, Ctrl+. stops. Hover a fixture in the sim panel for its live channel values.',
+      'Live DMX coding in the browser. JavaScript patterns drive real fixtures: a USB DMX box, TouchDesigner, Art-Net or sACN hardware, or nothing but the simulation. Ctrl+Enter runs your code, Ctrl+. stops. Hover a fixture in the sim panel for its live channel values.',
     entries: [],
   },
   {
@@ -69,7 +69,7 @@ const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'steps',
     entries: [
-      { name: 'pick an output',   signature: 'artnet · osc · sacn · mock',             description: '', tabLink: 'output' },
+      { name: 'pick an output',   signature: 'usb · td · artnet · sacn · osc · mock',  description: '', tabLink: 'output' },
       { name: 'define fixtures',  signature: 'fixture · rgbStrip · defineFixture',     description: '', tabLink: 'fixtures' },
       { name: 'write patterns',   signature: 'sine · cosine · square · saw · chains',  description: '', tabLink: 'patterns' },
       { name: 'inline viz',       signature: ".viz · .flash · .glow · .wave",          description: '', tabLink: 'viz' },
@@ -81,51 +81,62 @@ const DOCS: DocSection[] = [
     category: 'output',
     title: 'output',
     blurb:
-      'Pick where DMX data goes. Call exactly one of these at the top of your code. Switching while running reconfigures on the fly.',
+      'Pick where DMX data goes. Call exactly one of these at the top of your code. Switching while running reconfigures on the fly. Two of the six work in a plain browser with nothing installed, usb() and td(); artnet(), sacn(), osc() and mock() need the connector running on this machine.',
     entries: [
       {
         name: 'artnet',
         signature: "artnet(host='127.0.0.1', port=6454)",
         description:
-          "Send Art-Net DMX packets via the bridge. host is the DESTINATION, never your own machine: either the IP printed on your node, or the broadcast address of the subnet your rig is on (192.168.0.255 reaches everything on 192.168.0.x). Your computer must already be on that same subnet, which is the usual reason nothing arrives. Port defaults to 6454. One ArtDmx packet per universe per tick, so multi-universe works by putting fixtures on different universes.",
+          "Needs the connector: not a plain-browser output, because a web page cannot put network packets on the wire itself. Send Art-Net DMX packets via the bridge. host is the DESTINATION, never your own machine: either the IP printed on your node, or the broadcast address of the subnet your rig is on (192.168.0.255 reaches everything on 192.168.0.x). Your computer must already be on that same subnet, which is the usual reason nothing arrives. Port defaults to 6454. One ArtDmx packet per universe per tick, so multi-universe works by putting fixtures on different universes.",
         example: "artnet('2.0.0.100')",
       },
       {
         name: 'osc',
         signature: "osc(host='127.0.0.1', port=9000)",
         description:
-          'Send every active channel as an OSC message via the bridge. host is the DESTINATION: the machine running the receiver, or 127.0.0.1 if that is this machine. Address format: /gobo/<universe>/<channel>, one float arg in [0,1]. Works with the TouchDesigner OSC In CHOP.',
+          'Needs the connector: OSC travels as the same kind of network packet as Art-Net, so it is not an install-free option. Send every active channel as an OSC message via the bridge. host is the DESTINATION: the machine running the receiver, or 127.0.0.1 if that is this machine. Address format: /gobo/<universe>/<channel>, one float arg in [0,1]. Works with the TouchDesigner OSC In CHOP.',
         example: "osc('127.0.0.1', 9000)",
       },
       {
         name: 'sacn',
         signature: 'sacn(universe=1, priority=100)',
         description:
-          'Multicast sACN (E1.31) packets via the bridge. Priority 1-200, universe 1-63999.',
+          'Needs the connector, for the same reason as Art-Net. Multicast sACN (E1.31) packets via the bridge. Priority 1-200, universe 1-63999.',
         example: 'sacn(1, 100)',
       },
       {
         name: 'td',
         signature: "td(host='localhost', port=9980)",
         description:
-          "Send straight to a TouchDesigner WebSocket DAT from the browser, with no gobo bridge running. TD receives the frames and puts Art-Net on the wire, so this works from the hosted site on any machine that already has TD open. A page served over https can only reach localhost this way, since browsers block insecure WebSockets to any other host, so TD has to be on the same machine. Setup recipe is in docs/touchdesigner.md.",
+          "Works in a plain browser, as long as TouchDesigner is already open on this machine with a WebSocket DAT listening. Send straight to a TouchDesigner WebSocket DAT from the browser, with no gobo bridge running. TD receives the frames and puts Art-Net on the wire, so this works from the hosted site on any machine that already has TD open. A page served over https can only reach localhost this way, since browsers block insecure WebSockets to any other host, so TD has to be on the same machine. Setup recipe is in docs/touchdesigner.md.",
         example: "td('localhost', 9980)",
       },
       {
         name: 'usb',
         signature: 'usb()',
         description:
-          "Drive a USB DMX interface straight from the browser, with nothing installed at all. Click usb in the top bar first to choose the device (browsers require a click for that, so a scene cannot do it), then call usb() to select it as the output. Speaks the Enttec DMX USB Pro protocol, which most interfaces use; raw FTDI dongles that expect the host to time the DMX break are not supported. One universe, the primary one. Chrome and Edge only.",
+          "Works in a plain browser, with a USB DMX box plugged into this computer and Chrome or Edge. Drive a USB DMX interface straight from the browser, with nothing installed at all. Click usb in the top bar first to choose the device (browsers require a click for that, so a scene cannot do it), then call usb() to select it as the output. Speaks the Enttec DMX USB Pro protocol, which most interfaces use; raw FTDI dongles that expect the host to time the DMX break are not supported. One universe, the primary one.",
         example: 'usb()',
       },
       {
         name: 'mock',
         signature: 'mock()',
         description:
-          "Console-log mode. Nothing goes out over UDP or WebSocket; the bridge prints active channels ~2x per second. Use it to verify patterns without touching a network.",
+          "Needs the connector, because the printing happens inside it. Console-log mode: nothing goes out over UDP or WebSocket; the bridge prints active channels ~2x per second. Use it to verify patterns with the rig off.",
         example: 'mock()',
       },
     ],
+  },
+
+  // Why four of the six need a program on this machine. Kept as its own
+  // section rather than repeated per entry: it is one rule, and it is the
+  // question someone asks once, when the rig stays dark.
+  {
+    category: 'output',
+    title: 'why a browser cannot send art-net',
+    blurb:
+      'Art-Net, sACN and OSC go out as network packets, and a web page is not allowed to put packets on the network by itself. That is a rule every browser enforces, not something gobo can switch off. The connector is a small program that runs on this machine and does the sending; while it is running, artnet(), sacn(), osc() and mock() all work. Without it, usb() and td() are the two outputs that reach real light from the page alone: a serial port is something a browser may open, and so is a WebSocket to TouchDesigner, which puts the Art-Net out for you.',
+    entries: [],
   },
 
   {

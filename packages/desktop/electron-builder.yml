@@ -1,0 +1,57 @@
+# Packaging for the gobo desktop app.
+#
+# Run it from the repository root with `npm run desktop:package`, which builds
+# the UI, the bridge and this package first. electron-builder builds for the
+# platform it runs on: Windows installers come from Windows, and a signed macOS
+# build has to come from macOS.
+#
+# Everything the app needs at runtime is under extraResources, which lands in
+# resources/ as plain files rather than inside app.asar. The main process
+# imports the bridge as ESM and the bridge resolves `ws` through ordinary Node
+# module lookup, and neither is worth making work through an archive. main.ts
+# reads these same paths from process.resourcesPath.
+
+appId: dev.gobo.app
+productName: gobo
+copyright: gobo contributors
+
+directories:
+  output: ../../release/desktop
+
+files:
+  - dist/**/*
+  - package.json
+
+extraResources:
+  # The built editor, served by the bridge over HTTP.
+  - from: ../../dist
+    to: ui
+  # The bridge itself, the same build the connector ships.
+  - from: ../../packages/bridge/dist
+    to: bridge/dist
+  # The bridge's only runtime dependency. It sits where Node's resolver looks
+  # when climbing up from resources/bridge/dist/index.js.
+  - from: ../../node_modules/ws
+    to: bridge/node_modules/ws
+
+win:
+  target:
+    - nsis
+    - zip
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+mac:
+  category: public.app-category.music
+  target:
+    - dmg
+    - zip
+
+linux:
+  category: AudioVideo
+  target:
+    - AppImage
+    - deb

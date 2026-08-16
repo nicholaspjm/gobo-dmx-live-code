@@ -10,3 +10,4 @@ Thumbs.db
 analysis.json
 .package-work/
 release/
+packages/desktop/dist/

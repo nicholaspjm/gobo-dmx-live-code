@@ -2,7 +2,7 @@
 
 **Live-code DMX lighting in your browser.**
 
-Write pattern code, see results instantly on a 512-channel visualizer, and send to real hardware via ArtNet or sACN.
+Write pattern code, see results instantly on a 512-channel visualizer, and send to real hardware over a USB DMX interface, TouchDesigner, Art-Net or sACN.
 
 Powered by [@strudel/core](https://strudel.cc): the same waveform and cycle syntax used for live-coding music, wired up to DMX universes instead of audio.
 
@@ -16,7 +16,7 @@ Powered by [@strudel/core](https://strudel.cc): the same waveform and cycle synt
 
 **[Open gobo in your browser](https://nicholaspjm.github.io/gobo-dmx-live-code/)**. No install required.
 
-> The web version runs the full editor and visualizer. To send DMX to real hardware, run the bridge server locally (see below).
+> The web version runs the full editor and visualizer. A USB DMX interface and TouchDesigner are driven from the page with nothing installed; Art-Net, sACN and OSC need the connector running on your machine. Both routes are below.
 
 ---
 
@@ -39,13 +39,27 @@ Powered by [@strudel/core](https://strudel.cc): the same waveform and cycle synt
 
 ---
 
-## Quick start
+## Two ways to run
 
-### Browser only (no hardware)
+### 1. In a browser, nothing installed
 
-Open the [live link](https://nicholaspjm.github.io/gobo-dmx-live-code/) and start coding. The visualizer shows DMX output in real time.
+Open the [live link](https://nicholaspjm.github.io/gobo-dmx-live-code/) and start coding. The
+editor, visualizer, fixture sim and share links need no output at all, and two outputs reach
+real fixtures from the page as it stands:
 
-### With hardware
+| Call | What it drives | Conditions |
+|------|----------------|------------|
+| `usb()` | A USB DMX box plugged into this computer, the Enttec DMX USB Pro type. Click **usb** in the top bar to choose it, then call `usb()` | Chrome or Edge, one universe. A serial port is something a browser is allowed to open |
+| `td()` | TouchDesigner, over a WebSocket. TD receives every frame and puts Art-Net on the network for you | TouchDesigner already open on the same machine: an https page may only open `ws://` to localhost |
+
+### 2. With the connector, for Art-Net, sACN and OSC
+
+`artnet()`, `sacn()` and `osc()` all leave as UDP network packets, and a web page is not
+allowed to put packets on the network by itself. That is a rule every browser enforces, not a
+gobo limitation, so a small program on this machine has to do the sending. `mock()` needs it
+too, since the printing happens inside it.
+
+From a checkout, one command is both halves:
 
 ```bash
 git clone https://github.com/nicholaspjm/gobo-dmx-live-code.git
@@ -55,20 +69,17 @@ npm start
 ```
 
 That is the whole thing: one process serving the app and speaking UDP, on
-http://localhost:3001, with a browser opened for you.
-
-A browser cannot open a UDP socket, so Art-Net and sACN need a native process
-to exist. `npm start` makes it the only thing you run, and because the app is
-served from that same process the page talks to it over a same-origin
-WebSocket. Nothing to start twice, nothing to forget.
+http://localhost:3001, with a browser opened for you. Because the app is served
+from that same process, the page talks to it over a same-origin WebSocket.
+Nothing to start twice, nothing to forget.
 
 Use `npm run dev` while working on gobo itself: Vite on http://localhost:3000
 with hot reload, and the bridge alongside it.
 
-### Just visiting the site?
+#### Just visiting the site?
 
-You still need something native, because a browser cannot open a UDP socket and
-Art-Net is UDP. Pick whichever is least annoying:
+There is no checkout to run anything from, so take the connector on its own.
+Pick whichever is least annoying:
 
 ```bash
 npx gobo-connector                 # if you have Node: nothing downloaded, nothing left behind
@@ -82,10 +93,8 @@ step; `--uninstall` undoes that.
 
 Then open the app and press `ctrl+enter`.
 
-Using a USB DMX interface? None of the above. The browser drives it directly:
-click **usb** in the top bar. That is the only path with genuinely nothing
-installed, and it works because a serial port is something browsers are allowed
-to open.
+Using a USB DMX box, or sending through TouchDesigner? None of the above: those
+are the two the page drives on its own, back in section 1.
 
 Want it always available? `npm run autostart` starts the bridge at login, so
 opening the page just works from then on, hosted build included. It is a
@@ -292,21 +301,33 @@ A fixture profile is an ordered list of `{offset, name, type}` channel descripto
 Set the output from your code, at the top of the editor. Switching modes while running reconfigures the bridge on the fly:
 
 ```js
-artnet('2.0.0.100')        // Art-Net: node IP to unicast, or a broadcast address
+usb()                      // USB DMX box on this computer, nothing installed
+// td('localhost', 9980)   // TouchDesigner WebSocket DAT, nothing installed
+// artnet('2.0.0.100')     // Art-Net: node IP to unicast, or a broadcast address
 // sacn(1, 100)            // sACN E1.31: second arg is priority
 // osc('127.0.0.1', 9000)  // OSC: /gobo/<uni>/<ch> floats
-// mock()                  // console log only
+// mock()                  // console log, printed by the connector
 ```
 
-All four go through the bridge, the only part that speaks UDP. `npm run dev` starts it with the UI, `npm run dev:bridge` alone. `bridge.config.json` sets the startup default; these calls override it at runtime.
+`usb()` and `td()` are driven by the page itself, so they work in a plain browser. `artnet()`,
+`sacn()`, `osc()` and `mock()` go through the bridge, the only part that speaks UDP, so they
+need it running: `npm start`, or the connector on its own. `npm run dev` starts the bridge with
+the UI, `npm run dev:bridge` alone. `bridge.config.json` sets the startup default; these calls
+override it at runtime.
 
 ---
 
 ## TouchDesigner
 
-Patterns reach TouchDesigner over OSC via the bridge: `osc('127.0.0.1', 9000)` in your scene, an `OSC In CHOP` on the same port in TD, one channel per driven DMX address.
+Two routes, and they differ in what has to be running:
 
-Full setup and Art-Net alternative: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
+- `td('localhost', 9980)` sends straight from the page to a **WebSocket DAT**, with no connector
+  involved. TD then puts Art-Net on the network itself. This one works from the hosted site with
+  nothing installed, as long as TD is open on the same machine.
+- `osc('127.0.0.1', 9000)` feeds an **OSC In CHOP**, one channel per driven DMX address. OSC is
+  UDP, so this route goes through the connector like Art-Net does.
+
+Full setup for both: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
 
 ---
 
