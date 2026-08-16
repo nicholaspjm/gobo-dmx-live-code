@@ -158,12 +158,46 @@
         transition: none;
       }
 
+      /* The connection light, which is a button: it opens the outputs panel.
+         Styled to read as the status text it has always been, so promoting it
+         adds a control without adding a control's worth of furniture. */
       .ws-status {
         display: flex;
         align-items: center;
         gap: 6px;
+        font: inherit;
         font-size: 11px;
         color: var(--text-muted);
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        padding: 2px 6px;
+        cursor: pointer;
+        text-transform: lowercase;
+        transition: color 0.15s, border-color 0.15s;
+      }
+
+      .ws-status:hover,
+      .ws-status:focus-visible {
+        color: var(--text);
+        border-color: var(--border);
+      }
+
+      .ws-status.active {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+
+      /* Shown only while the scene's output needs a program on this machine and
+         none is listening. That state is the one worth a standing marker: the
+         banner saying the same thing can be dismissed, this cannot. */
+      .ws-lock {
+        display: inline-flex;
+        align-items: center;
+        color: var(--accent);
+      }
+      .ws-lock[hidden] {
+        display: none;
       }
 
       .ws-dot {
@@ -761,6 +795,105 @@
         flex: 1;
         overflow-y: auto;
         padding: 0 18px 40px;
+      }
+
+      /* ─── Outputs panel ──────────────────────────────────────────────────
+         One row per output, each carrying its live verdict. Colours come from
+         the theme variables only: a hardcoded green would survive one theme
+         out of thirteen. */
+      .outputs-intro {
+        font-size: 11px;
+        line-height: 1.6;
+        color: var(--text-muted);
+        padding: 16px 0 4px;
+      }
+
+      .outputs-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 12px 0;
+      }
+
+      .output-row {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        align-items: flex-start;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-left: 2px solid var(--border);
+        border-radius: 3px;
+      }
+
+      /* The output this scene actually asked for. */
+      .output-row.current {
+        border-left-color: var(--accent);
+      }
+
+      .output-row-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .output-name {
+        font-size: 12px;
+        color: var(--text);
+      }
+
+      .output-badge {
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        padding: 1px 6px;
+      }
+
+      .output-badge.ok {
+        color: var(--sage);
+        border-color: var(--sage);
+      }
+
+      .output-current-tag {
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: var(--accent);
+      }
+
+      .output-plain {
+        font-size: 11px;
+        line-height: 1.55;
+        color: var(--text-muted);
+      }
+
+      .output-reason {
+        font-size: 11px;
+        line-height: 1.55;
+        color: var(--text);
+      }
+
+      .outputs-foot {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border);
+      }
+
+      .outputs-why,
+      .outputs-note {
+        font-size: 11px;
+        line-height: 1.6;
+        color: var(--text-muted);
+      }
+
+      .outputs-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
       }
 
       /* Settings panel rows */
@@ -1619,10 +1752,31 @@
           <div class="cycle-bar" title="cycle position">
             <div class="cycle-bar-fill" id="cycle-fill"></div>
           </div>
-          <span class="ws-status">
+          <!-- The connection light is also the door to the outputs panel. It is
+               the thing a lighting person already looks at when the rig is
+               dark, so the explanation of what this browser can and cannot
+               drive lives one click behind it. #ws-dot and #ws-label are kept
+               as its children: main.ts still writes those same nodes. -->
+          <button
+            type="button"
+            class="ws-status"
+            id="output-status"
+            title="where output is going"
+            aria-haspopup="dialog"
+            aria-controls="outputs-panel"
+            aria-expanded="false"
+          >
             <span class="ws-dot disconnected" id="ws-dot"></span>
             <span id="ws-label">disconnected</span>
-          </span>
+            <!-- Shown only while the scene's output needs a program on this
+                 machine and none is listening. Silent the rest of the time. -->
+            <span class="ws-lock" id="ws-lock" hidden aria-label="needs the connector">
+              <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="4" y="10" width="16" height="11" rx="2"></rect>
+                <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+              </svg>
+            </span>
+          </button>
           <div class="scene-bar">
             <!-- contenteditable rather than an <input>, matching the BPM field:
                  it inherits the top-bar typography and only looks editable on
@@ -1681,6 +1835,7 @@
       <div class="share-banner" id="connector-banner" role="alert" aria-hidden="true">
         <span class="share-banner-icon" aria-hidden="true">⚠</span>
         <span class="share-banner-text" id="connector-banner-text"></span>
+        <button type="button" class="scene-action" id="connector-banner-more">what works without this</button>
         <a class="scene-action" id="connector-banner-link" href="#" target="_blank" rel="noopener">download</a>
         <button type="button" class="scene-action" id="connector-banner-dismiss">dismiss</button>
       </div>
@@ -1699,6 +1854,17 @@
           <button type="button" class="docs-close" id="library-close" title="close">×</button>
         </div>
         <div class="docs-body" id="library-body"></div>
+      </aside>
+
+      <!-- Fourth sliding panel, opened by the connection light. Contents are
+           built in outputs.ts from the output table, so this is an empty
+           shell like the others. -->
+      <aside class="docs-panel" id="outputs-panel" aria-hidden="true">
+        <div class="docs-header">
+          <span class="docs-title">outputs</span>
+          <button type="button" class="docs-close" id="outputs-close" title="close">×</button>
+        </div>
+        <div class="docs-body" id="outputs-body"></div>
       </aside>
 
       <aside class="docs-panel" id="settings-panel" aria-hidden="true">

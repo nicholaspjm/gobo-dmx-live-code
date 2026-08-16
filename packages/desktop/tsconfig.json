@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    // NodeNext, so main.ts emits ESM (this package is type: module) while
+    // preload.cts emits dist/preload.cjs. Electron loads a sandboxed preload as
+    // CommonJS whatever the package type says, so the preload has to be a real
+    // .cjs file.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true
+  },
+  "include": ["src"]
+}
