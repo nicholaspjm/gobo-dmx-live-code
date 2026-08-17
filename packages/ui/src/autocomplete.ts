@@ -79,7 +79,7 @@ const allMethods: Completion[] = [...patternMethods, ...fixtureMethods];
 // ─── Light-name discovery (pre-scan user's doc) ──────────────────────────────
 /** Mirrors the regex used in code-highlight.ts. Kept in sync manually. */
 const LIGHT_DECL_RE =
-  /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:fixture|rgbStrip|rgbwStrip)\s*\(/g;
+  /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:fixture|rgbStrip|rgbwStrip|group)\s*\(/g;
 
 function collectLightNames(doc: string): string[] {
   const names = new Set<string>();

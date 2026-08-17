@@ -186,7 +186,7 @@ const METHOD_TOKENS = buildTable([
  * `let`/`var` are allowed in case the user switches style, though the sample
  * scenes all use `const`.
  */
-const DECL_RE = /\b((?:const|let|var)\s+)([A-Za-z_$][\w$]*)\s*=\s*(?:fixture|rgbStrip|rgbwStrip)\s*\(/g;
+const DECL_RE = /\b((?:const|let|var)\s+)([A-Za-z_$][\w$]*)\s*=\s*(?:fixture|rgbStrip|rgbwStrip|group)\s*\(/g;
 
 /** Every JS identifier occurrence, in document order. */
 const IDENT_RE = /[A-Za-z_$][\w$]*/g;

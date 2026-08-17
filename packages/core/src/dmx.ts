@@ -31,6 +31,116 @@ function isPattern(v: unknown): v is PatternLike {
   return typeof (v as PatternLike)?.queryArc === 'function';
 }
 
+// ─── Value arguments ─────────────────────────────────────────────────────────
+//
+// Every channel write in the whole API funnels through channelValue(), so the
+// rules about what a value may be are written once.
+//
+// Two things used to reach the buffer as a silent 0:
+//
+//   wash.red()      an omitted value. Naming a channel and no level reads as
+//                   "red, on", so it now means full.
+//   wash.red('1')   a value of the wrong type. A quoted number, a bare `sine`
+//                   that was never called, null, NaN: all stored fine and read
+//                   as 0 on every tick, so the scene ran with a green status
+//                   bar and the light off. These now throw, which puts the
+//                   channel in the editor's error banner instead.
+//
+// Numbers are left alone beyond the finite check. Out-of-range constants still
+// clamp at the buffer, because patterns routinely swing outside 0-1 (range(),
+// add()) and clamping is the useful behaviour there.
+
+/** Describe a rejected value in the terms the operator wrote it in. */
+function describeValue(v: unknown): string {
+  if (v === null) return 'null';
+  if (v === undefined) return 'undefined';
+  if (Array.isArray(v)) return `an array (length ${v.length})`;
+  const t = typeof v;
+  if (t === 'string') return `a string (${JSON.stringify(v)})`;
+  if (t === 'function') return 'a function';
+  if (t === 'object') return 'an object';
+  // NaN and ±Infinity are the only numbers that get here, and naming them is
+  // the whole message: they usually come out of a division that had no
+  // business dividing.
+  if (t === 'number') return String(v);
+  return `a ${t}`;
+}
+
+/** Suggest the fix for the mistakes that actually get made. */
+function valueHint(v: unknown): string {
+  if (typeof v === 'string') {
+    return Number.isFinite(Number(v))
+      ? ` Drop the quotes: ${Number(v)}, or wrap it in a pattern: mini(${JSON.stringify(v)}).`
+      : ` Mini-notation goes inside mini(${JSON.stringify(v)}).`;
+  }
+  if (typeof v === 'function') return ' Signals need calling: sine() rather than sine.';
+  if (typeof v === 'number') return ' Check the arithmetic that produced it.';
+  if (v === undefined) return ' Omit the argument entirely for full.';
+  return '';
+}
+
+/**
+ * Resolve the value argument of a channel-setting call.
+ *
+ * Takes the argument list rather than the value, because an omitted argument
+ * and an explicit `undefined` mean different things: `red()` is full, and
+ * `red(undefined)` is a mistake somewhere upstream worth reporting.
+ *
+ * @param args  the caller's value arguments, usually a rest parameter
+ * @param what  how to name the call in an error, e.g. `wash.red`
+ */
+export function channelValue(args: readonly unknown[], what: string): PatternOrValue {
+  if (args.length === 0) return 1;
+  const v = args[0];
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) {
+      throw new Error(`${what}: level must be a finite number, got ${describeValue(v)}.${valueHint(v)}`);
+    }
+    return v;
+  }
+  // Reading .queryArc runs user code: it can be a getter, and a hostile one
+  // throws. A value that cannot even be probed is not a pattern, and the
+  // rejection below says so in the same terms as every other bad value rather
+  // than surfacing whatever the getter felt like throwing.
+  let looksLikePattern = false;
+  try {
+    looksLikePattern = isPattern(v);
+  } catch {
+    // Not a pattern.
+  }
+  // The predicate's narrowing does not survive the assignment above, hence
+  // the cast; the guard is what establishes it.
+  if (looksLikePattern) return v as PatternLike;
+
+  throw new Error(
+    `${what}: expected a level (0-1, or 1-255 for a raw DMX value) or a pattern, got ${describeValue(v)}.${valueHint(v)}`,
+  );
+}
+
+/**
+ * Resolve a group of value arguments that only make sense together, such as the
+ * three of rgb() or the r/g/b of a strip fill.
+ *
+ * All of them or none of them. `fill()` is full white, `fill(1, 0, 0)` is red,
+ * and `fill(1, 0)` is a half-written line rather than a colour, so it throws
+ * instead of guessing at the missing channel.
+ *
+ * @param names  the parameter names in order, for the error message
+ */
+export function channelValues(
+  args: readonly unknown[],
+  names: readonly string[],
+  what: string,
+): PatternOrValue[] {
+  if (args.length === 0) return names.map(() => 1);
+  if (args.length < names.length) {
+    throw new Error(
+      `${what}: needs all ${names.length} of ${names.join(', ')} (got ${args.length}), or none of them for full.`,
+    );
+  }
+  return names.map((name, i) => channelValue([args[i]], `${what} ${name}`));
+}
+
 // universe number (1-based) → 512-byte buffer
 const _universes = new Map<number, Uint8Array>();
 
@@ -61,29 +171,35 @@ function key(universe: number, channel: number): string {
 
 // ─── Public DMX API ──────────────────────────────────────────────────────────
 
-/** Set a channel on universe 1. channel is 1-indexed (1-512). */
-export function ch(channel: number, value: PatternOrValue): void {
-  uni(1, channel, value);
+/**
+ * Set a channel on universe 1. channel is 1-indexed (1-512). Omit the value for
+ * full.
+ *
+ * Resolves the value here rather than leaving it to uni(), so a rejected value
+ * is reported against the call the operator actually wrote.
+ */
+export function ch(channel: number, ...args: [PatternOrValue?]): void {
+  uni(1, channel, channelValue(args, `ch(${channel})`));
 }
 
-/** Set a channel on a specific universe. */
-export function uni(universe: number, channel: number, value: PatternOrValue): void {
+/** Set a channel on a specific universe. Omit the value for full. */
+export function uni(universe: number, channel: number, ...args: [PatternOrValue?]): void {
+  const value = channelValue(args, `uni(${universe}, ${channel})`);
   const target = _staging ?? _defs;
   target.set(key(universe, channel), { universe, channel, value });
 }
 
-/** Alias for ch(): set a dimmer channel. */
-export function dim(channel: number, value: PatternOrValue): void {
-  ch(channel, value);
+/** Alias for ch(): set a dimmer channel. Omit the value for full. */
+export function dim(channel: number, ...args: [PatternOrValue?]): void {
+  uni(1, channel, channelValue(args, `dim(${channel})`));
 }
 
-/** Set RGB channels starting at startChannel (channels startChannel, +1, +2). */
-export function rgb(
-  startChannel: number,
-  r: PatternOrValue,
-  g: PatternOrValue,
-  b: PatternOrValue,
-): void {
+/**
+ * Set RGB channels starting at startChannel (channels startChannel, +1, +2).
+ * Omit all three for full white.
+ */
+export function rgb(startChannel: number, ...args: [PatternOrValue?, PatternOrValue?, PatternOrValue?]): void {
+  const [r, g, b] = channelValues(args, ['r', 'g', 'b'], 'rgb');
   ch(startChannel, r);
   ch(startChannel + 1, g);
   ch(startChannel + 2, b);
@@ -309,9 +425,16 @@ export function tick(cyclePos: number): void {
         if (isPattern(value)) {
           // Query a thin arc so we get the instantaneous value
           const haps = value.queryArc(cyclePos, cyclePos + 0.0001);
-          if (haps.length > 0) {
-            const v = haps[0].value;
-            if (typeof v === 'number') floatVal = v;
+          // Highest takes precedence, the merge every lighting desk uses. A
+          // channel can have several values at one instant: stack(), a comma
+          // inside mini(), superimpose(), off(). Reading haps[0] and dropping
+          // the rest meant every layer after the first did nothing, so
+          // mini('1 1 1 1, 0.5 0.5 0.5 0.5') put only the first layer on the
+          // wire. Brightest-wins is also what makes layering safe to build up:
+          // adding a layer can raise a channel but never darken one.
+          for (let i = 0; i < haps.length; i++) {
+            const v = haps[i].value;
+            if (typeof v === 'number' && v > floatVal) floatVal = v;
           }
         }
       } catch (err) {

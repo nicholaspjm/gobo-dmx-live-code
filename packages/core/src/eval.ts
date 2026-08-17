@@ -41,6 +41,7 @@ import {
   listFixtures,
   rgbStrip,
   rgbwStrip,
+  group,
   clearVizRegistry,
   clearSimFixtures,
   setStripEffectWaveforms,
@@ -518,6 +519,7 @@ export function evalCode(code: string): EvalResult {
     listFixtures,
     rgbStrip,
     rgbwStrip,
+    group,
     // Pattern extension: define custom chain methods at top level.
     register,
     // Patterns (populated by initStrudel)

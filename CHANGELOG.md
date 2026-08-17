@@ -4,6 +4,63 @@ All notable changes to gobo are recorded here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+> **A channel write that could not work used to look like one that did.**
+> `wash.red()` stored nothing, read as 0, and left the status bar green, so the
+> light was off and the tool said the scene was running. Naming a channel and no
+> level now means full, and a value that is not a number or a pattern stops the
+> evaluation with the channel named.
+
+### Added
+
+- **An omitted value means full.** `wash.red()`, `spot.dim()`, `ch(5)`,
+  `bar.pixels.fill()`: the shortest way to bring something up is to name it.
+  Works on every setter, on `.color()` and `.fill()` (full white), and on the
+  low-level `ch()` / `uni()` / `dim()` / `rgb()`.
+- **`group(...)`.** Fixtures, strips and a fixture's `.pixels` addressed as one,
+  answering the same verbs a single fixture does. `group(washA, washB,
+  bar.pixels).each(p => sine().early(p).slow(4))` runs one phase ramp across a
+  mixed rig in written order, which could not be written at any length before: a
+  strip had `each()`, a bar's pixels had `each()`, and pars had neither. A
+  fixture counts as one element however many channels it has, and a strip counts
+  one per pixel, so pass the fixture to move it as a unit and its `.pixels` to
+  move the pixels. Nested groups flatten. A role only some members have is
+  applied to those; a role no member has throws, since it would otherwise be a
+  silent no-op.
+- **A single-value `.each()` means brightness, expressed however the element
+  can.** A fixture with a dimmer moves the dimmer and keeps its colour, one
+  without drives r/g/b together, and a pixel does the same. A fade across a mixed
+  rig therefore does not repaint the look.
+- **About thirty operators documented that already worked and were invisible.**
+  `struct`, `mask`, `segment`, `every`, `iter`, `chunk`, `rev`, `palindrome`,
+  `ply`, `linger`, `late` / `early`, `rangex`, a backwards `range`, `add` / `mul`
+  taking patterns, `superimpose`, `off`, `echoWith`, `euclid`, `euclidRot`,
+  `degradeBy`, `sometimesBy`, `swingBy`, `@` weight, `!` replicate, and `{}`
+  polymeter. Every example in the reference panel was run against the engine
+  before being written down.
+- **How to write something longer than a bar**, which was the gap behind most of
+  the above. A mini string is one cycle however it is typed, so a backtick string
+  laid out eight tokens to a line and chained `.slow(8)` gives one bar per line.
+  That is byte-identical to `cat()` of the same bars and far easier to read.
+
+### Changed
+
+- **Layered patterns merge highest-takes-precedence**, the same as a lighting
+  desk. `tick()` read the first value on a channel and dropped the rest, so
+  `stack()`, a comma inside `mini()`, `superimpose()` and `off()` silently
+  discarded every layer after the first: `stack(0.25, 0.75)` put 64 on the wire.
+  Adding a layer can now raise a channel but never darken one. The reference
+  panel claimed the *last* value won, which was wrong in the other direction.
+- **A value that is not a number or a pattern is rejected with the channel
+  named.** A quoted number, a signal that was never called (`sine` rather than
+  `sine()`), `null`, `NaN`, `±Infinity`: all stored fine and read as 0 on every
+  tick. The message says what arrived and what to write instead. The evaluation
+  is transactional, so the rig keeps running the scene it already had.
+- **A colour is written whole or not at all.** `rgb(1, 0.5)` used to set green
+  and blue to 0; it now says it needs all three, or none for full white. Same for
+  `.color()` and `.fill()`.
+
 ## [0.3.0] - 2026-08-17
 
 > **Licence: MIT → AGPL-3.0-or-later.** The app bundles `@strudel/core`, which is
