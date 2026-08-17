@@ -79,19 +79,18 @@ with hot reload, and the bridge alongside it.
 #### Just visiting the site?
 
 There is no checkout to run anything from, so take the connector on its own.
-Pick whichever is least annoying:
-
-```bash
-npx gobo-connector                 # if you have Node: nothing downloaded, nothing left behind
-winget install nicholaspjm.gobo    # Windows 11, no download and no security warning
-```
-
-Or download one file from
+Download one file from
 [Releases](https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest).
 It sets itself to start at login the first time it runs, so it is a one time
 step; `--uninstall` undoes that.
 
 Then open the app and press `ctrl+enter`.
+
+Two quieter routes are prepared but not live yet, both of which skip the
+SmartScreen warning the downloaded file raises. `npx gobo-connector` needs the
+package published to npm, and `winget install nicholaspjm.gobo` needs the
+manifests accepted into `microsoft/winget-pkgs`. Neither works until then, so
+the download above is the route today.
 
 Using a USB DMX box, or sending through TouchDesigner? None of the above: those
 are the two the page drives on its own, back in section 1.
