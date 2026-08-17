@@ -17,6 +17,11 @@ copyright: gobo contributors
 
 directories:
   output: ../../release/desktop
+  buildResources: build
+
+# The same four-pointed spark the browser tab uses, so the app and the page
+# read as one thing. Generated at 1024px; electron-builder derives the rest.
+icon: build/icon.png
 
 files:
   - dist/**/*

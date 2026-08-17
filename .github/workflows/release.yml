@@ -47,8 +47,44 @@ jobs:
           path: release/${{ matrix.artifact }}
           if-no-files-found: error
 
+  desktop:
+    # The desktop build is the connector plus the editor in one window, for
+    # people who would rather install an app than run a loose executable.
+    # electron-builder produces a platform's installers only on that platform.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            pattern: 'release/desktop/*.exe'
+          - os: macos-latest
+            pattern: 'release/desktop/*.dmg'
+          - os: ubuntu-latest
+            pattern: 'release/desktop/*.AppImage'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:package
+        env:
+          # Nothing here is signed, and electron-builder should not go looking
+          # for a certificate or try to notarise.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: List what was built
+        shell: bash
+        run: ls -lh release/desktop || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gobo-desktop-${{ matrix.os }}
+          path: ${{ matrix.pattern }}
+          if-no-files-found: error
+
   release:
-    needs: build
+    needs: [build, desktop]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
@@ -75,6 +111,10 @@ jobs:
             | Windows | `gobo-connector-windows.exe` |
             | macOS | `gobo-connector-macos` |
             | Linux | `gobo-connector-linux` |
+
+            Or install the desktop app, which is the connector and the editor
+            in one window: `gobo Setup <version>.exe` on Windows, the `.dmg` on
+            macOS, the `.AppImage` on Linux.
 
             The binaries are unsigned, so Windows SmartScreen and macOS
             Gatekeeper will warn on first run. On macOS you may need

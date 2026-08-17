@@ -4,6 +4,100 @@ All notable changes to gobo are recorded here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-17
+
+> **Licence: MIT → AGPL-3.0-or-later.** The app bundles `@strudel/core`, which is
+> AGPL, so MIT was never a valid description of the distributed app. The connector
+> (`packages/bridge`) stays MIT.
+>
+> **Upgrade from 0.2.0 for the blackout alone.** A closed tab used to leave the rig
+> lit on its last look. The bridge now sends one zero frame per live universe when
+> the last client disconnects.
+>
+> **Two of the six outputs work in a plain browser.** `usb()` drives an Enttec style
+> box over WebSerial (Chrome or Edge, one universe), and `td()` hands frames to
+> TouchDesigner, which sends the Art-Net itself. `artnet()`, `sacn()`, `osc()` and
+> `mock()` leave as UDP packets, which a page cannot send, so they need the
+> connector or the desktop build. OSC is not the install-free option it looks like:
+> it is the same kind of packet as Art-Net.
+
+### Added
+
+- **Desktop build** (`packages/desktop`) running the bridge inside the app and
+  serving the UI from it, so `artnet()`, `sacn()`, `osc()` and `mock()` work with
+  nothing else installed and the page's WebSocket is same origin. `contextIsolation`
+  on, `nodeIntegration` off, sandbox on, navigation confined to the app's own
+  origin, and a frozen `{ desktop, version }` as the only thing crossing into the
+  page. Build and run it from a checkout with `npm run desktop`, or take an
+  installer from the release page: `.exe` on Windows, `.dmg` on macOS,
+  `.AppImage` on Linux, built on a tag by the release workflow. None of them is
+  signed, so Windows SmartScreen and macOS Gatekeeper warn on first run.
+- **A run whose output nothing is listening for now says so on that run.**
+  `artnet()`, `sacn()`, `osc()` and `mock()` with no connector on the machine
+  used to run clean and light nothing, and the only sign was a status line some
+  seconds later saying the target was never reached, which reads as a fault in
+  the rig. `evalCode` now returns a `warning` beside the successful result,
+  naming the cause and the fix, and logs it to the console. The scene still runs:
+  the patterns are live and only the wire is silent.
+- **Four fixtures in the public library.** `fixtures/` shipped with nothing in it
+  in 0.2.0. It now holds `par-rgbw-7ch`, `moving-head-wash-14ch` (16-bit
+  pan/tilt), `strobe-4ch` and `pixel-bar-rgbw-8` (eight RGBW pixels across 34
+  channels). They are bundled at build time and registered on startup, so
+  `fixture(1, 'par-rgbw-7ch')` resolves without opening the library panel.
+- **Outputs panel.** The connection light in the top bar is now a button that opens
+  a list of all six outputs, each with what it is and whether it can carry light
+  right now. A lock badge appears beside it while the scene's chosen output needs a
+  program that is not running.
+- **One table for output capability**, `packages/ui/src/outputs.ts`. The top bar,
+  the panel and the connector prompt all read their answers from it, so no second
+  place can disagree about what works where.
+- **Two install routes for the connector** that skip the SmartScreen warning the
+  downloaded exe raises: `npx gobo-connector` for anyone with Node (14.7 kB of
+  JavaScript rather than 87 MB of bundled runtime), and `winget install
+  nicholaspjm.gobo` on Windows 11. `npm run winget` writes the three manifests,
+  hashing the bytes of the published release. Both routes work once the package is
+  published to npm and the manifests are accepted into `microsoft/winget-pkgs`.
+- **Art-Net node discovery in `npm run doctor`.** It sends an ArtPoll and reports
+  every node that answers, with its name and the universes it listens on, since
+  "the addresses are right but nothing arrives" is usually a universe mismatch.
+
+### Changed
+
+- **Licence is now AGPL-3.0-or-later**, replacing MIT, because the app bundles
+  `@strudel/core` and a work containing it cannot be distributed under MIT terms.
+  Section 13 also covers running a modified version as a network service, which is
+  the relevant case for a browser tool. `packages/bridge` stays MIT: it imports no
+  Strudel and depends only on `ws`, so other lighting projects can reuse it. Added
+  GOVERNANCE.md recording that there is no contributor licence agreement and will
+  not be one.
+- **Default send rate is 40 Hz**, was 60. DMX512 carries at most about 44 frames a
+  second, so 60 asked the wire for more than it can pass. The options are now
+  25 / 30 / 40 / 44, and a stored 60 migrates to 40, a stored 120 to 44.
+- **The connector banner no longer offers the download to people who have one.**
+  Once a bridge has connected in this browser, the banner says the connector is not
+  running and that it normally starts itself at login, rather than selling a file
+  they already installed.
+
+### Fixed
+
+- **The rig blacks out when the app disconnects.** A closed tab, a crashed browser
+  or a shut laptop lid ends the WebSocket without a final frame, and DMX receivers
+  hold their last value indefinitely. The bridge now tracks which universes have
+  carried data and sends one zero frame each when the last client goes.
+- The connector prompt fired before the WebSocket had a chance, so pressing
+  `Ctrl+Enter` as the page loaded told a working setup that nothing was listening.
+  There is now a 2.5s grace period, cancelled if the bridge turns up during it.
+- `onStatusChange` and `onUsbStatusChange` each held one callback rather than a
+  list, so registering a second listener silently replaced the first and the top-bar
+  connection dot stopped updating. Both are Sets now.
+- `td()` pointed at anything other than localhost from an https page threw out of
+  `evalCode` rather than returning a failed result. The mixed-content check ran
+  at flush time, in the `finally` that runs after the scene has been committed,
+  so the caller got no error to show and a half-configured scene was already
+  live. The check now runs when the call is staged, which makes it an ordinary
+  scene error that rolls back with the rest of the run.
+- The README licence badge still read MIT after the relicence.
+
 ## [0.2.0] - 2026-08-12
 
 > **Renamed: lumen → gobo.** The project, the workspace packages (`@gobo/core`,
@@ -26,32 +120,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 First public release. There was never a published 0.1.0. Everything below landed during pre-0.2 development, and the commit-level detail for that period is in git.
 
-### Changed
-
-- **Licence is now AGPL-3.0-or-later**, replacing MIT. The app bundles
-  `@strudel/core`, which is AGPL, so a work containing it cannot be distributed
-  under MIT terms; the previous licence misdescribed what was being shipped. It
-  is also the intended licence: changes have to stay free, and section 13 covers
-  running a modified version as a network service. The connector
-  (`packages/bridge`) stays MIT, since it contains no AGPL code. Added
-  GOVERNANCE.md recording that there is no contributor licence agreement and
-  will not be one.
-- **Default send rate is 40 Hz**, was 60. DMX512 carries at most about 44 frames
-  a second, so anything above that was buying nothing and exceeding what the
-  Art-Net spec asks of senders. The options are now 25 / 30 / 40 / 44, and a
-  setting saved as 60 or 120 migrates to the nearest useful value.
-- **The rig blacks out when the app disconnects.** A closed tab, a crashed
-  browser or a shut laptop lid ends the WebSocket without a final frame, and DMX
-  receivers hold their last value indefinitely, so the rig stayed lit on whatever
-  was on screen. The bridge now sends one zero frame per live universe when the
-  last client goes.
-
 ### Added
 
-- **Art-Net node discovery in `npm run doctor`** — sends an ArtPoll and reports
-  every node that answers, with its name and the universes it listens on. "The
-  addresses are right but nothing arrives" is usually a universe mismatch, and a
-  reply also proves the path works in both directions.
 - **Pattern engine.** `sine()`, `cosine()`, `square()`, `saw()`, `rand()` built on [@strudel/core](https://strudel.cc), with the usual chain methods (`.slow` / `.fast` / `.range` / `.add` / `.mul` / `.early` / `.late`). Patterns are sampled once per tick and written straight into DMX buffers. If strudel fails to load, evaluation is refused with a clear message rather than degrading to approximate waveforms.
 - **Mini-notation sequencing.** `mini()` / `m()` from `@strudel/mini`, plus `sequence()`, `cat()`, `stack()`. Write a drum grid per channel (`spot.white(mini('1 - - 1'))`) instead of hand-rolling envelopes.
 - **`register(name, fn)`.** Define custom chain methods from editor code. They attach to the Pattern prototype and survive `.slow()` / `.fast()` / `.add()` chains.
@@ -107,4 +177,5 @@ First public release. There was never a published 0.1.0. Everything below landed
 - The sim panel was hard-coded to one scene's channel layout and showed ghost fixtures after a scene switch. It is now rebuilt from the fixtures registered during the last eval. Its "off" state also reads the theme background instead of a hardcoded colour, so blackout looks dark on every theme.
 - The `ultratronics 11` template called `spot.dim()` on an RGBW fixture that has no dimmer channel, throwing on every run. The instrument palette was remapped onto discrete colour channels. The fixed version is the one in the **examples** menu; a copy you saved under the old scene model still holds the broken call, so re-load the example if you kept one.
 
+[0.3.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.3.0
 [0.2.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.2.0
