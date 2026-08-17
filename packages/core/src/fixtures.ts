@@ -17,7 +17,7 @@
  *   head.dim(0.8)
  */
 
-import { uni, type PatternOrValue } from './dmx.js';
+import { uni, channelValue, channelValues, type PatternOrValue } from './dmx.js';
 
 // ─── Fixture definition types ─────────────────────────────────────────────────
 
@@ -324,7 +324,11 @@ export function applyPixelGrid(
     }
     const row = rows[src];
     for (let j = 0; j < stride; j++) {
-      uni(universe, base + j, row[j] ?? 0);
+      uni(
+        universe,
+        base + j,
+        row[j] === undefined ? 0 : channelValue([row[j]], `.pixelGrid() row ${src} ${'rgbw'[j]}`),
+      );
     }
   }
 }
@@ -405,8 +409,11 @@ export type FixtureInstance = {
   readonly universe: number;
   /** Start channel (1-based, inclusive) */
   readonly startChannel: number;
-  /** Set any scalar channel by name. Throws for strip channels. */
-  set(channelName: string, value: PatternOrValue): void;
+  /**
+   * Set any scalar channel by name. Throws for strip channels. Omit the value
+   * for full.
+   */
+  set(channelName: string, ...value: [PatternOrValue?]): void;
   /** List available channel names */
   channels(): string[];
   /**
@@ -430,12 +437,13 @@ export type FixtureInstance = {
    *   wash.color(1, 0, 0)         // red on an RGB par
    *   wash.color(1, 0, 0, 0.3)    // red + a touch of white (RGBW)
    *   wash.color(sine(), 0, 0)    // animated red
+   *   wash.color()                // full white
    */
   color(
-    r: PatternOrValue,
-    g: PatternOrValue,
-    b: PatternOrValue,
-    w?: PatternOrValue,
+    ...args:
+      | []
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
   ): void;
   /** Zero every light-emitting channel on the fixture (dim, RGB, RGBW,
    *  embedded strip pixels). Safe on every fixture type. */
@@ -502,7 +510,7 @@ export function fixture(
     universe,
     startChannel,
 
-    set(channelName: string, value: PatternOrValue): void {
+    set(channelName: string, ...args: [PatternOrValue?]): void {
       const ch = def.channels.find((c) => c.name === channelName);
       if (!ch) {
         throw new Error(
@@ -514,7 +522,9 @@ export function fixture(
           `Fixture "${def.name}" channel "${channelName}" is a pixel strip segment. Use .${channelName}.fill(r,g,b), .${channelName}.pixel(i, r, g, b), or .${channelName}.red(v) instead of .set().`,
         );
       }
-      uni(universe, startChannel + ch.offset, value);
+      // Named for the channel rather than for set(), because the named setters
+      // below all route through here and `.red()` is how it was written.
+      uni(universe, startChannel + ch.offset, channelValue(args, `.${channelName}()`));
     },
 
     channels(): string[] {
@@ -535,17 +545,20 @@ export function fixture(
       return inst;
     },
 
-    color(r, g, b, w) {
+    color(...args) {
       // Skip channels that don't exist on this fixture so the same call
       // is portable across rgb / rgbw / dim-rgbw / moving-head etc. Each
       // channel is set independently; patterns and constants both flow
       // through inst.set() the same way as a named-channel setter would.
+      const [r, g, b] = channelValues(args.slice(0, 3), ['r', 'g', 'b'], '.color()');
       const has = (name: string): boolean =>
         def.channels.some((c) => c.name === name && c.type !== 'strip');
       if (has('red'))   inst.set('red',   r);
       if (has('green')) inst.set('green', g);
       if (has('blue'))  inst.set('blue',  b);
-      if (w !== undefined && has('white')) inst.set('white', w);
+      // White stays opt-in: a three-argument call is a colour mix that the
+      // fixture's own white channel would wash out.
+      if (args.length > 3 && has('white')) inst.set('white', channelValue([args[3]], '.color() w'));
     },
 
     off() {
@@ -614,7 +627,10 @@ export function fixture(
           ? rgbwStrip(stripStart, pixelCount, universe, stripOpts)
           : rgbStrip(stripStart, pixelCount, universe, stripOpts);
     } else {
-      inst[ch.name] = (value: PatternOrValue) => inst.set(ch.name, value);
+      // Rest parameter, not a single value: a call with no argument has to stay
+      // distinguishable from one that passed undefined, so `par.red()` can mean
+      // full while `par.red(somethingBroken)` still reports.
+      inst[ch.name] = (...args: [PatternOrValue?]) => inst.set(ch.name, ...args);
     }
   }
 
@@ -702,11 +718,15 @@ export interface StripInstance {
   /** Total DMX channels consumed (pixelCount * 3). */
   readonly channelCount: number;
 
-  /** Set every pixel to the same r/g/b. Each arg may be a pattern or number. */
-  fill(r: PatternOrValue, g: PatternOrValue, b: PatternOrValue): void;
+  /**
+   * Set every pixel to the same r/g/b. Each arg may be a pattern or number.
+   * Omit all three for full white.
+   */
+  fill(...args: [] | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]): void;
 
   /**
-   * Set a single pixel (0-indexed). Two shapes:
+   * Set a single pixel (0-indexed). Three shapes:
+   *   pixel(i)                     → monochrome at full
    *   pixel(i, brightness)         → monochrome (R = G = B = brightness)
    *   pixel(i, r, g, b)            → full RGB
    * The monochrome form is the usual chase-loop shorthand: it saves
@@ -714,9 +734,10 @@ export interface StripInstance {
    */
   pixel(
     index: number,
-    r: PatternOrValue,
-    g?: PatternOrValue,
-    b?: PatternOrValue,
+    ...args:
+      | []
+      | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
   ): void;
 
   /**
@@ -745,12 +766,12 @@ export interface StripInstance {
    */
   each(fn: (phase: number, i: number, count: number) => PatternOrValue | PatternOrValue[]): void;
 
-  /** Set just the red channel on every pixel. */
-  red(v: PatternOrValue): void;
-  /** Set just the green channel on every pixel. */
-  green(v: PatternOrValue): void;
-  /** Set just the blue channel on every pixel. */
-  blue(v: PatternOrValue): void;
+  /** Set just the red channel on every pixel. Omit the value for full. */
+  red(...v: [PatternOrValue?]): void;
+  /** Set just the green channel on every pixel. Omit the value for full. */
+  green(...v: [PatternOrValue?]): void;
+  /** Set just the blue channel on every pixel. Omit the value for full. */
+  blue(...v: [PatternOrValue?]): void;
 
   /**
    * Opt into one or more inline editor visualizations for this strip. The
@@ -818,7 +839,8 @@ export function rgbStrip(
     pixelCount,
     channelCount,
 
-    fill(r, g, b) {
+    fill(...args) {
+      const [r, g, b] = channelValues(args, ['r', 'g', 'b'], '.fill()');
       for (let i = 0; i < pixelCount; i++) {
         const base = startChannel + i * 3;
         uni(universe, base,     r);
@@ -827,7 +849,7 @@ export function rgbStrip(
       }
     },
 
-    pixel(index, r, g, b) {
+    pixel(index, ...args) {
       if (!Number.isInteger(index) || index < 0 || index >= pixelCount) {
         throw new Error(
           `rgbStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`,
@@ -835,11 +857,15 @@ export function rgbStrip(
       }
       // Monochrome shortcut: pixel(i, value) replicates `value` across R/G/B.
       // Saves repeating the brightness pattern three times in chase loops.
-      if (g === undefined && b === undefined) { g = r; b = r; }
+      // pixel(i) on its own is that shortcut at full.
+      const mono = args.length < 2;
+      const [r, g, b] = mono
+        ? Array(3).fill(channelValue(args, `.pixel(${index})`))
+        : channelValues(args, ['r', 'g', 'b'], `.pixel(${index})`);
       const base = startChannel + index * 3;
       uni(universe, base,     r);
-      uni(universe, base + 1, g ?? 0);
-      uni(universe, base + 2, b ?? 0);
+      uni(universe, base + 1, g);
+      uni(universe, base + 2, b);
     },
 
     pixelGrid(values) {
@@ -860,31 +886,39 @@ export function rgbStrip(
         const result = fn(phase, i, pixelCount);
         const base = startChannel + i * 3;
         if (Array.isArray(result)) {
-          uni(universe, base,     result[0] ?? 0);
-          uni(universe, base + 1, result[1] ?? 0);
-          uni(universe, base + 2, result[2] ?? 0);
+          // A short array is a colour written to the channels it names, so the
+          // rest stay off. Only the values present are checked.
+          uni(universe, base,     result.length > 0 ? channelValue([result[0]], `.each() pixel ${i} r`) : 0);
+          uni(universe, base + 1, result.length > 1 ? channelValue([result[1]], `.each() pixel ${i} g`) : 0);
+          uni(universe, base + 2, result.length > 2 ? channelValue([result[2]], `.each() pixel ${i} b`) : 0);
         } else {
-          // Single value → monochrome (R = G = B = value).
-          uni(universe, base,     result);
-          uni(universe, base + 1, result);
-          uni(universe, base + 2, result);
+          // Single value → monochrome (R = G = B = value). A callback that
+          // returns nothing is a missing return rather than a request for
+          // full, so this one takes the value as given.
+          const v = channelValue([result], `.each() pixel ${i}`);
+          uni(universe, base,     v);
+          uni(universe, base + 1, v);
+          uni(universe, base + 2, v);
         }
       }
     },
 
-    red(v) {
+    red(...args) {
+      const v = channelValue(args, '.red()');
       for (let i = 0; i < pixelCount; i++) {
         uni(universe, startChannel + i * 3, v);
       }
     },
 
-    green(v) {
+    green(...args) {
+      const v = channelValue(args, '.green()');
       for (let i = 0; i < pixelCount; i++) {
         uni(universe, startChannel + i * 3 + 1, v);
       }
     },
 
-    blue(v) {
+    blue(...args) {
+      const v = channelValue(args, '.blue()');
       for (let i = 0; i < pixelCount; i++) {
         uni(universe, startChannel + i * 3 + 2, v);
       }
@@ -931,16 +965,16 @@ export interface RgbwStripInstance {
   /** Total DMX channels consumed (pixelCount * 4). */
   readonly channelCount: number;
 
-  /** Set every pixel to the same r/g/b/w. */
+  /** Set every pixel to the same r/g/b/w. Omit all four for full. */
   fill(
-    r: PatternOrValue,
-    g: PatternOrValue,
-    b: PatternOrValue,
-    w: PatternOrValue,
+    ...args:
+      | []
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
   ): void;
 
   /**
-   * Set a single pixel (0-indexed). Two shapes:
+   * Set a single pixel (0-indexed). Three shapes:
+   *   pixel(i)                         → monochrome at full
    *   pixel(i, brightness)             → monochrome (R = G = B = brightness, W = 0)
    *   pixel(i, r, g, b, w)             → full RGBW
    * The monochrome form is the usual chase-loop shorthand: it saves
@@ -948,10 +982,10 @@ export interface RgbwStripInstance {
    */
   pixel(
     index: number,
-    r: PatternOrValue,
-    g?: PatternOrValue,
-    b?: PatternOrValue,
-    w?: PatternOrValue,
+    ...args:
+      | []
+      | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
   ): void;
 
   /**
@@ -979,14 +1013,14 @@ export interface RgbwStripInstance {
    */
   each(fn: (phase: number, i: number, count: number) => PatternOrValue | PatternOrValue[]): void;
 
-  /** Set just the red channel on every pixel. */
-  red(v: PatternOrValue): void;
-  /** Set just the green channel on every pixel. */
-  green(v: PatternOrValue): void;
-  /** Set just the blue channel on every pixel. */
-  blue(v: PatternOrValue): void;
-  /** Set just the white channel on every pixel. */
-  white(v: PatternOrValue): void;
+  /** Set just the red channel on every pixel. Omit the value for full. */
+  red(...v: [PatternOrValue?]): void;
+  /** Set just the green channel on every pixel. Omit the value for full. */
+  green(...v: [PatternOrValue?]): void;
+  /** Set just the blue channel on every pixel. Omit the value for full. */
+  blue(...v: [PatternOrValue?]): void;
+  /** Set just the white channel on every pixel. Omit the value for full. */
+  white(...v: [PatternOrValue?]): void;
 
   /** Opt into an inline editor visualization (default kind 'strip'). */
   viz(...kinds: VizKind[]): RgbwStripInstance;
@@ -1030,7 +1064,8 @@ export function rgbwStrip(
     pixelCount,
     channelCount,
 
-    fill(r, g, b, w) {
+    fill(...args) {
+      const [r, g, b, w] = channelValues(args, ['r', 'g', 'b', 'w'], '.fill()');
       for (let i = 0; i < pixelCount; i++) {
         const base = startChannel + i * STRIDE;
         uni(universe, base,     r);
@@ -1040,21 +1075,24 @@ export function rgbwStrip(
       }
     },
 
-    pixel(index, r, g, b, w) {
+    pixel(index, ...args) {
       if (!Number.isInteger(index) || index < 0 || index >= pixelCount) {
         throw new Error(
           `rgbwStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`,
         );
       }
       // Monochrome shortcut: pixel(i, value) sets R = G = B = value with
-      // W = 0. Repeated four-arg call is the verbose form for explicit
-      // colour control.
-      if (g === undefined && b === undefined) { g = r; b = r; w = 0; }
+      // W = 0. The four-arg call is the verbose form for explicit colour
+      // control. pixel(i) on its own is the shortcut at full.
+      const mono = args.length < 2;
+      const [r, g, b, w] = mono
+        ? [...Array(3).fill(channelValue(args, `.pixel(${index})`)), 0]
+        : channelValues(args, ['r', 'g', 'b', 'w'], `.pixel(${index})`);
       const base = startChannel + index * STRIDE;
       uni(universe, base,     r);
-      uni(universe, base + 1, g ?? 0);
-      uni(universe, base + 2, b ?? 0);
-      uni(universe, base + 3, w ?? 0);
+      uni(universe, base + 1, g);
+      uni(universe, base + 2, b);
+      uni(universe, base + 3, w);
     },
 
     pixelGrid(values) {
@@ -1072,24 +1110,27 @@ export function rgbwStrip(
         const result = fn(phase, i, pixelCount);
         const base = startChannel + i * STRIDE;
         if (Array.isArray(result)) {
-          uni(universe, base,     result[0] ?? 0);
-          uni(universe, base + 1, result[1] ?? 0);
-          uni(universe, base + 2, result[2] ?? 0);
-          uni(universe, base + 3, result[3] ?? 0);
+          // A short array names the channels it sets; the rest stay off.
+          for (let c = 0; c < STRIDE; c++) {
+            uni(universe, base + c, c < result.length ? channelValue([result[c]], `.each() pixel ${i} ${'rgbw'[c]}`) : 0);
+          }
         } else {
-          // Single value → monochrome (R = G = B = value, W = 0).
-          uni(universe, base,     result);
-          uni(universe, base + 1, result);
-          uni(universe, base + 2, result);
+          // Single value → monochrome (R = G = B = value, W = 0). A callback
+          // that returns nothing is a missing return rather than a request for
+          // full, so this one takes the value as given.
+          const v = channelValue([result], `.each() pixel ${i}`);
+          uni(universe, base,     v);
+          uni(universe, base + 1, v);
+          uni(universe, base + 2, v);
           uni(universe, base + 3, 0);
         }
       }
     },
 
-    red(v)   { for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE,     v); },
-    green(v) { for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE + 1, v); },
-    blue(v)  { for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE + 2, v); },
-    white(v) { for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE + 3, v); },
+    red(...a)   { const v = channelValue(a, '.red()');   for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE,     v); },
+    green(...a) { const v = channelValue(a, '.green()'); for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE + 1, v); },
+    blue(...a)  { const v = channelValue(a, '.blue()');  for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE + 2, v); },
+    white(...a) { const v = channelValue(a, '.white()'); for (let i = 0; i < pixelCount; i++) uni(universe, startChannel + i * STRIDE + 3, v); },
 
     viz(...kinds: VizKind[]): RgbwStripInstance {
       const list: VizKind[] = kinds.length > 0 ? kinds : ['strip'];
@@ -1117,6 +1158,346 @@ export function rgbwStrip(
     movement: opts.movement,
     render: { kind: 'strip-rgbw', pixelCount },
   });
+  return inst;
+}
+
+// ─── Groups ──────────────────────────────────────────────────────────────────
+//
+// The one thing that cannot be written at any length otherwise: a single move
+// across a mixed rig. A phase ramp over a strip is `strip.each(…)`, over a
+// bar's pixels is `bar.pixels.each(…)`, and over two pars is two hand-written
+// offsets. Three vocabularies for one gesture, and no way at all to run one
+// ramp through all of them in order.
+//
+// A group is a flat list of things that can be lit, and it answers the same
+// verbs a fixture does. The counting rule is the only thing to remember:
+//
+//   a fixture      one element, however many channels it has
+//   a strip        one element per pixel
+//
+// so `group(washA, washB, bar.pixels)` is 2 + however many pixels, in the
+// order written. Pass the fixture to move it as a unit, pass its `.pixels` to
+// move the pixels.
+
+/** Anything group() accepts. Groups nest, and flatten when they do. */
+export type GroupMember =
+  | FixtureInstance
+  | StripInstance
+  | RgbwStripInstance
+  | GroupInstance;
+
+/**
+ * One addressable element of a group: a whole fixture, or one pixel.
+ *
+ * Named roles rather than channel numbers, so a par's `red` and a pixel's
+ * first channel answer to the same word. That equivalence is the entire point
+ * of the type.
+ */
+interface GroupCell {
+  /** Roles this element can actually set. */
+  roles: ReadonlySet<string>;
+  set(role: string, value: PatternOrValue): void;
+  /**
+   * Overall brightness, however this element expresses one: a dimmer if it has
+   * one, otherwise its colour channels together. What a single-value `each()`
+   * callback drives.
+   */
+  level(value: PatternOrValue): void;
+}
+
+/** Colour roles, in the order the array form of `each()` uses. */
+const COLOUR_ROLES = ['red', 'green', 'blue', 'white'] as const;
+
+function isStrip(v: unknown): v is StripInstance | RgbwStripInstance {
+  const s = v as StripInstance;
+  return typeof s?.pixelCount === 'number' && typeof s?.fill === 'function';
+}
+
+function isFixtureInstance(v: unknown): v is FixtureInstance {
+  const f = v as FixtureInstance;
+  return typeof f?.set === 'function' && typeof f?.channels === 'function';
+}
+
+function isGroup(v: unknown): v is GroupInstance {
+  return (v as GroupInstance)?.[GROUP_BRAND] === true;
+}
+
+/** Marks a group so nested groups can be recognised without instanceof. */
+const GROUP_BRAND = Symbol.for('gobo.group');
+
+/** One pixel of a strip, presented as a cell. */
+function pixelCell(
+  universe: number,
+  base: number,
+  stride: number,
+): GroupCell {
+  const roles = new Set(COLOUR_ROLES.slice(0, stride === 4 ? 4 : 3));
+  return {
+    roles,
+    set(role, value) {
+      const offset = COLOUR_ROLES.indexOf(role as (typeof COLOUR_ROLES)[number]);
+      if (offset < 0 || offset >= stride) return;
+      uni(universe, base + offset, value);
+    },
+    level(value) {
+      // Matches what strip.each() already does with a single value: R = G = B,
+      // and a white channel held off so it does not wash out the mix.
+      uni(universe, base,     value);
+      uni(universe, base + 1, value);
+      uni(universe, base + 2, value);
+      if (stride === 4) uni(universe, base + 3, 0);
+    },
+  };
+}
+
+/** A whole fixture, presented as a cell. */
+function fixtureCell(inst: FixtureInstance): GroupCell {
+  const scalars = new Set(
+    inst.def.channels.filter((c) => c.type !== 'strip').map((c) => c.name),
+  );
+  // A fixture with a built-in strip still answers to `red`: the group sets the
+  // role on the fixture's own channel if it has one, and on every pixel of
+  // every embedded strip. Passing the fixture means "move this as one thing",
+  // which for a pixel bar means all its pixels together.
+  const strips = inst.def.channels
+    .filter((c) => c.type === 'strip')
+    .map((c) => inst[c.name] as StripInstance | RgbwStripInstance)
+    .filter(isStrip);
+
+  const roles = new Set(scalars);
+  for (const s of strips) {
+    roles.add('red');
+    roles.add('green');
+    roles.add('blue');
+    if (typeof (s as RgbwStripInstance).white === 'function') roles.add('white');
+  }
+
+  const setOn = (role: string, value: PatternOrValue): void => {
+    if (scalars.has(role)) inst.set(role, value);
+    for (const s of strips) {
+      const fn = (s as unknown as Record<string, (v: PatternOrValue) => void>)[role];
+      if (typeof fn === 'function') fn.call(s, value);
+    }
+  };
+
+  return {
+    roles,
+    set: setOn,
+    level(value) {
+      // A dimmer is what "brightness" means on a fixture that has one, and
+      // leaving the colour alone is the whole reason to prefer it: the look
+      // survives the fade. Only a fixture with no dimmer falls back to
+      // driving its colour channels together.
+      if (scalars.has('dim')) {
+        inst.set('dim', value);
+        return;
+      }
+      let lit = false;
+      for (const role of ['red', 'green', 'blue'] as const) {
+        if (roles.has(role)) {
+          setOn(role, value);
+          lit = true;
+        }
+      }
+      if (!lit && roles.has('white')) setOn('white', value);
+    },
+  };
+}
+
+export interface GroupInstance {
+  /** Marks this as a group. Present so nested groups flatten. */
+  readonly [GROUP_BRAND]: true;
+  /** How many elements the group has, counting each pixel separately. */
+  readonly size: number;
+  /** The members as passed in, before flattening. */
+  readonly members: readonly GroupMember[];
+
+  /** Set a role on every element that has one. Omit the value for full. */
+  set(role: string, ...value: [PatternOrValue?]): void;
+  /** Set red on everything that has a red. Omit the value for full. */
+  red(...v: [PatternOrValue?]): void;
+  /** Set green on everything that has a green. Omit the value for full. */
+  green(...v: [PatternOrValue?]): void;
+  /** Set blue on everything that has a blue. Omit the value for full. */
+  blue(...v: [PatternOrValue?]): void;
+  /** Set white on everything that has a white. Omit the value for full. */
+  white(...v: [PatternOrValue?]): void;
+  /** Set the dimmer on everything that has one. Omit the value for full. */
+  dim(...v: [PatternOrValue?]): void;
+
+  /**
+   * Set r/g/b (and optionally w) across the group, skipping roles a given
+   * element does not have. Omit everything for full white.
+   */
+  color(
+    ...args:
+      | []
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
+  ): void;
+
+  /** Zero every light-emitting role across the group. */
+  off(): void;
+  /** Drive every light-emitting role across the group to full. */
+  full(): void;
+
+  /**
+   * Run a callback per element, in the order the members were written.
+   *
+   * The callback gets `(phase, i, count)` with `phase = i / count`, the same
+   * signature the strips already use, so a chase written for one strip works
+   * unchanged across a whole rig. Return a single value for brightness, or
+   * `[r, g, b]` / `[r, g, b, w]` for colour.
+   *
+   * @example
+   *   const rig = group(washA, washB, bar.pixels, strip)
+   *   rig.each(p => sine().early(p).slow(4))
+   */
+  each(fn: (phase: number, i: number, count: number) => PatternOrValue | PatternOrValue[]): void;
+}
+
+/**
+ * Treat several fixtures, strips and pixels as one addressable thing.
+ *
+ * @example
+ *   const rig = group(washA, washB, bar.pixels)
+ *   rig.red(sine().slow(4))                  // same verb as a single fixture
+ *   rig.each(p => sine().early(p).slow(4))   // one ramp across the whole rig
+ */
+export function group(...members: GroupMember[]): GroupInstance {
+  if (members.length === 0) {
+    throw new Error('group: needs at least one fixture, strip or group');
+  }
+
+  const cells: GroupCell[] = [];
+  const collect = (m: GroupMember, path: string): void => {
+    if (isGroup(m)) {
+      for (const inner of m.members) collect(inner, path);
+      return;
+    }
+    if (isStrip(m)) {
+      const stride = m.channelCount / m.pixelCount;
+      for (let i = 0; i < m.pixelCount; i++) {
+        cells.push(pixelCell(m.universe, m.startChannel + i * stride, stride));
+      }
+      return;
+    }
+    if (isFixtureInstance(m)) {
+      cells.push(fixtureCell(m));
+      return;
+    }
+    throw new Error(
+      `group: ${path} is not a fixture, a strip or a group. Pass what fixture() / rgbStrip() / rgbwStrip() returned, or a fixture's .pixels.`,
+    );
+  };
+  members.forEach((m, i) => collect(m, `argument ${i + 1}`));
+
+  /**
+   * Apply a role to every element that has it.
+   *
+   * Skipping elements that lack the role is what makes one line work across a
+   * mixed rig. A role no element has is a different thing: nothing would
+   * happen and nothing would say so, which is the failure this whole pass
+   * exists to remove, so that one throws.
+   */
+  const applyRole = (role: string, value: PatternOrValue, what: string): void => {
+    let applied = 0;
+    for (const cell of cells) {
+      if (cell.roles.has(role)) {
+        cell.set(role, value);
+        applied++;
+      }
+    }
+    if (applied === 0) {
+      const available = [...new Set(cells.flatMap((c) => [...c.roles]))].sort().join(', ');
+      throw new Error(
+        `${what}: no member of this group has a "${role}" channel. Available across the group: ${available || 'none'}.`,
+      );
+    }
+  };
+
+  const roleSetter = (role: string) => (...v: [PatternOrValue?]) => {
+    applyRole(role, channelValue(v, `group.${role}()`), `group.${role}()`);
+  };
+
+  const inst: GroupInstance = {
+    [GROUP_BRAND]: true,
+    size: cells.length,
+    members,
+
+    set(role, ...v) {
+      applyRole(role, channelValue(v, `group.set(${JSON.stringify(role)})`), `group.set(${JSON.stringify(role)})`);
+    },
+
+    red: roleSetter('red'),
+    green: roleSetter('green'),
+    blue: roleSetter('blue'),
+    white: roleSetter('white'),
+    dim: roleSetter('dim'),
+
+    color(...args) {
+      const [r, g, b] = channelValues(args.slice(0, 3), ['r', 'g', 'b'], 'group.color()');
+      // Unlike a single role, a colour that lands on nothing is worth
+      // reporting once for the call rather than three times for its parts, so
+      // these are counted together.
+      let applied = 0;
+      const paint = (role: string, value: PatternOrValue): void => {
+        for (const cell of cells) {
+          if (cell.roles.has(role)) {
+            cell.set(role, value);
+            applied++;
+          }
+        }
+      };
+      paint('red', r);
+      paint('green', g);
+      paint('blue', b);
+      if (args.length > 3) paint('white', channelValue([args[3]], 'group.color() w'));
+      if (applied === 0) {
+        throw new Error('group.color(): no member of this group has a colour channel.');
+      }
+    },
+
+    off() {
+      for (const cell of cells) {
+        for (const role of cell.roles) {
+          if (role === 'dim' || (COLOUR_ROLES as readonly string[]).includes(role)) {
+            cell.set(role, 0);
+          }
+        }
+      }
+    },
+
+    full() {
+      for (const cell of cells) {
+        for (const role of cell.roles) {
+          if (role === 'dim' || (COLOUR_ROLES as readonly string[]).includes(role)) {
+            cell.set(role, 1);
+          }
+        }
+      }
+    },
+
+    each(fn) {
+      const count = cells.length;
+      for (let i = 0; i < count; i++) {
+        const result = fn(i / count, i, count);
+        if (Array.isArray(result)) {
+          // The array names roles positionally, r/g/b/w, and stops where it
+          // stops: [1, 0, 0] leaves white alone rather than zeroing it.
+          for (let c = 0; c < result.length && c < COLOUR_ROLES.length; c++) {
+            const role = COLOUR_ROLES[c];
+            if (cells[i].roles.has(role)) {
+              cells[i].set(role, channelValue([result[c]], `group.each() element ${i} ${role}`));
+            }
+          }
+        } else {
+          cells[i].level(channelValue([result], `group.each() element ${i}`));
+        }
+      }
+    },
+  };
+
   return inst;
 }
 

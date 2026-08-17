@@ -293,6 +293,10 @@ The bridge is stateless: one WebSocket frame in, one UDP send out. Wire cadence 
 
 A fixture profile is an ordered list of `{offset, name, type}` channel descriptors ([fixtures.ts](packages/core/src/fixtures.ts)). `fixture(start, id)` returns an object where each channel name becomes a setter that writes to `start + offset` on the target universe. Generic helpers `.color(r,g,b,w?) / .off() / .full()` walk the light-emitting channels of whatever fixture you gave them, so the same call works on `rgb`, `rgbw`, `dim-rgbw`, or a moving head ([fixtures.ts](packages/core/src/fixtures.ts)). Pixel strips (`rgbStrip`, `rgbwStrip`) lay out N × 3 or N × 4 contiguous channels and add `.pixel(i, …)`, `.pixelGrid([…])`, `.each(fn)`, `.rainbowChase(…)`. Roll your own with `defineFixture(id, def)`.
 
+`group(...)` puts fixtures, strips and a fixture's `.pixels` behind the same setters, so one line covers a mixed rig. A fixture counts as one element however many channels it has and a strip counts one per pixel, which is what `.each((phase, i, count) => …)` walks: `group(washA, washB, bar.pixels).each(p => sine().early(p).slow(4))` is one phase ramp across the lot, in the order written. A role only some members have is applied to those; a role no member has throws rather than doing nothing.
+
+Every channel write goes through one function ([dmx.ts](packages/core/src/dmx.ts)), which is where the value contract lives. An omitted value means full, so `wash.red()` is red on. Anything that is not a finite number or a pattern is rejected with the channel named: a quoted number, a signal that was never called, `null`, `NaN`. All of those used to be stored and read as 0 on every tick, which showed as a scene running green with the light off.
+
 ---
 
 ## DMX output configuration

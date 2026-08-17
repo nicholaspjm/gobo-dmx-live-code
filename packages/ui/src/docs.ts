@@ -330,6 +330,47 @@ const DOCS: DocSection[] = [
 
   {
     category: 'fixtures',
+    title: 'groups',
+    blurb:
+      'Several fixtures, strips and pixels addressed as one. A group answers the same verbs a fixture does, so a line written for one par works across a whole rig unchanged.',
+    entries: [
+      {
+        name: 'group',
+        signature: 'group(...members)',
+        description:
+          "Takes fixtures, strips, a fixture's .pixels, and other groups. Members keep the order you write them in, which is the order .each() walks. A role a member does not have is skipped, so one line covers a mixed rig; a role NO member has throws, because that would otherwise be a silent no-op.",
+        example:
+          "const rig = group(washA, washB, bar.pixels)\nrig.red(sine().slow(4))\nrig.color(1, 0, 0)\nrig.off()",
+      },
+      {
+        name: 'how members count',
+        signature: 'rig.size',
+        description:
+          'A fixture is one element however many channels it has. A strip is one element per pixel. So pass the fixture to move it as a unit, and pass its .pixels to move the pixels. Nested groups flatten.',
+        example:
+          "group(washA, washB, rgbStrip(7, 4)).size   // 6: two pars and four pixels",
+      },
+      {
+        name: '.each',
+        signature: '.each((phase, i, count) => value)',
+        description:
+          'Run one gesture across the whole group in order. phase is i / count, the same signature the strips use, so a chase written for one strip works across a rig of mixed fixtures. Return a number for brightness, or [r, g, b] / [r, g, b, w] for colour. Roles the array does not name are left alone.',
+        example:
+          "const rig = group(washA, washB, bar.pixels, strip)\nrig.each(p => sine().early(p).slow(4))          // one ramp, whole rig\nrig.each(p => [sine().early(p), 0, cosine().early(p)])",
+      },
+      {
+        name: 'brightness on a mixed rig',
+        signature: 'a single-value .each()',
+        description:
+          "A number from .each() means brightness, and each element expresses that its own way: a fixture with a dimmer moves the dimmer and keeps its colour, a fixture without one drives r/g/b together, and a pixel does the same. That is why a fade across a mixed rig does not repaint the look.",
+        example:
+          "washA.color(1, 0, 0)                 // dim-rgb par, red\ngroup(washA, bar.pixels).each(() => 0.5)   // par half-bright, still red",
+      },
+    ],
+  },
+
+  {
+    category: 'fixtures',
     title: 'built-in fixture catalogue',
     blurb:
       'Short ids: write fixture(1, \'rgbw\'), not fixture(1, \'generic-rgbw\'). Old generic-* ids still resolve via alias, so legacy scenes keep working.',
@@ -525,6 +566,28 @@ const DOCS: DocSection[] = [
           "strb.strobe(mini('1*16'))             // 16 evenly-spaced hits per cycle\nwash.red(mini('0 0.5*3 1'))            // mixes speeds inside one pattern",
       },
       {
+        name: 'weight',
+        signature: 'a@N',
+        description:
+          "Give a token N slots' worth of the cycle instead of one. '1@3 0.2' is three quarters held then a quarter dim. The way to write an uneven bar without padding it out with repeats.",
+        example: "spot.dim(mini('1@3 0.2'))            // long hold, short dip",
+      },
+      {
+        name: 'replicate',
+        signature: 'a!N',
+        description:
+          "Type a token N times without typing it N times: '1!3 0.2' is '1 1 1 0.2'. A light cannot tell three back-to-back hits at one level from a single held hit, so a!N and a@N put the same thing on the wire; pick whichever reads better in the string.",
+        example: "wash.red(mini('1!3 0.2'))",
+      },
+      {
+        name: 'polymeter',
+        signature: '{a b, c d e}',
+        description:
+          'Curly braces run sequences of different lengths against each other, all stepping at the same rate, so they drift in and out of phase instead of being squeezed to fit. Add %N to set the step rate explicitly. Long phrases out of short strings.',
+        example:
+          "wash.red(mini('{1 0, 0.5 0.5 0.5}'))\nwash.red(mini('{1 0 0.5}%4'))",
+      },
+      {
         name: 'speed',
         signature: "a/N  ·  pattern.slow(N) / .fast(N)",
         description:
@@ -560,7 +623,17 @@ const DOCS: DocSection[] = [
         name: 'stack',
         signature: 'stack(pat1, pat2, …)',
         description:
-          "Run patterns in parallel: every pat is queried each tick and the value from the last emission wins. In DMX this is rarely what you want directly. Applying separate mini() calls to different channels on the same fixture usually gives the effect you're after (see the drum-grid example below).",
+          "Run patterns in parallel on one channel. Every pat is queried each tick and the BRIGHTEST value wins, the same highest-takes-precedence merge a lighting desk uses. That makes layers additive in the useful sense: adding one can only raise the channel, never darken it. A slow swell under a fast strobe is the usual reason to reach for it.",
+        example:
+          "spot.dim(stack(sine().slow(8).range(0.2, 0.5), mini('1 - - - 1 - - -')))",
+      },
+      {
+        name: 'layering (comma)',
+        signature: "mini('a b, c d')",
+        description:
+          "A comma inside a mini string is stack() in notation: each side is its own sequence over the same cycle, and they merge brightest-wins. Handy when the two rhythms have different step counts, since each side divides the cycle independently.",
+        example:
+          "wash.red(mini('1 - - -, 0.3 0.3 0.3 0.3 0.3 0.3'))   // accent over a bed",
       },
       {
         name: 'drum grid',
@@ -611,6 +684,238 @@ const DOCS: DocSection[] = [
         description: 'Multiply output by n.',
         example: 'sine().mul(0.5)',
       },
+      {
+        name: '.range backwards',
+        signature: 'pat.range(hi, lo)',
+        description:
+          'A high-to-low range inverts the pattern. range(1, 0) is the cheapest way to make one fixture the negative of another without writing a second pattern.',
+        example:
+          "washA.red(sine().slow(4).range(0, 1))\nwashB.red(sine().slow(4).range(1, 0))   // opposite swell",
+      },
+      {
+        name: '.rangex(lo, hi)',
+        signature: 'pat.rangex(lo, hi)',
+        description:
+          'Range on an exponential curve. Perceived brightness is not linear in DMX value, so a linear fade spends most of its time looking bright. rangex spreads the motion across the bottom of the scale, where the eye can see it. Keep lo above 0.',
+        example: 'spot.dim(sine().slow(8).rangex(0.01, 1))',
+      },
+      {
+        name: '.add / .mul with a pattern',
+        signature: 'pat.add(otherPat)',
+        description:
+          'Both take a pattern as well as a number, which is how one pattern modulates another. add() shifts a waveform around by a stepped amount; mul() gates or scales it. The pattern being passed in keeps its own timing, so a slow sine can be chopped by a fast mini string.',
+        example:
+          "wash.red(sine().mul(mini('1 0.25 1 0.25')))    // sine, chopped\nwash.red(sine().add(mini('<0 0.5>')))          // shifts every other bar",
+      },
+    ],
+  },
+
+  {
+    category: 'patterns',
+    title: 'structure',
+    blurb:
+      'Operators that rearrange a pattern in time rather than change its values. All of these chain onto anything, mini strings included.',
+    entries: [
+      {
+        name: '.struct(pat)',
+        signature: 'pat.struct(mini(…))',
+        description:
+          'Take the values from this pattern and the rhythm from another. The usual way to drive a colour or a waveform with a rhythm you wrote separately, instead of building one pattern that carries both.',
+        example: "wash.red(sine().slow(4).struct(mini('1 - 1 - 1 - - -')))",
+      },
+      {
+        name: '.mask(pat)',
+        signature: 'pat.mask(mini(…))',
+        description:
+          'Gate a pattern: it plays where the mask is on and is silent where the mask is off. Unlike struct, the underlying pattern keeps running underneath, so it comes back mid-motion rather than restarting. Good for cutting a running effect in and out.',
+        example: "wash.red(sine().slow(2).mask(mini('1 1 - -')))",
+      },
+      {
+        name: '.segment(n)',
+        signature: 'pat.segment(n)',
+        description:
+          'Sample a continuous waveform n times per cycle, turning a smooth fade into n discrete steps. This is how you get a stepped look out of sine() without giving up the shape of the curve.',
+        example: 'spot.dim(sine().segment(8))         // 8 stepped levels per bar',
+      },
+      {
+        name: '.every(n, fn)',
+        signature: 'pat.every(n, p => …)',
+        description:
+          'Apply a transform on every nth cycle and leave the others alone. The standard way to make a repeating cue that varies without writing the variation out. firstOf and lastOf are the same idea with explicit ends.',
+        example:
+          "wash.red(mini('1 - 1 -').every(4, p => p.fast(2)))\nwash.red(mini('1 1 1 1').lastOf(8, p => p.mul(0.2)))   // dip on bar 8",
+      },
+      {
+        name: '.iter(n)',
+        signature: 'pat.iter(n)',
+        description:
+          'Rotate the pattern one step to the left each cycle, back to the start after n. A four-step cue becomes four bars of the same material entering at a different point. Cheap way to turn one bar into a phrase.',
+        example: "bar.pixels.red(mini('1 0.6 0.3 0').iter(4))",
+      },
+      {
+        name: '.chunk(n, fn)',
+        signature: 'pat.chunk(n, p => …)',
+        description:
+          'Split the cycle into n parts and apply the transform to a different part each cycle, walking across. Reads as an effect travelling through a static pattern.',
+        example: "wash.red(mini('1 1 1 1').chunk(4, p => p.mul(0.2)))",
+      },
+      {
+        name: '.rev / .palindrome',
+        signature: 'pat.rev()  ·  pat.palindrome()',
+        description:
+          'rev() plays the cycle backwards. palindrome() alternates forwards and backwards each cycle, which turns any chase into a bounce without writing the return leg.',
+        example: "bar.pixels.red(mini('1 0.6 0.3 0').palindrome())",
+      },
+      {
+        name: '.ply(n)',
+        signature: 'pat.ply(n)',
+        description:
+          'Repeat each step n times inside its own slot, so the pattern keeps its length but gains subdivision. Takes a pattern too, so the subdivision itself can change bar to bar.',
+        example: "strb.strobe(mini('1 0.5').ply(mini('<1 2 4 8>')))",
+      },
+      {
+        name: '.linger(n)',
+        signature: 'pat.linger(n)',
+        description:
+          'Play only the first n of the cycle and repeat it for the rest. linger(0.25) turns a bar into its first beat, four times. A stutter or a hold, depending on how small n is.',
+        example: "wash.red(mini('1 0.6 0.3 0').linger(0.25))",
+      },
+      {
+        name: '.late / .early',
+        signature: 'pat.late(n)  ·  pat.early(n)',
+        description:
+          'Shift the whole pattern later or earlier by n cycles. Give the same pattern a different offset per fixture and a room lights in sequence off one line.',
+        example: "washB.red(mini('1 - - -').late(0.25))",
+      },
+    ],
+  },
+
+  {
+    category: 'patterns',
+    title: 'layering',
+    blurb:
+      'Several values on one channel at the same instant. gobo merges them highest-takes-precedence, the same as a lighting desk, so a layer can raise a channel but never darken one.',
+    entries: [
+      {
+        name: '.superimpose(fn)',
+        signature: 'pat.superimpose(p => …)',
+        description:
+          'Play the pattern and a transformed copy of it together. The copy is layered on top, not substituted, so this is how you thicken a cue: the original stays exactly as it was.',
+        example:
+          "wash.red(mini('1 - - -').superimpose(p => p.late(0.125).mul(0.4)))",
+      },
+      {
+        name: '.off(n, fn)',
+        signature: 'pat.off(n, p => …)',
+        description:
+          'superimpose with the copy shifted n cycles later. The standard echo: one line gives you the hit and its dimmer repeat.',
+        example:
+          "wash.red(mini('1 - - -').off(0.25, p => p.mul(0.4)))",
+      },
+      {
+        name: '.echoWith(n, t, fn)',
+        signature: 'pat.echoWith(times, time, (p, i) => …)',
+        description:
+          'n copies, each shifted a further t cycles, each passed through the callback with its index. A decaying tail in one line. (The plain echo() is an audio effect and produces nothing on a DMX channel; this is the one to use.)',
+        example:
+          "wash.red(mini('1 - - -').echoWith(4, 0.125, (p, i) => p.mul(1 / (i + 1))))",
+      },
+      {
+        name: 'per-channel, not per-fixture',
+        signature: 'two calls to one setter',
+        description:
+          "Layering merges values on ONE channel. Two calls to the same setter do not merge: the second replaces the first, because the last call is the one that registers. To combine them, put both inside one stack() or one comma'd mini string.",
+        example:
+          "wash.red(mini('1 - - -'))\nwash.red(sine())                                  // replaces the line above\nwash.red(stack(mini('1 - - -'), sine().mul(0.3)))  // combines them",
+      },
+    ],
+  },
+
+  {
+    category: 'patterns',
+    title: 'long cues',
+    blurb:
+      'Writing something longer than a bar. A mini string is always one cycle no matter how it is typed, so length comes from slowing it down or from joining bars together.',
+    entries: [
+      {
+        name: 'one string, many lines',
+        signature: 'mini(`…`) with backticks',
+        description:
+          'Backticks let a mini string run across lines, and a newline counts as ordinary whitespace. Nothing about the timing changes, so an eight-bar cue can be laid out eight tokens to a line and read like a grid. Line up your columns and the shape of the cue is visible in the source.',
+        example:
+          "wash.red(mini(`\n  1 - - -  - - 1 -\n  - - 1 -  1 - - -\n  0.5 - 0.5 -  - - - -\n  1 1 - -  - - 1 1\n`).slow(4))",
+      },
+      {
+        name: 'lines into bars',
+        signature: 'mini(`…`).slow(n)',
+        description:
+          'Since the whole string is one cycle, .slow(n) spreads it over n bars. Write n lines of 4 and slow by n and each line is a bar. This is exactly equivalent to cat() of the same bars, and much easier to read at eight bars than eight separate mini() calls.',
+        example:
+          "// these two produce identical output\nwash.red(mini(`1 - - -\\n- - 1 -`).slow(2))\nwash.red(cat(mini('1 - - -'), mini('- - 1 -')))",
+      },
+      {
+        name: 'bar-to-bar variation',
+        signature: "mini('… <a b c> …')",
+        description:
+          'Angle brackets inside a longer string advance one token per cycle, so a single bar can evolve across a phrase without being written out four times. Nest them anywhere a token goes.',
+        example:
+          "wash.red(mini('1 - <0.3 0.6 1 0.6> -'))   // third beat climbs over 4 bars",
+      },
+      {
+        name: 'a section at a time',
+        signature: 'cat(verse, verse, chorus, …)',
+        description:
+          'cat() takes one cycle from each argument in turn, so naming your bars and listing them is a workable arrangement for a whole song. Repeat a name to repeat the bar.',
+        example:
+          "const hold = mini('0.3 0.3 0.3 0.3')\nconst hit  = mini('1 - - -')\nwash.red(cat(hold, hold, hit, hit))",
+      },
+    ],
+  },
+
+  {
+    category: 'patterns',
+    title: 'euclidean and chance',
+    blurb:
+      'Two families that generate rhythm rather than spell it out. Both are worth reaching for when a pattern should feel less written.',
+    entries: [
+      {
+        name: '.euclid(k, n)',
+        signature: "pat.euclid(k, n)  ·  mini('1(k,n)')",
+        description:
+          'Spread k hits as evenly as possible across n steps. euclid(3, 8) is the standard three-against-eight; most rhythms that feel natural but do not divide evenly are in this family. The mini-notation form is the same thing inside a string.',
+        example:
+          "strb.strobe(mini('1').euclid(3, 8))\nwash.red(mini('1(5,16)'))",
+      },
+      {
+        name: '.euclidRot(k, n, r)',
+        signature: "pat.euclidRot(k, n, r)  ·  mini('1(k,n,r)')",
+        description:
+          'The same spread, rotated r steps. Give two fixtures the same euclid with different rotations and they interlock instead of firing together.',
+        example:
+          "washA.red(mini('1').euclidRot(3, 8, 0))\nwashB.red(mini('1').euclidRot(3, 8, 2))",
+      },
+      {
+        name: '? and .degradeBy(n)',
+        signature: "mini('1? 1? 1?')  ·  pat.degradeBy(0.3)",
+        description:
+          'Drop events at random. A ? after a token gives it a 50% chance of being silent; degradeBy(n) drops a fraction n of everything. Useful for taking the machine edge off a dense strobe or pixel pattern.',
+        example: "strb.strobe(mini('1*16').degradeBy(0.3))",
+      },
+      {
+        name: '.sometimesBy(n, fn)',
+        signature: 'pat.sometimesBy(n, p => …)',
+        description:
+          'Apply a transform to a fraction n of events rather than dropping them. someCyclesBy does the same at whole-cycle scale, so an occasional bar plays differently.',
+        example:
+          "wash.red(mini('1 1 1 1').sometimesBy(0.3, p => p.mul(0.2)))",
+      },
+      {
+        name: '.swingBy(n, sub)',
+        signature: 'pat.swingBy(amount, subdivision)',
+        description:
+          'Push every other subdivision late. Straight sixteenths stop sounding like a grid; the same trick reads on lights as a limp rather than a march.',
+        example: "strb.strobe(mini('1*8').swingBy(1/3, 2))",
+      },
     ],
   },
 
@@ -633,6 +938,19 @@ const DOCS: DocSection[] = [
         name: 'pattern',
         signature: 'sine().slow(2)',
         description: "Queried every tick. Expected to emit values in [0,1].",
+      },
+      {
+        name: 'nothing',
+        signature: 'wash.red()',
+        description:
+          'An omitted value means full. Naming a channel and no level reads as "on", so the shortest way to get a light on is to say so. Works on every setter, on .color() and .fill() (full white), and on ch() / dim() / uni().',
+        example: 'wash.red()\nspot.dim()\nbar.pixels.fill()',
+      },
+      {
+        name: 'anything else',
+        signature: "wash.red('1')",
+        description:
+          "Rejected, with the channel named. A quoted number, a signal that was never called (sine rather than sine()), NaN, null: these used to be stored and read as 0, so the scene ran green with the light off. They now stop the evaluation, and the rig keeps running whatever it had.",
       },
     ],
   },

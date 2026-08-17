@@ -61,6 +61,14 @@ function stubPattern(value: unknown, calls?: Array<[number, number]>): PatternLi
 /** A pattern that yields nothing for the queried arc (a rest / gap). */
 const silentPattern: PatternLike = { queryArc: () => [] };
 
+/**
+ * A pattern with several values live at once, the shape stack(), a comma
+ * inside mini(), superimpose() and off() all produce.
+ */
+function layeredPattern(...values: unknown[]): PatternLike {
+  return { queryArc: () => values.map((value) => ({ value })) };
+}
+
 /** A pattern that throws when queried: user code that only fails at tick
  *  time, long after the eval that installed it reported success. */
 function throwingPattern(message = 'pattern exploded'): PatternLike {
@@ -159,11 +167,10 @@ describe('clamping', () => {
     uni(1, 1, -0.5);
     uni(1, 2, -1);
     uni(1, 3, -1000);
-    uni(1, 4, -Infinity);
     tick(0);
 
     const buf = getUniverseBuffer(1);
-    expect(Array.from(buf.slice(0, 4))).toEqual([0, 0, 0, 0]);
+    expect(Array.from(buf.slice(0, 3))).toEqual([0, 0, 0]);
   });
 
   it('clamps over-range numbers to 255 rather than wrapping', () => {
@@ -171,15 +178,50 @@ describe('clamping', () => {
     // means the clamp only bites above 255: 2 is "raw DMX 2", not "200%".
     uni(1, 1, 300);
     uni(1, 2, 1e9);
-    uni(1, 3, Infinity);
-    uni(1, 4, 2);
+    uni(1, 3, 2);
     tick(0);
 
     const buf = getUniverseBuffer(1);
     expect(buf[0]).toBe(255);
     expect(buf[1]).toBe(255);
-    expect(buf[2]).toBe(255);
-    expect(buf[3]).toBe(2);
+    expect(buf[2]).toBe(2);
+  });
+
+  it('rejects the infinities instead of clamping them', () => {
+    // Out-of-range is a level the operator meant; ±Infinity is arithmetic that
+    // went wrong. Clamping -Infinity to 0 hid it as a dark channel.
+    expect(() => uni(1, 1, Infinity)).toThrow('got Infinity');
+    expect(() => uni(1, 1, -Infinity)).toThrow('got -Infinity');
+  });
+
+  it('takes the brightest of several values live at the same instant', () => {
+    // Highest takes precedence, as on a desk. This used to read haps[0] and
+    // drop the rest, so stack(0.25, 0.75) sent 64 and every layer after the
+    // first did nothing.
+    uni(1, 1, layeredPattern(0.25, 0.75));
+    uni(1, 2, layeredPattern(0.75, 0.25));
+    tick(0);
+
+    const buf = getUniverseBuffer(1);
+    expect(buf[0]).toBe(191);
+    expect(buf[1]).toBe(191);
+  });
+
+  it('lets a layer raise a channel but never darken one', () => {
+    // The property that makes layering safe to build up: adding a pattern to a
+    // channel cannot take away what another layer already put there.
+    uni(1, 1, layeredPattern(1, 0, 0));
+    uni(1, 2, layeredPattern(0, 0, 0));
+    tick(0);
+
+    expect(getUniverseBuffer(1)[0]).toBe(255);
+    expect(getUniverseBuffer(1)[1]).toBe(0);
+  });
+
+  it('ignores non-numeric values among the layers', () => {
+    uni(1, 1, layeredPattern('loud', 0.5, null));
+    tick(0);
+    expect(getUniverseBuffer(1)[0]).toBe(128);
   });
 
   it('clamps pattern values, which are NOT rescaled like raw numbers', () => {
@@ -198,27 +240,92 @@ describe('clamping', () => {
 // ─── invalid input ────────────────────────────────────────────────────────────
 
 describe('invalid values', () => {
-  it('degrades NaN / null / undefined / strings / plain objects to 0', () => {
-    uni(1, 1, NaN);
-    uni(1, 2, bad(null));
-    uni(1, 3, bad(undefined));
-    uni(1, 4, bad('1'));
-    uni(1, 5, bad({}));
-    uni(1, 6, bad([1, 2, 3]));
-    tick(0);
-
-    // Nothing throws and nothing is left dirty; a bad value reads as "off".
-    // (NaN survives to the buffer write and Uint8Array coerces it to 0.)
-    const buf = getUniverseBuffer(1);
-    expect(Array.from(buf.slice(0, 6))).toEqual([0, 0, 0, 0, 0, 0]);
+  // These all used to be stored and read as 0: the scene ran, the status bar
+  // stayed green, and the light was off. Rejecting at write time puts them in
+  // the error banner instead, and the eval transaction means the rig keeps the
+  // scene it was already running.
+  it.each([
+    ['NaN',              NaN,                          'finite number'],
+    ['null',             null,                         'got null'],
+    ['undefined',        undefined,                    'got undefined'],
+    ['a quoted number',  '1',                          'Drop the quotes: 1'],
+    ['mini notation',    '1 0 1 0',                    'mini("1 0 1 0")'],
+    ['an uncalled sine', () => 0,                      'sine() rather than sine'],
+    ['a plain object',   {},                           'got an object'],
+    ['an array',         [1, 2, 3],                    'got an array'],
+    ['a half-a-pattern', { queryArc: 'not a function' }, 'got an object'],
+  ])('rejects %s rather than writing 0', (_label, value, expected) => {
+    expect(() => uni(1, 1, bad(value))).toThrow(expected as string);
   });
 
-  it('does not throw when a whole scene is junk', () => {
-    expect(() => {
-      uni(1, 1, bad(undefined));
-      uni(1, 2, bad({ queryArc: 'not a function' }));
-      tick(0);
-    }).not.toThrow();
+  it('names the channel the operator wrote, not the one uni() saw', () => {
+    expect(() => ch(7, bad('1'))).toThrow('ch(7)');
+    expect(() => dim(7, bad('1'))).toThrow('dim(7)');
+    expect(() => uni(2, 7, bad('1'))).toThrow('uni(2, 7)');
+  });
+
+  it('leaves the live scene untouched when a write is rejected', () => {
+    uni(1, 1, 1);
+    tick(0);
+    expect(getUniverseBuffer(1)[0]).toBe(255);
+
+    expect(() => uni(1, 2, bad('bright'))).toThrow();
+    tick(0);
+
+    // The good def still renders and the rejected one was never registered.
+    expect(Array.from(getUniverseBuffer(1).slice(0, 2))).toEqual([255, 0]);
+  });
+
+  it('rejects a value whose queryArc probe itself throws', () => {
+    // isPattern() reads .queryArc off the value, so a throwing getter fails
+    // before the call is ever made. It is still just a value that is not a
+    // pattern, and it should read that way rather than leaking the getter's
+    // own error.
+    const trap = bad(Object.defineProperty({}, 'queryArc', {
+      get() { throw new Error('trapped getter'); },
+    }));
+    expect(() => uni(1, 1, trap)).toThrow('got an object');
+    expect(() => uni(1, 1, trap)).not.toThrow('trapped getter');
+  });
+});
+
+// ─── omitted values ───────────────────────────────────────────────────────────
+
+describe('an omitted value means full', () => {
+  // The complaint this fixes: writing `beam.red()` and getting darkness with
+  // no error. Naming a channel and no level reads as "on".
+  it('drives the channel to full', () => {
+    uni(1, 1);
+    ch(2);
+    dim(3);
+    tick(0);
+    expect(Array.from(getUniverseBuffer(1).slice(0, 3))).toEqual([255, 255, 255]);
+  });
+
+  it('applies to fixture setters and to .color()', () => {
+    const par = fixture(1, 'rgb');
+    (par.red as () => void)();
+    tick(0);
+    expect(Array.from(getUniverseBuffer(0).slice(0, 3))).toEqual([255, 0, 0]);
+
+    par.color();
+    tick(0);
+    expect(Array.from(getUniverseBuffer(0).slice(0, 3))).toEqual([255, 255, 255]);
+  });
+
+  it('is not the same as passing undefined', () => {
+    // The distinction the rest parameters exist for. An omitted argument is a
+    // shorthand; an undefined that arrived from somewhere is a bug upstream.
+    expect(() => uni(1, 1)).not.toThrow();
+    expect(() => uni(1, 1, bad(undefined))).toThrow('got undefined');
+  });
+
+  it('refuses a half-written colour rather than guessing the rest', () => {
+    // rgb(1, 0.5) used to set green and blue to 0 silently. All three or none.
+    expect(() => rgb(1, 0.5)).toThrow('needs all 3 of r, g, b');
+    expect(() => rgb(1)).not.toThrow();
+    tick(0);
+    expect(Array.from(getUniverseBuffer(1).slice(0, 3))).toEqual([255, 255, 255]);
   });
 });
 
@@ -779,14 +886,18 @@ describe('pattern query failures', () => {
     expect(failures.map((f) => f.message)).toEqual(['first', 'second']);
   });
 
-  it('survives a value whose queryArc probe itself throws', () => {
-    // isPattern() reads .queryArc off the value, so a throwing getter fails
-    // before the call is ever made, outside the obvious guard.
-    const trap = bad(Object.defineProperty({}, 'queryArc', {
-      get() { throw new Error('trapped getter'); },
-    }));
-    uni(1, 1, trap);
+  it('survives a queryArc that only starts throwing at tick time', () => {
+    // The probe at write time reads .queryArc once. A pattern can pass that
+    // and then swap in a throwing implementation, which is the general case
+    // of user code running per-frame: the guard has to be in tick(), not only
+    // at the door.
+    const swapped: PatternLike = { queryArc: () => [{ value: 1 }] };
+    uni(1, 1, swapped);
     uni(1, 2, 1);
+
+    Object.defineProperty(swapped, 'queryArc', {
+      get() { throw new Error('trapped getter'); },
+    });
 
     expect(() => tick(0)).not.toThrow();
     expect(Array.from(getUniverseBuffer(1).slice(0, 2))).toEqual([0, 255]);
