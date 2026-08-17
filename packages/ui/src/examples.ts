@@ -31,24 +31,19 @@ export const EXAMPLES: Example[] = [
   {
     id: 'starter',
     label: 'starter demo',
-    blurb: 'Tour of the language: fixtures, drum-grid patterns, waveforms, a pixel chase.',
-    code: `// gobo · ctrl+enter to run · ctrl+space (or ctrl+.) to stop · 'docs' for the reference
+    blurb: 'Tour of the language: patching, mini notation, waveforms, groups, layering.',
+    code: `// gobo · ctrl+enter run · ctrl+space stop · 'docs' for the full reference
+// commented lines are alternates: swap one in and run again
 
-// Output target. mock() for headless dev, osc() for TouchDesigner, or
-// sacn(universe, priority) for E1.31. Art-Net port defaults to 6454.
-artnet('2.0.0.100')
+artnet('2.0.0.100')   // or usb() · td() · sacn(1) · osc() · mock()
+setBPM(120)           // one cycle = one bar = 4 beats
 
-// ── fixtures ──────────────────────────────────────────────
-// fixture(startChannel, id, universe = 0) returns an object with one setter
-// per named channel. Chain .viz('kind') to drop a live widget at line-end.
-const wash  = fixture(1, 'rgbw').viz('color')          // uni 0, ch 1-4
-const strb  = fixture(5, 'strobe').viz('meter')        // uni 0, ch 5-6
+// ── patch · fixture(startCh, id, universe = 0) · .viz adds a widget ─
+const wash  = fixture(1, 'rgbw').viz('color')     // uni 0 · ch 1-4
+const strb  = fixture(5, 'strobe').viz('meter')   // ch 5-6
+const strip = rgbStrip(7, 10).viz('strip')        // ch 7-36, 3 per pixel
 
-// rgbStrip(startChannel, pixelCount): pixel bar at 3 channels per pixel.
-const strip = rgbStrip(7, 10).viz('strip')             // uni 0, ch 7-36
-
-// defineFixture describes any channel layout. The 'pixels' channel below
-// is a nested RGBW strip, from pixelLayout: 'rgbw'.
+// any layout · 'pixels' below is a nested RGBW strip
 defineFixture('four-color-bar', {
   name: 'Four-Colour Moving Bar',
   manufacturer: 'Generic',
@@ -57,61 +52,88 @@ defineFixture('four-color-bar', {
   channels: [
     { offset: 0, name: 'direction',   type: 'control'   },
     { offset: 1, name: 'speed',       type: 'control'   },
-    { offset: 2, name: 'effect',      type: 'control'   },   // leave 0 for direct pixel control
+    { offset: 2, name: 'effect',      type: 'control'   },   // 0 = direct pixels
     { offset: 3, name: 'effectSpeed', type: 'control'   },
     { offset: 4, name: 'dim',         type: 'intensity' },
     { offset: 5, name: 'strobe',      type: 'strobe'    },
-    { offset: 6, name: 'pixels',      type: 'strip', pixelCount: 8, pixelLayout: 'rgbw' },
+    { offset: 6, name: 'pixels', type: 'strip', pixelCount: 8, pixelLayout: 'rgbw' },
   ],
 })
-const bar = fixture(1, 'four-color-bar', 1)            // uni 1, ch 1-38
+const bar = fixture(1, 'four-color-bar', 1)       // uni 1 · ch 1-38
 bar.pixels.viz('strip')
+bar.dim()                                         // no value at all = full
 
-// ── patterns ──────────────────────────────────────────────
-// Channels take a number (constant) or a pattern (animated). Two kinds of
-// pattern: continuous waveforms (sine/cosine/square/saw/rand, chainable
-// with .slow / .range / .mul) and step sequences (mini, a drum-grid
-// notation; the docs panel has the full syntax).
-
-// Drum-grid on the wash: one mini() string per channel. Each string plays
-// through one scheduler cycle (= 4 beats), tokens splitting the time
-// equally. '-' rests, numbers pass through as values. Whitespace between
-// tokens is free, so group in fours for readability. Subdivisions and
-// repeats are covered in the 'sequencing' docs entry.
+// ── mini · one bar, split evenly by its tokens ─────────────────────
 wash.red(  mini('1 - - -  - - 1 -  - - 1 -  - - - -').glow())
 wash.green(mini('- - 1 -  1 - - -  - - - -  - 1 - -'))
-wash.blue( mini('- 1 - -  - - - 1  - 1 - -  1 - - 1'))
+wash.blue( mini('- 1 - -  - - - 1  - <0 1> - -  1 - - 1'))
 wash.white(mini('- - - 1  - - - -  - - - 1  - - - -'))
 
-// Strobe burst on beats 2 and 4. [1 1 1 1] compresses four hits into one
-// slot (4× the outer step rate), so each bracket is a rapid roll.
-// Uncomment to fire.
-// strb.dim(0.9)
-// strb.strobe(mini('- [1 1 1 1] - [1 1 1 1]').flash())
+// swap any of these into a channel above
+// wash.red(mini('1 [1 1] 1 -'))              // subdivide
+// wash.red(mini('1*16'))                     // repeat
+// wash.red(mini('1@3 0.2'))                  // hold three
+// wash.red(mini('1!3 0.2'))                  // same, spelled out
+// wash.red(mini('<0 0.5 1>'))                // one per bar
+// wash.red(mini('1? 1? 1? 1?'))              // coin flip each
+// wash.red(mini('1(5,16)'))                  // euclid
+// wash.red(mini('{1 0, 0.4 0.4 0.4}'))       // polymeter, 2 against 3
+// wash.red(mini('1*16').degradeBy(0.3))      // thinned at random
+// wash.red(mini('1 - - -, 0.25 0.25 0.25 0.25')) // layered, brightest wins
 
-// Rainbow chase on the strip, written as a for-loop so the maths is
-// visible. strip.rainbowChase() does the same in one line; the 'effects'
-// docs tab has the full mechanism.
+// ── longer than a bar · a string is ONE cycle, so .slow(n) ─────────
+strb.dim(0.9)
+strb.strobe(mini(\`
+  - - - -    - - - -
+  - - - -    - [1 1 1 1] - [1 1 1 1]
+\`).slow(2).flash())
+
+// ── waveforms · sine cosine square saw rand, chained left to right ─
 const hueR = sine().slow(12).range(0, 1)
 const hueG = sine().early(1/3).slow(12).range(0, 1)
 const hueB = sine().early(2/3).slow(12).range(0, 1)
-for (let i = 0; i < strip.pixelCount; i++) {
-  const phase = i / strip.pixelCount
+
+// strip.red(sine().slow(4).segment(8))              // stepped
+// strip.red(sine().slow(8).rangex(0.01, 1))         // fade the eye can see
+// strip.red(sine().slow(4).range(1, 0))             // inverted
+// strip.red(sine().slow(2).mask(mini('1 1 - -')))   // gated, keeps running
+// strip.red(sine().slow(4).struct(mini('1 - 1 -'))) // rhythm from elsewhere
+// strip.red(sine().mul(mini('1 0.25')))             // one pattern scales another
+// strip.red(mini('1 0.6 0.3 0').iter(4))            // rotates a step each bar
+// strip.red(mini('1 0.6 0.3 0').palindrome())       // there and back
+// strip.red(mini('1 0.6 0.3 0').linger(0.25))       // stutter on beat one
+// strip.red(mini('1 - 1 -').every(4, p => p.fast(2))) // doubles every 4th bar
+// strip.red(mini('1 1 1 1').chunk(4, p => p.mul(0.2))) // dip travels across
+// strip.red(mini('1 0.5').ply(mini('<1 2 4 8>')))   // subdivides per bar
+// strip.red(mini('1*8').swingBy(1/3, 2))            // stops marching
+
+// ── per-pixel · .each(fn) per pixel, phase is i / count ────────────
+strip.each((phase) => {
   const bright = cosine().early(phase).slow(2).range(-8, 1)
-  strip.pixel(i, bright.mul(hueR), bright.mul(hueG), bright.mul(hueB))
-}
+  return [bright.mul(hueR), bright.mul(hueG), bright.mul(hueB)]
+})
 
-// Same chase on the moving bar (universe 1), via the one-line helper.
-bar.dim(1)
-bar.pixels.rainbowChase()
+bar.pixels.rainbowChase()                         // the same, prebuilt
+// bar.pixels.pixelGrid([[1,0,0,0], [0,0,1,0]]).repeat() // red/blue tile
+// bar.pixels.pixel(0, 1, 0, 0, 0)                      // one pixel, red (rgbw)
 
-// Kick: flash the bar white on every beat, on top of the rainbow. One
-// scheduler cycle = 4 beats, so .fast(4) gives one pulse per beat.
-// .range(-15, 1) sharpens the cosine into a short snap. Writing .white()
-// alone overrides only the W channel the chase set to 0, so the rainbow's
-// RGB stays visible between kicks.
-//   .fast(2) → half notes · .fast(4) → quarters · .fast(8) → eighths
-bar.pixels.white(cosine().fast(4).range(-15, 1))
+// ── group · a fixture counts once, a strip once per pixel ──────────
+const rig = group(wash, strip, bar.pixels)
+// rig.each(p => cosine().early(p).slow(4).range(-6, 1)) // one sweep, whole rig
+// rig.color(1, 0, 0)
+// rig.red()
+// rig.off()
+
+// ── layering · brightest wins, so a layer adds without erasing ─────
+bar.pixels.white(mini('1 - - -').range(-15, 1).off(0.25, p => p.mul(0.35)))
+// bar.pixels.white(mini('1 - - -').range(-15, 1)
+//   .echoWith(4, 0.125, (p, i) => p.mul(1 / (i + 1)))) // decaying tail
+// bar.pixels.white(stack(mini('1 - - -'), sine().slow(8).mul(0.2)))
+
+// ── movement ───────────────────────────────────────────────────────
+bar.direction(sine().slow(8)); bar.speed(0.6)     // sweep
+// bar.direction(saw().slow(6)); bar.speed(0.8)   // spin
+// bar.speed(0)                                   // freeze
 `,
   },
   {
@@ -302,10 +324,10 @@ bar.pixels.fill(0, 0, 0, 1)                                          // solid wh
 
 // movement (stack on top of any pixel effect)
 // bar.direction(0.5); bar.speed(0)                                  // center
-// bar.direction(0);   bar.speed(0)                                  // left
-// bar.direction(1);   bar.speed(0)                                  // right
+// bar.direction(0); // bar.speed(0)                                  // left
+// bar.direction(1); // bar.speed(0)                                  // right
 // bar.direction(sine().slow(8)); bar.speed(0.6)                     // sweep
-// bar.direction(saw().slow(6));  bar.speed(0.8)                     // spin
+// bar.direction(saw().slow(6)); // bar.speed(0.8)                     // spin
 // bar.direction(sine().slow(1).range(0.4, 0.6)); bar.speed(0.5)     // wobble
 // bar.speed(0)                                                      // freeze
 `,
