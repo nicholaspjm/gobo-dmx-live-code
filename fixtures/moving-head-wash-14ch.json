@@ -1,0 +1,26 @@
+{
+  "goboFixture": 1,
+  "id": "moving-head-wash-14ch",
+  "def": {
+    "name": "Moving Head Wash (14ch, 16-bit pan/tilt)",
+    "manufacturer": "Generic",
+    "type": "moving-head",
+    "channelCount": 14,
+    "channels": [
+      { "offset": 0,  "name": "pan",      "type": "position",  "description": "Pan coarse, 0 is full left and 1 is full right" },
+      { "offset": 1,  "name": "panFine",  "type": "position",  "description": "Pan fine, the low byte of the 16-bit pan value" },
+      { "offset": 2,  "name": "tilt",     "type": "position",  "description": "Tilt coarse, 0 is front and 1 is back" },
+      { "offset": 3,  "name": "tiltFine", "type": "position",  "description": "Tilt fine, the low byte of the 16-bit tilt value" },
+      { "offset": 4,  "name": "speed",    "type": "control",   "description": "Pan/tilt movement speed, 0 is fastest" },
+      { "offset": 5,  "name": "dim",      "type": "intensity", "description": "Master dimmer" },
+      { "offset": 6,  "name": "strobe",   "type": "strobe",    "description": "Strobe: 0 is open, rising values flash faster" },
+      { "offset": 7,  "name": "red",      "type": "color",     "description": "Red" },
+      { "offset": 8,  "name": "green",    "type": "color",     "description": "Green" },
+      { "offset": 9,  "name": "blue",     "type": "color",     "description": "Blue" },
+      { "offset": 10, "name": "white",    "type": "color",     "description": "White" },
+      { "offset": 11, "name": "macro",    "type": "control",   "description": "Colour macros and built-in programs; leave at 0 for manual RGBW mixing" },
+      { "offset": 12, "name": "zoom",     "type": "control",   "description": "Beam zoom, narrow to wide" },
+      { "offset": 13, "name": "control",  "type": "control",   "description": "Reset and lamp control; only the top of the range does anything" }
+    ]
+  }
+}

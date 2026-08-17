@@ -1,0 +1,16 @@
+{
+  "goboFixture": 1,
+  "id": "strobe-4ch",
+  "def": {
+    "name": "LED Strobe (4ch: intensity, rate, duration, effect)",
+    "manufacturer": "Generic",
+    "type": "strobe",
+    "channelCount": 4,
+    "channels": [
+      { "offset": 0, "name": "dim",      "type": "intensity", "description": "Flash intensity, also the master for the built-in effects" },
+      { "offset": 1, "name": "strobe",   "type": "strobe",    "description": "Flash rate: 0 holds the lamp off, rising values flash faster" },
+      { "offset": 2, "name": "duration", "type": "control",   "description": "Flash duration, short pulse to long pulse" },
+      { "offset": 3, "name": "effect",   "type": "control",   "description": "Built-in effects such as ramps, random flashes and bursts; 0 is manual" }
+    ]
+  }
+}

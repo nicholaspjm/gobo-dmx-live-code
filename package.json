@@ -1,6 +1,6 @@
 {
   "name": "gobo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.0",
-    "electron": "^43.4.0",
+    "electron": "43.4.0",
     "electron-builder": "^26.15.3",
     "postject": "^1.0.0-alpha.6",
     "vitest": "^2.1.0"

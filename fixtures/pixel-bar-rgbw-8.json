@@ -1,0 +1,22 @@
+{
+  "goboFixture": 1,
+  "id": "pixel-bar-rgbw-8",
+  "def": {
+    "name": "RGBW Pixel Bar (8 pixels, 34ch)",
+    "manufacturer": "Generic",
+    "type": "rgbw",
+    "channelCount": 34,
+    "channels": [
+      { "offset": 0, "name": "dim",    "type": "intensity", "description": "Master dimmer across all eight pixels" },
+      { "offset": 1, "name": "strobe", "type": "strobe",    "description": "Strobe: 0 is open, rising values flash faster" },
+      {
+        "offset": 2,
+        "name": "pixels",
+        "type": "strip",
+        "description": "Eight RGBW pixels laid out R, G, B, W each, filling channels 3 to 34. Use bar.pixels.fill(r,g,b,w), .pixel(i, r,g,b,w), .each(fn) or .rainbowChase()",
+        "pixelCount": 8,
+        "pixelLayout": "rgbw"
+      }
+    ]
+  }
+}

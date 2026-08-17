@@ -1,0 +1,19 @@
+{
+  "goboFixture": 1,
+  "id": "par-rgbw-7ch",
+  "def": {
+    "name": "RGBW LED PAR (7ch: dimmer, strobe, macro)",
+    "manufacturer": "Generic",
+    "type": "rgbw",
+    "channelCount": 7,
+    "channels": [
+      { "offset": 0, "name": "dim",    "type": "intensity", "description": "Master dimmer, 0 to full" },
+      { "offset": 1, "name": "red",    "type": "color",     "description": "Red" },
+      { "offset": 2, "name": "green",  "type": "color",     "description": "Green" },
+      { "offset": 3, "name": "blue",   "type": "color",     "description": "Blue" },
+      { "offset": 4, "name": "white",  "type": "color",     "description": "White" },
+      { "offset": 5, "name": "strobe", "type": "strobe",    "description": "Strobe: 0 is open, rising values flash faster" },
+      { "offset": 6, "name": "macro",  "type": "control",   "description": "Colour macros and built-in programs; leave at 0 for manual RGBW mixing" }
+    ]
+  }
+}
