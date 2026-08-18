@@ -841,7 +841,7 @@ describe('strip channels', () => {
     for (const pixelLayout of ['grb', 'rgbww', 'RGB', 5, ['rgb']]) {
       expect(
         expectErr(validateFixture('s', defWithStrip({ pixelCount: 4, pixelLayout }, 512))),
-      ).toBe('Channel #0: pixelLayout must be one of rgb, rgbw.');
+      ).toBe('Channel #0: pixelLayout must be one of rgb, rgbw, mono.');
     }
   });
 

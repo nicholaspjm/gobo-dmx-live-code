@@ -1,0 +1,43 @@
+{
+  "goboFixture": 1,
+  "id": "atomic-strobe-154ch",
+  "def": {
+    "name": "Atomic LED Strobe 48+8 (154ch mode)",
+    "manufacturer": "Generic",
+    "type": "generic",
+    "channelCount": 154,
+    "channels": [
+      {
+        "offset": 0,
+        "name": "dim",
+        "type": "intensity",
+        "description": "Master dimmer over BOTH the pixel matrix and the white strip. Hardware PWM whose low end is not colour uniform, so a colour can shift hue in its last few steps. Prefer holding this at full and scaling values in software, which keeps the ratio exact and brings every channel to zero together. Nothing is visible at all unless this is up."
+      },
+      {
+        "offset": 1,
+        "name": "strobe",
+        "type": "strobe",
+        "description": "Master strobe. Exact behaviour (rate versus shutter curve) is unverified on this clone."
+      },
+      {
+        "offset": 2,
+        "name": "pixels",
+        "type": "strip",
+        "description": "48 RGB pixels as a 12 x 4 grid, channels 3 to 146. Wired rows-first from the bottom right, running right to left then upward, which origin 'bottom-right' corrects so pixelXY(0, 0) is the top left of the picture. Use .pixelXY(x, y, r, g, b), .row(y, …), .column(x, …) or .eachXY(fn).",
+        "pixelCount": 48,
+        "pixelLayout": "rgb",
+        "columns": 12,
+        "origin": "bottom-right"
+      },
+      {
+        "offset": 146,
+        "name": "strip",
+        "type": "strip",
+        "description": "White strobe strip, 8 segments at one intensity channel each, channels 147 to 154. Segment order is reversed relative to the picture, which origin 'top-right' corrects. Use .fill(v), .pixel(i, v) or .each(fn).",
+        "pixelCount": 8,
+        "pixelLayout": "mono",
+        "origin": "top-right"
+      }
+    ]
+  }
+}
