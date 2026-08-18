@@ -92,7 +92,7 @@ const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'scenes and files',
     blurb:
-      "You edit one scene at a time. It autosaves to the browser as you type, so a refresh costs nothing. Click its name in the top bar to rename it. save downloads the scene as a .js file, open reads one back, share copies a link that carries the whole scene, and examples loads a bundled demo. Anything that replaces the buffer arrives stopped, and asks first if you have changes not yet saved to a file. One example, ultratronics 11, is a live-performance template built around instrument functions you toggle while a track plays.",
+      "You edit one scene at a time. It autosaves to the browser as you type, so a refresh costs nothing. Click its name in the top bar to rename it. save downloads the scene as a .js file, open reads one back, and share copies a link that carries the whole scene. Bundled demos are on the examples tab here. Anything that replaces the buffer arrives stopped, and asks first if you have changes not yet saved to a file.",
     entries: [],
   },
   {

@@ -33,7 +33,7 @@ export interface Example {
 export const EXAMPLES: Example[] = [
   {
     id: 'hello',
-    label: 'hello',
+    label: 'start here',
     blurb: 'Two lines: patch an RGB wash and fade a colour across it.',
     // What a new browser opens on, so it is the whole first impression.
     //
@@ -48,9 +48,13 @@ wash.color(sine().slow(2), 0, cosine().slow(2))
 `,
   },
   {
+    // The id stays 'starter': ids are persisted in menus and links, and reusing
+    // or changing one silently resolves an old reference to different code.
+    // Only the label changes, because "starter demo" now names the thing that
+    // is NOT what you start with.
     id: 'starter',
-    label: 'starter demo',
-    blurb: 'Tour of the language: patching, mini notation, waveforms, groups, layering.',
+    label: 'language tour',
+    blurb: 'Everything the language does: patching, mini notation, waveforms, groups, layering.',
     code: `// gobo · ctrl+enter run · ctrl+space stop · 'docs' for the full reference
 // commented lines are alternates: swap one in and run again
 
