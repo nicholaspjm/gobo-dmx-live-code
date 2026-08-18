@@ -37,6 +37,98 @@ export interface HelpEntry {
 }
 
 export const HELP_ENTRIES: HelpEntry[] = [
+  // ─── Colours ───────────────────────────────────────────────────────────────
+  // One entry per predefined colour. They are values, not strings: a colour
+  // reaches every call that takes one, and a quoted name is refused.
+  {
+    label: 'red',
+    signature: 'red: Color',
+    description: 'The colour red, as an r,g,b mix of 1, 0, 0. Written without quotes.',
+    example: 'wash.pixels.chase(red)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'orange',
+    signature: 'orange: Color',
+    description: 'The colour orange, as an r,g,b mix of 1, 0.35, 0. Written without quotes.',
+    example: 'wash.pixels.chase(orange)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'amber',
+    signature: 'amber: Color',
+    description: 'The colour amber, as an r,g,b mix of 1, 0.55, 0.1. Written without quotes.',
+    example: 'wash.pixels.chase(amber)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'yellow',
+    signature: 'yellow: Color',
+    description: 'The colour yellow, as an r,g,b mix of 1, 1, 0. Written without quotes.',
+    example: 'wash.pixels.chase(yellow)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'green',
+    signature: 'green: Color',
+    description: 'The colour green, as an r,g,b mix of 0, 1, 0. Written without quotes.',
+    example: 'wash.pixels.chase(green)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'cyan',
+    signature: 'cyan: Color',
+    description: 'The colour cyan, as an r,g,b mix of 0, 1, 1. Written without quotes.',
+    example: 'wash.pixels.chase(cyan)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'blue',
+    signature: 'blue: Color',
+    description: 'The colour blue, as an r,g,b mix of 0, 0, 1. Written without quotes.',
+    example: 'wash.pixels.chase(blue)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'purple',
+    signature: 'purple: Color',
+    description: 'The colour purple, as an r,g,b mix of 0.5, 0, 1. Written without quotes.',
+    example: 'wash.pixels.chase(purple)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'magenta',
+    signature: 'magenta: Color',
+    description: 'The colour magenta, as an r,g,b mix of 1, 0, 1. Written without quotes.',
+    example: 'wash.pixels.chase(magenta)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'pink',
+    signature: 'pink: Color',
+    description: 'The colour pink, as an r,g,b mix of 1, 0.35, 0.6. Written without quotes.',
+    example: 'wash.pixels.chase(pink)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'white',
+    signature: 'white: Color',
+    description: 'The colour white, as an r,g,b mix of 1, 1, 1. Written without quotes. Leaves a dedicated white emitter alone; use .full() to light every emitter.',
+    example: 'wash.pixels.chase(white)',
+    context: 'command',
+    kind: 'variable',
+  },
+
   // ─── Fixtures ──────────────────────────────────────────────────────────────
   {
     label: 'fixture',
@@ -950,12 +1042,12 @@ strip.each(p => [sine().early(p), 0, cosine().early(p)])`,
   },
   {
     label: 'chase',
-    signature: ".chase(colour, { cycles?, width?, waves?, reverse?, down? })",
+    signature: '.chase(color, { cycles?, width?, waves?, reverse?, down? })',
     description:
       'A band of colour travelling along the strip, endlessly. No callback: this is the plain way to get a moving light. '
-      + 'Colour by name or [r, g, b]. cycles = how long a lap takes (4), width = how much is lit at once (0.5), '
+      + 'Colour by name without quotes (red, blue, amber...), or three numbers 0 to 1. cycles = how long a lap takes (4), width = how much is lit at once (0.5), '
       + 'waves = crests at a time (1). A single-channel strip takes options alone.',
-    example: "wash.pixels.chase('red')\nwash.pixels.chase('blue', { cycles: 2, width: 0.2 })",
+    example: 'wash.pixels.chase(red)\nwash.pixels.chase(blue, { cycles: 2, width: 0.2 })',
     context: 'fixture-method',
     kind: 'method',
   },

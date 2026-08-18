@@ -18,6 +18,7 @@
  */
 
 import { uni, channelValue, channelValues, type PatternOrValue, type PatternLike } from './dmx.js';
+import { readColor, isColor, type Color } from './colors.js';
 
 // ─── Fixture definition types ─────────────────────────────────────────────────
 
@@ -752,7 +753,7 @@ export function fixtureCommands(def: FixtureDef): string[] {
   for (const ch of def.channels) {
     if (ch.type === 'strip') {
       const v = ch.pixelLayout === 'rgbw' ? 'r,g,b,w' : ch.pixelLayout === 'mono' ? 'v' : 'r,g,b';
-      const chase = ch.pixelLayout === 'mono' ? 'chase()' : "chase('red')";
+      const chase = ch.pixelLayout === 'mono' ? 'chase()' : 'chase(red)';
       out.push(`${ch.name}.fill(${v})`, `${ch.name}.${chase}`, `${ch.name}.each(fn)`);
       continue;
     }
@@ -800,7 +801,7 @@ export function stripCommands(layout: 'rgb' | 'rgbw' | 'mono'): string[] {
   ];
   // Mono cells have one channel, so there is no colour to name and no rainbow
   // to chase across them.
-  out.push(layout === 'mono' ? 'chase()' : "chase('red')");
+  out.push(layout === 'mono' ? 'chase()' : 'chase(red)');
   if (layout !== 'mono') {
     out.push('pixelGrid(rows)', 'red(v)', 'green(v)', 'blue(v)');
     if (layout === 'rgbw') out.push('white(v)');
@@ -1380,12 +1381,13 @@ export interface StripInstance {
    * A band of colour travelling along the strip. No callback needed.
    *
    * @example
-   *   strip.chase('red')                        // one lap every 4 cycles
-   *   strip.chase('blue', { cycles: 2 })        // faster
-   *   strip.chase('white', { width: 0.2 })      // tight moving band
-   *   strip.chase([1, 0.4, 0], { reverse: true })
+   *   strip.chase(red)                       // one lap every 4 cycles
+   *   strip.chase(blue, { cycles: 2 })       // faster
+   *   strip.chase(white, { width: 0.2 })     // tight moving band
+   *   strip.chase(1, 0.4, 0)                 // a mix, spelled as .color() spells it
    */
-  chase(colour: ChaseColour, opts?: ChaseOptions): void;
+  chase(color: Color, opts?: ChaseOptions): void;
+  chase(r: number, g: number, b: number, opts?: ChaseOptions): void;
   rainbowChase(opts?: RainbowChaseOptions): void;
 }
 
@@ -1580,8 +1582,9 @@ export function rgbStrip(
       return inst;
     },
 
-    chase(colour: ChaseColour, opts: ChaseOptions = {}): void {
-      chaseImpl(inst, resolveChaseColour(colour), opts);
+    chase(...args: unknown[]): void {
+      const { color, opts } = splitChaseArgs(args);
+      chaseImpl(inst, color, opts);
     },
 
     rainbowChase(opts: RainbowChaseOptions = {}): void {
@@ -1883,12 +1886,13 @@ export interface RgbwStripInstance {
    * A band of colour travelling along the strip. No callback needed.
    *
    * @example
-   *   strip.chase('red')                        // one lap every 4 cycles
-   *   strip.chase('blue', { cycles: 2 })        // faster
-   *   strip.chase('white', { width: 0.2 })      // tight moving band
-   *   strip.chase([1, 0.4, 0], { reverse: true })
+   *   strip.chase(red)                       // one lap every 4 cycles
+   *   strip.chase(blue, { cycles: 2 })       // faster
+   *   strip.chase(white, { width: 0.2 })     // tight moving band
+   *   strip.chase(1, 0.4, 0)                 // a mix, spelled as .color() spells it
    */
-  chase(colour: ChaseColour, opts?: ChaseOptions): void;
+  chase(color: Color, opts?: ChaseOptions): void;
+  chase(r: number, g: number, b: number, opts?: ChaseOptions): void;
   rainbowChase(opts?: RainbowChaseOptions): void;
 }
 
@@ -2048,8 +2052,9 @@ export function rgbwStrip(
       return inst;
     },
 
-    chase(colour: ChaseColour, opts: ChaseOptions = {}): void {
-      chaseImpl(inst, resolveChaseColour(colour), opts);
+    chase(...args: unknown[]): void {
+      const { color, opts } = splitChaseArgs(args);
+      chaseImpl(inst, color, opts);
     },
 
     rainbowChase(opts: RainbowChaseOptions = {}): void {
@@ -2479,24 +2484,6 @@ export function setStripEffectWaveforms(
   _cosineFactory = cosine;
 }
 
-/** Colours you can name instead of mixing. */
-const NAMED_COLOURS: Record<string, [number, number, number]> = {
-  red:     [1, 0, 0],
-  orange:  [1, 0.35, 0],
-  amber:   [1, 0.55, 0.1],
-  yellow:  [1, 1, 0],
-  green:   [0, 1, 0],
-  cyan:    [0, 1, 1],
-  blue:    [0, 0, 1],
-  purple:  [0.5, 0, 1],
-  magenta: [1, 0, 1],
-  pink:    [1, 0.35, 0.6],
-  white:   [1, 1, 1],
-};
-
-/** A colour for `.chase()`: a name, or `[r, g, b]` with each 0 to 1. */
-export type ChaseColour = string | [number, number, number];
-
 export interface ChaseOptions {
   /** Cycles for one full lap of the strip (default 4). Bigger is slower. */
   cycles?: number;
@@ -2513,17 +2500,21 @@ export interface ChaseOptions {
   down?: boolean;
 }
 
-function resolveChaseColour(colour: ChaseColour): [number, number, number] {
-  if (Array.isArray(colour)) return colour;
-  const key = String(colour).trim().toLowerCase();
-  const hit = NAMED_COLOURS[key];
-  if (!hit) {
-    throw new Error(
-      `.chase(): "${colour}" is not a colour I know. Names: ${Object.keys(NAMED_COLOURS).join(', ')}. ` +
-      'Or pass [r, g, b] with each from 0 to 1.',
-    );
-  }
-  return hit;
+/**
+ * Split a chase call into its colour and its options.
+ *
+ * Both spellings of a mix land here, so `.chase(red)`, `.chase(1, 0, 0)` and
+ * `.chase(red, { cycles: 2 })` all read the same way as `.color(1, 0, 0)`
+ * does. The options bag is whichever trailing argument is a plain object.
+ */
+function splitChaseArgs(args: readonly unknown[]): { color: Color; opts: ChaseOptions } {
+  const last = args[args.length - 1];
+  const hasOpts = typeof last === 'object' && last !== null && !Array.isArray(last) && !isColor(last);
+  const colorArgs = hasOpts ? args.slice(0, -1) : args;
+  return {
+    color: readColor(colorArgs, '.chase()'),
+    opts: (hasOpts ? last : {}) as ChaseOptions,
+  };
 }
 
 /**
@@ -2537,7 +2528,7 @@ function resolveChaseColour(colour: ChaseColour): [number, number, number] {
  */
 function chaseImpl(
   strip: StripInstance | RgbwStripInstance | MonoStripInstance,
-  colour: [number, number, number] | null,
+  color: Color | null,
   opts: ChaseOptions,
 ): void {
   const sine = _sineFactory;
@@ -2559,11 +2550,11 @@ function chaseImpl(
   for (let y = 0; y < strip.height; y++) {
     for (let x = 0; x < strip.width; x++) {
       const bright = brightAt(opts.down ? y : x);
-      if (colour === null) {
+      if (color === null) {
         (strip as MonoStripInstance).pixelXY(x, y, bright as PatternOrValue);
         continue;
       }
-      const [r, g, b] = colour;
+      const { r, g, b } = color;
       const scale = (c: number): PatternOrValue =>
         (c === 0 ? 0 : c === 1 ? bright : (bright as { mul(n: number): unknown }).mul(c)) as PatternOrValue;
       if (strip.channelCount === strip.pixelCount * 4) {

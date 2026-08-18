@@ -34,6 +34,7 @@ import {
   rgb,
   type PatternLike,
 } from './dmx.js';
+import { COLORS } from './colors.js';
 import { setBPM } from './scheduler.js';
 import {
   fixture,
@@ -532,6 +533,29 @@ export interface EvalResult {
   warning?: string;
 }
 
+/**
+ * Names a scene cannot bind, because the sandbox already binds them.
+ *
+ * JavaScript reports this as "Identifier 'red' has already been declared",
+ * which says nothing about where the other declaration is or why it is
+ * unmovable. Colours made the problem worth answering: `red`, `green`, `blue`
+ * and `white` are plausible names for a scene's own variables in a way that
+ * `sine` and `fixture` never were.
+ */
+function reservedNameHint(message: string, reserved: Iterable<string>): string {
+  const m = /Identifier '([^']+)' has already been declared/.exec(message);
+  if (!m) return message;
+  const name = m[1];
+  const names = new Set(reserved);
+  if (!names.has(name)) return message;
+  // JavaScript's message has no full stop, so one is added rather than running
+  // the two sentences together.
+  return (
+    `${message.replace(/\s*$/, '')}. "${name}" is one of gobo's own names, so a scene cannot reuse it. ` +
+    `Rename your variable, for example ${name}Wash or my${name[0].toUpperCase()}${name.slice(1)}.`
+  );
+}
+
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
@@ -560,6 +584,15 @@ export function evalCode(code: string): EvalResult {
   const sideEffects: SideEffectBuffer = { config: null, bpm: null, direct: null };
 
   const ctx: Record<string, unknown> = {
+    // Colours, as identifiers. A colour is a value here rather than a quoted
+    // name: `wash.pixels.chase(red)`, not `chase('red')`.
+    //
+    // These are sandbox bindings, which are function parameters, so they are
+    // reserved: a scene writing `const red = …` gets a SyntaxError, the same
+    // way `const sine = …` always has. Eleven more reserved words is the price
+    // of naming a colour without quoting it. reservedNameHint() below turns
+    // that error into one that says so.
+    ...COLORS,
     // DMX API
     ch,
     uni,
@@ -602,7 +635,7 @@ export function evalCode(code: string): EvalResult {
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     fn = new Function(...keys, `"use strict";\n${code}`) as (...args: unknown[]) => unknown;
   } catch (err) {
-    return { success: false, error: errorMessage(err) };
+    return { success: false, error: reservedNameHint(errorMessage(err), keys) };
   }
 
   // The code parses, so it is worth building a scene from. Channel writes go to
