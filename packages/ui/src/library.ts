@@ -19,6 +19,7 @@ import {
   parseImportString,
   getCustomFixtures,
   defineFixture,
+  isEmitterChannel,
   BUILT_IN_FIXTURES,
   type FixtureDef,
 } from '@gobo/core';
@@ -248,6 +249,7 @@ export function mountLibraryPanel(opts: {
             <span class="lib-row-name">${escapeText(entry.def.name)}</span>${tierTag}
           </div>
           <div class="lib-row-sub">${escapeText(channelSummary(entry.def))} · ${escapeText(channelNamesSummary(entry.def))}</div>
+          <pre class="lib-row-usage">${escapeText(usageExample(entry.id, entry.def))}</pre>
         </div>
         <div class="lib-row-actions">${actions}</div>
       </div>`;
@@ -257,6 +259,49 @@ export function mountLibraryPanel(opts: {
    *  generics will be available on a fixture instance. */
   function channelNamesSummary(def: FixtureDef): string {
     return def.channels.map((c) => c.name).join(', ');
+  }
+
+  /**
+   * A worked example of patching and driving this fixture.
+   *
+   * The list used to say what a fixture HAS without ever saying how to reach
+   * it, so the next step was to guess a name or go and read the docs for
+   * something already on screen. Written out with the real id and a real
+   * channel from this def, so it can be copied straight into a scene.
+   *
+   * The channel chosen to demonstrate is the first one that emits light,
+   * because driving a pan or a gobo wheel proves nothing about whether the
+   * patch is right.
+   */
+  function usageExample(id: string, def: FixtureDef): string {
+    const lines = [`const light = fixture(1, '${id}')`];
+
+    const strip = def.channels.find((c) => c.type === 'strip');
+    const emitter = def.channels.find((c) => c.type !== 'strip' && isEmitterChannel(c));
+
+    if (emitter) {
+      lines.push(`light.${emitter.name}(sine().slow(4))`);
+    }
+    if (strip) {
+      const args = strip.pixelLayout === 'rgbw' ? '1, 0, 0, 0'
+        : strip.pixelLayout === 'mono' ? '1'
+        : '1, 0, 0';
+      lines.push(`light.${strip.name}.fill(${args})`);
+      lines.push(`light.${strip.name}.each(p => sine().early(p).slow(2))`);
+    }
+    // A slotted channel is the one thing here that reads nothing like the
+    // rest, so it is worth showing even on a fixture that already has an
+    // emitter to demonstrate.
+    const slotted = def.channels.find((c) => c.slots !== undefined && c.slots.length > 0);
+    if (slotted) {
+      lines.push(`light.${slotted.name}('${slotted.slots?.[0]?.name ?? 'open'}')`);
+    }
+    if (lines.length === 1) {
+      // Nothing that emits and no strip: a control-only fixture, so show the
+      // generic escape hatch rather than inventing a setter.
+      lines.push(`light.set('${def.channels[0]?.name ?? 'dim'}', 0.5)`);
+    }
+    return lines.join('\n');
   }
 
   function refresh(): void {

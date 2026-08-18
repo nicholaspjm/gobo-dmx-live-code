@@ -31,14 +31,50 @@ import { HELP_ENTRIES, type HelpEntry } from './help-data.js';
 // Derived from the shared help index so signatures/examples are authored once
 // and surface in both the autocomplete popup and the hover tooltip.
 
+/**
+ * How a completed name should be written out.
+ *
+ * Read from the signature, which is authored once in the help index:
+ *
+ *   'sine() => Pattern'          call, no arguments   → sine()
+ *   '.red(value | pattern)'      call, takes one      → .red(⎸)
+ *   'silence'                    not a call           → silence
+ *   '.pixelCount => number'      a property           → .pixelCount
+ *
+ * Accepting a completion used to insert the bare name, so `wash.red` sat
+ * there looking finished and did nothing until the parentheses were typed by
+ * hand. Worse, a bare method reference is legal JavaScript, so the scene ran
+ * clean with a channel that never got set.
+ */
+function callShape(e: HelpEntry): { call: boolean; takesArgs: boolean } {
+  if (e.kind === 'property' || e.kind === 'variable') return { call: false, takesArgs: false };
+  const m = /\(([^)]*)\)/.exec(e.signature);
+  if (!m) return { call: false, takesArgs: false };
+  return { call: true, takesArgs: m[1].trim().length > 0 };
+}
+
 /** Build a CM Completion from a HelpEntry. The `info` field (the doc
  *  panel shown when an entry is selected) renders description plus
  *  example, so the example is visible before accepting the completion. */
 function toCompletion(e: HelpEntry): Completion {
+  const shape = callShape(e);
   return {
     label: e.label,
     type: e.kind,
     detail: e.signature,
+    // Write the call, not just the name, and leave the cursor where the next
+    // keystroke belongs: between the parentheses when there is an argument to
+    // give, after them when there is not.
+    apply: (view, _completion, from, to) => {
+      const text = shape.call ? `${e.label}()` : e.label;
+      const cursor = shape.call && shape.takesArgs
+        ? from + e.label.length + 1
+        : from + text.length;
+      view.dispatch({
+        changes: { from, to, insert: text },
+        selection: { anchor: cursor },
+      });
+    },
     info: () => {
       const root = document.createElement('div');
       root.className = 'gobo-completion-info';
