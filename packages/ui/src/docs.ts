@@ -688,12 +688,19 @@ const DOCS: DocSection[] = [
       "Higher-level scene recipes exposed as methods on strip / pixel instances. Call them the same way you'd call any other strip method (.fill, .pixel, etc.).",
     entries: [
       {
-        name: '.chase',
-        signature: "strip.chase(colour, { cycles?, width?, waves?, reverse?, down? })",
+        name: 'colours',
+        signature: 'red · orange · amber · yellow · green · cyan · blue · purple · magenta · pink · white',
         description:
-          "A band of one colour travelling along the strip, endlessly. The plain way to get a moving light: no callback, no phase arithmetic. Colour by name (red, orange, amber, yellow, green, cyan, blue, purple, magenta, pink, white) or as [r, g, b] with each 0 to 1. `cycles` is how long one lap takes, 4 by default, and bigger is slower. `width` is how much of the strip is lit at once, 0 to 1: at 1 it is a smooth swell with no dark part, and small values give a tight moving band. `waves` puts more than one crest on at a time. `reverse` sends it the other way. `down` runs it along the rows instead of the columns, on a strip that has a grid. On a single-channel strip there is no colour to name, so it takes options alone.",
+          "A colour is a value, written without quotes. There are two ways to say one and only two: a predefined name from this list, or a mix of three numbers from 0 to 1. Both reach every call that takes a colour, so a colour written once can be moved anywhere. A quoted colour is refused, and the message names the identifier to use instead. Note `white` here is the r,g,b mix: on a fixture with a dedicated white emitter, use .full() to light every emitter it has. Slot names on a wheel are a different thing and stay quoted, because they are the manufacturer's labels for mechanical positions ('open', 'red/blue') rather than colours you can mix.",
+        example: 'wash.pixels.chase(red)\nwash.color(1, 0.4, 0)\nwash.pixels.chase(1, 0.4, 0, { cycles: 2 })',
+      },
+      {
+        name: '.chase',
+        signature: 'strip.chase(color, { cycles?, width?, waves?, reverse?, down? })',
+        description:
+          "A band of one colour travelling along the strip, endlessly. The plain way to get a moving light: no callback, no phase arithmetic. Colour by name, written without quotes: red, orange, amber, yellow, green, cyan, blue, purple, magenta, pink, white. Or as a mix of three numbers 0 to 1, spelled the way .color(r, g, b) spells it. A quoted colour is refused and told which identifier to use. `cycles` is how long one lap takes, 4 by default, and bigger is slower. `width` is how much of the strip is lit at once, 0 to 1: at 1 it is a smooth swell with no dark part, and small values give a tight moving band. `waves` puts more than one crest on at a time. `reverse` sends it the other way. `down` runs it along the rows instead of the columns, on a strip that has a grid. On a single-channel strip there is no colour to name, so it takes options alone.",
         example:
-          "wash.pixels.chase('red')\nwash.pixels.chase('blue', { cycles: 2, width: 0.2 })\nwash.pixels.chase([1, 0.4, 0], { reverse: true })\ncells.chase({ waves: 2 })",
+          'wash.pixels.chase(red)\nwash.pixels.chase(blue, { cycles: 2, width: 0.2 })\nwash.pixels.chase(1, 0.4, 0, { reverse: true })\ncells.chase({ waves: 2 })',
       },
       {
         name: '.rainbowChase',

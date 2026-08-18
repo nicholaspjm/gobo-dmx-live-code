@@ -3,6 +3,7 @@ export * from './dmx.js';
 export * from './eval.js';
 export * from './websocket.js';
 export * from './usb-dmx.js';
+export * from './colors.js';
 export * from './fixtures.js';
 export * from './fixture-library.js';
 export * from './fixture-validator.js';
