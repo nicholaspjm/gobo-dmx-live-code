@@ -109,11 +109,6 @@ const sceneShareEl = document.getElementById('scene-share') as HTMLButtonElement
 
 
 
-// "This code came from a link" banner.
-const shareBannerEl = document.getElementById('share-banner') as HTMLElement;
-const shareBannerTextEl = document.getElementById('share-banner-text') as HTMLElement;
-const shareBannerDismissEl = document.getElementById('share-banner-dismiss') as HTMLButtonElement;
-
 // One-time notice for scenes saved under the old multi-scene model.
 const legacyNoticeEl = document.getElementById('legacy-notice') as HTMLElement;
 const legacyListEl = document.getElementById('legacy-list') as HTMLElement;
@@ -157,8 +152,6 @@ async function runEval(code: string): Promise<void> {
       setStatus('ok', '✓ running');
     }
     if (!isRunning()) start();
-    // The "this came from a link" warning is done once the user runs the code.
-    setShareBannerOpen(false);
     // Rebuild inline editor visualizations to reflect any .viz() calls
     // in the new code. Widgets animate from the live universe buffer; this
     // call only (re)places them in the editor at the right lines. The
@@ -626,7 +619,9 @@ function refreshOutputIndicator(): void {
   const summary = connectionSummary();
   wsDotEl.className = summary.state === 'connected'
     ? 'ws-dot connected'
-    : summary.state === 'disconnected' ? 'ws-dot disconnected' : 'ws-dot';
+    : summary.state === 'disconnected' ? 'ws-dot disconnected'
+    : summary.state === 'ready' ? 'ws-dot ready'
+    : 'ws-dot';
   wsLabelEl.textContent = summary.label;
   outputStatusEl.title = summary.title;
   wsLockEl.hidden = !needsConnectorUnlock();
@@ -1287,6 +1282,25 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * Say "copied" on the button itself for a moment.
+ *
+ * The status bar already reported it, but that is at the far end of the window
+ * from the button just clicked, so the click read as having done nothing. The
+ * confirmation belongs where the eye already is.
+ */
+let _shareFlashTimer: ReturnType<typeof setTimeout> | null = null;
+function flashShareCopied(): void {
+  if (_shareFlashTimer) clearTimeout(_shareFlashTimer);
+  sceneShareEl.textContent = 'copied';
+  sceneShareEl.classList.add('copied');
+  _shareFlashTimer = setTimeout(() => {
+    sceneShareEl.textContent = 'share';
+    sceneShareEl.classList.remove('copied');
+    _shareFlashTimer = null;
+  }, 1600);
+}
+
 async function handleShare(): Promise<void> {
   const code = editorView.state.doc.toString();
   const name = getBufferName();
@@ -1299,6 +1313,7 @@ async function handleShare(): Promise<void> {
   }
 
   if (await copyText(url)) {
+    flashShareCopied();
     setStatus('ok', url.length > LONG_LINK_CHARS
       ? `share link copied · ${url.length} characters · some apps truncate links this long, use save for a big set`
       : `share link copied · ${url.length} characters`);
@@ -1335,37 +1350,21 @@ function loadExample(ex: Example): void {
 
 
 
-// ─── Shared-scene banner ─────────────────────────────────────────────────────
+// ─── Shared scenes ───────────────────────────────────────────────────────────
 // Scene code is evaluated with full page privileges (SECURITY.md,
 // packages/core/src/eval.ts), so a scene that arrived in a link can read what
-// is saved on this origin and repoint DMX output. It is never auto-run, and
-// this banner stays up until the user runs it or dismisses it.
+// is saved on this origin and repoint DMX output.
+//
+// This used to raise a banner about that, which had to be dismissed every time
+// a link was opened. The banner is gone; the protection is not. A shared scene
+// is still never auto-run, and opening one still asks before it replaces the
+// buffer, so nothing from a link executes without the user pressing
+// ctrl+enter on code they can see. What the banner added on top of that was a
+// paragraph of reading, in the way, on every open.
 
-function setShareBannerOpen(open: boolean): void {
-  shareBannerEl.classList.toggle('open', open);
-  shareBannerEl.setAttribute('aria-hidden', open ? 'false' : 'true');
-}
-
-function showSharedSceneBanner(name: string): void {
-  // Assembled from text nodes rather than a template string: `name` came out
-  // of someone else's link and must reach the DOM as text, never as markup.
-  shareBannerTextEl.textContent = '';
-  const nameEl = document.createElement('span');
-  nameEl.className = 'share-banner-name';
-  nameEl.textContent = short(normalizeSceneName(name));
-  shareBannerTextEl.append(
-    document.createTextNode('This scene ('),
-    nameEl,
-    document.createTextNode(
-      ') came from a shared link. Running it gives someone else\'s code full access to '
-      + 'this page and to your DMX output. Nothing is running yet: read it, then press '
-      + 'ctrl+enter if you trust it.',
-    ),
-  );
-  setShareBannerOpen(true);
-}
-
-shareBannerDismissEl.addEventListener('click', () => setShareBannerOpen(false));
+/** Whether this session started from a link, so the ready message does not
+ *  overwrite the line saying so. */
+let _openedFromLink = false;
 
 /**
  * Load a scene out of the URL hash, if there is one. Runs once at boot.
@@ -1386,7 +1385,7 @@ async function handleSharedSceneOnBoot(): Promise<void> {
   // Dirty: a scene from a link exists in no file of the user's, so whatever
   // would replace it next still has to ask.
   replaceBuffer(shared.name, shared.code, { dirty: true });
-  showSharedSceneBanner(shared.name);
+  _openedFromLink = true;
   setStatus('', 'shared scene loaded · read it, then ctrl+enter to run');
 }
 
@@ -1592,7 +1591,7 @@ initStrudel().then(() => {
   // Don't stomp what the shared-scene flow put here. These two resolve in
   // whichever order the network decides, and its message, that the code on
   // screen came from a link, says more than the generic hint.
-  if (!shareBannerEl.classList.contains('open')) {
+  if (!_openedFromLink) {
     setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop');
   }
 });

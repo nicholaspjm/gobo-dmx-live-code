@@ -301,8 +301,14 @@ export function needsConnectorUnlock(): boolean {
 }
 
 export interface ConnectionSummary {
-  /** 'idle' means no output has been chosen, which is not a failure. */
-  state: 'connected' | 'disconnected' | 'idle';
+  /**
+   * 'idle' means no output has been chosen, which is not a failure.
+   * 'ready' means the connector is running and waiting, with no scene output
+   * pointed at it yet, which is also not a failure but is worth seeing: it is
+   * a background process, and the only way to know it is alive was to choose
+   * an output and find out.
+   */
+  state: 'connected' | 'disconnected' | 'ready' | 'idle';
   /** What the top-bar label reads. */
   label: string;
   /** Tooltip, the longer version of the same answer. */
@@ -322,6 +328,16 @@ export function connectionSummary(): ConnectionSummary {
   const usb = isUsbConnected();
 
   if (!direct && !config && !usb) {
+    if (isBridgeConnected()) {
+      return {
+        state: 'ready',
+        label: 'connector ready',
+        title:
+          'The connector is running on this computer and this page is talking to it. '
+          + 'No frames are going anywhere yet, because the scene has not chosen an output: '
+          + 'add artnet(), sacn() or osc() and run. Click for the full list.',
+      };
+    }
     return {
       state: 'idle',
       label: 'no output chosen',
@@ -419,6 +435,47 @@ export function mountOutputsPanel(opts: {
     if (e.key === 'Escape' && isOpen()) setOpen(false);
   });
 
+  /**
+   * Whether the connector is running, said out loud.
+   *
+   * It is a background process that installs itself as a login item, so months
+   * can pass between setting it up and wondering about it. Nothing on screen
+   * answered "is it running, and what is it" except by choosing an output and
+   * seeing whether light came out.
+   */
+  function renderConnectorStatus(): HTMLElement {
+    const box = document.createElement('div');
+    const up = isBridgeConnected();
+    box.className = up ? 'connector-status up' : 'connector-status';
+
+    const head = document.createElement('div');
+    head.className = 'connector-status-head';
+    const dot = document.createElement('span');
+    dot.className = 'connector-status-dot';
+    const name = document.createElement('span');
+    name.className = 'connector-status-name';
+    name.textContent = up ? 'connector running' : 'connector not running';
+    head.append(dot, name);
+
+    const where = document.createElement('span');
+    where.className = 'connector-status-where';
+    where.textContent = up ? 'localhost:3001' : '';
+    head.appendChild(where);
+
+    const what = document.createElement('p');
+    what.className = 'connector-status-what';
+    what.textContent = up
+      ? 'A small program on this computer, listening for frames from this page and putting '
+        + 'Art-Net, sACN or OSC on the network. It starts with your computer and stays out of '
+        + 'the way, which is why you may not remember running it. Nothing reaches your rig '
+        + 'until a scene picks one of those outputs.'
+      : 'Art-Net, sACN and OSC need a small program running on this computer, because a web '
+        + 'page cannot put those packets on the network itself. Without it, usb() and td() '
+        + 'still work from the browser alone.';
+    box.append(head, what);
+    return box;
+  }
+
   function render(): void {
     bodyEl.replaceChildren();
 
@@ -426,6 +483,8 @@ export function mountOutputsPanel(opts: {
     intro.className = 'outputs-intro';
     intro.textContent = PANEL_INTRO;
     bodyEl.appendChild(intro);
+
+    bodyEl.appendChild(renderConnectorStatus());
 
     const current = currentOutputId();
     const list = document.createElement('div');
