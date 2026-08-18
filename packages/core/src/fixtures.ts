@@ -344,6 +344,16 @@ export interface SimFixture {
    */
   patchChannel?: number;
   /**
+   * Absolute 1-based channel of a master dimmer sitting over this entry, when
+   * the entry is a strip inside a fixture that has one.
+   *
+   * A globe already scales itself by its own dim channel. A strip drew its
+   * pixel values raw, so a 154-channel wash with its master at zero, which
+   * emits no light at all, appeared on screen fully lit. The panel exists to
+   * be believed, and that is the one way it can be worse than nothing.
+   */
+  master?: number;
+  /**
    * What can be called on it: the named setters, or a strip's methods. Shown
    * on hover, because knowing a fixture is there is not the same as knowing
    * what it answers to, and the alternative is guessing or reading the docs
@@ -766,6 +776,21 @@ export function fixtureCommands(def: FixtureDef): string[] {
  * list is generated from the value shape rather than written out three times
  * and left to drift.
  */
+/**
+ * The absolute channel of a fixture-wide dimmer, if it has one.
+ *
+ * Named `dim`, or the only intensity channel: both spellings appear in real
+ * definitions. Returns undefined when the fixture has several intensity
+ * channels, because then none of them is "the" master and guessing would dim
+ * the panel by something that does not dim the light.
+ */
+function masterDimmerChannel(def: FixtureDef, startChannel: number): number | undefined {
+  const named = def.channels.find((c) => c.name === 'dim');
+  if (named) return startChannel + named.offset;
+  const intensities = def.channels.filter((c) => c.type === 'intensity');
+  return intensities.length === 1 ? startChannel + intensities[0].offset : undefined;
+}
+
 export function stripCommands(layout: 'rgb' | 'rgbw' | 'mono'): string[] {
   const v = layout === 'rgbw' ? 'r,g,b,w' : layout === 'mono' ? 'v' : 'r,g,b';
   const out = [
@@ -803,6 +828,9 @@ export interface StripOptions extends StripGeometry {
   simPatchChannel?: number;
   /** Owning fixture's full command list, replacing the strip's own. */
   simCommands?: string[];
+  /** Absolute channel of a master dimmer the owning fixture puts over this
+   *  strip, so the panel dims with it. */
+  simMaster?: number;
 }
 
 /**
@@ -980,6 +1008,9 @@ export function fixture(
         simFixtureId: fixtureId,
         simPatchChannel: startChannel,
         simCommands: fixtureCommands(def),
+        // A master dimmer over the whole fixture dims its pixels too, on the
+        // rig and therefore on screen.
+        simMaster: masterDimmerChannel(def, startChannel),
         // A grid declared on the channel travels with the fixture, so a scene
         // says pixelXY without repeating the wash's dimensions.
         columns: ch.columns,
@@ -1551,6 +1582,7 @@ export function rgbStrip(
     channelCount,
     fixtureId: opts.simFixtureId,
     patchChannel: opts.simPatchChannel,
+    master: opts.simMaster,
     commands: opts.simCommands ?? stripCommands('rgb'),
     movement: opts.movement,
     render: { kind: 'strip-rgb', pixelCount },
@@ -1696,6 +1728,7 @@ export function monoStrip(
     channelCount,
     fixtureId: opts.simFixtureId,
     patchChannel: opts.simPatchChannel,
+    master: opts.simMaster,
     commands: opts.simCommands ?? stripCommands('mono'),
     movement: opts.movement,
     render: { kind: 'strip-mono', pixelCount },
@@ -1988,6 +2021,7 @@ export function rgbwStrip(
     channelCount,
     fixtureId: opts.simFixtureId,
     patchChannel: opts.simPatchChannel,
+    master: opts.simMaster,
     commands: opts.simCommands ?? stripCommands('rgbw'),
     movement: opts.movement,
     render: { kind: 'strip-rgbw', pixelCount },

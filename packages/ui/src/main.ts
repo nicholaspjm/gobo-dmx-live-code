@@ -900,36 +900,37 @@ setInterval(() => {
       );
     } else if (render.kind === 'globe-dim') {
       updateGlobeDim(r.mainEl, buf[base + render.dim] ?? 0);
-    } else if (render.kind === 'strip-rgb') {
+    } else if (render.kind === 'strip-rgb' || render.kind === 'strip-rgbw' || render.kind === 'strip-mono') {
+      // A master dimmer over the fixture dims its pixels on the rig, so it has
+      // to dim them here. Without this a wash whose master is at zero, emitting
+      // nothing at all, was drawn on screen at full.
+      const m = r.core.master !== undefined ? (buf[r.core.master - 1] ?? 0) / 255 : 1;
       const pixels = r.pixelEls ?? [];
-      for (let i = 0; i < render.pixelCount; i++) {
-        const pb = base + i * 3;
-        updateStripPixel(pixels[i], buf[pb] ?? 0, buf[pb + 1] ?? 0, buf[pb + 2] ?? 0);
-      }
-    } else if (render.kind === 'strip-rgbw') {
-      const pixels = r.pixelEls ?? [];
-      for (let i = 0; i < render.pixelCount; i++) {
-        const pb = base + i * 4;
-        const rv = buf[pb] ?? 0;
-        const gv = buf[pb + 1] ?? 0;
-        const bv = buf[pb + 2] ?? 0;
-        const wv = buf[pb + 3] ?? 0;
-        // Mix W additively into RGB for the on-screen pixel, as the old
-        // barPixel renderer did.
-        updateStripPixel(
-          pixels[i],
-          Math.min(255, rv + wv),
-          Math.min(255, gv + wv),
-          Math.min(255, bv + wv),
-        );
-      }
-    } else if (render.kind === 'strip-mono') {
-      // One channel per cell, so the level IS the colour. Drawn white because
-      // that is what a segmented strobe strip actually emits.
-      const pixels = r.pixelEls ?? [];
-      for (let i = 0; i < render.pixelCount; i++) {
-        const v = buf[base + i] ?? 0;
-        updateStripPixel(pixels[i], v, v, v);
+      if (render.kind === 'strip-rgb') {
+        for (let i = 0; i < render.pixelCount; i++) {
+          const pb = base + i * 3;
+          updateStripPixel(pixels[i], (buf[pb] ?? 0) * m, (buf[pb + 1] ?? 0) * m, (buf[pb + 2] ?? 0) * m);
+        }
+      } else if (render.kind === 'strip-rgbw') {
+        for (let i = 0; i < render.pixelCount; i++) {
+          const pb = base + i * 4;
+          const wv = buf[pb + 3] ?? 0;
+          // Mix W additively into RGB for the on-screen pixel, as the old
+          // barPixel renderer did.
+          updateStripPixel(
+            pixels[i],
+            Math.min(255, (buf[pb] ?? 0) + wv) * m,
+            Math.min(255, (buf[pb + 1] ?? 0) + wv) * m,
+            Math.min(255, (buf[pb + 2] ?? 0) + wv) * m,
+          );
+        }
+      } else {
+        // One channel per cell, so the level IS the colour. Drawn white because
+        // that is what a segmented strobe strip actually emits.
+        for (let i = 0; i < render.pixelCount; i++) {
+          const v = (buf[base + i] ?? 0) * m;
+          updateStripPixel(pixels[i], v, v, v);
+        }
       }
     }
 
