@@ -8,3 +8,4 @@ export * from './fixture-library.js';
 export * from './fixture-validator.js';
 export * from './audio.js';
 export * from './pattern-viz.js';
+export * from './screen.js';

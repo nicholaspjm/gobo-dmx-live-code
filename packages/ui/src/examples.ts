@@ -1,7 +1,7 @@
 /**
  * Bundled example scenes.
  *
- * The three demos that ship with gobo. They are read-only content held in
+  * The demos that ship with gobo. They are read-only content held in
  * the source and loaded into the working buffer on request; once the user
  * edits one it is their buffer, not our template. Earlier versions seeded
  * them into localStorage as ordinary saved scenes, which needed in-place
@@ -134,128 +134,6 @@ bar.pixels.white(mini('1 - - -').range(-15, 1).off(0.25, p => p.mul(0.35)))
 bar.direction(sine().slow(8)); bar.speed(0.6)     // sweep
 // bar.direction(saw().slow(6)); bar.speed(0.8)   // spin
 // bar.speed(0)                                   // freeze
-`,
-  },
-  {
-    id: 'ultratronics-11',
-    label: 'ultratronics 11',
-    blurb: 'Live-performance template: named instrument functions up top, a LIVE block you toggle.',
-    code: `// ultratronics 11 · Ryoji Ikeda · 5:30 · 108 BPM
-//
-// Section cues extracted from the track with librosa
-// (scripts/analyse-track.py). Timings are elapsed time from the start of
-// the file.
-//
-//   0:00  intro            sparse, dark · rms ~0.33
-//   0:36  development      bass creeping in · rms ~0.36
-//   1:12  first shift      texture change · rms ~0.39→0.68
-//   1:35  main body        full drive · rms 0.70-0.94 (peaks ~2:10)
-//   3:00  second wave      peak intensity · rms 0.72-0.98 (peak ~3:40)
-//   4:36  outro            ebb · rms 0.56-0.60
-//   5:21  fade             rms falls to silence
-//
-// Play the track through your own audio setup. setBPM(108) comes from the
-// librosa estimate; if it drifts from what you hear, tap-tempo with T to
-// lock the internal clock to the beat.
-
-artnet('2.0.0.100')
-setBPM(108)
-
-// ── fixtures ──────────────────────────────────────────────
-// spot = RGBW par at uni 0 ch 1-4.
-// bar  = custom 4-colour moving bar (the 'four-color-bar demo' scene
-//        breaks down defineFixture in full).
-defineFixture('demo-bar', {
-  name: 'Four-Colour Moving Bar',
-  manufacturer: 'Generic',
-  type: 'generic',
-  channelCount: 38,
-  channels: [
-    { offset: 0, name: 'direction',   type: 'control'   },
-    { offset: 1, name: 'speed',       type: 'control'   },
-    { offset: 2, name: 'effect',      type: 'control'   },
-    { offset: 3, name: 'effectSpeed', type: 'control'   },
-    { offset: 4, name: 'dim',         type: 'intensity' },
-    { offset: 5, name: 'strobe',      type: 'strobe'    },
-    { offset: 6, name: 'pixels',      type: 'strip', pixelCount: 8, pixelLayout: 'rgbw' },
-  ],
-})
-const spot = fixture(1, 'rgbw').viz('color')
-const bar  = fixture(1, 'demo-bar', 1)
-bar.pixels.viz('strip')
-bar.dim(1)
-
-// ── instrument library ────────────────────────────────────
-// Each function registers a pattern on one colour channel of the spot
-// (r / g / b / w). The par is a 4-channel RGBW with no dedicated dim,
-// so brightness comes from driving the colour channels directly.
-//
-//   WHITE  → kicks / peaks
-//   GREEN  → hi-hats / mid detail
-//   BLUE   → drones
-//   RED    → noise / bass
-//
-// Two functions sharing a channel family override each other (last
-// call wins). Uncomment one per family to run them in parallel.
-
-// ── WHITE · kicks / peaks ─────────────────────────────────
-function kickSlow()   { spot.white(mini('1 - - -').slow(2).flash()) }
-function kick()       { spot.white(mini('1 - - -').flash()) }
-function kickDouble() { spot.white(mini('1 - 1 -').flash()) }
-
-// ── GREEN · hats / mid detail ─────────────────────────────
-function hatsOffbeat() { spot.green(mini('- 1 - 1 - 1 - 1').range(0, 0.4)) }
-function hats()        { spot.green(mini('1 1 1 1  1 1 1 1  1 1 1 1  1 1 1 1').range(0, 0.35)) }
-function hatsDense()   { spot.green(mini('1*32').range(-2, 0.6)) }
-
-// ── BLUE · drones ─────────────────────────────────────────
-function sineDeep()  { spot.blue(sine().slow(32).range(0.3, 0.8).glow()) }
-function sineTone()  { spot.blue(sine().slow(16).range(0.1, 0.9).glow()) }
-
-// ── RED · noise / bass ────────────────────────────────────
-function noiseBurst() { spot.red(rand().range(-6, 1)) }
-
-// ── BAR · independent 8-pixel RGBW moving bar on universe 1 ──
-function barPulse()  { bar.pixels.white(mini('1 - - -').range(-15, 1).flash()) }
-function barSweep()  { bar.pixels.rainbowChase({ speed: 2, narrow: 12 }) }
-function barStrobe() { bar.pixels.white(mini('1*16').range(-4, 1)) }
-function barOff()    { bar.pixels.fill(0, 0, 0, 0) }
-
-// ── LIVE ──────────────────────────────────────────────────
-// Uncomment lines per section, Ctrl+Enter to apply. Cue times are in
-// the header comment. The grouping below is one suggested arrangement.
-
-// --- intro · 0:00-0:36 · minimal ---
-// sineDeep()
-
-// --- development · 0:36-1:12 · bass creeps in ---
-// sineDeep()
-// noiseBurst()
-// hatsOffbeat()
-
-// --- first shift · 1:12-1:35 · texture change ---
-// sineTone()
-// hatsOffbeat()
-// noiseBurst()
-
-// --- main body · 1:35-3:00 · full drive ---
-// kick()
-// hats()
-// sineTone()
-// barSweep()
-
-// --- second wave · 3:00-4:36 · peak intensity ---
-// kickDouble()
-// hats()
-// barPulse()
-// barSweep()
-
-// --- outro · 4:36-5:21 · ebb ---
-// sineTone()
-// hatsOffbeat()
-
-// --- fade · 5:21-5:30 ---
-// barOff()
 `,
   },
   {
