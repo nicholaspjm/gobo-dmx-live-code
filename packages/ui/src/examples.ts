@@ -34,16 +34,17 @@ export const EXAMPLES: Example[] = [
   {
     id: 'hello',
     label: 'hello',
-    blurb: 'Two lines. A light made of screen, so it works with nothing plugged in.',
+    blurb: 'Two lines: patch an RGB wash and fade a colour across it.',
     // What a new browser opens on, so it is the whole first impression.
     //
-    // Deliberately tiny, and deliberately a screen() rather than a patched
-    // fixture: it needs no hardware, no output target and no address, so it
-    // lights up on the first ctrl+enter instead of running clean and doing
-    // nothing visible. The fuller tour is one tab away.
+    // Deliberately tiny, and deliberately the ordinary thing: patch a
+    // fixture, give a channel a pattern. That is the shape of every scene
+    // after it. No output call, so the first run cannot warn about a rig that
+    // is not there, and the sim panel shows the result with nothing plugged
+    // in. The fuller tour is one tab away.
     code: `// ctrl+enter to run · ctrl+space to stop · 'docs' for everything else
-const light = screen()
-light.fill(sine().slow(2), 0, cosine().slow(2))
+const wash = fixture(1, 'rgb')
+wash.color(sine().slow(2), 0, cosine().slow(2))
 `,
   },
   {
