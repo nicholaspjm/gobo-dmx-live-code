@@ -575,15 +575,23 @@ export type FixtureInstance = {
    * absent on this fixture are skipped silently so the same call works
    * across rgb / rgbw / dim-rgb / dim-rgbw / moving-head fixtures.
    *
+   * On a fixture whose def gives a slotted channel the name `color`, meaning a
+   * colour wheel, a single argument addresses that channel instead: a slot
+   * name, a raw DMX value, or a pattern stepping through slots. The arity
+   * separates the two calls, since a wheel takes numbers and patterns as well
+   * as names.
+   *
    * @example
    *   wash.color(1, 0, 0)         // red on an RGB par
    *   wash.color(1, 0, 0, 0.3)    // red + a touch of white (RGBW)
    *   wash.color(sine(), 0, 0)    // animated red
    *   wash.color()                // full white
+   *   head.color('open')          // a wheel slot, on a fixture that has one
    */
   color(
     ...args:
       | []
+      | [slot: PatternOrValue | string]
       | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
       | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
   ): void;
@@ -969,13 +977,14 @@ export function fixture(
     },
 
     color(...args) {
-      // A colour wheel is picked by slot name, and a def is free to call that
-      // channel `color`. One string argument on a fixture that has such a
-      // channel is that call; three numbers are always the mix. The two cannot
-      // be confused, because a slot name is never a number and a mix is never
-      // a string.
-      if (typeof args[0] === 'string' && slotChannel !== undefined) {
-        inst.set(slotChannel, args[0]);
+      // A colour wheel is picked by slot name, by raw DMX value, or by a
+      // pattern stepping through slots, and a def is free to call that channel
+      // `color`. On a fixture that has one, a single argument is that channel;
+      // a mix is three, and full is none. Counting arguments separates them
+      // where inspecting types would not: a wheel takes numbers and patterns
+      // too, so only the arity says which call this is.
+      if (args.length === 1 && slotChannel !== undefined) {
+        inst.set(slotChannel, args[0] as PatternOrValue | string);
         return;
       }
       // Skip channels that don't exist on this fixture so the same call
