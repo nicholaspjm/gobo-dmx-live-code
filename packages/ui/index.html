@@ -247,6 +247,13 @@
         background: var(--sage);
       }
 
+      /* Connector running, nothing pointed at it yet. A ring rather than a
+         filled dot: something is there, no light is moving. */
+      .ws-dot.ready {
+        background: transparent;
+        box-shadow: inset 0 0 0 1.5px var(--sage);
+      }
+
       .ws-dot.disconnected {
         background: var(--error);
       }
@@ -670,6 +677,13 @@
         color: var(--accent);
         border-color: var(--accent);
       }
+      /* Momentary "copied" state on the share button. Green rather than the
+         accent, because it reports that something happened rather than that a
+         mode is on, and the two should not look alike. */
+      .scene-action.copied {
+        color: var(--sage);
+        border-color: var(--sage);
+      }
 
       /* Examples menu: a popover under its button. The wrapper is the
          positioning context, so the menu tracks the button with no JS. */
@@ -945,6 +959,50 @@
         line-height: 1.6;
         color: var(--text-muted);
         padding: 16px 0 4px;
+      }
+
+      /* Is the connector running? A background process nobody remembers
+         starting deserves one plain sentence about itself. */
+      .connector-status {
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 10px 12px;
+        margin-bottom: 4px;
+      }
+      .connector-status.up {
+        border-color: color-mix(in srgb, var(--sage) 45%, var(--border));
+      }
+      .connector-status-head {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .connector-status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--border);
+        flex-shrink: 0;
+      }
+      .connector-status.up .connector-status-dot {
+        background: var(--sage);
+      }
+      .connector-status-name {
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        color: var(--text);
+      }
+      .connector-status-where {
+        margin-left: auto;
+        font-family: var(--mono, ui-monospace, monospace);
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .connector-status-what {
+        font-size: 11px;
+        line-height: 1.6;
+        color: var(--text-muted);
+        margin-top: 6px;
       }
 
       .outputs-list {
@@ -2056,13 +2114,11 @@
         </div>
       </header>
 
-      <!-- Shown only when a scene arrived in a share link. Sits in the column
-           flow so it displaces the editor instead of hovering over it. -->
-      <div class="share-banner" id="share-banner" role="alert" aria-hidden="true">
-        <span class="share-banner-icon" aria-hidden="true">⚠</span>
-        <span class="share-banner-text" id="share-banner-text"></span>
-        <button type="button" class="scene-action" id="share-banner-dismiss">dismiss</button>
-      </div>
+      <!-- A scene arriving in a share link used to raise a banner here about
+           what running someone else's code can reach. It is gone: the scene is
+           still never auto-run and still asks before replacing the buffer, so
+           the banner was a paragraph in the way rather than a protection. See
+           the shared-scene section of main.ts. -->
 
       <!-- Shown when a scene asks for network output but nothing is there to
            send it. A browser cannot open a UDP socket, so this is the point at
