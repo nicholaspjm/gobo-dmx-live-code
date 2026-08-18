@@ -18,6 +18,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createSocket, Socket } from 'dgram';
+import { createFrameRouter } from './frames.js';
 import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { resolve, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
@@ -703,15 +704,37 @@ function warnIfSendingToSelf(): void {
 let _dmxMsgCount = 0;
 
 /**
- * Universes this bridge has actually sent data for, so they can be darkened
- * when the app goes away. Nothing else knows which ones are in play: the
- * bridge holds no scene, only what has passed through it.
+ * Put one frame on the wire, whichever wire this bridge is configured for.
+ *
+ * No `default:` on purpose. Every mode is listed and config.mode is validated
+ * before it is assigned; a catch-all branch is what used to route typo'd modes
+ * into mock with no complaint.
  */
-const _liveUniverses = new Set<number>();
+function sendFrame(universe: number, channels: number[]): void {
+  switch (config.mode) {
+    case 'artnet':
+      sendArtNet(universe, channels);
+      break;
+    case 'sacn':
+      sendSACN(universe, channels);
+      break;
+    case 'osc':
+      sendOSC(universe, channels);
+      break;
+    case 'mock':
+      sendMock(universe, channels);
+      break;
+  }
+}
 
 /**
- * Send one all-zero frame for every universe that has carried data, then
- * forget them.
+ * Which universes are live, and how a blackout is repeated. Lives in its own
+ * module so it can be tested: importing this file starts listening sockets.
+ */
+const _router = createFrameRouter({ send: sendFrame });
+
+/**
+ * Darken every universe that has carried data, then forget them.
  *
  * A closed tab, a crashed browser or a shut laptop lid ends the WebSocket
  * without any final frame, and DMX receivers hold their last value forever,
@@ -720,18 +743,9 @@ const _liveUniverses = new Set<number>();
  * where nobody got to ask.
  */
 function blackoutAll(reason: string): void {
-  if (_liveUniverses.size === 0) return;
-  const zeros = new Array<number>(512).fill(0);
-  console.log(`[bridge] ${reason}: blacking out universe ${[..._liveUniverses].join(', ')}`);
-  for (const universe of _liveUniverses) {
-    switch (config.mode) {
-      case 'artnet': sendArtNet(universe, zeros); break;
-      case 'sacn': sendSACN(universe, zeros); break;
-      case 'osc': sendOSC(universe, zeros); break;
-      default: break;
-    }
-  }
-  _liveUniverses.clear();
+  const darkened = _router.blackoutAll();
+  if (darkened.length === 0) return;
+  console.log(`[bridge] ${reason}: blacking out universe ${darkened.join(', ')}`);
 }
 
 function handleDmxMessage(universes: Record<string, number[]>): void {
@@ -742,26 +756,7 @@ function handleDmxMessage(universes: Record<string, number[]>): void {
   for (const [uniStr, channels] of Object.entries(universes)) {
     const universe = parseInt(uniStr, 10);
     if (isNaN(universe) || channels.length < 1) continue;
-    // Remember it so a disconnect can darken it, see blackoutAll().
-    if (channels.some((v) => v > 0)) _liveUniverses.add(universe);
-
-    // No `default:` here on purpose. Every mode is listed and config.mode is
-    // validated before it is assigned; a catch-all branch is what used to
-    // route typo'd modes into mock with no complaint.
-    switch (config.mode) {
-      case 'artnet':
-        sendArtNet(universe, channels);
-        break;
-      case 'sacn':
-        sendSACN(universe, channels);
-        break;
-      case 'osc':
-        sendOSC(universe, channels);
-        break;
-      case 'mock':
-        sendMock(universe, channels);
-        break;
-    }
+    _router.handle(universe, channels);
   }
 }
 
