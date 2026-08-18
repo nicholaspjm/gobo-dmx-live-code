@@ -366,6 +366,32 @@ function recordQueryFailure(def: ChannelDef, err: unknown): void {
   }
 }
 
+/**
+ * The level a hap carries, or null if it carries none.
+ *
+ * Most operators yield a bare number. Some yield one of strudel's control
+ * objects instead, because they were built for sound and carry its parameters
+ * alongside the value:
+ *
+ *   echo(3, 0.125, 0.5)  ->  { value: 1, gain: 1 }, { value: 1, gain: 0.5 }, …
+ *   hurry(2)             ->  { value: 1, speed: 2 }
+ *
+ * Reading only bare numbers meant every one of those landed as 0: the channel
+ * went dark, the scene ran clean, and nothing said why. Unwrapping `value`
+ * makes them work. `gain` is folded in because that is what it means, an
+ * amplitude, so echo's repeats come out decaying rather than all at full.
+ * Parameters that describe sound rather than level (speed, pan, room) are
+ * ignored, which is the right reading for a lamp.
+ */
+function levelOf(v: unknown): number | null {
+  if (typeof v === 'number') return v;
+  if (v === null || typeof v !== 'object') return null;
+  const inner = (v as { value?: unknown }).value;
+  if (typeof inner !== 'number') return null;
+  const gain = (v as { gain?: unknown }).gain;
+  return typeof gain === 'number' ? inner * gain : inner;
+}
+
 // ─── Internal ─────────────────────────────────────────────────────────────────
 
 /**
@@ -433,8 +459,8 @@ export function tick(cyclePos: number): void {
           // wire. Brightest-wins is also what makes layering safe to build up:
           // adding a layer can raise a channel but never darken one.
           for (let i = 0; i < haps.length; i++) {
-            const v = haps[i].value;
-            if (typeof v === 'number' && v > floatVal) floatVal = v;
+            const v = levelOf(haps[i].value);
+            if (v !== null && v > floatVal) floatVal = v;
           }
         }
       } catch (err) {
@@ -466,4 +492,23 @@ export function getAllUniverses(): Map<number, Uint8Array> {
  */
 export function getPrimaryUniverseSnapshot(): number[] {
   return Array.from(getUniverse(0));
+}
+
+/**
+ * Universes the live scene actually drives, lowest first.
+ *
+ * Read from the channel definitions rather than the buffers, so a universe
+ * whose channels all happen to be at zero this frame still counts: it is in
+ * use, it is just dark. A viewer that followed the buffers would drop in and
+ * out as the scene blacked out.
+ */
+export function getActiveUniverses(): number[] {
+  const seen = new Set<number>();
+  for (const def of _defs.values()) seen.add(def.universe);
+  return [...seen].sort((a, b) => a - b);
+}
+
+/** A snapshot of any universe, as a plain array. */
+export function getUniverseSnapshot(universe: number): number[] {
+  return Array.from(getUniverse(universe));
 }

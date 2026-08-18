@@ -471,11 +471,25 @@
          flex and take a fifth of the window, which is far more than a row of
          level bars needs to be readable. Fixed and short, so the space goes to
          the fixture sim above it. */
+      .viz-strip {
+        position: relative;
+        flex: 0 0 auto;
+      }
       #visualizer {
         display: block;
         width: 100%;
-        flex: 0 0 auto;
         height: 44px;
+      }
+      /* Which universe is on screen. Sits over the bars rather than taking a
+         row of its own, since the strip is short now. */
+      .viz-strip-label {
+        position: absolute;
+        top: 3px;
+        left: 6px;
+        font-size: 9px;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        pointer-events: none;
       }
 
       /* Status bar */
@@ -1931,7 +1945,10 @@
           <div class="fixture-lights" id="fixture-lights"></div>
           <span class="fixture-empty" id="fixture-empty">no fixtures in this scene</span>
         </div>
-        <canvas id="visualizer"></canvas>
+        <div class="viz-strip">
+          <span class="viz-strip-label" id="visualizer-label">universe 0</span>
+          <canvas id="visualizer"></canvas>
+        </div>
       </div>
 
       <div class="statusbar">

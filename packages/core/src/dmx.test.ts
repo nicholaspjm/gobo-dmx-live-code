@@ -223,6 +223,37 @@ describe('clamping', () => {
     expect(getUniverseBuffer(1)[0]).toBe(128);
   });
 
+  // Some strudel operators were built for sound and wrap the level in a
+  // control object. Reading only bare numbers left every one of them dark
+  // with no error: echo, hurry and anything else carrying parameters.
+  it('reads the level out of a control object', () => {
+    uni(1, 1, stubPattern({ value: 0.5, speed: 2 }));
+    tick(0);
+    expect(getUniverseBuffer(1)[0]).toBe(128);
+  });
+
+  it('folds gain into the level, so an echo decays', () => {
+    // gain is an amplitude, which is exactly what a lamp should show.
+    uni(1, 1, stubPattern({ value: 1, gain: 0.5 }));
+    uni(1, 2, stubPattern({ value: 1, gain: 0.25 }));
+    tick(0);
+    expect(getUniverseBuffer(1)[0]).toBe(128);
+    expect(getUniverseBuffer(1)[1]).toBe(64);
+  });
+
+  it('ignores parameters that describe sound rather than level', () => {
+    uni(1, 1, stubPattern({ value: 1, speed: 4, pan: 0.2, room: 0.9 }));
+    tick(0);
+    expect(getUniverseBuffer(1)[0]).toBe(255);
+  });
+
+  it('still ignores an object carrying no level at all', () => {
+    uni(1, 1, stubPattern({ pan: 0.5 }));
+    uni(1, 2, stubPattern({ value: 'loud' }));
+    tick(0);
+    expect(Array.from(getUniverseBuffer(1).slice(0, 2))).toEqual([0, 0]);
+  });
+
   it('clamps pattern values, which are NOT rescaled like raw numbers', () => {
     // The number 2 means raw DMX 2, but a pattern yielding 2 is an over-range
     // float and clamps to full.
