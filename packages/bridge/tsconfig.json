@@ -8,5 +8,7 @@
     "skipLibCheck": true,
     "esModuleInterop": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "//": "Tests are run from source by vitest and must not reach dist: package.json ships the whole dist directory, so a compiled test would be published with the connector.",
+  "exclude": ["src/**/*.test.ts"]
 }
