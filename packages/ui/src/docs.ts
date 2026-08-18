@@ -1424,6 +1424,23 @@ interface Hit {
   tier: 'name' | 'mention';
 }
 
+/**
+ * A name you could type into a scene: `sine`, `.slow(n)`, `dim-rgb`,
+ * `rgbStrip`. Several joined by `·` or `/` still count, since that is how the
+ * reference pairs `sine · cosine` and `.late / .early`.
+ *
+ * Everything else is a heading over a paragraph: "picking a slot", "why it is
+ * a real fixture", "brightness on a mixed rig". Worth reading, and worth
+ * finding, but not what someone searching mid-scene is reaching for. Those go
+ * below the divider.
+ */
+const CODE_NAME = /^\.?[A-Za-z_$][\w$-]*(\([^)]*\))?$/;
+
+export function isCodeName(name: string): boolean {
+  const parts = name.split(/\s+[·/]\s+/);
+  return parts.every((part) => CODE_NAME.test(part.trim()));
+}
+
 /** Where a prose match starts, or -1. */
 function wordIndex(text: string, re: RegExp | null): number {
   if (!re) return -1;
@@ -1567,7 +1584,11 @@ function renderSearchResults(resultsEl: HTMLElement, query: string): number {
     for (const entry of section.entries) {
       const hit = scoreEntry(entry, section, q, prose);
       if (!hit) continue;
-      (hit.tier === 'name' ? named : mentions).push({ entry, section, score: hit.score });
+      // Two things have to be true to head the list: the query named it, and
+      // the name is something you would type. A section heading that happens
+      // to contain the word is a note about it, not the thing itself.
+      const top = hit.tier === 'name' && isCodeName(entry.name);
+      (top ? named : mentions).push({ entry, section, score: hit.score });
     }
   }
   const byScore = (
@@ -1582,7 +1603,7 @@ function renderSearchResults(resultsEl: HTMLElement, query: string): number {
   const html = [
     ...named.map((s) => renderResultEntry(s.entry, s.section)),
     shown.length > 0
-      ? `<div class="doc-results-divider">${named.length > 0 ? 'also mentioned in' : 'mentioned in'}</div>`
+      ? `<div class="doc-results-divider">${named.length > 0 ? 'also in the guide' : 'in the guide'}</div>`
       : '',
     ...shown.map((s) => renderResultEntry(s.entry, s.section)),
     hidden > 0

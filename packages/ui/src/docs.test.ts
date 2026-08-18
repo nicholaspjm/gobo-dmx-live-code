@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { proseMatcher } from './docs.js';
+import { proseMatcher, isCodeName } from './docs.js';
 
 /** Does the query match this text as prose? */
 function hits(q: string, text: string): boolean {
@@ -17,6 +17,35 @@ function hits(q: string, text: string): boolean {
   re.lastIndex = 0;
   return re.test(text);
 }
+
+describe('isCodeName', () => {
+  // Search leads with the things you type into a scene. These are the real
+  // entry names from the reference, on both sides of that line.
+  const code = [
+    'fixture', 'sine', 'rgbStrip', 'setBPM', 'screen', 'slider',
+    '.slow(n)', '.range(lo, hi)', '.every(n, fn)', '.chunk(n, fn)', '.echoWith(n, t, fn)',
+    'dim-rgb', 'moving-head-basic', 'atomic-strobe-154ch',
+    'sine · cosine', 'rand · perlin', 'chooseCycles · randcat',
+    '.late / .early', '.pixelXY / .row / .column', '.rev / .palindrome',
+  ];
+  const prose = [
+    'picking a slot', 'stepping through slots', 'a slot is not a light',
+    'why it is a real fixture', 'how members count', 'brightness on a mixed rig',
+    'positions are kept', 'picture order, always', 'one channel per cell',
+    'manual chase', 'drum grid', 'ranges and steps', 'layering them',
+    'strip channel (in defineFixture)', 'layering (comma)', 'fixture library',
+    '.range backwards', '.add / .mul with a pattern', 'per-channel, not per-fixture',
+    'one string, many lines', 'lines into bars', 'bar-to-bar variation',
+    'Ctrl+Enter', 'hover a name', 'pick an output',
+  ];
+
+  for (const name of code) {
+    it(`treats "${name}" as something you type`, () => expect(isCodeName(name)).toBe(true));
+  }
+  for (const name of prose) {
+    it(`treats "${name}" as a note`, () => expect(isCodeName(name)).toBe(false));
+  }
+});
 
 describe('proseMatcher', () => {
   it('matches the word itself', () => {
