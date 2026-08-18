@@ -44,6 +44,10 @@ import {
   getCyclePos,
   getPatternVizEntries,
   samplePattern,
+  getControls,
+  getControlValue,
+  setControlValue,
+  type ControlEntry,
   type VizEntry,
   type VizKind,
   type PatternVizEntry,
@@ -364,6 +368,100 @@ onTick(() => {
   }
 });
 
+// ─── Live controls (slider) ─────────────────────────────────────────────────
+//
+// A slider() in the scene gets a handle at its call site. Dragging writes
+// straight into the control store, which the pattern reads on the next tick,
+// so the light moves with the handle and nothing is re-evaluated. That is the
+// point of it: during a show a re-run is a visible seam, and this has to be a
+// smooth fade.
+
+/** Draggable handle placed at the end of a slider() line. */
+class SliderWidget extends WidgetType {
+  private input: HTMLInputElement | null = null;
+  private readout: HTMLElement | null = null;
+
+  constructor(private readonly entry: ControlEntry) {
+    super();
+  }
+
+  eq(other: WidgetType): boolean {
+    return other instanceof SliderWidget
+      && other.entry.name === this.entry.name
+      && other.entry.min === this.entry.min
+      && other.entry.max === this.entry.max
+      && other.entry.step === this.entry.step;
+  }
+
+  toDOM(): HTMLElement {
+    const { name, min, max, step } = this.entry;
+    const span = document.createElement('span');
+    span.className = 'gobo-slider';
+    span.contentEditable = 'false';
+
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = String(min);
+    input.max = String(max);
+    // A continuous control still needs a fine step for the range input, or the
+    // browser quantises it to integers and a 0-1 slider becomes a switch.
+    input.step = String(step > 0 ? step : (max - min) / 1000);
+    input.value = String(getControlValue(name) ?? this.entry.initial);
+    input.title = `${name}: ${min} to ${max}`;
+
+    const readout = document.createElement('span');
+    readout.className = 'gobo-slider-value';
+
+    const paint = (): void => {
+      const v = Number(input.value);
+      readout.textContent = step >= 1 ? String(Math.round(v)) : v.toFixed(2);
+    };
+
+    input.addEventListener('input', () => {
+      setControlValue(name, Number(input.value));
+      paint();
+    });
+    // The editor owns these keys; a focused range input would otherwise eat
+    // arrow keys and swallow ctrl+enter mid-show.
+    input.addEventListener('keydown', (e) => { e.stopPropagation(); });
+    // Dragging must not move the text cursor or start a selection.
+    span.addEventListener('mousedown', (e) => { e.stopPropagation(); });
+
+    const label = document.createElement('span');
+    label.className = 'gobo-slider-name';
+    label.textContent = name;
+
+    span.append(label, input, readout);
+    this.input = input;
+    this.readout = readout;
+    paint();
+    return span;
+  }
+
+  /**
+   * Follow the stored value when something other than this handle moved it,
+   * so two views of one control cannot disagree.
+   */
+  sync(): void {
+    if (!this.input) return;
+    const v = getControlValue(this.entry.name);
+    if (v === null || document.activeElement === this.input) return;
+    if (Number(this.input.value) === v) return;
+    this.input.value = String(v);
+    if (this.readout) {
+      this.readout.textContent = this.entry.step >= 1 ? String(Math.round(v)) : v.toFixed(2);
+    }
+  }
+
+  destroy(): void {
+    this.input = null;
+    this.readout = null;
+  }
+}
+
+/** Live slider widgets, so the tick can keep their handles in step. */
+let _sliderWidgets: SliderWidget[] = [];
+
 // ─── Pattern-level inline viz (.flash / .glow / .wave) ──────────────────────
 // Distinct decoration pipeline from the fixture-level `.viz(kind)` widgets
 // above. Flash and glow apply a CSS class + a `data-gobo-patviz` index to
@@ -475,6 +573,11 @@ const FLASH_RISE_THRESHOLD = 0.5;
 const _lastValue = new Map<number, number>();
 
 onTick(() => {
+  // Handles follow the stored value, so a control moved from anywhere else
+  // cannot leave a stale position on screen. Skipped while one is being
+  // dragged, which the widget checks by focus.
+  for (const w of _sliderWidgets) w.sync();
+
   if (_patternVizEntries.size === 0) return;
   const cyclePos = getCyclePos();
 
@@ -586,6 +689,31 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
         value: Decoration.widget({ widget, side: 1 }),
       });
     }
+  }
+
+  // ─── Live controls (slider) ─────────────────────────────────────────────
+  // Same zip as everything else: walk the doc for slider( call sites and pair
+  // them in order with what the scene declared.
+  _sliderWidgets = [];
+  const controls = getControls();
+  const sliderLines: number[] = [];
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i);
+    const commentIdx = line.text.indexOf('//');
+    const code = commentIdx >= 0 ? line.text.slice(0, commentIdx) : line.text;
+    const re = /\bslider\s*\(/g;
+    while (re.exec(code) !== null) sliderLines.push(i);
+  }
+  const sliderPairs = Math.min(controls.length, sliderLines.length);
+  for (let i = 0; i < sliderPairs; i++) {
+    const widget = new SliderWidget(controls[i]);
+    _sliderWidgets.push(widget);
+    const lineObj = doc.line(sliderLines[i]);
+    ranges.push({
+      from: lineObj.to,
+      to: lineObj.to,
+      value: Decoration.widget({ widget, side: 1 }),
+    });
   }
 
   // ─── Pattern-level viz (.flash / .glow / .wave on pattern calls) ────────

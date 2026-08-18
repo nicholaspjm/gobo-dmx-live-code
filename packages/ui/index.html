@@ -1753,6 +1753,55 @@
       .gobo-patviz-flash {
         background: rgba(196, 114, 74, calc(var(--gobo-flash, 0) * 0.32));
       }
+      /* Live control handle, placed at the end of a slider() line. Sized to
+         sit on a code line without pushing it taller. */
+      .gobo-slider {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-left: 10px;
+        vertical-align: middle;
+        user-select: none;
+      }
+      .gobo-slider-name {
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        color: var(--text-muted);
+      }
+      .gobo-slider input[type='range'] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 84px;
+        height: 3px;
+        border-radius: 2px;
+        background: var(--border);
+        outline: none;
+        cursor: ew-resize;
+      }
+      .gobo-slider input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: ew-resize;
+      }
+      .gobo-slider input[type='range']::-moz-range-thumb {
+        width: 11px;
+        height: 11px;
+        border: none;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: ew-resize;
+      }
+      .gobo-slider-value {
+        font-size: 10px;
+        min-width: 26px;
+        color: var(--text-dim);
+        font-variant-numeric: tabular-nums;
+      }
+
       /* Wave sparkline widget (inline canvas at end of line). */
       .gobo-patviz-wave {
         display: inline-block;
