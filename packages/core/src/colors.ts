@@ -104,3 +104,57 @@ export function readColor(args: readonly unknown[], what: string): Color {
 function clamp01(n: number): number {
   return n < 0 ? 0 : n > 1 ? 1 : n;
 }
+
+/**
+ * Reject option keys a call does not know.
+ *
+ * Not one options bag on the authoring surface checked its keys, and the
+ * neighbouring bags spell the same idea differently, so the likeliest mistake
+ * was passing the other one's key. `{ colums: 12 }` was a silent single row of
+ * 48 pixels; `rainbowChase({ cycles: 2 })` silently ran at its default because
+ * that bag calls it `speed`.
+ *
+ * The codebase already decided this class of failure is worth rejecting, for
+ * channel writes and for group roles no member has. This is the same decision
+ * for the last place that was still guessing.
+ */
+export function checkOptions(
+  opts: Record<string, unknown> | undefined,
+  allowed: readonly string[],
+  what: string,
+  /** Keys that are legal but not a scene's business: the sim wiring that
+   *  fixture() and screen() pass to the strip they build. Accepted silently
+   *  and left out of the message, which would otherwise advertise them. */
+  internal: readonly string[] = [],
+): void {
+  if (!opts) return;
+  const unknown = Object.keys(opts)
+    .filter((k) => !allowed.includes(k) && !internal.includes(k));
+  if (unknown.length === 0) return;
+  const near = unknown
+    .map((k) => ({ k, hit: allowed.find((a) => a.toLowerCase() === k.toLowerCase() || near1(a, k)) }))
+    .filter((x) => x.hit);
+  const suggestion = near.length > 0
+    ? ` Did you mean ${near.map((x) => `${x.hit} (not ${x.k})`).join(', ')}?`
+    : '';
+  throw new Error(
+    `${what}: ${unknown.length === 1 ? 'no option named' : 'no options named'} ` +
+    `${unknown.map((k) => `"${k}"`).join(', ')}.${suggestion} Accepts: ${allowed.join(', ')}.`,
+  );
+}
+
+/** One edit apart: a transposition, a missing letter or an extra one. Enough
+ *  to catch `colums` for `columns` without inventing matches. */
+function near1(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  const [s, t] = a.length >= b.length ? [a, b] : [b, a];
+  let i = 0;
+  let j = 0;
+  let slips = 0;
+  while (i < s.length && j < t.length) {
+    if (s[i].toLowerCase() === t[j].toLowerCase()) { i++; j++; continue; }
+    if (++slips > 1) return false;
+    if (s.length === t.length) { i++; j++; } else { i++; }
+  }
+  return slips + (s.length - i) + (t.length - j) <= 1;
+}

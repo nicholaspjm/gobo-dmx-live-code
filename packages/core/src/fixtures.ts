@@ -18,7 +18,7 @@
  */
 
 import { uni, channelValue, channelValues, type PatternOrValue, type PatternLike } from './dmx.js';
-import { readColor, isColor, type Color } from './colors.js';
+import { readColor, isColor, checkOptions, type Color } from './colors.js';
 
 // ─── Fixture definition types ─────────────────────────────────────────────────
 
@@ -779,6 +779,15 @@ export function fixtureCommands(def: FixtureDef): string[] {
  * and left to drift.
  */
 /**
+ * Method names on every fixture. A channel that shares one keeps its channel
+ * behaviour reachable through .set(name, v) rather than taking the method.
+ */
+const RESERVED_METHODS = new Set([
+  'set', 'color', 'off', 'full', 'viz',
+  'channels', 'def', 'universe', 'startChannel', 'channelCount',
+]);
+
+/**
  * The absolute channel of a fixture-wide dimmer, if it has one.
  *
  * Named `dim`, or the only intensity channel: both spellings appear in real
@@ -821,6 +830,17 @@ export function stripCommands(layout: 'rgb' | 'rgbw' | 'mono'): string[] {
  * element in the sim panel should describe the fixture that owns it rather
  * than the anonymous run of channels underneath.
  */
+/** Option keys a scene may pass to a strip constructor. The sim* fields are
+ *  set by fixture() and screen() for their embedded strips, never by a scene,
+ *  so they are deliberately absent. */
+export const STRIP_OPTION_KEYS = ['columns', 'serpentine', 'origin'] as const;
+
+/** Set by fixture() and screen() on the strip they build. Accepted, never
+ *  advertised: a scene has no reason to pass one. */
+const STRIP_INTERNAL_KEYS = [
+  'simLabel', 'movement', 'skipSim', 'simFixtureId', 'simPatchChannel', 'simCommands', 'simMaster',
+] as const;
+
 export interface StripOptions extends StripGeometry {
   simLabel?: string;
   movement?: SimMovement;
@@ -885,6 +905,12 @@ export function fixture(
     );
   }
 
+  // A channel named `color` that has slots is a colour wheel, and .color()
+  // dispatches a slot name to it. Resolved once, here, rather than per call.
+  const slotChannel = def.channels.find(
+    (c) => c.name === 'color' && c.slots !== undefined && c.slots.length > 0,
+  )?.name;
+
   const inst: FixtureInstance = {
     def,
     universe,
@@ -943,6 +969,15 @@ export function fixture(
     },
 
     color(...args) {
+      // A colour wheel is picked by slot name, and a def is free to call that
+      // channel `color`. One string argument on a fixture that has such a
+      // channel is that call; three numbers are always the mix. The two cannot
+      // be confused, because a slot name is never a number and a mix is never
+      // a string.
+      if (typeof args[0] === 'string' && slotChannel !== undefined) {
+        inst.set(slotChannel, args[0]);
+        return;
+      }
       // Skip channels that don't exist on this fixture so the same call
       // is portable across rgb / rgbw / dim-rgbw / moving-head etc. Each
       // channel is set independently; patterns and constants both flow
@@ -1027,6 +1062,14 @@ export function fixture(
             ? monoStrip(stripStart, pixelCount, universe, stripOpts)
             : rgbStrip(stripStart, pixelCount, universe, stripOpts);
     } else {
+      // A channel must not take a generic method's name away from it. A def
+      // with a channel called `color`, which is what the docs recommend for a
+      // colour wheel, used to overwrite the r,g,b mixer: `head.color(1, 0, 0)`
+      // then drove the wheel channel to full and dropped the green and blue
+      // arguments, with no error and the wrong light. The generic call stays,
+      // and dispatches to the channel when handed a slot name; anything else
+      // named after a method is still reachable through .set().
+      if (RESERVED_METHODS.has(ch.name)) continue;
       // Rest parameter, not a single value: a call with no argument has to stay
       // distinguishable from one that passed undefined, so `par.red()` can mean
       // full while `par.red(somethingBroken)` still reports.
@@ -1428,6 +1471,7 @@ export function rgbStrip(
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbStrip: pixelCount must be >= 1 (got ${pixelCount})`);
   }
+  checkOptions(opts as Record<string, unknown>, STRIP_OPTION_KEYS, 'rgbStrip()', STRIP_INTERNAL_KEYS);
   const geo = resolveGeometry(pixelCount, opts, 'rgbStrip');
   const channelCount = pixelCount * 3;
   const lastChannel = startChannel + channelCount - 1;
@@ -1683,6 +1727,7 @@ export function monoStrip(
       `monoStrip: ${pixelCount} cells starting at ${startChannel} would run to channel ${lastChannel}, which exceeds 512. Split across universes.`,
     );
   }
+  checkOptions(opts as Record<string, unknown>, STRIP_OPTION_KEYS, 'monoStrip()', STRIP_INTERNAL_KEYS);
   const geo = resolveGeometry(pixelCount, opts, 'monoStrip');
 
   const set = (i: number, v: PatternOrValue): void => uni(universe, startChannel + i, v);
@@ -1913,6 +1958,7 @@ export function rgbwStrip(
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbwStrip: pixelCount must be >= 1 (got ${pixelCount})`);
   }
+  checkOptions(opts as Record<string, unknown>, STRIP_OPTION_KEYS, 'rgbwStrip()', STRIP_INTERNAL_KEYS);
   const geo = resolveGeometry(pixelCount, opts, 'rgbwStrip');
   const STRIDE = 4;
   const channelCount = pixelCount * STRIDE;
@@ -2526,11 +2572,14 @@ function splitChaseArgs(args: readonly unknown[]): { color: Color; opts: ChaseOp
  * width, and a waveform chained three deep are a lot to know before your first
  * moving light.
  */
+export const CHASE_OPTION_KEYS = ['cycles', 'width', 'waves', 'reverse', 'down'] as const;
+
 function chaseImpl(
   strip: StripInstance | RgbwStripInstance | MonoStripInstance,
   color: Color | null,
   opts: ChaseOptions,
 ): void {
+  checkOptions(opts as Record<string, unknown>, CHASE_OPTION_KEYS, '.chase()');
   const sine = _sineFactory;
   if (!sine) return;
 
@@ -2580,6 +2629,8 @@ function rainbowChaseImpl(
   const cosine = _cosineFactory;
   if (!sine || !cosine) return;
 
+  checkOptions(opts as Record<string, unknown>,
+    ['speed', 'narrow', 'rainbowSpeed', 'packets'], '.rainbowChase()');
   const speed = opts.speed ?? 2;
   const narrow = opts.narrow ?? 8;
   const rainbowSpeed = opts.rainbowSpeed ?? 12;
