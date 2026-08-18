@@ -251,10 +251,13 @@
         background: var(--error);
       }
 
-      /* Editor */
+      /* Editor. Takes whatever the panels below it do not need, which since
+         they became fixed-height is almost all of it. */
       .editor-wrap {
-        flex: 3;
-        min-height: 0;
+        flex: 1;
+        /* Never collapses entirely: on a short window the panels below yield
+           first, and an editor you cannot see a line of is not an editor. */
+        min-height: 140px;
         overflow: hidden;
         position: relative;
       }
@@ -271,10 +274,22 @@
         flex-shrink: 0;
       }
 
-      /* Visualizer */
+      /* Visualizer.
+         Sized by what is in it, not by a share of the window. It used to take
+         a quarter of the height with `flex: 1`, which was about right when the
+         level strip was tall. Shrinking the strip left the box the same size
+         and the difference as dead space along the bottom, because both its
+         children are fixed height and neither grows to fill.
+         Capped so a rig with tall sim elements scrolls rather than eating the
+         editor. */
       .viz-wrap {
-        flex: 1;
+        /* Grow never, shrink when there is nothing left to give: on a window
+           too short for both, this yields and scrolls rather than pushing the
+           status bar off the bottom. */
+        flex: 0 1 auto;
         min-height: 0;
+        max-height: 40vh;
+        overflow-y: auto;
         display: flex;
         flex-direction: column;
         background: var(--surface);
