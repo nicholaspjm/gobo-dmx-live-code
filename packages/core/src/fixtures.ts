@@ -338,6 +338,12 @@ export interface SimFixture {
    */
   fixtureId?: string;
   /**
+   * Start channel to print in that call, when it differs from this entry's own
+   * `startChannel`. A fixture whose visible part is an embedded strip is drawn
+   * from the strip's address, but it was patched at the fixture's.
+   */
+  patchChannel?: number;
+  /**
    * What can be called on it: the named setters, or a strip's methods. Shown
    * on hover, because knowing a fixture is there is not the same as knowing
    * what it answers to, and the alternative is guessing or reading the docs
@@ -480,10 +486,23 @@ export function getCustomFixtures(): Record<string, FixtureDef> {
   return { ..._customFixtures };
 }
 
+/**
+ * Look up a fixture id without throwing. Returns undefined for an id nobody
+ * has defined.
+ *
+ * Exported for the editor, which resolves ids read out of the buffer while
+ * they are still half-typed. A throw is right when a scene patches a fixture
+ * that does not exist and wrong when a tooltip is deciding whether it has
+ * anything to say.
+ */
+export function findFixtureDef(id: string): FixtureDef | undefined {
+  const canonical = FIXTURE_ALIASES[id] ?? id;
+  return BUILT_IN_FIXTURES[canonical] ?? _customFixtures[canonical];
+}
+
 /** Resolve fixture id → FixtureDef (alias → built-in first, then custom). */
 function resolveFixture(id: string): FixtureDef {
-  const canonical = FIXTURE_ALIASES[id] ?? id;
-  const def = BUILT_IN_FIXTURES[canonical] ?? _customFixtures[canonical];
+  const def = findFixtureDef(id);
   if (!def) {
     const available = [
       ...Object.keys(BUILT_IN_FIXTURES),
@@ -741,6 +760,52 @@ export function fixtureCommands(def: FixtureDef): string[] {
 }
 
 /**
+ * What can be called on a pixel strip, by pixel layout.
+ *
+ * The three strips answer to the same methods with different arities, so the
+ * list is generated from the value shape rather than written out three times
+ * and left to drift.
+ */
+export function stripCommands(layout: 'rgb' | 'rgbw' | 'mono'): string[] {
+  const v = layout === 'rgbw' ? 'r,g,b,w' : layout === 'mono' ? 'v' : 'r,g,b';
+  const out = [
+    `fill(${v})`, `pixel(i,${v})`, `pixelXY(x,y,${v})`, `row(y,${v})`, `column(x,${v})`,
+    'each(fn)', 'eachXY(fn)',
+  ];
+  // Mono cells have one channel, so there is no colour to name and no rainbow
+  // to chase across them.
+  if (layout !== 'mono') {
+    out.push('pixelGrid(rows)', 'red(v)', 'green(v)', 'blue(v)');
+    if (layout === 'rgbw') out.push('white(v)');
+    out.push('rainbowChase()');
+  }
+  // No off(): strips do not have one, unlike fixtures. `fill(0)` is the way,
+  // and listing a method that is not there would be worse than listing none.
+  out.push('viz(kind)');
+  return out;
+}
+
+/**
+ * Options common to the three strip constructors.
+ *
+ * The `sim*` fields exist for strips that belong to something bigger: a strip
+ * channel inside a fixture def is the visible part of that fixture, so its
+ * element in the sim panel should describe the fixture that owns it rather
+ * than the anonymous run of channels underneath.
+ */
+export interface StripOptions extends StripGeometry {
+  simLabel?: string;
+  movement?: SimMovement;
+  skipSim?: boolean;
+  /** Owning fixture's patch id, when this strip is one channel of a fixture. */
+  simFixtureId?: string;
+  /** Owning fixture's start channel, which is not this strip's start. */
+  simPatchChannel?: number;
+  /** Owning fixture's full command list, replacing the strip's own. */
+  simCommands?: string[];
+}
+
+/**
  * Load a fixture at a DMX address and return a named-channel setter object.
  *
  * @param startChannel  1-based DMX channel (first channel of the fixture). The
@@ -904,9 +969,17 @@ export function fixture(
         );
       }
       const stripStart = startChannel + ch.offset;
-      const stripOpts = {
+      const stripOpts: StripOptions = {
         simLabel: `${fixtureId} · ${ch.name}`,
         movement,
+        // This strip is the fixture's visible part, so its tooltip speaks for
+        // the whole fixture: the call that patched it and every channel it
+        // answers to, not just the pixels. Without this a 154-channel wash
+        // hovers as an anonymous run of pixels with its strobe channels
+        // nowhere in sight.
+        simFixtureId: fixtureId,
+        simPatchChannel: startChannel,
+        simCommands: fixtureCommands(def),
         // A grid declared on the channel travels with the fixture, so a scene
         // says pixelXY without repeating the wash's dimensions.
         columns: ch.columns,
@@ -1305,7 +1378,7 @@ export function rgbStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
-  opts: { simLabel?: string; movement?: SimMovement; skipSim?: boolean } & StripGeometry = {},
+  opts: StripOptions = {},
 ): StripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbStrip: pixelCount must be >= 1 (got ${pixelCount})`);
@@ -1476,8 +1549,9 @@ export function rgbStrip(
     universe,
     startChannel,
     channelCount,
-    commands: ['fill(r,g,b)', 'pixel(i,r,g,b)', 'pixelXY(x,y,r,g,b)', 'row(y,…)', 'column(x,…)',
-      'each(fn)', 'eachXY(fn)', 'pixelGrid(rows)', 'red(v)', 'green(v)', 'blue(v)', 'rainbowChase()'],
+    fixtureId: opts.simFixtureId,
+    patchChannel: opts.simPatchChannel,
+    commands: opts.simCommands ?? stripCommands('rgb'),
     movement: opts.movement,
     render: { kind: 'strip-rgb', pixelCount },
   });
@@ -1534,7 +1608,7 @@ export function monoStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
-  opts: { simLabel?: string; movement?: SimMovement; skipSim?: boolean } & StripGeometry = {},
+  opts: StripOptions = {},
 ): MonoStripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`monoStrip: pixelCount must be >= 1 (got ${pixelCount})`);
@@ -1620,8 +1694,9 @@ export function monoStrip(
     universe,
     startChannel,
     channelCount,
-    commands: ['fill(v)', 'pixel(i,v)', 'pixelXY(x,y,v)', 'row(y,v)', 'column(x,v)',
-      'each(fn)', 'eachXY(fn)'],
+    fixtureId: opts.simFixtureId,
+    patchChannel: opts.simPatchChannel,
+    commands: opts.simCommands ?? stripCommands('mono'),
     movement: opts.movement,
     render: { kind: 'strip-mono', pixelCount },
   });
@@ -1757,7 +1832,7 @@ export function rgbwStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
-  opts: { simLabel?: string; movement?: SimMovement; skipSim?: boolean } & StripGeometry = {},
+  opts: StripOptions = {},
 ): RgbwStripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbwStrip: pixelCount must be >= 1 (got ${pixelCount})`);
@@ -1911,8 +1986,9 @@ export function rgbwStrip(
     universe,
     startChannel,
     channelCount,
-    commands: ['fill(r,g,b,w)', 'pixel(i,r,g,b,w)', 'pixelXY(x,y,r,g,b,w)', 'row(y,…)', 'column(x,…)',
-      'each(fn)', 'eachXY(fn)', 'pixelGrid(rows)', 'red(v)', 'green(v)', 'blue(v)', 'white(v)', 'rainbowChase()'],
+    fixtureId: opts.simFixtureId,
+    patchChannel: opts.simPatchChannel,
+    commands: opts.simCommands ?? stripCommands('rgbw'),
     movement: opts.movement,
     render: { kind: 'strip-rgbw', pixelCount },
   });
@@ -2127,6 +2203,18 @@ export interface GroupInstance {
    *   rig.each(p => sine().early(p).slow(4))
    */
   each(fn: (phase: number, i: number, count: number) => PatternOrValue | PatternOrValue[]): void;
+}
+
+/**
+ * What can be called on a group. Fixed, unlike a fixture's: a group answers to
+ * roles rather than channels, and skips members that do not have the one asked
+ * for.
+ */
+export function groupCommands(): string[] {
+  return [
+    'red(v)', 'green(v)', 'blue(v)', 'white(v)', 'dim(v)',
+    'color(r,g,b)', 'set(role, v)', 'each(fn)', 'full()', 'off()', 'size',
+  ];
 }
 
 /**
