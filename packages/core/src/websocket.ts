@@ -25,7 +25,24 @@ function pickBridgeHost(): string {
 }
 
 const BRIDGE_URL = `ws://${pickBridgeHost()}:3001`;
-const RECONNECT_DELAY_MS = 2000;
+
+/**
+ * Reconnect backoff.
+ *
+ * Most people who open gobo have no connector running and never will: the
+ * browser build drives a USB interface and TouchDesigner on its own, and the
+ * hosted page is the front door. A flat two-second retry meant their console
+ * filled with failed-WebSocket errors at roughly twenty-four a minute, for as
+ * long as the tab stayed open. The browser prints those itself and no page can
+ * suppress them, so the only fix is to try less often.
+ *
+ * Doubling from two seconds to thirty keeps a bridge started a moment after
+ * the page found within a couple of seconds, and settles to a quiet poll for
+ * everyone else. Picking an output that needs the connector resets it, so
+ * nobody waits half a minute for a bridge that is already running.
+ */
+const RECONNECT_MIN_MS = 2000;
+const RECONNECT_MAX_MS = 30000;
 
 let _ws: WebSocket | null = null;
 let _connected = false;
@@ -34,6 +51,12 @@ let _connected = false;
 // a single slot silently drops every listener but the last one registered.
 const _onStatusChange = new Set<(connected: boolean) => void>();
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let _reconnectDelay = RECONNECT_MIN_MS;
+/** The URL currently being attempted, so a forced retry knows where to go. */
+let _url = BRIDGE_URL;
+/** Whether this run of disconnection has already been logged. One line per
+ *  outage, not one per attempt. */
+let _loggedOutage = false;
 
 // The last output config the scene asked for, kept so it can be re-sent.
 // The bridge only knows what it has been told since it started, and it falls
@@ -53,6 +76,7 @@ export function isConnected(): boolean {
 }
 
 export function connectBridge(url = BRIDGE_URL): void {
+  _url = url;
   if (_ws) {
     _ws.onopen = null;
     _ws.onclose = null;
@@ -74,6 +98,8 @@ export function connectBridge(url = BRIDGE_URL): void {
 
   _ws.onopen = () => {
     _connected = true;
+    _reconnectDelay = RECONNECT_MIN_MS;
+    _loggedOutage = false;
     // Re-apply the scene's output config. A fresh bridge starts on whatever
     // bridge.config.json says, which is not where the scene asked to send.
     flushConfig();
@@ -87,7 +113,10 @@ export function connectBridge(url = BRIDGE_URL): void {
     // anything, so the config counts as undelivered until it is re-sent.
     _configDelivered = false;
     for (const fn of _onStatusChange) fn(false);
-    console.log('[gobo] bridge disconnected, reconnecting…');
+    if (!_loggedOutage) {
+      _loggedOutage = true;
+      console.log('[gobo] no connector on ' + url + ', retrying in the background');
+    }
     scheduleReconnect(url);
   };
 
@@ -97,7 +126,29 @@ export function connectBridge(url = BRIDGE_URL): void {
 }
 
 function scheduleReconnect(url: string): void {
-  _reconnectTimer = setTimeout(() => connectBridge(url), RECONNECT_DELAY_MS);
+  const delay = _reconnectDelay;
+  _reconnectDelay = Math.min(_reconnectDelay * 2, RECONNECT_MAX_MS);
+  _reconnectTimer = setTimeout(() => connectBridge(url), delay);
+}
+
+/**
+ * Try again now, and go back to trying often.
+ *
+ * Called when the scene picks an output that needs the connector. By then the
+ * backoff may have stretched to half a minute, and waiting that long to notice
+ * a bridge that is already running reads as the connector being broken.
+ */
+function retryNow(): void {
+  if (_connected) return;
+  _reconnectDelay = RECONNECT_MIN_MS;
+  if (_reconnectTimer) {
+    clearTimeout(_reconnectTimer);
+    _reconnectTimer = null;
+  }
+  // A socket still in CONNECTING is already the attempt we want; restarting it
+  // would only push the answer further away.
+  if (_ws && _ws.readyState === WebSocket.CONNECTING) return;
+  connectBridge(_url);
 }
 
 /**
@@ -110,6 +161,9 @@ export function sendConfig(config: Record<string, unknown>): void {
   _lastConfig = config;
   _configDelivered = false;
   flushConfig();
+  // The scene has just asked for an output the connector has to carry, so this
+  // is the moment the connection starts mattering.
+  if (!_configDelivered) retryNow();
 }
 
 function flushConfig(): void {
@@ -198,6 +252,9 @@ let _direct: WebSocket | null = null;
 let _directUrl: string | null = null;
 let _directConnected = false;
 let _directReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let _directReconnectDelay = RECONNECT_MIN_MS;
+/** True while the backoff timer is the one calling connectDirect. */
+let _directRetrying = false;
 const _onDirectStatusChange = new Set<(connected: boolean) => void>();
 
 export function onDirectStatusChange(fn: (connected: boolean) => void): void {
@@ -231,6 +288,9 @@ export function isBlockedAsMixedContent(host: string): boolean {
 export function connectDirect(host = 'localhost', port = 9980): void {
   const url = `ws://${host}:${port}`;
   _directUrl = url;
+  // A scene calling td() is someone acting on the connection, very often
+  // because they just opened the receiver. Start trying quickly again.
+  if (!_directRetrying) _directReconnectDelay = RECONNECT_MIN_MS;
 
   if (_directReconnectTimer) {
     clearTimeout(_directReconnectTimer);
@@ -247,6 +307,7 @@ export function connectDirect(host = 'localhost', port = 9980): void {
 
   _direct.onopen = () => {
     _directConnected = true;
+    _directReconnectDelay = RECONNECT_MIN_MS;
     for (const fn of _onDirectStatusChange) fn(true);
     console.log(`[gobo] direct output connected (${url})`);
   };
@@ -288,13 +349,28 @@ function closeDirectSocket(): void {
 function scheduleDirectReconnect(): void {
   if (!_directUrl) return;
   if (_directReconnectTimer) return;
+  // Same backoff as the bridge, for the same reason: a scene that names a
+  // receiver nobody is running should not spend the whole show failing at it
+  // twice a second. Reset on connect, and on the next td() call, which is what
+  // someone who has just started TouchDesigner will run.
+  const delay = _directReconnectDelay;
+  _directReconnectDelay = Math.min(_directReconnectDelay * 2, RECONNECT_MAX_MS);
   _directReconnectTimer = setTimeout(() => {
     _directReconnectTimer = null;
     if (_directUrl) {
       const [, host, port] = /^ws:\/\/([^:]+):(\d+)$/.exec(_directUrl) ?? [];
-      if (host && port) connectDirect(host, Number(port));
+      if (!host || !port) return;
+      // Marked so connectDirect knows this is the backoff continuing rather
+      // than a scene asking again, and does not reset itself to two seconds
+      // on every attempt it makes.
+      _directRetrying = true;
+      try {
+        connectDirect(host, Number(port));
+      } finally {
+        _directRetrying = false;
+      }
     }
-  }, RECONNECT_DELAY_MS);
+  }, delay);
 }
 
 function sendDirect(frame: string): void {

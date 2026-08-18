@@ -3,7 +3,42 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Kept to one word: this is a tab people leave open while they work, and
+         the descriptive version lives in og:title where a link preview reads
+         it. -->
     <title>gobo</title>
+    <meta
+      name="description"
+      content="Write pattern code, watch 512 channels respond, and send it to real lights over Art-Net, sACN, USB DMX or TouchDesigner. Runs in the browser."
+    />
+
+    <!-- Link previews.
+         Sharing a scene is one of the things gobo is for: the share button
+         puts a whole scene in a URL. Without these, every one of those links
+         pastes into a chat as bare text, which reads as a dead link rather
+         than a lighting scene.
+
+         The image URL has to be absolute, because a crawler resolving it has
+         no page context to make a relative path from. It is spelled out here
+         rather than built from the base path for that reason. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="gobo" />
+    <meta property="og:title" content="gobo · live-code DMX lighting in your browser" />
+    <meta
+      property="og:description"
+      content="Write pattern code, watch 512 channels respond, and send it to real lights over Art-Net, sACN, USB DMX or TouchDesigner."
+    />
+    <meta property="og:url" content="https://nicholaspjm.github.io/gobo-dmx-live-code/" />
+    <meta property="og:image" content="https://nicholaspjm.github.io/gobo-dmx-live-code/og.png" />
+    <meta property="og:image:alt" content="The gobo editor, fixture simulator and channel meters running a pattern" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="gobo · live-code DMX lighting in your browser" />
+    <meta
+      name="twitter:description"
+      content="Write pattern code, watch 512 channels respond, and send it to real lights over Art-Net, sACN, USB DMX or TouchDesigner."
+    />
+    <meta name="twitter:image" content="https://nicholaspjm.github.io/gobo-dmx-live-code/og.png" />
+    <meta name="theme-color" content="#1a1714" />
     <!-- Inline SVG favicon: a small four-pointed "spark" in the accent
          colour. Replace this <link> with a real icon file later. -->
     <link
