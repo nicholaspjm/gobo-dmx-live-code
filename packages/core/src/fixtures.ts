@@ -752,7 +752,8 @@ export function fixtureCommands(def: FixtureDef): string[] {
   for (const ch of def.channels) {
     if (ch.type === 'strip') {
       const v = ch.pixelLayout === 'rgbw' ? 'r,g,b,w' : ch.pixelLayout === 'mono' ? 'v' : 'r,g,b';
-      out.push(`${ch.name}.fill(${v})`, `${ch.name}.each(fn)`);
+      const chase = ch.pixelLayout === 'mono' ? 'chase()' : "chase('red')";
+      out.push(`${ch.name}.fill(${v})`, `${ch.name}.${chase}`, `${ch.name}.each(fn)`);
       continue;
     }
     if (ch.slots !== undefined && ch.slots.length > 0) {
@@ -799,6 +800,7 @@ export function stripCommands(layout: 'rgb' | 'rgbw' | 'mono'): string[] {
   ];
   // Mono cells have one channel, so there is no colour to name and no rainbow
   // to chase across them.
+  out.push(layout === 'mono' ? 'chase()' : "chase('red')");
   if (layout !== 'mono') {
     out.push('pixelGrid(rows)', 'red(v)', 'green(v)', 'blue(v)');
     if (layout === 'rgbw') out.push('white(v)');
@@ -1374,6 +1376,16 @@ export interface StripInstance {
    * (beats/cycle), `packets` (simultaneous chase dots). See 'effects' in
    * the docs for the mechanics.
    */
+  /**
+   * A band of colour travelling along the strip. No callback needed.
+   *
+   * @example
+   *   strip.chase('red')                        // one lap every 4 cycles
+   *   strip.chase('blue', { cycles: 2 })        // faster
+   *   strip.chase('white', { width: 0.2 })      // tight moving band
+   *   strip.chase([1, 0.4, 0], { reverse: true })
+   */
+  chase(colour: ChaseColour, opts?: ChaseOptions): void;
   rainbowChase(opts?: RainbowChaseOptions): void;
 }
 
@@ -1568,6 +1580,10 @@ export function rgbStrip(
       return inst;
     },
 
+    chase(colour: ChaseColour, opts: ChaseOptions = {}): void {
+      chaseImpl(inst, resolveChaseColour(colour), opts);
+    },
+
     rainbowChase(opts: RainbowChaseOptions = {}): void {
       rainbowChaseImpl(inst, opts);
     },
@@ -1625,6 +1641,15 @@ export interface MonoStripInstance {
   each(fn: (phase: number, i: number, count: number) => PatternOrValue): void;
   /** Run a callback per cell with its grid position `(x, y, w, h)`. */
   eachXY(fn: (x: number, y: number, w: number, h: number) => PatternOrValue): void;
+  /**
+   * A band of light travelling along the cells. No colour to name, because
+   * every cell here is one channel.
+   *
+   * @example
+   *   cells.chase()                    // one lap every 4 cycles
+   *   cells.chase({ width: 0.2 })      // a tight moving band
+   */
+  chase(opts?: ChaseOptions): void;
   /** Opt into an inline editor visualization (default kind 'strip'). */
   viz(...kinds: VizKind[]): MonoStripInstance;
 }
@@ -1705,6 +1730,10 @@ export function monoStrip(
           set(geo.index(x, y), channelValue([fn(x, y, geo.width, geo.height)], `.eachXY() (${x}, ${y})`));
         }
       }
+    },
+
+    chase(opts: ChaseOptions = {}): void {
+      chaseImpl(inst, null, opts);
     },
 
     viz(...kinds: VizKind[]): MonoStripInstance {
@@ -1850,6 +1879,16 @@ export interface RgbwStripInstance {
   viz(...kinds: VizKind[]): RgbwStripInstance;
 
   /** Built-in rainbow chase. See {@link StripInstance.rainbowChase}. */
+  /**
+   * A band of colour travelling along the strip. No callback needed.
+   *
+   * @example
+   *   strip.chase('red')                        // one lap every 4 cycles
+   *   strip.chase('blue', { cycles: 2 })        // faster
+   *   strip.chase('white', { width: 0.2 })      // tight moving band
+   *   strip.chase([1, 0.4, 0], { reverse: true })
+   */
+  chase(colour: ChaseColour, opts?: ChaseOptions): void;
   rainbowChase(opts?: RainbowChaseOptions): void;
 }
 
@@ -2007,6 +2046,10 @@ export function rgbwStrip(
         channelsPerPixel: STRIDE,
       });
       return inst;
+    },
+
+    chase(colour: ChaseColour, opts: ChaseOptions = {}): void {
+      chaseImpl(inst, resolveChaseColour(colour), opts);
     },
 
     rainbowChase(opts: RainbowChaseOptions = {}): void {
@@ -2434,6 +2477,102 @@ export function setStripEffectWaveforms(
 ): void {
   _sineFactory = sine;
   _cosineFactory = cosine;
+}
+
+/** Colours you can name instead of mixing. */
+const NAMED_COLOURS: Record<string, [number, number, number]> = {
+  red:     [1, 0, 0],
+  orange:  [1, 0.35, 0],
+  amber:   [1, 0.55, 0.1],
+  yellow:  [1, 1, 0],
+  green:   [0, 1, 0],
+  cyan:    [0, 1, 1],
+  blue:    [0, 0, 1],
+  purple:  [0.5, 0, 1],
+  magenta: [1, 0, 1],
+  pink:    [1, 0.35, 0.6],
+  white:   [1, 1, 1],
+};
+
+/** A colour for `.chase()`: a name, or `[r, g, b]` with each 0 to 1. */
+export type ChaseColour = string | [number, number, number];
+
+export interface ChaseOptions {
+  /** Cycles for one full lap of the strip (default 4). Bigger is slower. */
+  cycles?: number;
+  /** Travel the other way. */
+  reverse?: boolean;
+  /**
+   * How much of the strip is lit at once, 0 to 1 (default 0.5). At 1 it is a
+   * smooth swell with no dark part; small values give a tight moving band.
+   */
+  width?: number;
+  /** Crests on the strip at once (default 1). */
+  waves?: number;
+  /** Run down the rows instead of across the columns. Needs a grid. */
+  down?: boolean;
+}
+
+function resolveChaseColour(colour: ChaseColour): [number, number, number] {
+  if (Array.isArray(colour)) return colour;
+  const key = String(colour).trim().toLowerCase();
+  const hit = NAMED_COLOURS[key];
+  if (!hit) {
+    throw new Error(
+      `.chase(): "${colour}" is not a colour I know. Names: ${Object.keys(NAMED_COLOURS).join(', ')}. ` +
+      'Or pass [r, g, b] with each from 0 to 1.',
+    );
+  }
+  return hit;
+}
+
+/**
+ * A band of one colour travelling along a strip, without writing a function.
+ *
+ * The same thing `.eachXY((x, y, w) => [sine.early(x / w).slow(4), 0, 0])`
+ * does, which is the shape of every chase and the shape most people cannot
+ * write from memory. Arrow functions, a phase expressed as a fraction of the
+ * width, and a waveform chained three deep are a lot to know before your first
+ * moving light.
+ */
+function chaseImpl(
+  strip: StripInstance | RgbwStripInstance | MonoStripInstance,
+  colour: [number, number, number] | null,
+  opts: ChaseOptions,
+): void {
+  const sine = _sineFactory;
+  if (!sine) return;
+
+  const cycles = opts.cycles ?? 4;
+  const waves = opts.waves ?? 1;
+  const width = Math.min(1, Math.max(0.02, opts.width ?? 0.5));
+  // range(lo, 1) on a 0..1 sine: everything below zero is clamped away at the
+  // channel, so a lower floor leaves a narrower lit band.
+  const lo = 1 - 1 / width;
+
+  const count = opts.down ? strip.height : strip.width;
+  const brightAt = (step: number): unknown => {
+    const phase = ((step * waves) / count) * (opts.reverse ? -1 : 1);
+    return sine().early(phase).slow(cycles).range(lo, 1);
+  };
+
+  for (let y = 0; y < strip.height; y++) {
+    for (let x = 0; x < strip.width; x++) {
+      const bright = brightAt(opts.down ? y : x);
+      if (colour === null) {
+        (strip as MonoStripInstance).pixelXY(x, y, bright as PatternOrValue);
+        continue;
+      }
+      const [r, g, b] = colour;
+      const scale = (c: number): PatternOrValue =>
+        (c === 0 ? 0 : c === 1 ? bright : (bright as { mul(n: number): unknown }).mul(c)) as PatternOrValue;
+      if (strip.channelCount === strip.pixelCount * 4) {
+        (strip as RgbwStripInstance).pixelXY(x, y, scale(r), scale(g), scale(b), 0);
+      } else {
+        (strip as StripInstance).pixelXY(x, y, scale(r), scale(g), scale(b));
+      }
+    }
+  }
 }
 
 /**
