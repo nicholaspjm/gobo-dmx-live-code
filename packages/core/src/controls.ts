@@ -17,6 +17,7 @@
  * used the first time a name is seen and ignored afterwards.
  */
 
+import { checkOptions } from './colors.js';
 import type { PatternLike } from './dmx.js';
 
 /** One control declared by the running scene. */
@@ -92,6 +93,7 @@ export function slider(
   max = 1,
   opts: { start?: number; step?: number } = {},
 ): PatternLike {
+  checkOptions(opts as Record<string, unknown>, ['start', 'step'], 'slider()');
   if (typeof name !== 'string' || name.trim() === '') {
     throw new Error('slider: needs a name, which labels it and stores its position');
   }

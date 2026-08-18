@@ -18,6 +18,7 @@
  */
 
 import { getUniverseBuffer } from './dmx.js';
+import { checkOptions } from './colors.js';
 import { rgbStrip, type StripInstance } from './fixtures.js';
 
 /**
@@ -85,6 +86,7 @@ export function screen(
   pixels = 1,
   opts: { label?: string; columns?: number } = {},
 ): StripInstance {
+  checkOptions(opts as Record<string, unknown>, ['label', 'columns'], 'screen()');
   if (!Number.isInteger(pixels) || pixels < 1) {
     throw new Error(`screen: pixel count must be an integer >= 1 (got ${pixels})`);
   }
