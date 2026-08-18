@@ -116,7 +116,6 @@ const legacyListEl = document.getElementById('legacy-list') as HTMLElement;
 const legacyCloseEl = document.getElementById('legacy-close') as HTMLButtonElement;
 const legacyDismissEl = document.getElementById('legacy-dismiss') as HTMLButtonElement;
 const legacyDownloadAllEl = document.getElementById('legacy-download-all') as HTMLButtonElement;
-const usbToggleEl = document.getElementById('usb-toggle') as HTMLButtonElement;
 
 // "You need the connector" banner.
 const connectorBannerEl = document.getElementById('connector-banner') as HTMLElement;
@@ -1557,16 +1556,17 @@ initStrudel().then(() => {
 //
 // The one output that needs nothing installed: WebSerial talks to an Enttec
 // DMX USB Pro style interface directly. Choosing the device needs a user
-// gesture, so it is a button rather than something usb() can do from a scene.
+// gesture, so a scene cannot do it and something has to be clicked; that
+// something is the usb row in the outputs panel, alongside the other five
+// outputs, rather than a button of its own in the top bar.
 
-onUsbStatusChange((connected) => {
-  usbToggleEl.classList.toggle('active', connected);
-  usbToggleEl.title = connected
-    ? 'USB DMX interface connected. Click to disconnect.'
-    : 'connect a USB DMX interface (Enttec DMX USB Pro protocol)';
+onUsbStatusChange(() => {
+  // The panel draws the connected state from isUsbConnected(), so a change
+  // only has to make it repaint.
+  _outputsPanel?.refresh();
 });
 
-/** Connect or disconnect the interface. Shared with the outputs panel's usb
+/** Connect or disconnect the interface. Called by the outputs panel's usb
  *  row, which is why it is a named function rather than an inline handler. */
 async function handleUsbButton(): Promise<void> {
   if (isUsbConnected()) {
@@ -1589,7 +1589,6 @@ async function handleUsbButton(): Promise<void> {
   }
 }
 
-usbToggleEl.addEventListener('click', () => { void handleUsbButton(); });
 
 // ─── Connector prompt ────────────────────────────────────────────────────────
 //
@@ -1623,7 +1622,7 @@ function servedLocally(): boolean {
 function undeliveredHint(): string {
   const out = describeOutput();
   if (out?.text.startsWith('direct')) return 'Is the receiver listening?';
-  if (out?.text.startsWith('usb')) return 'Click usb in the top bar to choose the interface.';
+  if (out?.text.startsWith('usb')) return 'Open the outputs panel from the connection light and pick the interface.';
   // A hosted visitor has no checkout to run anything from, so point them at the
   // outputs panel by name: it says what does work here as well as what to get.
   return servedLocally()

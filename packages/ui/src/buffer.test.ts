@@ -117,6 +117,55 @@ describe('first run', () => {
   });
 });
 
+// ─── a returning browser holding an old opening example ──────────────────────
+//
+// Changing what gobo opens on would otherwise reach nobody who had visited
+// before, because their buffer persists. These pin the line between "stale
+// seed, safe to replace" and "someone's work, never touch".
+
+describe('stale seeds', () => {
+  /** A bundled scene that is not the current opening example. */
+  const olderDemo = EXAMPLES[1];
+
+  it('replaces an untouched copy of an older bundled scene', () => {
+    saveBuffer(olderDemo.code);
+    const { code, name } = loadBuffer();
+    expect(code).toBe(EXAMPLES[0].code);
+    expect(name).toBe(EXAMPLES[0].label);
+  });
+
+  it('leaves the current opening example alone', () => {
+    saveBuffer(EXAMPLES[0].code);
+    expect(loadBuffer().code).toBe(EXAMPLES[0].code);
+  });
+
+  it('leaves an edited copy alone, however small the edit', () => {
+    // One trailing newline is enough to mean someone touched it.
+    const edited = `${olderDemo.code}\n`;
+    saveBuffer(edited);
+    expect(loadBuffer().code).toBe(edited);
+  });
+
+  it('leaves work that was never a bundled scene alone', () => {
+    saveBuffer("const wash = fixture(1, 'rgb')\nwash.red(1)");
+    expect(loadBuffer().code).toBe("const wash = fixture(1, 'rgb')\nwash.red(1)");
+  });
+
+  it('still does not re-seed an emptied buffer', () => {
+    // '' matches no bundled scene, so the existing guarantee is unaffected.
+    saveBuffer('');
+    expect(loadBuffer().code).toBe('');
+  });
+
+  it('only replaces once, then behaves like an ordinary buffer', () => {
+    saveBuffer(olderDemo.code);
+    expect(loadBuffer().code).toBe(EXAMPLES[0].code);
+    // Now edit it: the replacement must not happen again over the edit.
+    saveBuffer('ch(1, 1)');
+    expect(loadBuffer().code).toBe('ch(1, 1)');
+  });
+});
+
 // ─── save / load ─────────────────────────────────────────────────────────────
 
 describe('save and load', () => {
