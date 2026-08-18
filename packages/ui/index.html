@@ -467,11 +467,15 @@
         display: none;
       }
 
+      /* 512 channel levels. A reference strip, not the main event: it used to
+         flex and take a fifth of the window, which is far more than a row of
+         level bars needs to be readable. Fixed and short, so the space goes to
+         the fixture sim above it. */
       #visualizer {
         display: block;
         width: 100%;
-        flex: 1;
-        min-height: 0;
+        flex: 0 0 auto;
+        height: 44px;
       }
 
       /* Status bar */

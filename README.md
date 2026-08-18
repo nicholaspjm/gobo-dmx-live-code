@@ -167,7 +167,11 @@ Everything durable is a file or a link:
 | **save** | Downloads the scene as `<name>.js`: the code itself, nothing wrapped around it. Same as `Ctrl+S` |
 | **open** | File picker for `.js`, `.txt` or `.gobo`. The scene is named after the file it came from |
 | **share** | Copies a link containing the entire scene (see below) |
-| **examples** | The three bundled demos: starter demo, ultratronics 11, four-colour bar demo |
+
+The bundled demos live under the **docs** panel, on its examples tab: *start here* (the two
+lines a new browser opens on), *language tour* (everything the language does), and *four-colour
+bar demo* (one custom fixture end to end). Loading one replaces the editor, and asks first if
+you have changes not yet saved to a file.
 
 A saved file holds exactly what was in the editor, byte for byte. A scene is JavaScript, so it
 stays JavaScript: it opens with syntax highlighting in any editor, pastes into a gist, and diffs

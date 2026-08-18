@@ -27,8 +27,11 @@ export function initVisualizer(canvas: HTMLCanvasElement): void {
   _displayValues.fill(0);
   _targetValues.fill(0);
 
+  // Watch the canvas itself, not its container: the canvas is what is being
+  // measured, and observing the parent misses a change that alters only the
+  // canvas's own box.
   const ro = new ResizeObserver(() => resize());
-  ro.observe(canvas.parentElement!);
+  ro.observe(canvas);
   resize();
 
   requestAnimationFrame(renderLoop);
@@ -40,12 +43,20 @@ export function updateVisualizer(channels: number[]): void {
   }
 }
 
+/**
+ * Match the backing store to the size CSS has given the canvas.
+ *
+ * Only the width/height ATTRIBUTES are set, never the style: the stylesheet
+ * decides how big the strip is, and this follows it. It used to measure the
+ * parent and write both, which meant any height set in CSS was overwritten on
+ * the next resize and the canvas always filled its container.
+ */
 function resize(): void {
-  const parent = _canvas.parentElement!;
-  _canvas.width = parent.clientWidth * devicePixelRatio;
-  _canvas.height = parent.clientHeight * devicePixelRatio;
-  _canvas.style.width = parent.clientWidth + 'px';
-  _canvas.style.height = parent.clientHeight + 'px';
+  const rect = _canvas.getBoundingClientRect();
+  // A hidden or not-yet-laid-out canvas measures 0, and a zero-sized backing
+  // store throws on some draw calls, so never go below one pixel.
+  _canvas.width = Math.max(1, Math.round(rect.width * devicePixelRatio));
+  _canvas.height = Math.max(1, Math.round(rect.height * devicePixelRatio));
 }
 
 function renderLoop(now: number): void {

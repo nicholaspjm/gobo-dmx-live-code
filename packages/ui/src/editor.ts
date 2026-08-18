@@ -24,9 +24,9 @@ import { EXAMPLES } from './examples.js';
 /**
  * The document a brand-new editor starts on.
  *
- * This used to be a hardcoded INITIAL_CODE constant here, duplicated
- * verbatim by the bundled "starter demo" example. Examples now own that
- * text (examples.ts), and EXAMPLES[0] is the introduction to the language.
+ * This used to be a hardcoded INITIAL_CODE constant here, duplicated verbatim
+ * by one of the bundled examples. Examples own that text now (examples.ts),
+ * and EXAMPLES[0] is the two-line scene a new browser opens on.
  *
  * main.ts always passes the user's stored buffer, so this default is only
  * reached by a caller that has nothing to restore.
