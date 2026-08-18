@@ -145,7 +145,7 @@ const DOCS: DocSection[] = [
         name: 'usb',
         signature: 'usb()',
         description:
-          "Works in a plain browser, with a USB DMX box plugged into this computer and Chrome or Edge. Drive a USB DMX interface straight from the browser, with nothing installed at all. Click usb in the top bar first to choose the device (browsers require a click for that, so a scene cannot do it), then call usb() to select it as the output. Speaks the Enttec DMX USB Pro protocol, which most interfaces use; raw FTDI dongles that expect the host to time the DMX break are not supported. One universe, the primary one.",
+          "Works in a plain browser, with a USB DMX box plugged into this computer and Chrome or Edge. Drive a USB DMX interface straight from the browser, with nothing installed at all. Open the outputs panel from the connection light and choose usb first, to pick the device (browsers require a click for that, so a scene cannot do it), then call usb() to select it as the output. Speaks the Enttec DMX USB Pro protocol, which most interfaces use; raw FTDI dongles that expect the host to time the DMX break are not supported. One universe, the primary one.",
         example: 'usb()',
       },
       {

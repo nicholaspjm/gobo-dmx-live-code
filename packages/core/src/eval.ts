@@ -311,7 +311,7 @@ const OUTPUT_NEEDS_CONNECTOR: Record<string, string> = {
  */
 const CONNECTOR_FIX =
   'Nothing is listening on this machine right now, so run the connector (or start gobo from a checkout with '
-  + 'npm start) and press ctrl+enter again. Driving a USB DMX box instead? Click usb in the top bar, '
+  + 'npm start) and press ctrl+enter again. Driving a USB DMX box instead? Open the outputs panel from the connection light and pick usb, '
   + 'nothing to install.';
 
 /**
@@ -454,7 +454,7 @@ function requireUsb(): void {
   if (!isUsbDmxSupported()) {
     throw new Error('usb() needs WebSerial, which Chrome and Edge have but Firefox and Safari do not.');
   }
-  throw new Error('No USB DMX interface connected. Click "usb" in the top bar to choose one, then run again.');
+  throw new Error('No USB DMX interface connected. Open the outputs panel from the connection light, choose usb and pick the interface, then run again.');
 }
 
 /**

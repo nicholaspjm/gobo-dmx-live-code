@@ -57,7 +57,7 @@ export const OUTPUTS: readonly OutputInfo[] = [
     needs: 'hardware',
     plain:
       'Drives a DMX line straight out of a USB DMX box plugged into this computer, the Enttec DMX '
-      + 'USB Pro type. Nothing to install: click usb in the top bar, pick the box, and the page '
+      + 'USB Pro type. Nothing to install: choose usb below, pick the box, and the page '
       + 'talks to it. Needs Chrome or Edge, and one universe only.',
   },
   {
@@ -223,7 +223,7 @@ export function outputVerdict(id: OutputId): OutputVerdict {
     return {
       ready: false,
       badge: 'needs a usb box',
-      reason: 'Click usb in the top bar and pick the interface. Nothing to install.',
+      reason: 'Choose usb here and pick the interface. Nothing to install.',
     };
   }
 

@@ -59,11 +59,40 @@ function writeKey(key: string, value: string): void {
  * nothing to load, so the buffer is seeded from the first bundled example
  * and written straight back. The next load is then an ordinary load, and
  * the seed is never re-applied over anything the user has typed.
+ *
+ * One exception, and it is narrow. A returning browser holding an UNTOUCHED
+ * copy of demo content that is no longer the opening example is holding a
+ * stale seed, not work: changing what gobo opens on would otherwise never
+ * reach anyone who had visited before. Only exact, unedited matches against
+ * the bundled scenes qualify, so nothing a person typed can be caught by it.
  */
 export function loadBuffer(): { code: string; name: string } {
   const stored = readKey(BUFFER_KEY);
-  if (stored !== null) return { code: stored, name: getBufferName() };
+  if (stored !== null) {
+    if (isStaleSeed(stored)) return seedBuffer();
+    return { code: stored, name: getBufferName() };
+  }
+  return seedBuffer();
+}
 
+/**
+ * Is this buffer an old opening example that has never been edited?
+ *
+ * Byte-equality against a bundled scene is the whole test. Anything the user
+ * changed, however slightly, stops matching and is left alone; so is anything
+ * they wrote themselves, which was never going to equal a bundled scene.
+ *
+ * The cost of the rule is that someone who deliberately loaded an older demo
+ * and left it sitting there gets moved to the opening example once. They lose
+ * nothing: it is bundled content, still one click away in the docs panel.
+ */
+function isStaleSeed(code: string): boolean {
+  if (code === EXAMPLES[0].code) return false;   // already current
+  return EXAMPLES.some((ex) => ex.code === code);
+}
+
+/** Write the opening example into the buffer and return it. */
+function seedBuffer(): { code: string; name: string } {
   const seed = EXAMPLES[0];
   writeKey(BUFFER_KEY, seed.code);
   writeKey(NAME_KEY, seed.label);
