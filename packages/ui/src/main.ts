@@ -58,7 +58,7 @@ import {
 } from './buffer.js';
 import { downloadScene, openSceneFile, sceneFilename } from './scene-file.js';
 import { encodeShareLink, decodeShareFromLocation, clearShareFromLocation } from './share.js';
-import { EXAMPLES, type Example } from './examples.js';
+import { getExample, type Example } from './examples.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
 import { renderDocs } from './docs.js';
 import { refreshViz } from './inline-viz.js';
@@ -1434,7 +1434,7 @@ renderDocs(docsBodyEl);
 // here instead of quietly loading the wrong thing.
 docsBodyEl.addEventListener('gobo:load-example', (ev) => {
   const id = (ev as CustomEvent<string>).detail;
-  const ex = EXAMPLES.find((e) => e.id === id);
+  const ex = getExample(id);
   if (!ex) {
     setStatus('error', `no bundled example called "${id}"`);
     return;

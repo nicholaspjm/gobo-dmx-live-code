@@ -74,11 +74,3 @@ export function samplePattern(pattern: PatternLike, cyclePos: number): number {
  * PatternLike + chain-method shapes that TS can't easily describe; the cast
  * keeps the call sites clean at the cost of one `unknown` hop here.
  */
-export function attachPatternVizMethods(obj: PatternLike): PatternLike {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const target = obj as any;
-  target.flash = function flash() { registerPatternViz(this, 'flash'); return this; };
-  target.glow  = function glow()  { registerPatternViz(this, 'glow');  return this; };
-  target.wave  = function wave()  { registerPatternViz(this, 'wave');  return this; };
-  return obj;
-}
