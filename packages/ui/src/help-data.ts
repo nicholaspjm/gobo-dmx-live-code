@@ -949,6 +949,17 @@ strip.each(p => [sine().early(p), 0, cosine().early(p)])`,
     kind: 'method',
   },
   {
+    label: 'chase',
+    signature: ".chase(colour, { cycles?, width?, waves?, reverse?, down? })",
+    description:
+      'A band of colour travelling along the strip, endlessly. No callback: this is the plain way to get a moving light. '
+      + 'Colour by name or [r, g, b]. cycles = how long a lap takes (4), width = how much is lit at once (0.5), '
+      + 'waves = crests at a time (1). A single-channel strip takes options alone.',
+    example: "wash.pixels.chase('red')\nwash.pixels.chase('blue', { cycles: 2, width: 0.2 })",
+    context: 'fixture-method',
+    kind: 'method',
+  },
+  {
     label: 'rainbowChase',
     signature: '.rainbowChase({ speed?, narrow?, rainbowSpeed?, packets? })',
     description: 'Built-in rainbow chase. Bigger `narrow` = tighter packet; `packets` = simultaneous chases.',
