@@ -60,7 +60,10 @@ const VALID_CHANNEL_TYPES = new Set([
   'intensity', 'color', 'position', 'strobe', 'control', 'generic', 'strip',
 ]);
 
-const VALID_PIXEL_LAYOUTS = new Set(['rgb', 'rgbw']);
+const VALID_PIXEL_LAYOUTS = new Set(['rgb', 'rgbw', 'mono']);
+
+/** Where DMX pixel 0 physically sits. Mirrors StripGeometry.origin. */
+const VALID_ORIGINS = new Set(['top-left', 'top-right', 'bottom-left', 'bottom-right']);
 
 /** Permitted id characters: kebab-case-ish, no uppercase, no paths, no dots. */
 const VALID_ID_RE = /^[a-z0-9][a-z0-9-]*$/;
@@ -75,7 +78,11 @@ const VALID_TOP_LEVEL_DEF_KEYS = new Set([
 
 const VALID_CHANNEL_KEYS = new Set([
   'offset', 'name', 'type', 'description', 'pixelCount', 'pixelLayout',
+  'columns', 'serpentine', 'origin', 'slots',
 ]);
+
+/** Keys allowed on one entry of a channel's `slots` array. */
+const VALID_SLOT_KEYS = new Set(['name', 'value', 'from', 'to']);
 
 // ─── Result type ─────────────────────────────────────────────────────────────
 
@@ -208,7 +215,7 @@ export function validateFixture(id: unknown, rawDef: unknown): ValidationResult 
 
     const {
       offset, name: cName, type: cType, description, pixelCount, pixelLayout,
-      columns, serpentine, slots,
+      columns, serpentine, origin, slots,
     } = ch;
 
     if (typeof offset !== 'number' || !Number.isInteger(offset) || offset < 0) {
@@ -282,7 +289,7 @@ export function validateFixture(id: unknown, rawDef: unknown): ValidationResult 
           error: `Channel #${i}: pixelLayout must be one of ${[...VALID_PIXEL_LAYOUTS].join(', ')}.`,
         };
       }
-      clean.pixelLayout = layout as 'rgb' | 'rgbw';
+      clean.pixelLayout = layout as 'rgb' | 'rgbw' | 'mono';
 
       // Grid shape. A width that does not divide the pixel count would leave a
       // ragged last row, which puts every (x, y) after it on the wrong pixel,
@@ -305,8 +312,17 @@ export function validateFixture(id: unknown, rawDef: unknown): ValidationResult 
         }
         clean.serpentine = serpentine;
       }
+      if (origin !== undefined) {
+        if (typeof origin !== 'string' || !VALID_ORIGINS.has(origin)) {
+          return {
+            ok: false,
+            error: `Channel #${i}: origin must be one of ${[...VALID_ORIGINS].join(', ')}.`,
+          };
+        }
+        clean.origin = origin as ChannelDef['origin'];
+      }
 
-      const perPixel = layout === 'rgbw' ? 4 : 3;
+      const perPixel = layout === 'rgbw' ? 4 : layout === 'mono' ? 1 : 3;
       const stripChs = pixelCount * perPixel;
       stripChannelsTotal += stripChs;
       if (offset + stripChs > channelCount) {
@@ -327,6 +343,9 @@ export function validateFixture(id: unknown, rawDef: unknown): ValidationResult 
       }
       if (serpentine !== undefined) {
         return { ok: false, error: `Channel #${i}: serpentine only valid on type 'strip'.` };
+      }
+      if (origin !== undefined) {
+        return { ok: false, error: `Channel #${i}: origin only valid on type 'strip'.` };
       }
     }
 
@@ -353,6 +372,10 @@ export function validateFixture(id: unknown, rawDef: unknown): ValidationResult 
         if (slot === null || typeof slot !== 'object') {
           return { ok: false, error: `Channel #${i} slot #${s}: must be an object.` };
         }
+        const unknownSlotKey = rejectUnknownKeys(
+          slot as unknown as Record<string, unknown>, VALID_SLOT_KEYS, `channel #${i} slot #${s}`,
+        );
+        if (unknownSlotKey !== null) return { ok: false, error: unknownSlotKey };
         if (typeof slot.name !== 'string' || slot.name.trim() === '') {
           return { ok: false, error: `Channel #${i} slot #${s}: name must be a non-empty string.` };
         }

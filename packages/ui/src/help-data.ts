@@ -251,6 +251,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'function',
   },
   {
+    label: 'monoStrip',
+    signature: 'monoStrip(startCh, cells, universe?, opts?)',
+    description:
+      'A strip of single-channel cells: a segmented white strobe strip, or a bar of plain dimmers. Same geometry as the colour strips, one level per cell.',
+    example: 'const seg = monoStrip(147, 8)',
+    context: 'command',
+    kind: 'function',
+  },
+  {
     label: 'group',
     signature: 'group(...fixtures) => Group',
     description:

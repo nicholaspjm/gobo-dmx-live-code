@@ -41,6 +41,7 @@ import {
   listFixtures,
   rgbStrip,
   rgbwStrip,
+  monoStrip,
   group,
   clearVizRegistry,
   clearSimFixtures,
@@ -519,6 +520,7 @@ export function evalCode(code: string): EvalResult {
     listFixtures,
     rgbStrip,
     rgbwStrip,
+    monoStrip,
     group,
     // Pattern extension: define custom chain methods at top level.
     register,

@@ -658,7 +658,7 @@ function rebuildSimPanel(): void {
     let mainEl: HTMLElement;
     let pixelEls: HTMLElement[] | undefined;
 
-    if (fix.render.kind === 'strip-rgb' || fix.render.kind === 'strip-rgbw') {
+    if (fix.render.kind === 'strip-rgb' || fix.render.kind === 'strip-rgbw' || fix.render.kind === 'strip-mono') {
       mainEl = document.createElement('div');
       mainEl.className = 'fixture-strip';
       pixelEls = [];
@@ -833,6 +833,14 @@ setInterval(() => {
           Math.min(255, bv + wv),
         );
       }
+    } else if (render.kind === 'strip-mono') {
+      // One channel per cell, so the level IS the colour. Drawn white because
+      // that is what a segmented strobe strip actually emits.
+      const pixels = r.pixelEls ?? [];
+      for (let i = 0; i < render.pixelCount; i++) {
+        const v = buf[base + i] ?? 0;
+        updateStripPixel(pixels[i], v, v, v);
+      }
     }
 
     applyMovement(r);
@@ -883,15 +891,18 @@ function renderTooltip(r: RenderedSimFixture): void {
     );
   } else {
     // Strip: first-pixel preview.
-    const stride = render.kind === 'strip-rgbw' ? 4 : 3;
-    const names = render.kind === 'strip-rgbw' ? ['r', 'g', 'b', 'w'] : ['r', 'g', 'b'];
-    for (let j = 0; j < stride; j++) {
+    const layout = render.kind === 'strip-rgbw'
+      ? { stride: 4, names: ['r', 'g', 'b', 'w'], label: 'RGBW' }
+      : render.kind === 'strip-mono'
+        ? { stride: 1, names: ['level'], label: 'single channel' }
+        : { stride: 3, names: ['r', 'g', 'b'], label: 'RGB' };
+    for (let j = 0; j < layout.stride; j++) {
       const v = buf[base + j] ?? 0;
       rows.push(
-        `<div class="tt-row"><span class="tt-key">px0.${names[j]}</span><span class="tt-val">${v}</span></div>`,
+        `<div class="tt-row"><span class="tt-key">px0.${layout.names[j]}</span><span class="tt-val">${v}</span></div>`,
       );
     }
-    note = `${render.pixelCount} pixels × ${render.kind === 'strip-rgbw' ? 'RGBW' : 'RGB'}`;
+    note = `${render.pixelCount} ${render.kind === 'strip-mono' ? 'cells' : 'pixels'} × ${layout.label}`;
   }
 
   const chRange = channelCount > 1

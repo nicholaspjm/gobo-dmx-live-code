@@ -40,8 +40,12 @@ export interface ChannelDef {
    * For type='strip': channel layout per pixel. 'rgb' (3 chs/pixel, default)
    * or 'rgbw' (4 chs/pixel). 'rgbw' exposes a nested RgbwStripInstance with
    * .fill(r,g,b,w), .pixel(i,r,g,b,w), and a .white(v) setter.
+   *
+   * 'mono' is one channel per pixel: a row of single-colour cells, which is
+   * how a segmented white strobe strip or a bar of plain dimmers is wired.
+   * It exposes the same geometry as the others, with one level per cell.
    */
-  pixelLayout?: 'rgb' | 'rgbw';
+  pixelLayout?: 'rgb' | 'rgbw' | 'mono';
   /**
    * For type='strip': how many pixels make up one row. Omit for a plain line
    * of pixels, which is the same thing with a single row.
@@ -53,6 +57,11 @@ export interface ChannelDef {
    * from the channel count, so the fixture has to say.
    */
   serpentine?: boolean;
+  /**
+   * For type='strip': which physical corner DMX pixel 0 sits in. See
+   * {@link StripGeometry.origin}. Default 'top-left'.
+   */
+  origin?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   /**
    * Named positions on a channel that selects rather than dims: a colour
    * wheel, a gobo wheel, a prism, a control channel with modes. Declaring
@@ -293,7 +302,7 @@ const FIXTURE_ALIASES: Record<string, string> = {
 //   - a label for display + tooltip
 // Channel offsets are all 0-based within the universe buffer.
 
-export type SimRenderKind = 'globe-rgbw' | 'globe-dim' | 'strip-rgb' | 'strip-rgbw';
+export type SimRenderKind = 'globe-rgbw' | 'globe-dim' | 'strip-rgb' | 'strip-rgbw' | 'strip-mono';
 
 /**
  * Optional movement-channel hints. When present, the sim panel applies a
@@ -329,7 +338,8 @@ export interface SimFixture {
     | { kind: 'globe-rgbw'; r?: number; g?: number; b?: number; w?: number; dim?: number }
     | { kind: 'globe-dim';  dim: number }
     | { kind: 'strip-rgb';  pixelCount: number }
-    | { kind: 'strip-rgbw'; pixelCount: number };
+    | { kind: 'strip-rgbw'; pixelCount: number }
+    | { kind: 'strip-mono'; pixelCount: number };
 }
 
 const _simFixtures: SimFixture[] = [];
@@ -662,11 +672,12 @@ function driveEmitters(
   for (const ch of def.channels) {
     if (!isEmitterChannel(ch)) continue;
     if (ch.type === 'strip') {
-      // A strip channel is a nested Strip/RgbwStripInstance; fill() covers
-      // every pixel in one call.
+      // A strip channel is a nested strip instance; fill() covers every pixel
+      // in one call, with as many values as that layout takes.
       const strip = inst[ch.name] as unknown as { fill: (...vs: number[]) => void } | undefined;
       if (strip && typeof strip.fill === 'function') {
         if (ch.pixelLayout === 'rgbw') strip.fill(level, level, level, level);
+        else if (ch.pixelLayout === 'mono') strip.fill(level);
         else strip.fill(level, level, level);
         driven++;
       }
@@ -856,11 +867,14 @@ export function fixture(
         // says pixelXY without repeating the wash's dimensions.
         columns: ch.columns,
         serpentine: ch.serpentine,
+        origin: ch.origin,
       };
       inst[ch.name] =
         ch.pixelLayout === 'rgbw'
           ? rgbwStrip(stripStart, pixelCount, universe, stripOpts)
-          : rgbStrip(stripStart, pixelCount, universe, stripOpts);
+          : ch.pixelLayout === 'mono'
+            ? monoStrip(stripStart, pixelCount, universe, stripOpts)
+            : rgbStrip(stripStart, pixelCount, universe, stripOpts);
     } else {
       // Rest parameter, not a single value: a call with no argument has to stay
       // distinguishable from one that passed undefined, so `par.red()` can mean
@@ -947,6 +961,20 @@ export interface StripGeometry {
    * to tell is from the fixture, so it has to be declared.
    */
   serpentine?: boolean;
+  /**
+   * Which physical corner DMX pixel 0 sits in. Default 'top-left', the way an
+   * image is read.
+   *
+   * Plenty of fixtures scan the other way. A cheap matrix strobe can start at
+   * the bottom right and run right to left then upward, which makes every
+   * scene written against it mirrored and upside down unless the fixture says
+   * so. Declaring the corner means `pixelXY(0, 0)` is the top left of the
+   * picture on every fixture, whatever its wiring does.
+   *
+   * A single-row strip uses only the horizontal half, so 'top-right' is how
+   * you reverse one.
+   */
+  origin?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 }
 
 /**
@@ -971,10 +999,29 @@ function resolveGeometry(pixelCount: number, geo: StripGeometry, what: string) {
   const height = pixelCount / columns;
   const serpentine = geo.serpentine === true;
 
+  const origin = geo.origin ?? 'top-left';
+  const ORIGINS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+  if (!ORIGINS.includes(origin)) {
+    throw new Error(`${what}: origin must be one of ${ORIGINS.join(', ')} (got ${geo.origin})`);
+  }
+  const flipX = origin.endsWith('right');
+  const flipY = origin.startsWith('bottom');
+
   return {
     width,
     height,
-    /** Grid position to pixel index, accounting for how the strip is wired. */
+    /**
+     * Grid position to pixel index.
+     *
+     * Two independent facts about the hardware, applied in order:
+     *
+     *   origin      where pixel 0 physically is, which fixes the direction the
+     *               run travels in both axes
+     *   serpentine  whether the run then folds back on alternate rows
+     *
+     * Callers always address the picture: (0, 0) is its top left. Everything
+     * below converts that to whatever order the strip is actually wired in.
+     */
     index(x: number, y: number): number {
       if (!Number.isInteger(x) || x < 0 || x >= width) {
         throw new Error(`${what}: x ${x} out of range [0, ${width - 1}]`);
@@ -982,10 +1029,45 @@ function resolveGeometry(pixelCount: number, geo: StripGeometry, what: string) {
       if (!Number.isInteger(y) || y < 0 || y >= height) {
         throw new Error(`${what}: y ${y} out of range [0, ${height - 1}]`);
       }
-      // On a serpentine strip the odd rows are wired backwards, so the same
-      // x lands at the mirrored position within the row.
-      const col = serpentine && y % 2 === 1 ? width - 1 - x : x;
-      return y * width + col;
+      // Into wire space: which row and column of the RUN this picture position
+      // falls on.
+      let wx = flipX ? width - 1 - x : x;
+      const wy = flipY ? height - 1 - y : y;
+      // A serpentine run reverses every other row of the run itself, so this
+      // is measured on wy rather than on the caller's y.
+      if (serpentine && wy % 2 === 1) wx = width - 1 - wx;
+      return wy * width + wx;
+    },
+    /**
+     * Picture-sequential position to pixel index on the wire.
+     *
+     * The whole API speaks in picture order: position 0 is the top left, and
+     * counting runs along the top row. Only the geometry knows where that
+     * lands on the wire. Without this, .pixel(i) and .each() would address raw
+     * DMX order while pixelXY addressed the picture, so a reversed strip would
+     * come out corrected through one method and not the other.
+     *
+     * With the default origin and no serpentine this is the identity, so
+     * nothing written before grids existed changes.
+     */
+    seq(i: number): number {
+      return this.index(i % width, Math.floor(i / width));
+    },
+    /**
+     * Grid position to picture-sequential position.
+     *
+     * Deliberately NOT the wire index: callers hand this to .pixel(), which
+     * applies the wiring itself. Doing it here as well would transform twice
+     * and land on the wrong pixel whenever the origin is not the default.
+     */
+    pos(x: number, y: number): number {
+      if (!Number.isInteger(x) || x < 0 || x >= width) {
+        throw new Error(`${what}: x ${x} out of range [0, ${width - 1}]`);
+      }
+      if (!Number.isInteger(y) || y < 0 || y >= height) {
+        throw new Error(`${what}: y ${y} out of range [0, ${height - 1}]`);
+      }
+      return y * width + x;
     },
   };
 }
@@ -1201,15 +1283,15 @@ export function rgbStrip(
     height: geo.height,
 
     pixelXY(x, y, ...args) {
-      inst.pixel(geo.index(x, y), ...(args as []));
+      inst.pixel(geo.pos(x, y), ...(args as []));
     },
 
     row(y, ...args) {
-      for (let x = 0; x < geo.width; x++) inst.pixel(geo.index(x, y), ...(args as []));
+      for (let x = 0; x < geo.width; x++) inst.pixel(geo.pos(x, y), ...(args as []));
     },
 
     column(x, ...args) {
-      for (let y = 0; y < geo.height; y++) inst.pixel(geo.index(x, y), ...(args as []));
+      for (let y = 0; y < geo.height; y++) inst.pixel(geo.pos(x, y), ...(args as []));
     },
 
     eachXY(fn) {
@@ -1257,7 +1339,7 @@ export function rgbStrip(
       const [r, g, b] = mono
         ? Array(3).fill(channelValue(args, `.pixel(${index})`))
         : channelValues(args, ['r', 'g', 'b'], `.pixel(${index})`);
-      const base = startChannel + index * 3;
+      const base = startChannel + geo.seq(index) * 3;
       uni(universe, base,     r);
       uni(universe, base + 1, g);
       uni(universe, base + 2, b);
@@ -1279,7 +1361,9 @@ export function rgbStrip(
       for (let i = 0; i < pixelCount; i++) {
         const phase = i / pixelCount;
         const result = fn(phase, i, pixelCount);
-        const base = startChannel + i * 3;
+        // Picture order in, wire order out, so a chase runs left to right on
+        // the light whatever direction the strip is wired in.
+        const base = startChannel + geo.seq(i) * 3;
         if (Array.isArray(result)) {
           // A short array is a colour written to the channels it names, so the
           // rest stay off. Only the values present are checked.
@@ -1344,6 +1428,148 @@ export function rgbStrip(
     channelCount,
     movement: opts.movement,
     render: { kind: 'strip-rgb', pixelCount },
+  });
+  return inst;
+}
+
+// ─── Mono pixel strip ────────────────────────────────────────────────────────
+//
+// One channel per cell. A segmented white strobe strip, a bar of plain
+// dimmers, a row of single-colour cells: all the same shape, and none of them
+// expressible as rgb or rgbw without wasting two thirds of the channels and
+// getting the addressing wrong.
+//
+// Same geometry surface as the colour strips, so a chase written for one works
+// here; only the value shape differs, since there is nothing to mix.
+
+export interface MonoStripInstance {
+  readonly universe: number;
+  readonly startChannel: number;
+  readonly pixelCount: number;
+  /** Total DMX channels consumed (one per pixel). */
+  readonly channelCount: number;
+  /** Cells across one row. A plain line is width = pixelCount. */
+  readonly width: number;
+  /** Rows. A plain line is height = 1. */
+  readonly height: number;
+
+  /** Set every cell to the same level. Omit the value for full. */
+  fill(...v: [PatternOrValue?]): void;
+  /** Set one cell by index. Omit the value for full. */
+  pixel(index: number, ...v: [PatternOrValue?]): void;
+  /** Set one cell by grid position. Omit the value for full. */
+  pixelXY(x: number, y: number, ...v: [PatternOrValue?]): void;
+  /** Set every cell in one row. Omit the value for full. */
+  row(y: number, ...v: [PatternOrValue?]): void;
+  /** Set every cell in one column. Omit the value for full. */
+  column(x: number, ...v: [PatternOrValue?]): void;
+  /** Run a callback per cell; `(phase, i, count)` as on the colour strips. */
+  each(fn: (phase: number, i: number, count: number) => PatternOrValue): void;
+  /** Run a callback per cell with its grid position `(x, y, w, h)`. */
+  eachXY(fn: (x: number, y: number, w: number, h: number) => PatternOrValue): void;
+  /** Opt into an inline editor visualization (default kind 'strip'). */
+  viz(...kinds: VizKind[]): MonoStripInstance;
+}
+
+/**
+ * Create a strip of single-channel cells.
+ *
+ * @example
+ *   const seg = monoStrip(147, 8)           // eight white strobe segments
+ *   seg.each(p => mini('1 - - -').early(p))
+ */
+export function monoStrip(
+  startChannel: number,
+  pixelCount: number,
+  universe = 0,
+  opts: { simLabel?: string; movement?: SimMovement } & StripGeometry = {},
+): MonoStripInstance {
+  if (!Number.isFinite(pixelCount) || pixelCount < 1) {
+    throw new Error(`monoStrip: pixelCount must be >= 1 (got ${pixelCount})`);
+  }
+  if (startChannel < 1) {
+    throw new Error(`monoStrip: startChannel must be >= 1 (got ${startChannel})`);
+  }
+  const channelCount = pixelCount;
+  const lastChannel = startChannel + channelCount - 1;
+  if (lastChannel > 512) {
+    throw new Error(
+      `monoStrip: ${pixelCount} cells starting at ${startChannel} would run to channel ${lastChannel}, which exceeds 512. Split across universes.`,
+    );
+  }
+  const geo = resolveGeometry(pixelCount, opts, 'monoStrip');
+
+  const set = (i: number, v: PatternOrValue): void => uni(universe, startChannel + i, v);
+
+  const inst: MonoStripInstance = {
+    universe,
+    startChannel,
+    pixelCount,
+    channelCount,
+    width: geo.width,
+    height: geo.height,
+
+    fill(...v) {
+      const level = channelValue(v, '.fill()');
+      for (let i = 0; i < pixelCount; i++) set(i, level);
+    },
+
+    pixel(index, ...v) {
+      if (!Number.isInteger(index) || index < 0 || index >= pixelCount) {
+        throw new Error(`monoStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`);
+      }
+      set(geo.seq(index), channelValue(v, `.pixel(${index})`));
+    },
+
+    pixelXY(x, y, ...v) {
+      set(geo.index(x, y), channelValue(v, `.pixelXY(${x}, ${y})`));
+    },
+
+    row(y, ...v) {
+      const level = channelValue(v, `.row(${y})`);
+      for (let x = 0; x < geo.width; x++) set(geo.index(x, y), level);
+    },
+
+    column(x, ...v) {
+      const level = channelValue(v, `.column(${x})`);
+      for (let y = 0; y < geo.height; y++) set(geo.index(x, y), level);
+    },
+
+    each(fn) {
+      for (let i = 0; i < pixelCount; i++) {
+        set(geo.seq(i), channelValue([fn(i / pixelCount, i, pixelCount)], `.each() cell ${i}`));
+      }
+    },
+
+    eachXY(fn) {
+      for (let y = 0; y < geo.height; y++) {
+        for (let x = 0; x < geo.width; x++) {
+          set(geo.index(x, y), channelValue([fn(x, y, geo.width, geo.height)], `.eachXY() (${x}, ${y})`));
+        }
+      }
+    },
+
+    viz(...kinds: VizKind[]): MonoStripInstance {
+      _vizRegistry.push({
+        kinds: kinds.length > 0 ? kinds : ['strip'],
+        universe,
+        startChannel,
+        channelCount,
+        pixelCount,
+        channelsPerPixel: 1,
+      });
+      return inst;
+    },
+  };
+
+  registerSimFixture({
+    label: opts.simLabel ?? `monoStrip ×${pixelCount}`,
+    type: 'Single-channel cells',
+    universe,
+    startChannel,
+    channelCount,
+    movement: opts.movement,
+    render: { kind: 'strip-mono', pixelCount },
   });
   return inst;
 }
@@ -1505,15 +1731,15 @@ export function rgbwStrip(
     height: geo.height,
 
     pixelXY(x, y, ...args) {
-      inst.pixel(geo.index(x, y), ...(args as []));
+      inst.pixel(geo.pos(x, y), ...(args as []));
     },
 
     row(y, ...args) {
-      for (let x = 0; x < geo.width; x++) inst.pixel(geo.index(x, y), ...(args as []));
+      for (let x = 0; x < geo.width; x++) inst.pixel(geo.pos(x, y), ...(args as []));
     },
 
     column(x, ...args) {
-      for (let y = 0; y < geo.height; y++) inst.pixel(geo.index(x, y), ...(args as []));
+      for (let y = 0; y < geo.height; y++) inst.pixel(geo.pos(x, y), ...(args as []));
     },
 
     eachXY(fn) {
@@ -1563,7 +1789,7 @@ export function rgbwStrip(
       const [r, g, b, w] = mono
         ? [...Array(3).fill(channelValue(args, `.pixel(${index})`)), 0]
         : channelValues(args, ['r', 'g', 'b', 'w'], `.pixel(${index})`);
-      const base = startChannel + index * STRIDE;
+      const base = startChannel + geo.seq(index) * STRIDE;
       uni(universe, base,     r);
       uni(universe, base + 1, g);
       uni(universe, base + 2, b);
@@ -1583,7 +1809,8 @@ export function rgbwStrip(
       for (let i = 0; i < pixelCount; i++) {
         const phase = i / pixelCount;
         const result = fn(phase, i, pixelCount);
-        const base = startChannel + i * STRIDE;
+        // Picture order in, wire order out. See rgbStrip.each().
+        const base = startChannel + geo.seq(i) * STRIDE;
         if (Array.isArray(result)) {
           // A short array names the channels it sets; the rest stay off.
           for (let c = 0; c < STRIDE; c++) {
@@ -1659,6 +1886,7 @@ export type GroupMember =
   | FixtureInstance
   | StripInstance
   | RgbwStripInstance
+  | MonoStripInstance
   | GroupInstance;
 
 /**
@@ -1706,6 +1934,20 @@ function pixelCell(
   base: number,
   stride: number,
 ): GroupCell {
+  // A one-channel cell has no colour to speak of: it is a level, and the only
+  // honest role for it is white, so a group asking for red skips it rather
+  // than lighting it a colour it cannot produce.
+  if (stride === 1) {
+    return {
+      roles: new Set(['white']),
+      set(role, value) {
+        if (role === 'white') uni(universe, base, value);
+      },
+      level(value) {
+        uni(universe, base, value);
+      },
+    };
+  }
   const roles = new Set(COLOUR_ROLES.slice(0, stride === 4 ? 4 : 3));
   return {
     roles,

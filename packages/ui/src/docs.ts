@@ -350,6 +350,30 @@ const DOCS: DocSection[] = [
         example: 'const bar = rgbStrip(1, 32, 0, { columns: 8, serpentine: true })',
       },
       {
+        name: 'origin',
+        signature: "{ origin: 'bottom-right' }",
+        description:
+          "Which physical corner DMX pixel 0 sits in. Default is 'top-left', the way an image is read, but plenty of fixtures scan the other way: a cheap matrix strobe can start at the bottom right and run right to left then upward. Declare the corner and the whole API stays in picture terms, so (0, 0) is the top left on every fixture whatever its wiring does. A single row uses only the horizontal half, so 'top-right' is how you reverse one.",
+        example:
+          "// 48 pixels wired from the bottom right, right to left, then upward\n{ name: 'pixels', type: 'strip', pixelCount: 48, pixelLayout: 'rgb',\n  columns: 12, origin: 'bottom-right' }",
+      },
+      {
+        name: 'picture order, always',
+        signature: '.pixel(i) and .each() too',
+        description:
+          'Origin and serpentine apply to every way of addressing a strip, not just pixelXY. Counting with .pixel(i) or walking with .each() runs along the top row of the picture and continues onto the next, so a left-to-right chase reads left to right on the light even when the wire runs the other way. With the default origin and no serpentine this is the identity, so nothing written before grids existed changes.',
+        example:
+          "seg.each((p, i) => mini('1 - - -').early(p))   // sweeps left to right on the light",
+      },
+      {
+        name: 'one channel per cell',
+        signature: "pixelLayout: 'mono'  ·  monoStrip(start, count)",
+        description:
+          "A segmented white strobe strip, a bar of plain dimmers, a row of single-colour cells: one channel each, no colour to mix. It carries the same geometry as the colour strips, so a chase written for one works here, with a level in place of the colour.",
+        example:
+          "const seg = monoStrip(147, 8)         // eight white strobe segments\nseg.fill(0.5)\nseg.each((p, i) => mini('1 - - -').early(p))",
+      },
+      {
         name: '.pixelXY / .row / .column',
         signature: '.pixelXY(x, y, …)  ·  .row(y, …)  ·  .column(x, …)',
         description:

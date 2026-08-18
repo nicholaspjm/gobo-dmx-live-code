@@ -16,7 +16,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { tick, clearDefs, getUniverseBuffer, type PatternLike } from './dmx.js';
-import { fixture, defineFixture, rgbStrip, rgbwStrip, isEmitterChannel } from './fixtures.js';
+import {
+  fixture, defineFixture, rgbStrip, rgbwStrip, monoStrip, group, isEmitterChannel,
+} from './fixtures.js';
 
 beforeEach(() => {
   clearDefs();
@@ -137,11 +139,200 @@ describe('a strip that is really a grid', () => {
     expect(read(3, 5)).toEqual([255, 0, 0]);   // pixels start at channel 3
   });
 
+  it('turns the picture round when pixel 0 is not the top left', () => {
+    // 4x2. origin bottom-right means the run starts at the bottom right and
+    // travels right-to-left, then upward.
+    const s = rgbStrip(1, 8, 0, { columns: 4, origin: 'bottom-right' });
+    const lit = (): number => { tick(0); const b = getUniverseBuffer(0);
+      for (let i = 0; i < 8; i++) if (b[i * 3]) return i; return -1; };
+
+    s.pixelXY(3, 1, 1, 0, 0);            // picture bottom-right
+    expect(lit()).toBe(0);               // is DMX pixel 0
+    clearDefs(); getUniverseBuffer(0).fill(0);
+    s.pixelXY(0, 0, 1, 0, 0);            // picture top-left
+    expect(lit()).toBe(7);               // is the last one on the wire
+  });
+
+  it('counts .pixel() in picture order as well, not wire order', () => {
+    // Otherwise a reversed strip comes out corrected through pixelXY and
+    // uncorrected through pixel(), which is worse than not correcting at all.
+    const s = rgbStrip(1, 8, 0, { columns: 4, origin: 'bottom-right' });
+    s.pixel(0, 1, 0, 0);
+    tick(0);
+    expect(getUniverseBuffer(0)[7 * 3]).toBe(255);
+  });
+
+  it('reverses a single row with a right-hand origin', () => {
+    const s = rgbStrip(1, 4, 0, { origin: 'top-right' });
+    expect([s.width, s.height]).toEqual([4, 1]);
+    s.pixel(0, 1, 0, 0);
+    tick(0);
+    expect(getUniverseBuffer(0)[3 * 3]).toBe(255);   // leftmost is the last pixel
+  });
+
+  it('refuses an origin it does not know', () => {
+    expect(() => rgbStrip(1, 4, 0, { origin: 'middle' as 'top-left' }))
+      .toThrow(/origin must be one of/);
+  });
+
   it('gives an RGBW grid the same treatment', () => {
     const s = rgbwStrip(1, 8, 0, { columns: 4 });
     expect([s.width, s.height]).toEqual([4, 2]);
     s.pixelXY(1, 1, 1, 0, 0, 0);
     expect(read(21, 24)).toEqual([255, 0, 0, 0]);   // pixel 5
+  });
+});
+
+// ─── one channel per cell ─────────────────────────────────────────────────────
+
+describe('a strip of single-channel cells', () => {
+  it('uses exactly one channel per cell', () => {
+    const s = monoStrip(1, 8);
+    expect(s.channelCount).toBe(8);
+    s.pixel(2, 1);
+    expect(read(1, 8)).toEqual([0, 0, 255, 0, 0, 0, 0, 0]);
+  });
+
+  it('fills, and takes an omitted value as full', () => {
+    const s = monoStrip(1, 4);
+    s.fill();
+    expect(read(1, 4)).toEqual([255, 255, 255, 255]);
+  });
+
+  it('walks with each, in picture order', () => {
+    const s = monoStrip(1, 4);
+    s.each((_p, i) => i / 4);
+    expect(read(1, 4)).toEqual([0, 64, 128, 191]);
+  });
+
+  it('has the same geometry as the colour strips', () => {
+    const s = monoStrip(1, 8, 0, { columns: 4 });
+    expect([s.width, s.height]).toEqual([4, 2]);
+    s.pixelXY(1, 1, 1);
+    expect(read(1, 8)).toEqual([0, 0, 0, 0, 0, 255, 0, 0]);
+  });
+
+  it('reverses when the segments run the other way', () => {
+    // The white strobe strip on the atomic wash: 8 segments, reversed
+    // relative to the picture.
+    const s = monoStrip(1, 8, 0, { origin: 'top-right' });
+    s.pixel(0, 1);
+    expect(read(1, 8)).toEqual([0, 0, 0, 0, 0, 0, 0, 255]);
+  });
+
+  it('is driven by .off() and .full() through its fixture', () => {
+    defineFixture('seg-bar', {
+      name: 'Segment bar', manufacturer: 'Generic', type: 'generic', channelCount: 9,
+      channels: [
+        { offset: 0, name: 'dim', type: 'intensity' },
+        { offset: 1, name: 'strip', type: 'strip', pixelCount: 8, pixelLayout: 'mono' },
+      ],
+    });
+    const f = fixture(1, 'seg-bar');
+    f.full();
+    expect(read(1, 9)).toEqual([255, 255, 255, 255, 255, 255, 255, 255, 255]);
+    f.off();
+    expect(read(1, 9)).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  });
+
+  it('joins a group as one element per cell', () => {
+    const par = fixture(1, 'rgb');
+    const seg = monoStrip(20, 4);
+    const rig = group(par, seg);
+    expect(rig.size).toBe(5);
+    rig.each(() => 1);
+    expect(read(1, 3)).toEqual([255, 255, 255]);
+    expect(read(20, 23)).toEqual([255, 255, 255, 255]);
+  });
+});
+
+// ─── the whole 154-channel wash ───────────────────────────────────────────────
+
+describe('the atomic strobe, end to end', () => {
+  // The real thing: dim, strobe, a 12x4 RGB grid wired from the bottom right,
+  // and 8 reversed white segments. Channel map verified against the DMX bytes
+  // the rig actually sends.
+  function atomic() {
+    defineFixture('atomic-154', {
+      name: 'Atomic 154', manufacturer: 'Generic', type: 'generic', channelCount: 154,
+      channels: [
+        { offset: 0, name: 'dim', type: 'intensity' },
+        { offset: 1, name: 'strobe', type: 'strobe' },
+        { offset: 2, name: 'pixels', type: 'strip', pixelCount: 48, pixelLayout: 'rgb', columns: 12, origin: 'bottom-right' },
+        { offset: 146, name: 'strip', type: 'strip', pixelCount: 8, pixelLayout: 'mono', origin: 'top-right' },
+      ],
+    });
+    return fixture(1, 'atomic-154');
+  }
+
+  /** Which DMX pixel index of the matrix is lit. */
+  function litPixel(): number {
+    tick(0);
+    const b = getUniverseBuffer(0);
+    for (let i = 0; i < 48; i++) if (b[2 + i * 3] || b[3 + i * 3] || b[4 + i * 3]) return i;
+    return -1;
+  }
+
+  it('adds up to exactly 154 channels', () => {
+    const w = atomic();
+    expect(w.def.channelCount).toBe(154);
+    // 2 control + 48*3 pixels + 8 segments.
+    expect(2 + 48 * 3 + 8).toBe(154);
+  });
+
+  it('puts the picture the right way up on a bottom-right wiring', () => {
+    const w = atomic();
+    const px = w.pixels as ReturnType<typeof rgbStrip>;
+    px.pixelXY(11, 3, 1, 0, 0);
+    expect(litPixel()).toBe(0);            // bottom right is DMX pixel 0
+  });
+
+  it('walks right to left along the bottom row', () => {
+    const w = atomic();
+    const px = w.pixels as ReturnType<typeof rgbStrip>;
+    px.pixelXY(0, 3, 1, 0, 0);
+    expect(litPixel()).toBe(11);           // bottom left ends that row
+  });
+
+  it('then travels upward', () => {
+    const w = atomic();
+    const px = w.pixels as ReturnType<typeof rgbStrip>;
+    px.pixelXY(11, 2, 1, 0, 0);
+    expect(litPixel()).toBe(12);           // next row up starts the next run
+    clearDefs(); getUniverseBuffer(0).fill(0);
+    px.pixelXY(0, 0, 1, 0, 0);
+    expect(litPixel()).toBe(47);           // top left is the very last
+  });
+
+  it('reverses the white segments to match', () => {
+    const w = atomic();
+    const seg = w.strip as ReturnType<typeof monoStrip>;
+    seg.pixel(0, 1);
+    expect(read(154, 154)).toEqual([255]);  // leftmost segment is the last channel
+  });
+
+  it('lights everything and darkens everything, strobe untouched', () => {
+    const w = atomic();
+    w.full();
+    tick(0);
+    const b = getUniverseBuffer(0);
+    expect(b[0]).toBe(255);                          // dim
+    expect(b[1]).toBe(0);                            // strobe is not an emitter
+    expect(Array.from(b.slice(2, 146)).every((v) => v === 255)).toBe(true);
+    expect(Array.from(b.slice(146, 154)).every((v) => v === 255)).toBe(true);
+
+    w.off();
+    tick(0);
+    expect(Array.from(getUniverseBuffer(0).slice(0, 154)).every((v) => v === 0)).toBe(true);
+  });
+
+  it('fits three to a universe and refuses a fourth', () => {
+    atomic();
+    expect(() => fixture(1, 'atomic-154')).not.toThrow();
+    expect(() => fixture(155, 'atomic-154')).not.toThrow();
+    expect(() => fixture(309, 'atomic-154')).not.toThrow();
+    // 463 + 154 - 1 = 616, past the end of the universe.
+    expect(() => fixture(463, 'atomic-154')).toThrow(/exceeds 512/);
   });
 });
 
