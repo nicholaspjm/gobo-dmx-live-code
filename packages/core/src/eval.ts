@@ -180,9 +180,15 @@ export async function initStrudel(): Promise<void> {
       const sample = typeof core.sine === 'function' ? (core.sine as () => PatternLike)() : core.sine as PatternLike;
       const proto = sample ? Object.getPrototypeOf(sample) : null;
       if (proto && !proto.flash) {
-        proto.flash = function () { registerPatternViz(this, 'flash'); return this; };
-        proto.glow  = function () { registerPatternViz(this, 'glow');  return this; };
-        proto.wave  = function () { registerPatternViz(this, 'wave');  return this; };
+        // Each returns the pattern unchanged, so a decoration never alters
+        // what reaches the wire and any number of them can be chained: two
+        // calls put two widgets on the line.
+        for (const kind of ['flash', 'glow', 'wave', 'roll', 'punchcard', 'spiral', 'spectrum'] as const) {
+          proto[kind] = function (this: PatternLike) {
+            registerPatternViz(this, kind);
+            return this;
+          };
+        }
       }
       // Stash the prototype for register() (further down) to extend on demand.
       _patternProto = proto;

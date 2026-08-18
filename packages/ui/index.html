@@ -1753,6 +1753,22 @@
       .gobo-patviz-flash {
         background: rgba(196, 114, 74, calc(var(--gobo-flash, 0) * 0.32));
       }
+      /* Structural pattern decorations (roll / punchcard / spiral / spectrum).
+         Small canvases at line-end; several can sit side by side when a
+         pattern is chained with more than one. */
+      .gobo-patviz-shape {
+        display: inline-block;
+        margin-left: 8px;
+        vertical-align: middle;
+        line-height: 0;
+        opacity: 0.9;
+      }
+      .gobo-patviz-shape canvas {
+        display: block;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
       /* Live control handle, placed at the end of a slider() line. Sized to
          sit on a code line without pushing it taller. */
       .gobo-slider {

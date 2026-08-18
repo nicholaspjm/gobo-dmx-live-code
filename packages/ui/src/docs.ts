@@ -248,7 +248,7 @@ const DOCS: DocSection[] = [
     category: 'viz',
     title: 'pattern viz',
     blurb:
-      "Opt-in per-pattern editor decorations. Chain .flash() / .glow() / .wave() onto any pattern (sine/square/cosine/saw/rand, mini-notation) and the editor line lights up with live feedback. Methods return the pattern unchanged so you can still pass it into a fixture setter. Never on by default.",
+      "Opt-in per-pattern editor decorations. Chain one onto any pattern and the line shows what it is doing. Every method returns the pattern unchanged, so nothing about the output changes and you can chain as many as you like: two calls put two views on the line, side by side. Never on by default.",
     entries: [
       {
         name: '.flash',
@@ -268,8 +268,74 @@ const DOCS: DocSection[] = [
         name: '.wave',
         signature: 'sine().slow(6).wave()',
         description:
-          "Tiny inline sparkline at the end of the line showing the last ~1 second of the pattern's sample values. Like .viz('wave') but attached to a specific pattern call rather than a whole fixture.",
+          "The oscilloscope: a sparkline at the end of the line showing the last second or so of values as they went past. Best for anything continuous, where the shape of the curve is the thing you are checking. Like .viz('wave') but attached to one pattern rather than a whole fixture.",
         example: 'washA.white(sine().slow(6).range(0, 0.4).wave())',
+      },
+      {
+        name: '.roll',
+        signature: "mini('1 - 1 -').roll()",
+        description:
+          "The bar drawn as blocks: every event of the current cycle laid left to right, block height by level, with the playhead sweeping across. This is the one that shows STRUCTURE, including things the wire cannot: '1@3 0.2' draws as one long block and a short one, where the light just sees a level.",
+        example: "wash.red(mini('1 - - -  - - 1 -').roll())",
+      },
+      {
+        name: '.punchcard',
+        signature: "mini('1(3,8)').punchcard()",
+        description:
+          'The bar as a fixed grid of sixteen cells, filled where a hit covers them, with the current cell outlined. Reads rhythm at a glance, and holds its shape between patterns so two lines can be compared by eye. A held event fills every cell it spans, not just the one it starts in.',
+        example: "strb.strobe(mini('1(5,16)').punchcard())",
+      },
+      {
+        name: '.spiral',
+        signature: "mini('1 - 1 -').spiral()",
+        description:
+          'The bar wound round twice, with the playhead sweeping it. Compact, and cyclical the way the music is: a pattern that lines up with the bar makes a shape that stays still, and one that drifts visibly turns.',
+        example: "wash.blue(mini('1(3,8)').spiral())",
+      },
+      {
+        name: '.spectrum',
+        signature: 'sine().fast(8).spectrum()',
+        description:
+          'Which rates the recent values are moving at: a fast strobe puts a peak on the right, a slow swell sits on the left. Useful for checking a strobe is running at the rate you meant. It analyses this CHANNEL, not audio; there is no sound in gobo to analyse.',
+        example: "strb.strobe(mini('1*16').spectrum())",
+      },
+      {
+        name: 'layering them',
+        signature: 'chain as many as you like',
+        description:
+          'Each call is matched to its own widget, so chaining several puts several views on the line in the order written. Nothing about the output changes: every one of these returns the pattern untouched.',
+        example: "wash.red(mini('1 - - -').roll().punchcard().spectrum())",
+      },
+    ],
+  },
+
+  {
+    category: 'viz',
+    title: 'live controls',
+    blurb:
+      'A value with a handle on it. Declaring one puts a slider at that point in the source, and dragging it moves the light immediately, with nothing re-evaluated.',
+    entries: [
+      {
+        name: 'slider',
+        signature: "slider(name, min = 0, max = 1, opts?)",
+        description:
+          'Returns a pattern whose value is whatever the handle is at. Because it is read fresh on every tick, dragging is a read of a number rather than a rebuild of the scene, which matters during a show where a re-run is a visible seam.',
+        example:
+          "const level = slider('level')\nspot.dim(level)",
+      },
+      {
+        name: 'ranges and steps',
+        signature: "slider(name, min, max, { step, start })",
+        description:
+          'min and max set the range, step quantises it (omit for continuous), and start is the opening position. A slider feeds a channel directly; it is a pattern, not a number, so it cannot be used as an argument to .fast() or arithmetic. Two sliders sharing a name throw, because they would share one position and fight over it.',
+        example:
+          "const level = slider('level', 0, 1, { step: 0.05, start: 0.3 })\nspot.dim(level)\n\nconst amber = slider('amber')\nwash.white(amber)",
+      },
+      {
+        name: 'positions are kept',
+        signature: 'across re-evaluation',
+        description:
+          'A control you have moved keeps its position when the scene is run again, so editing a line further down does not throw away a level you set by hand. The number in the source is the STARTING position: used the first time that name is seen, ignored after that.',
       },
     ],
   },

@@ -495,6 +495,51 @@ spot.white(mini('1 - - -').punch())`,
     kind: 'method',
   },
   {
+    label: 'roll',
+    signature: '.roll() => Pattern',
+    description:
+      'Inline viz: the bar as blocks, one per event, with a playhead. Shows structure, including holds the wire cannot express. No effect on DMX output.',
+    example: "wash.red(mini('1 - - -  - - 1 -').roll())",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'punchcard',
+    signature: '.punchcard() => Pattern',
+    description:
+      'Inline viz: the bar as a fixed sixteen-cell grid, for reading rhythm at a glance. No effect on DMX output.',
+    example: "strb.strobe(mini('1(5,16)').punchcard())",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'spiral',
+    signature: '.spiral() => Pattern',
+    description:
+      'Inline viz: the bar wound round with the playhead sweeping it. Compact, and shows drift against the bar. No effect on DMX output.',
+    example: "wash.blue(mini('1(3,8)').spiral())",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'spectrum',
+    signature: '.spectrum() => Pattern',
+    description:
+      'Inline viz: which rates the recent values move at, for checking a strobe. Analyses the channel, not audio. No effect on DMX output.',
+    example: "strb.strobe(mini('1*16').spectrum())",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'slider',
+    signature: 'slider(name, min?, max?, opts?)',
+    description:
+      'A value with a draggable handle at this point in the source. Moving it changes the light immediately, with nothing re-evaluated, and the position survives a re-run.',
+    example: "const level = slider('level')\nwash.dim(level)",
+    context: 'command',
+    kind: 'function',
+  },
+  {
     label: 'glow',
     signature: '.glow() => Pattern',
     description: 'Inline viz: editor line background tracks the pattern value. No effect on DMX output.',
