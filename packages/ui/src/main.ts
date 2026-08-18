@@ -18,7 +18,9 @@ import {
   getCycleFraction,
   tick,
   getAllUniverses,
-  getPrimaryUniverseSnapshot,
+  getUniverseSnapshot,
+  getActiveUniverses,
+  SCREEN_UNIVERSE,
   getUniverseBuffer,
   evalCode,
   initStrudel,
@@ -37,6 +39,7 @@ import {
   connectUsbDmx,
   disconnectUsbDmx,
   isUsbDmxSupported,
+  reconnectUsbDmx,
   onUsbStatusChange,
   restoreLibraryFixtures,
   getSimFixtures,
@@ -87,6 +90,7 @@ applyTheme(getSettings().theme);
 
 const editorEl = document.getElementById('editor')!;
 const visualizerEl = document.getElementById('visualizer') as HTMLCanvasElement;
+const visualizerLabelEl = document.getElementById('visualizer-label') as HTMLElement;
 const evalStatusEl = document.getElementById('eval-status')!;
 const bpmValEl = document.getElementById('bpm-val') as HTMLElement;
 const bpmTapEl = document.getElementById('bpm-tap') as HTMLButtonElement;
@@ -165,6 +169,7 @@ async function runEval(code: string): Promise<void> {
     // the new code.
     rebuildSimPanel();
     rebuildScreens();
+    refreshVisualizerLabel();
     // Refresh the library panel: a new defineFixture call may have added or
     // replaced a custom fixture that the user can now save.
     _refreshLibraryAfterEval();
@@ -189,7 +194,7 @@ function runStop(): void {
     for (const buf of getAllUniverses().values()) buf.fill(0);
     sendUniverseState(getAllUniverses());
     if (isUsbConnected()) sendUsbDmx(getUniverseBuffer(0));
-    updateVisualizer(getPrimaryUniverseSnapshot());
+    updateVisualizer(getUniverseSnapshot(visualizedUniverse()));
   }
   setStatus('', 'stopped · ctrl+enter to run');
 }
@@ -376,6 +381,31 @@ window.addEventListener('pagehide', () => {
 
 // ─── Visualizer ──────────────────────────────────────────────────────────────
 
+/**
+ * Which universe the 512-channel level strip shows.
+ *
+ * It was pinned to universe 0, so a scene addressing anything else drew an
+ * empty strip and looked broken while the rig ran correctly. It now follows
+ * the lowest universe the scene actually drives, falling back to 0 when
+ * nothing is running so the strip keeps its shape.
+ *
+ * Screen lights are skipped: they render themselves as panels, and their
+ * universe is an implementation detail nobody patched a fixture to.
+ */
+function visualizedUniverse(): number {
+  const active = getActiveUniverses().filter((u) => u !== SCREEN_UNIVERSE);
+  return active.length > 0 ? active[0] : 0;
+}
+
+/** Keep the strip's label honest about which universe is on screen. */
+function refreshVisualizerLabel(): void {
+  const u = visualizedUniverse();
+  const others = getActiveUniverses().filter((x) => x !== SCREEN_UNIVERSE && x !== u);
+  visualizerLabelEl.textContent = others.length > 0
+    ? `universe ${u} (+${others.length} more)`
+    : `universe ${u}`;
+}
+
 initVisualizer(visualizerEl);
 
 // ─── Scheduler tick ──────────────────────────────────────────────────────────
@@ -456,8 +486,8 @@ onTick((cyclePos, _delta) => {
     setStatus('error', _queryFailureMsg);
   }
 
-  // 3. Push to visualizer (gets the live primary-universe buffer)
-  updateVisualizer(getPrimaryUniverseSnapshot());
+  // 3. Push to the level strip, following whichever universe the scene drives.
+  updateVisualizer(getUniverseSnapshot(visualizedUniverse()));
 
   // 4. Send to bridge (time-throttled to the configured send rate).
   const sendIntervalMs = 1000 / getSettings().sendRate;
@@ -1564,6 +1594,16 @@ onUsbStatusChange(() => {
   // The panel draws the connected state from isUsbConnected(), so a change
   // only has to make it repaint.
   _outputsPanel?.refresh();
+});
+
+// Reopen an interface this origin has already been granted, without asking
+// again. Browsers remember the grant but not the open port, so a reload used
+// to leave a plugged-in box disconnected until someone clicked through the
+// chooser a second time. Nothing is prompted here: getPorts() only ever
+// returns devices the user has already picked, so this is silent when there
+// are none, and silent when it fails.
+void reconnectUsbDmx().then((reconnected) => {
+  if (reconnected) setStatus('ok', 'usb interface reconnected');
 });
 
 /** Connect or disconnect the interface. Called by the outputs panel's usb
