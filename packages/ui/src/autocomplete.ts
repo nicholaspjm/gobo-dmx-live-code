@@ -113,6 +113,29 @@ const fixtureMethods: Completion[] = HELP_ENTRIES
 // Merged method pool shown when we can't narrow by receiver.
 const allMethods: Completion[] = [...patternMethods, ...fixtureMethods];
 
+/**
+ * Put the obvious answer at the top.
+ *
+ * CodeMirror scores a prefix hit on `channelCount` the same as one on `chase`
+ * and then falls back to alphabetical, so typing `ch` offered channelCount,
+ * channels, and only then the method actually named that. Its fuzzy matcher
+ * also lets `punchcard` and `startChannel` through on the same two letters.
+ *
+ * A boost is added to CodeMirror's own score, so this reorders without hiding
+ * anything: an exact match first, then prefix matches shortest-first, then
+ * whatever the fuzzy matcher found.
+ */
+export function rankFor(options: Completion[], typed: string): Completion[] {
+  if (typed === '') return options;
+  const q = typed.toLowerCase();
+  return options.map((o) => {
+    const label = o.label.toLowerCase();
+    if (label === q) return { ...o, boost: 99 };
+    if (label.startsWith(q)) return { ...o, boost: Math.max(20, 80 - label.length * 2) };
+    return o;
+  });
+}
+
 // ─── Completion source ───────────────────────────────────────────────────────
 
 function goboCompletions(context: CompletionContext): CompletionResult | null {
@@ -131,7 +154,10 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
   const dotMatch = context.matchBefore(/([A-Za-z_$][\w$]*)\.(\w*)$/);
   if (dotMatch) {
     const methodStart = dotMatch.from + dotMatch.text.indexOf('.') + 1;
-    return { from: methodStart, options: allMethods, validFor: /^\w*$/ };
+    const typed = context.state.sliceDoc(methodStart, context.pos);
+    // No validFor: the ranking depends on what has been typed so far, so the
+    // list has to be rebuilt as it grows rather than filtered in place.
+    return { from: methodStart, options: rankFor(allMethods, typed) };
   }
 
   // Case 2: bare identifier. Commands plus user-declared light names.
@@ -158,8 +184,7 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
 
   return {
     from: wordMatch.from,
-    options: [...commandCompletions, ...lightOptions],
-    validFor: /^\w*$/,
+    options: rankFor([...commandCompletions, ...lightOptions], wordMatch.text),
   };
 }
 
