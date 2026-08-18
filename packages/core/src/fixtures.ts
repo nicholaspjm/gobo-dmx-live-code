@@ -332,6 +332,18 @@ export interface SimFixture {
   startChannel: number;
   /** Total channels this entry occupies. Tooltip-only. */
   channelCount: number;
+  /**
+   * The id this was patched with, so the tooltip can show the call that made
+   * it. Absent for strips built directly rather than from a fixture def.
+   */
+  fixtureId?: string;
+  /**
+   * What can be called on it: the named setters, or a strip's methods. Shown
+   * on hover, because knowing a fixture is there is not the same as knowing
+   * what it answers to, and the alternative is guessing or reading the docs
+   * for a fixture you already have in front of you.
+   */
+  commands?: string[];
   /** Live movement channel hints; absent = element doesn't move. */
   movement?: SimMovement;
   render:
@@ -697,6 +709,38 @@ function driveEmitters(
 }
 
 /**
+ * What can be called on a fixture, as written.
+ *
+ * Named setters first, in channel order, then the generic helpers that exist
+ * on every fixture. A strip channel is listed by the methods it answers to
+ * rather than as a setter, because it is not one.
+ *
+ * Exported because the library panel and the hover tooltip both need to say
+ * this, and two descriptions of one fixture would eventually disagree.
+ */
+export function fixtureCommands(def: FixtureDef): string[] {
+  const out: string[] = [];
+  for (const ch of def.channels) {
+    if (ch.type === 'strip') {
+      const v = ch.pixelLayout === 'rgbw' ? 'r,g,b,w' : ch.pixelLayout === 'mono' ? 'v' : 'r,g,b';
+      out.push(`${ch.name}.fill(${v})`, `${ch.name}.each(fn)`);
+      continue;
+    }
+    if (ch.slots !== undefined && ch.slots.length > 0) {
+      // A slotted channel is picked by name, so show the names rather than a
+      // value: they are the whole reason it is easier than the manual.
+      const names = ch.slots.slice(0, 3).map((s) => `'${s.name}'`).join(' | ');
+      const more = ch.slots.length > 3 ? ' | …' : '';
+      out.push(`${ch.name}(${names}${more})`);
+      continue;
+    }
+    out.push(`${ch.name}(v)`);
+  }
+  out.push('color(r,g,b)', 'full()', 'off()', 'set(name, v)', 'viz(kind)');
+  return out;
+}
+
+/**
  * Load a fixture at a DMX address and return a named-channel setter object.
  *
  * @param startChannel  1-based DMX channel (first channel of the fixture). The
@@ -908,6 +952,8 @@ export function fixture(
         universe,
         startChannel,
         channelCount: def.channelCount,
+        fixtureId,
+        commands: fixtureCommands(def),
         movement,
         render: { kind: 'globe-rgbw', r, g, b, w, dim: dimOffset },
       });
@@ -918,6 +964,8 @@ export function fixture(
         universe,
         startChannel,
         channelCount: def.channelCount,
+        fixtureId,
+        commands: fixtureCommands(def),
         movement,
         render: { kind: 'globe-dim', dim: dimOffset },
       });
@@ -1428,6 +1476,8 @@ export function rgbStrip(
     universe,
     startChannel,
     channelCount,
+    commands: ['fill(r,g,b)', 'pixel(i,r,g,b)', 'pixelXY(x,y,r,g,b)', 'row(y,…)', 'column(x,…)',
+      'each(fn)', 'eachXY(fn)', 'pixelGrid(rows)', 'red(v)', 'green(v)', 'blue(v)', 'rainbowChase()'],
     movement: opts.movement,
     render: { kind: 'strip-rgb', pixelCount },
   });
@@ -1570,6 +1620,8 @@ export function monoStrip(
     universe,
     startChannel,
     channelCount,
+    commands: ['fill(v)', 'pixel(i,v)', 'pixelXY(x,y,v)', 'row(y,v)', 'column(x,v)',
+      'each(fn)', 'eachXY(fn)'],
     movement: opts.movement,
     render: { kind: 'strip-mono', pixelCount },
   });
@@ -1859,6 +1911,8 @@ export function rgbwStrip(
     universe,
     startChannel,
     channelCount,
+    commands: ['fill(r,g,b,w)', 'pixel(i,r,g,b,w)', 'pixelXY(x,y,r,g,b,w)', 'row(y,…)', 'column(x,…)',
+      'each(fn)', 'eachXY(fn)', 'pixelGrid(rows)', 'red(v)', 'green(v)', 'blue(v)', 'white(v)', 'rainbowChase()'],
     movement: opts.movement,
     render: { kind: 'strip-rgbw', pixelCount },
   });

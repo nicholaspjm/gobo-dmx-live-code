@@ -530,6 +530,31 @@ const DOCS: DocSection[] = [
 
   {
     category: 'fixtures',
+    title: 'the screen as a light',
+    blurb:
+      'A fixture with no DMX address. It claims a strip of the page and runs from the same patterns as everything else, so a cue can be written and watched with no hardware in the room.',
+    entries: [
+      {
+        name: 'screen',
+        signature: 'screen(pixels = 1, { columns, label })',
+        description:
+          'With no arguments it is one colour wash: a rectangle that takes a colour. Give it a pixel count and it is a strip, add columns and it is a grid, addressable with pixelXY and eachXY exactly like a physical pixel wash. It answers every strip method, so a chase written for real hardware runs on it unchanged.',
+        example:
+          "const room = screen()\nroom.fill(sine().slow(4), 0, cosine().slow(4))\n\nconst wall = screen(48, { columns: 12, label: 'wall' })\nwall.eachXY((x, y, w) => sine().early(x / w).slow(4))",
+      },
+      {
+        name: 'why it is a real fixture',
+        signature: 'same setters, same patterns',
+        description:
+          'It renders from an ordinary DMX universe well above anything a rig uses, so nothing in the engine treats it specially and it can go into a group() beside real fixtures and be driven by one each(). It takes columns but not origin or serpentine: those describe how a strip is wired, and a screen has no wiring.',
+        example:
+          "const rig = group(washA, screen(8))\nrig.each(p => sine().early(p).slow(4))",
+      },
+    ],
+  },
+
+  {
+    category: 'fixtures',
     title: 'groups',
     blurb:
       'Several fixtures, strips and pixels addressed as one. A group answers the same verbs a fixture does, so a line written for one par works across a whole rig unchanged.',
@@ -1068,6 +1093,130 @@ const DOCS: DocSection[] = [
           'cat() takes one cycle from each argument in turn, so naming your bars and listing them is a workable arrangement for a whole song. Repeat a name to repeat the bar.',
         example:
           "const hold = mini('0.3 0.3 0.3 0.3')\nconst hit  = mini('1 - - -')\nwash.red(cat(hold, hold, hit, hit))",
+      },
+    ],
+  },
+
+  {
+    category: 'patterns',
+    title: 'signals',
+    blurb:
+      'Continuous shapes. Call one and chain it: every pattern method works on them. All run 0 to 1 unless a range says otherwise.',
+    entries: [
+      {
+        name: 'sine · cosine',
+        signature: 'sine()  ·  cosine()',
+        description:
+          'The smooth ones, a quarter cycle apart. cosine() is sine() a quarter early, which is the usual way to get two lights swelling out of step without writing the offset.',
+        example: 'washA.red(sine().slow(4))\nwashB.red(cosine().slow(4))',
+      },
+      {
+        name: 'saw · isaw',
+        signature: 'saw()  ·  isaw()',
+        description:
+          'A ramp up and a ramp down. saw() climbs 0 to 1 across the cycle and drops; isaw() is its mirror. Good for sweeps and for anything that should reset hard rather than ease.',
+        example: 'strip.red(saw().slow(2))\nstrip.blue(isaw().slow(2))',
+      },
+      {
+        name: 'tri',
+        signature: 'tri()',
+        description:
+          'Up then down in equal time. A fade in and out with no dwell at either end, where a sine lingers at the top and bottom.',
+        example: 'spot.dim(tri().slow(8))',
+      },
+      {
+        name: 'square',
+        signature: 'square()',
+        description: 'Hard on, hard off, half the cycle each. Chops rather than fades.',
+        example: 'strb.strobe(square().fast(8))',
+      },
+      {
+        name: 'rand · perlin',
+        signature: 'rand()  ·  perlin()',
+        description:
+          'Two kinds of noise. rand() jumps to an unrelated value constantly, which reads as sparkle or fault; perlin() wanders smoothly, which reads as flicker, candlelight or drift. perlin is almost always the one you want for something meant to look alive.',
+        example: 'wash.red(perlin().slow(4).range(0.3, 1))\nstrb.strobe(rand().range(-6, 1))',
+      },
+      {
+        name: 'irand · run',
+        signature: 'irand(n)  ·  run(n)',
+        description:
+          'Whole numbers rather than a continuous level. irand(n) picks one at random below n; run(n) counts 0 to n-1 across the cycle. Both usually want dividing down into a level, or feeding to something that takes an index.',
+        example: 'wash.red(irand(4).div(4).segment(8))',
+      },
+      {
+        name: 'pure · silence',
+        signature: 'pure(v)  ·  silence',
+        description:
+          'A constant, and nothing at all. silence is written without parentheses. Both are mostly useful inside cat() or a conditional, to say explicitly that a bar does nothing.',
+        example: "wash.red(cat(mini('1 - 1 -'), silence))",
+      },
+    ],
+  },
+
+  {
+    category: 'patterns',
+    title: 'choosing and shuffling',
+    blurb:
+      'Ways to pick, reorder or vary, all with strudel\'s own names so a pattern copied from its docs runs here.',
+    entries: [
+      {
+        name: 'choose · wchoose',
+        signature: 'choose(a, b, c)  ·  wchoose([a, w], [b, w])',
+        description:
+          'Pick one of the listed values at random, continuously. wchoose weights the odds: each argument is a value and how likely it is. Both usually want .segment(n) so they settle into steps rather than changing every frame.',
+        example: 'wash.red(choose(0.2, 0.6, 1).segment(4))',
+      },
+      {
+        name: 'chooseCycles · randcat',
+        signature: 'chooseCycles(a, b)  ·  randcat(pat, pat)',
+        description:
+          'Pick per bar rather than continuously. chooseCycles takes values, randcat takes whole patterns and plays one of them for the cycle. wrandcat weights which. The way to make a phrase that varies bar to bar without writing every bar.',
+        example: "wash.red(randcat(mini('1 - 1 -'), mini('1 1 1 1')))",
+      },
+      {
+        name: 'shuffle · scramble',
+        signature: 'pat.shuffle(n)  ·  pat.scramble(n)',
+        description:
+          'Cut the cycle into n parts and reorder them. shuffle uses each part exactly once, so the material is preserved and only the order changes; scramble picks freely, so parts can repeat or vanish. shuffle for a variation, scramble for something more broken.',
+        example: "bar.pixels.red(mini('1 0.6 0.3 0').shuffle(4))",
+      },
+      {
+        name: 'brand · brandBy',
+        signature: 'brand  ·  brandBy(p)',
+        description:
+          'Random zero or one, rather than a level in between. brandBy(p) biases it: p is the chance of a one. Useful as a gate, multiplied into something else, or fed to mask().',
+        example: 'wash.red(sine().mul(brandBy(0.7).segment(8)))',
+      },
+    ],
+  },
+
+  {
+    category: 'patterns',
+    title: 'joining patterns',
+    blurb:
+      'Ways to put patterns end to end or on top of each other. cat and stack are the two you reach for; the rest are for when the timing needs saying exactly.',
+    entries: [
+      {
+        name: 'slowcat · fastcat',
+        signature: 'slowcat(a, b)  ·  fastcat(a, b)',
+        description:
+          'slowcat gives each pattern a whole cycle in turn, which is what plain cat() does. fastcat squeezes them all into one cycle instead, so two patterns each get half a bar.',
+        example: "wash.red(fastcat(mini('1 - - -'), mini('1 1 1 1')))",
+      },
+      {
+        name: 'timeCat · stepcat',
+        signature: 'timeCat([2, a], [1, b])',
+        description:
+          'cat with the shares written down: each pattern gets the weight you give it. [2, a] and [1, b] means a takes two thirds of the cycle and b takes one. For an arrangement where the sections are not equal.',
+        example: "wash.red(timeCat([3, mini('1 - - -')], [1, mini('1 1 1 1')]))",
+      },
+      {
+        name: 'polymeter · polyrhythm',
+        signature: 'polymeter(a, b)  ·  polyrhythm(a, b)',
+        description:
+          'The function forms of the {a, b} and [a, b] notations. polymeter steps every pattern at the same rate, so different lengths drift against each other; polyrhythm squeezes each into the same cycle, so they stay aligned but subdivide differently. pm and pr are strudel\'s short names for them.',
+        example: "wash.red(polymeter(mini('1 0'), mini('0.4 0.4 0.4')))",
       },
     ],
   },
