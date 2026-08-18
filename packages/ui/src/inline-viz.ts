@@ -44,10 +44,13 @@ import {
   getCyclePos,
   getPatternVizEntries,
   samplePattern,
+  sampleCycle,
   getControls,
   getControlValue,
   setControlValue,
   type ControlEntry,
+  type PatternSpan,
+  type PatternLike,
   type VizEntry,
   type VizKind,
   type PatternVizEntry,
@@ -462,6 +465,9 @@ class SliderWidget extends WidgetType {
 /** Live slider widgets, so the tick can keep their handles in step. */
 let _sliderWidgets: SliderWidget[] = [];
 
+/** The kinds drawn as a canvas at line-end rather than as a line decoration. */
+const SHAPE_KINDS = new Set<PatternVizKind>(['roll', 'punchcard', 'spiral', 'spectrum']);
+
 // ─── Pattern-level inline viz (.flash / .glow / .wave) ──────────────────────
 // Distinct decoration pipeline from the fixture-level `.viz(kind)` widgets
 // above. Flash and glow apply a CSS class + a `data-gobo-patviz` index to
@@ -480,6 +486,8 @@ interface PatternVizDecoEntry {
   idx: number;
   /** Sparkline widget reference (wave only). */
   sparkline?: PatternWaveWidget;
+  /** Canvas widget reference (roll / punchcard / spiral / spectrum). */
+  shape?: PatternShapeWidget;
   /** Cached line element, so the tick avoids a querySelector. Stays null
    *  until the line is first rendered, and is re-queried if CM drops the
    *  reference (viewport scroll, line DOM recycle). */
@@ -552,6 +560,202 @@ class PatternWaveWidget extends WidgetType {
 }
 
 /**
+ * The structural decorations: roll, punchcard, spiral and spectrum.
+ *
+ * All four are small canvases at the end of the line, and all four are fed the
+ * same two things on each tick: the events of the current cycle and where the
+ * playhead is inside it. Sharing one class keeps the drawing differences to a
+ * single switch rather than four near-identical widgets.
+ *
+ * The cycle is re-queried only when the cycle number changes, not every tick:
+ * the shape of a bar does not move within the bar, and querying a whole cycle
+ * sixty times a second for a decoration would be real work for no gain.
+ */
+class PatternShapeWidget extends WidgetType {
+  private canvas: HTMLCanvasElement | null = null;
+  private spans: PatternSpan[] = [];
+  private cachedCycle = -1;
+  /** Recent values, for the spectrum's transform. */
+  private history: number[] = [];
+  private readonly HISTORY = 64;
+
+  constructor(
+    private readonly idx: number,
+    private readonly kind: PatternVizKind,
+  ) {
+    super();
+  }
+
+  eq(other: WidgetType): boolean {
+    return other instanceof PatternShapeWidget
+      && other.idx === this.idx && other.kind === this.kind;
+  }
+
+  private width(): number {
+    // A spiral is square; the rest read left to right.
+    return this.kind === 'spiral' ? 16 : 70;
+  }
+
+  toDOM(): HTMLElement {
+    const span = document.createElement('span');
+    span.className = `gobo-patviz-shape gobo-patviz-${this.kind}`;
+    span.setAttribute('aria-hidden', 'true');
+    span.contentEditable = 'false';
+    span.title = this.kind;
+    const c = document.createElement('canvas');
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const w = this.width();
+    c.width = w * dpr;
+    c.height = 16 * dpr;
+    c.style.width = `${w}px`;
+    c.style.height = '16px';
+    span.appendChild(c);
+    this.canvas = c;
+    this.cachedCycle = -1;
+    return span;
+  }
+
+  /** Called once per tick with the pattern and the position within the cycle. */
+  update(pattern: PatternLike, cyclePos: number, value: number): void {
+    const c = this.canvas;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+
+    const cycle = Math.floor(cyclePos);
+    if (cycle !== this.cachedCycle) {
+      this.cachedCycle = cycle;
+      this.spans = sampleCycle(pattern, cycle);
+    }
+    const phase = cyclePos - cycle;
+
+    this.history.push(Math.max(0, Math.min(1, value)));
+    if (this.history.length > this.HISTORY) this.history.shift();
+
+    const { width: w, height: h } = c;
+    ctx.clearRect(0, 0, w, h);
+
+    switch (this.kind) {
+      case 'roll':      this.drawRoll(ctx, w, h, phase); break;
+      case 'punchcard': this.drawPunchcard(ctx, w, h, phase); break;
+      case 'spiral':    this.drawSpiral(ctx, w, h, phase); break;
+      case 'spectrum':  this.drawSpectrum(ctx, w, h); break;
+      default: break;
+    }
+  }
+
+  /** Events as blocks across the bar, height by level, plus a playhead. */
+  private drawRoll(ctx: CanvasRenderingContext2D, w: number, h: number, phase: number): void {
+    for (const s of this.spans) {
+      const x = s.begin * w;
+      // A zero-length event still has to be visible, hence the floor.
+      const bw = Math.max(1, (s.end - s.begin) * w);
+      const bh = Math.max(1, s.value * (h - 2));
+      ctx.fillStyle = `rgba(196, 114, 74, ${0.35 + s.value * 0.65})`;
+      ctx.fillRect(x, h - bh, bw - 0.5, bh);
+    }
+    ctx.fillStyle = 'rgba(230, 200, 150, 0.85)';
+    ctx.fillRect(phase * w, 0, 1, h);
+  }
+
+  /** A fixed grid of cells: where the hits land, at a glance. */
+  private drawPunchcard(ctx: CanvasRenderingContext2D, w: number, h: number, phase: number): void {
+    const CELLS = 16;
+    const cw = w / CELLS;
+    for (let i = 0; i < CELLS; i++) {
+      const at = (i + 0.5) / CELLS;
+      // The level covering this cell's midpoint, so a held event fills every
+      // cell it spans rather than only the one it starts in.
+      let v = 0;
+      for (const s of this.spans) {
+        if (at >= s.begin && at < Math.max(s.end, s.begin + 1e-6) && s.value > v) v = s.value;
+      }
+      const inset = cw * 0.18;
+      const size = Math.max(1, cw - inset * 2);
+      const y = h / 2 - size / 2;
+      ctx.fillStyle = v > 0
+        ? `rgba(196, 114, 74, ${0.35 + v * 0.65})`
+        : 'rgba(255, 255, 255, 0.07)';
+      ctx.fillRect(i * cw + inset, y, size, size);
+    }
+    const playing = Math.floor(phase * CELLS);
+    ctx.strokeStyle = 'rgba(230, 200, 150, 0.9)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(playing * cw + 0.5, 0.5, cw - 1, h - 1);
+  }
+
+  /** The bar wound round, with the playhead sweeping it like a radar. */
+  private drawSpiral(ctx: CanvasRenderingContext2D, w: number, h: number, phase: number): void {
+    const cx = w / 2;
+    const cy = h / 2;
+    const rMax = Math.min(cx, cy) - 1;
+    const TURNS = 2;
+    ctx.lineWidth = Math.max(1, rMax / 5);
+    for (const s of this.spans) {
+      if (s.value <= 0) continue;
+      const a0 = s.begin * Math.PI * 2 * TURNS - Math.PI / 2;
+      const a1 = Math.max(s.end, s.begin + 0.004) * Math.PI * 2 * TURNS - Math.PI / 2;
+      const r = rMax * (0.35 + 0.65 * s.begin);
+      ctx.strokeStyle = `rgba(196, 114, 74, ${0.35 + s.value * 0.65})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, a0, a1);
+      ctx.stroke();
+    }
+    const pa = phase * Math.PI * 2 * TURNS - Math.PI / 2;
+    const pr = rMax * (0.35 + 0.65 * phase);
+    ctx.fillStyle = 'rgba(230, 200, 150, 0.95)';
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(pa) * pr, cy + Math.sin(pa) * pr, Math.max(1, rMax / 7), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /**
+   * Which rates the recent values move at.
+   *
+   * A plain magnitude transform over the value history, so a strobe shows a
+   * peak at its rate and a slow fade sits at the left. It is a spectrum of the
+   * CHANNEL, not of any audio: there is no sound in this program to analyse,
+   * and pretending otherwise would be the wrong reading of the picture.
+   */
+  private drawSpectrum(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+    const n = this.history.length;
+    if (n < 8) return;
+    const mean = this.history.reduce((a, b) => a + b, 0) / n;
+    const BINS = 16;
+    let peak = 1e-6;
+    const mags: number[] = [];
+    for (let k = 1; k <= BINS; k++) {
+      let re = 0;
+      let im = 0;
+      for (let i = 0; i < n; i++) {
+        // Mean removed so a channel held at full does not read as one huge
+        // bin and flatten everything else.
+        const v = this.history[i] - mean;
+        const ang = (2 * Math.PI * k * i) / n;
+        re += v * Math.cos(ang);
+        im -= v * Math.sin(ang);
+      }
+      const mag = Math.sqrt(re * re + im * im) / n;
+      mags.push(mag);
+      if (mag > peak) peak = mag;
+    }
+    const bw = w / BINS;
+    for (let k = 0; k < BINS; k++) {
+      const t = mags[k] / peak;
+      const bh = Math.max(1, t * (h - 2));
+      ctx.fillStyle = `rgba(196, 114, 74, ${0.3 + t * 0.7})`;
+      ctx.fillRect(k * bw, h - bh, Math.max(1, bw - 1), bh);
+    }
+  }
+
+  destroy(): void {
+    this.canvas = null;
+    this.spans = [];
+    this.history = [];
+  }
+}
+
+/**
  * Tick subscription that drives the flash / glow / wave decorations from
  * their patterns' current sample values. Runs on the same worker-clock
  * schedule as the main pattern engine.
@@ -588,6 +792,11 @@ onTick(() => {
 
     if (deco.core.kind === 'wave') {
       deco.sparkline?.push(value);
+      continue;
+    }
+
+    if (deco.shape) {
+      deco.shape.update(deco.core.pattern, cyclePos, value);
       continue;
     }
 
@@ -730,7 +939,7 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
     const code = commentIdx >= 0 ? lineObj.text.slice(0, commentIdx) : lineObj.text;
     // Order of matches within a line matters for the 1:1 zip, so use a
     // single regex with /g and record each hit in order.
-    const re = /\.(flash|glow|wave)\s*\(/g;
+    const re = /\.(flash|glow|wave|roll|punchcard|spiral|spectrum)\s*\(/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(code)) !== null) {
       patHits.push({ line: i, kind: m[1] as PatternVizKind });
@@ -752,6 +961,16 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
       // Widget at end-of-line. The tick loop pushes samples into its canvas.
       const widget = new PatternWaveWidget(i);
       deco.sparkline = widget;
+      ranges.push({
+        from: lineObj.to,
+        to: lineObj.to,
+        value: Decoration.widget({ widget, side: 1 }),
+      });
+    } else if (SHAPE_KINDS.has(coreEntry.kind)) {
+      // Also end-of-line, and also fed by the tick. Several on one line
+      // simply become several widgets, in the order they were written.
+      const widget = new PatternShapeWidget(i, coreEntry.kind);
+      deco.shape = widget;
       ranges.push({
         from: lineObj.to,
         to: lineObj.to,
