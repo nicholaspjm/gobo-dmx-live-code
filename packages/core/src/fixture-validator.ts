@@ -30,6 +30,7 @@ import {
   BUILT_IN_FIXTURES,
   type FixtureDef,
   type ChannelDef,
+  type ChannelSlot,
 } from './fixtures.js';
 
 // ─── Limits ──────────────────────────────────────────────────────────────────
@@ -45,6 +46,8 @@ export const FIXTURE_LIMITS = {
   MAX_CHANNEL_NAME_LEN: 32,
   /** Total DMX channels used by all strip-type channels combined. */
   MAX_STRIP_TOTAL_CHANNELS: 512,
+  /** Named positions on one selector channel. A wheel cannot exceed its 256 steps. */
+  MAX_SLOTS: 256,
 } as const;
 
 /** Allowed fixture `type` values. Mirrors FixtureDef.type. */
@@ -203,7 +206,10 @@ export function validateFixture(id: unknown, rawDef: unknown): ValidationResult 
     const unknown = rejectUnknownKeys(ch, VALID_CHANNEL_KEYS, `channel #${i}`);
     if (unknown) return { ok: false, error: unknown };
 
-    const { offset, name: cName, type: cType, description, pixelCount, pixelLayout } = ch;
+    const {
+      offset, name: cName, type: cType, description, pixelCount, pixelLayout,
+      columns, serpentine, slots,
+    } = ch;
 
     if (typeof offset !== 'number' || !Number.isInteger(offset) || offset < 0) {
       return { ok: false, error: `Channel #${i}: offset must be a non-negative integer.` };
@@ -278,6 +284,28 @@ export function validateFixture(id: unknown, rawDef: unknown): ValidationResult 
       }
       clean.pixelLayout = layout as 'rgb' | 'rgbw';
 
+      // Grid shape. A width that does not divide the pixel count would leave a
+      // ragged last row, which puts every (x, y) after it on the wrong pixel,
+      // so it is rejected here rather than discovered on the rig.
+      if (columns !== undefined) {
+        if (typeof columns !== 'number' || !Number.isInteger(columns) || columns < 1) {
+          return { ok: false, error: `Channel #${i}: columns must be an integer >= 1.` };
+        }
+        if (pixelCount % columns !== 0) {
+          return {
+            ok: false,
+            error: `Channel #${i}: ${pixelCount} pixels do not divide into rows of ${columns}.`,
+          };
+        }
+        clean.columns = columns;
+      }
+      if (serpentine !== undefined) {
+        if (typeof serpentine !== 'boolean') {
+          return { ok: false, error: `Channel #${i}: serpentine must be a boolean.` };
+        }
+        clean.serpentine = serpentine;
+      }
+
       const perPixel = layout === 'rgbw' ? 4 : 3;
       const stripChs = pixelCount * perPixel;
       stripChannelsTotal += stripChs;
@@ -294,6 +322,78 @@ export function validateFixture(id: unknown, rawDef: unknown): ValidationResult 
       if (pixelLayout !== undefined) {
         return { ok: false, error: `Channel #${i}: pixelLayout only valid on type 'strip'.` };
       }
+      if (columns !== undefined) {
+        return { ok: false, error: `Channel #${i}: columns only valid on type 'strip'.` };
+      }
+      if (serpentine !== undefined) {
+        return { ok: false, error: `Channel #${i}: serpentine only valid on type 'strip'.` };
+      }
+    }
+
+    // Named slots on a selector channel (colour wheel, gobo wheel, prism).
+    // A slot pointing outside 0-255 cannot be sent, and an unnamed one cannot
+    // be referred to, so both are refused rather than shipped to the rig.
+    if (slots !== undefined) {
+      if (!Array.isArray(slots)) {
+        return { ok: false, error: `Channel #${i}: slots must be an array.` };
+      }
+      if (cType === 'strip') {
+        return { ok: false, error: `Channel #${i}: slots are not valid on type 'strip'.` };
+      }
+      if (slots.length > FIXTURE_LIMITS.MAX_SLOTS) {
+        return {
+          ok: false,
+          error: `Channel #${i}: more than ${FIXTURE_LIMITS.MAX_SLOTS} slots.`,
+        };
+      }
+      const seenSlots = new Set<string>();
+      const cleanSlots: ChannelSlot[] = [];
+      for (let s = 0; s < slots.length; s++) {
+        const slot = slots[s] as ChannelSlot;
+        if (slot === null || typeof slot !== 'object') {
+          return { ok: false, error: `Channel #${i} slot #${s}: must be an object.` };
+        }
+        if (typeof slot.name !== 'string' || slot.name.trim() === '') {
+          return { ok: false, error: `Channel #${i} slot #${s}: name must be a non-empty string.` };
+        }
+        if (slot.name.length > FIXTURE_LIMITS.MAX_CHANNEL_NAME_LEN) {
+          return {
+            ok: false,
+            error: `Channel #${i} slot #${s}: name longer than ${FIXTURE_LIMITS.MAX_CHANNEL_NAME_LEN} chars.`,
+          };
+        }
+        // Matching is case and punctuation insensitive, so the duplicate check
+        // has to be too, or two slots collide silently and one is unreachable.
+        const key = slot.name.toLowerCase().replace(/[\s_-]/g, '');
+        if (seenSlots.has(key)) {
+          return { ok: false, error: `Channel #${i} slot #${s}: name "${slot.name}" is used twice.` };
+        }
+        seenSlots.add(key);
+
+        const inRange = (v: unknown): boolean =>
+          typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 255;
+        const cleanSlot: ChannelSlot = { name: slot.name };
+        if (slot.value !== undefined) {
+          if (!inRange(slot.value)) {
+            return { ok: false, error: `Channel #${i} slot #${s}: value must be an integer in [0, 255].` };
+          }
+          cleanSlot.value = slot.value;
+        } else {
+          if (!inRange(slot.from) || !inRange(slot.to)) {
+            return {
+              ok: false,
+              error: `Channel #${i} slot #${s}: needs value, or from and to, as integers in [0, 255].`,
+            };
+          }
+          if ((slot.from as number) > (slot.to as number)) {
+            return { ok: false, error: `Channel #${i} slot #${s}: from ${slot.from} is above to ${slot.to}.` };
+          }
+          cleanSlot.from = slot.from;
+          cleanSlot.to = slot.to;
+        }
+        cleanSlots.push(cleanSlot);
+      }
+      clean.slots = cleanSlots;
     }
 
     validatedChannels.push(clean);

@@ -66,5 +66,6 @@ Enforced by the validator on every PR:
 | Channel `name` | 1-32 chars |
 | Strip `pixelCount` | 1-512 |
 | Total strip DMX channels | ≤ 512 |
+| Channel `slots` | ≤ 256 per channel |
 
 No unknown fields anywhere. Strict string types.

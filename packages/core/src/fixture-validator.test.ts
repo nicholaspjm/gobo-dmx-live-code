@@ -230,6 +230,7 @@ describe('FIXTURE_LIMITS', () => {
       MAX_PIXEL_COUNT: 512,
       MAX_CHANNEL_NAME_LEN: 32,
       MAX_STRIP_TOTAL_CHANNELS: 512,
+      MAX_SLOTS: 256,
     });
   });
 });
