@@ -26,6 +26,7 @@ import {
 } from '@codemirror/autocomplete';
 import { syntaxTree } from '@codemirror/language';
 import { HELP_ENTRIES, type HelpEntry } from './help-data.js';
+import { describeLight, findLights } from './declared-lights.js';
 
 // ─── Completion pools ────────────────────────────────────────────────────────
 // Derived from the shared help index so signatures/examples are authored once
@@ -112,21 +113,6 @@ const fixtureMethods: Completion[] = HELP_ENTRIES
 // Merged method pool shown when we can't narrow by receiver.
 const allMethods: Completion[] = [...patternMethods, ...fixtureMethods];
 
-// ─── Light-name discovery (pre-scan user's doc) ──────────────────────────────
-/** Mirrors the regex used in code-highlight.ts. Kept in sync manually. */
-const LIGHT_DECL_RE =
-  /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:fixture|rgbStrip|rgbwStrip|group)\s*\(/g;
-
-function collectLightNames(doc: string): string[] {
-  const names = new Set<string>();
-  LIGHT_DECL_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = LIGHT_DECL_RE.exec(doc)) !== null) {
-    names.add(m[1]);
-  }
-  return [...names];
-}
-
 // ─── Completion source ───────────────────────────────────────────────────────
 
 function goboCompletions(context: CompletionContext): CompletionResult | null {
@@ -153,13 +139,22 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
   if (!wordMatch) return null;
   if (wordMatch.from === wordMatch.to && !context.explicit) return null;
 
+  // Lights the user declared, described from their own declaration: the
+  // completion list is where you look to remember what you called something,
+  // and "a fixture you defined" was true of every entry in it.
   const doc = context.state.doc.toString();
-  const lightOptions: Completion[] = collectLightNames(doc).map((name) => ({
-    label: name,
-    type: 'variable',
-    detail: 'fixture',
-    info: 'A fixture you defined in this buffer.',
-  }));
+  // Keyed by name so a name bound twice offers one entry, the later binding,
+  // which is the one the running scene holds.
+  const byName = new Map(findLights(doc).map((d) => [d.name, d]));
+  const lightOptions: Completion[] = [...byName.values()].map((decl) => {
+    const info = describeLight(decl);
+    return {
+      label: decl.name,
+      type: 'variable',
+      detail: info.signature,
+      info: info.note ?? info.summary,
+    };
+  });
 
   return {
     from: wordMatch.from,

@@ -1318,6 +1318,17 @@ const DOCS: DocSection[] = [
         signature: 'Ctrl+.',
         description: 'Zero all channels and pause the scheduler.',
       },
+      {
+        name: 'hover a name',
+        signature: 'hover',
+        description: 'Any built-in shows its signature and an example. A light you patched yourself shows the fixture it resolved to, how many channels it took, and every setter it turned out to have. Custom ids from defineFixture resolve once the scene has run.',
+        example: "const wash = fixture(1, 'rgb')   // hover 'wash'",
+      },
+      {
+        name: 'hover a fixture in the panel',
+        signature: 'hover',
+        description: 'The same list, from the other direction: live channel values, the call that patched it, and what it responds to. Turn it off in settings if it gets in the way during a show.',
+      },
     ],
   },
 ];
@@ -1395,17 +1406,60 @@ function renderSection(sec: DocSection): string {
 }
 
 /**
+ * A search hit, and whether it hit the thing itself or only a sentence about
+ * it. The two are shown apart: see renderSearchResults.
+ */
+interface Hit {
+  score: number;
+  /** 'name' = the query names this entry. 'mention' = it comes up in the
+   *  prose, or its section is called that. */
+  tier: 'name' | 'mention';
+}
+
+/** Where a prose match starts, or -1. */
+function wordIndex(text: string, re: RegExp | null): number {
+  if (!re) return -1;
+  re.lastIndex = 0;
+  const m = re.exec(text);
+  return m ? m.index : -1;
+}
+
+/**
+ * Build the matcher for finding a query inside prose: the word itself, not a
+ * run of letters inside a longer one.
+ *
+ * Searching "red" used to return `.punchcard`, `.superimpose` and half the
+ * grid section, because their descriptions say "required", "restored" and
+ * "coloured". A trailing s/es/ed/ing is allowed so "pattern" still finds a
+ * sentence about patterns.
+ *
+ * Returns null when the query has no word in it to match, which is what
+ * someone typing just "." or "(" has so far given us. Exported for its test.
+ */
+export function proseMatcher(q: string): RegExp | null {
+  const word = q.replace(/^[^\w$]+/, '').replace(/[^\w$)\s]+$/, '');
+  if (word === '') return null;
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}(?:s|es|ed|ing)?\\b`, 'g');
+}
+
+/**
  * Score an entry against a search query. Higher = better match.
  *
- * Match location dominates: an exact name match beats a prefix match,
- * which beats a substring in the signature, which beats a hit in the
- * prose. Plain substring containment over a bag-of-words would rank a
- * description mentioning "multiply" as high as the `.mul(n)` entry.
+ * Match location dominates: an exact name match beats a prefix match, which
+ * beats a substring in the signature, which beats a hit in the prose. Plain
+ * substring containment over a bag-of-words would rank a description
+ * mentioning "multiply" as high as the `.mul(n)` entry.
  *
- * Returns 0 when nothing hits (caller drops those entries).
+ * Returns null when nothing hits (caller drops those entries).
  */
-function scoreEntry(entry: DocEntry, section: DocSection, q: string): number {
-  if (!q) return 1; // no query = everyone "matches" (but we won't use scores then)
+function scoreEntry(
+  entry: DocEntry,
+  section: DocSection,
+  q: string,
+  prose: RegExp | null,
+): Hit | null {
+  if (!q) return { score: 1, tier: 'name' }; // no query = everyone matches
 
   const name = entry.name.toLowerCase();
   const sig = entry.signature.toLowerCase();
@@ -1416,33 +1470,34 @@ function scoreEntry(entry: DocEntry, section: DocSection, q: string): number {
   // trailing parens / args. ".mul(n)" → "mul"; "fixture channels" stays.
   const shortName = name.replace(/^\.+/, '').replace(/\s*\(.*$/, '').trim();
 
+  const named = (score: number): Hit => ({ score, tier: 'name' });
+
   // Identifier-like matches on the name are the usual target. Shorter
   // names that begin with or equal the query score higher.
-  if (shortName === q) return 10_000;
-  if (name === q) return 9_500;
-  if (shortName.startsWith(q)) return 8_000 - shortName.length;
-  if (name.startsWith(q)) return 7_500 - name.length;
-  if (shortName.includes(q)) return 6_000 - shortName.indexOf(q) * 10 - shortName.length;
-  if (name.includes(q)) return 5_000 - name.indexOf(q) * 10 - name.length;
+  if (shortName === q) return named(10_000);
+  if (name === q) return named(9_500);
+  if (shortName.startsWith(q)) return named(8_000 - shortName.length);
+  if (name.startsWith(q)) return named(7_500 - name.length);
+  if (shortName.includes(q)) return named(6_000 - shortName.indexOf(q) * 10 - shortName.length);
+  if (name.includes(q)) return named(5_000 - name.indexOf(q) * 10 - name.length);
 
   // Signature hits: `mul` matches `sine().mul(n)` as a word after a dot
   // or opening paren, meaning the method itself, not a random substring.
-  if (sig.startsWith(q)) return 3_000;
+  if (sig.startsWith(q)) return named(3_000);
   if (
     sig.includes(`.${q}`) || sig.includes(` ${q}`) ||
     sig.includes(`(${q}`) || sig.includes(`,${q}`)
-  ) return 2_500 - sig.length / 20;
-  if (sig.includes(q)) return 1_500 - sig.length / 20;
+  ) return named(2_500 - sig.length / 20);
+  if (sig.includes(q)) return named(1_500 - sig.length / 20);
 
-  // Section title: "patterns" shows every pattern entry.
-  if (sectionTitle === q) return 1_200;
-  if (sectionTitle.includes(q)) return 900;
+  // Below here the entry is not called this, it just talks about it.
+  if (sectionTitle === q) return { score: 1_200, tier: 'mention' };
+  if (wordIndex(sectionTitle, prose) >= 0) return { score: 900, tier: 'mention' };
 
-  // Description last-resort. Earlier mentions rank above buried ones.
-  const descIdx = desc.indexOf(q);
-  if (descIdx >= 0) return 300 - descIdx;
+  const descIdx = wordIndex(desc, prose);
+  if (descIdx >= 0) return { score: 300 - descIdx, tier: 'mention' };
 
-  return 0;
+  return null;
 }
 
 /** Render a single entry as a flat search-result card, including the
@@ -1478,21 +1533,56 @@ function renderResultEntry(entry: DocEntry, section: DocSection): string {
 }
 
 /**
+ * How many "also mentions" rows to show before summarising the rest.
+ *
+ * Every entry that merely says the word is a match, and for a common one like
+ * "pattern" that is most of the reference. Showing all of them buried the four
+ * entries actually called that under forty that were not.
+ */
+const MENTION_LIMIT = 8;
+
+/**
  * Populate the flat results container with entries sorted by score.
- * Returns the number of matches.
+ *
+ * Two groups: entries the query names, then, under a divider, entries that
+ * only mention it. The second group is capped, and says how many it left out
+ * rather than trimming quietly.
+ *
+ * Returns the number of matches shown.
  */
 function renderSearchResults(resultsEl: HTMLElement, query: string): number {
   const q = query.trim().toLowerCase();
-  const scored: Array<{ entry: DocEntry; section: DocSection; score: number }> = [];
+  const prose = proseMatcher(q);
+  const named: Array<{ entry: DocEntry; section: DocSection; score: number }> = [];
+  const mentions: Array<{ entry: DocEntry; section: DocSection; score: number }> = [];
   for (const section of DOCS) {
     for (const entry of section.entries) {
-      const score = scoreEntry(entry, section, q);
-      if (score > 0) scored.push({ entry, section, score });
+      const hit = scoreEntry(entry, section, q, prose);
+      if (!hit) continue;
+      (hit.tier === 'name' ? named : mentions).push({ entry, section, score: hit.score });
     }
   }
-  scored.sort((a, b) => b.score - a.score);
-  resultsEl.innerHTML = scored.map((s) => renderResultEntry(s.entry, s.section)).join('');
-  return scored.length;
+  const byScore = (
+    a: { score: number },
+    b: { score: number },
+  ): number => b.score - a.score;
+  named.sort(byScore);
+  mentions.sort(byScore);
+
+  const shown = mentions.slice(0, MENTION_LIMIT);
+  const hidden = mentions.length - shown.length;
+  const html = [
+    ...named.map((s) => renderResultEntry(s.entry, s.section)),
+    shown.length > 0
+      ? `<div class="doc-results-divider">${named.length > 0 ? 'also mentioned in' : 'mentioned in'}</div>`
+      : '',
+    ...shown.map((s) => renderResultEntry(s.entry, s.section)),
+    hidden > 0
+      ? `<div class="doc-results-more">${hidden} more ${hidden === 1 ? 'entry mentions' : 'entries mention'} it</div>`
+      : '',
+  ];
+  resultsEl.innerHTML = html.join('');
+  return named.length + shown.length;
 }
 
 /**

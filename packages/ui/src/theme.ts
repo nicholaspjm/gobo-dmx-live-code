@@ -123,6 +123,23 @@ export const goboTheme = EditorView.theme(
       whiteSpace: 'pre',
       overflow: 'auto',
     },
+    // What a declared light responds to. Wraps, and capped in height so a
+    // fixture with forty channels cannot push the card off the screen.
+    '.cm-tooltip .gobo-hover-help-cmds': {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '3px',
+      maxHeight: '104px',
+      overflowY: 'auto',
+    },
+    '.cm-tooltip .gobo-hover-help-cmd': {
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      fontSize: '11px',
+      padding: '1px 5px',
+      borderRadius: '2px',
+      backgroundColor: v('code-bg'),
+      color: v('text'),
+    },
     // ── Completion info panel ─────────────────────────────────────────
     '.cm-tooltip .gobo-completion-info': {
       maxWidth: '360px',

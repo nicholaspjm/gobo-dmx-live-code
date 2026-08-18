@@ -1007,9 +1007,9 @@ function renderTooltip(r: RenderedSimFixture): void {
   // What this fixture answers to, and the call that patched it. Knowing a
   // light is there is not the same as knowing what it responds to, and the
   // alternative is reading the docs for something already on screen.
-  const { fixtureId, commands } = r.core;
+  const { fixtureId, patchChannel, commands } = r.core;
   const patchLine = fixtureId !== undefined
-    ? `<div class="tt-call">fixture(${startChannel}, '${escapeHtml(fixtureId)}'${universe !== 0 ? `, ${universe}` : ''})</div>`
+    ? `<div class="tt-call">fixture(${patchChannel ?? startChannel}, '${escapeHtml(fixtureId)}'${universe !== 0 ? `, ${universe}` : ''})</div>`
     : '';
   const commandList = commands && commands.length > 0
     ? `<div class="tt-divider"></div>` +

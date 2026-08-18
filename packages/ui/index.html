@@ -1238,6 +1238,30 @@
         gap: 8px;
         flex-wrap: wrap;
       }
+      /* Below this line, entries that only talk about the query rather than
+         being called it. Kept visible, because searching a concept is a fair
+         way to find the entry you could not name, but kept clearly apart. */
+      .doc-results-divider {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 4px 0 14px;
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .doc-results-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+      .doc-results-more {
+        font-size: 11px;
+        color: var(--text-muted);
+        padding-bottom: 8px;
+      }
 
       /* Generic hide utility, used by the docs filter */
       .hidden {

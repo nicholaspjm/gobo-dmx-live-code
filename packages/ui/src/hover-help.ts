@@ -3,9 +3,14 @@
  * when the cursor lingers over a gobo API identifier.
  *
  * The data source is `help-data.ts`, shared with autocomplete so a single
- * edit updates both surfaces. The tooltip only fires for identifiers we
- * recognise; hovering a user-named variable yields nothing rather than a
- * "no info" tooltip.
+ * edit updates both surfaces.
+ *
+ * Names the user bound themselves are handled too: `wash` in
+ * `const wash = fixture(1, 'rgb')` is the name they actually think in, and it
+ * used to be the one identifier on the line with nothing to say. Its
+ * declaration is read out of the buffer (see declared-lights.ts) so the
+ * tooltip can list the channels that fixture has. Anything that is neither
+ * yields nothing rather than a "no info" tooltip.
  *
  * Word boundary detection is ECMAScript-identifier shaped (it matches
  * /[A-Za-z_$][\w$]+/) so it ignores punctuation and whitespace. Mousing
@@ -15,6 +20,7 @@
 import { hoverTooltip, type Tooltip } from '@codemirror/view';
 import type { EditorView } from '@codemirror/view';
 import { HELP_INDEX, type HelpEntry } from './help-data.js';
+import { describeLight, findLight, type LightInfo } from './declared-lights.js';
 
 const IDENT_CHAR = /[A-Za-z0-9_$]/;
 
@@ -99,12 +105,68 @@ function renderTooltip(entry: HelpEntry): HTMLElement {
   return root;
 }
 
+/**
+ * Build the tooltip for a light the user declared.
+ *
+ * Same three rows as an API entry, plus the list of verbs, because the useful
+ * thing about a fixture you patched is which channels it turned out to have.
+ */
+function renderLightTooltip(info: LightInfo): HTMLElement {
+  const root = document.createElement('div');
+  root.className = 'gobo-hover-help';
+
+  const sig = document.createElement('div');
+  sig.className = 'gobo-hover-help-sig';
+  sig.textContent = info.signature;
+  root.appendChild(sig);
+
+  const desc = document.createElement('div');
+  desc.className = 'gobo-hover-help-desc';
+  desc.textContent = info.note ?? info.summary;
+  root.appendChild(desc);
+
+  if (info.commands.length > 0) {
+    const label = document.createElement('div');
+    label.className = 'gobo-hover-help-ex-label';
+    label.textContent = 'responds to';
+    root.appendChild(label);
+
+    const list = document.createElement('div');
+    list.className = 'gobo-hover-help-cmds';
+    for (const c of info.commands) {
+      const chip = document.createElement('span');
+      chip.className = 'gobo-hover-help-cmd';
+      chip.textContent = c;
+      list.appendChild(chip);
+    }
+    root.appendChild(list);
+  }
+
+  return root;
+}
+
 /** The CodeMirror extension. Wire into editor.ts alongside the other
  *  extensions. */
 export const goboHoverHelp = hoverTooltip(
   (view, pos): Tooltip | null => {
     const hit = identifierAt(view, pos);
     if (!hit) return null;
+
+    // A declared name wins over the API index: someone who writes
+    // `const strip = …` means their strip, not the constructor.
+    const decl = findLight(view.state.doc.toString(), hit.word);
+    if (decl) {
+      const info = describeLight(decl);
+      return {
+        pos: hit.from,
+        end: hit.to,
+        above: true,
+        create() {
+          return { dom: renderLightTooltip(info) };
+        },
+      };
+    }
+
     const entry = HELP_INDEX.get(hit.word);
     if (!entry) return null;
     return {

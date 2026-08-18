@@ -94,6 +94,7 @@
 
 import { ViewPlugin, EditorView, Decoration, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
+import { findLights } from './declared-lights.js';
 
 // One Decoration instance per class, created once. CodeMirror compares
 // decorations by identity when diffing sets, so reusing these keeps redraws
@@ -180,35 +181,29 @@ const METHOD_TOKENS = buildTable([
   [metaMark,         ['channels', 'def', 'universe', 'startChannel', 'channelCount', 'pixelCount']],
 ]);
 
-/**
- * Fixture bindings. Group 2 is the bound name; group 1 exists only so the
- * name's offset can be derived without a lookbehind (`m.index + m[1].length`).
- * `let`/`var` are allowed in case the user switches style, though the sample
- * scenes all use `const`.
- */
-const DECL_RE = /\b((?:const|let|var)\s+)([A-Za-z_$][\w$]*)\s*=\s*(?:fixture|rgbStrip|rgbwStrip|group)\s*\(/g;
-
 /** Every JS identifier occurrence, in document order. */
 const IDENT_RE = /[A-Za-z_$][\w$]*/g;
 
 /** Identifier-continuation test, used to reject the `e5` inside `1e5`. */
 const IDENT_CHAR = /[\w$]/;
 
-// Both regexes are module-scope and stateful (`g` flag). Every use below
-// resets lastIndex first, so a throw mid-scan cannot poison the next call.
+// IDENT_RE is module-scope and stateful (`g` flag). Every use below resets
+// lastIndex first, so a throw mid-scan cannot poison the next call.
 
 function buildDecorations(view: EditorView): DecorationSet {
   const doc = view.state.doc.toString();
 
   // Pass 1: fixture bindings. Collect the bound names, and the exact offset of
   // each declaration site so pass 2 can tell a declaration from a reference.
+  // The scan is shared with hover and autocomplete. Each of the three used to
+  // keep its own copy of it, and two had never learned about `monoStrip` or
+  // `screen`, so a strip of white cells was painted as an ordinary variable.
   const fixtureNames = new Set<string>();
   const declOffsets = new Set<number>();
   let m: RegExpExecArray | null;
-  DECL_RE.lastIndex = 0;
-  while ((m = DECL_RE.exec(doc)) !== null) {
-    fixtureNames.add(m[2]);
-    declOffsets.add(m.index + m[1].length);
+  for (const decl of findLights(doc)) {
+    fixtureNames.add(decl.name);
+    declOffsets.add(decl.nameFrom);
   }
 
   // Pass 2: one walk over every identifier, classified into at most one
