@@ -30,16 +30,6 @@ const _callbacks = new Set<TickCallback>();
 // run of the scheduler gets one line.
 let _tickErrorLogged = false;
 
-/**
- * Optional external clock provider, letting another module (currently the audio
- * integration) pin cyclePos to track position so patterns stay phase-locked to
- * the music. Returns null when it has nothing to offer, in which case the
- * internal wall-clock is used.
- */
-let _clockProvider: (() => number | null) | null = null;
-export function setClockProvider(fn: (() => number | null) | null): void {
-  _clockProvider = fn;
-}
 
 /**
  * Scene code calls this straight out of the eval sandbox, so `value` is
@@ -95,19 +85,12 @@ function handleTick(): void {
 
   const inc = (_bpm / 60 / BEATS_PER_CYCLE) * dtSec;
 
-  // External clock (audio track) wins when active, pinning cyclePos to the
-  // track's playhead so patterns pause and seek with the music. When it returns
-  // null (no track loaded, paused, mic mode) we fall back to the internal
-  // wall-clock advance. A non-finite reading is treated the same as null: the
-  // provider derives its value from a playhead and a detected BPM (see
-  // audio.ts), so a zero or missing tempo can hand us NaN/Infinity, and
-  // assigning that would wedge the accumulator like a bad BPM does.
-  const external = _clockProvider?.();
-  if (external !== null && external !== undefined && Number.isFinite(external)) {
-    _cyclePos = external;
-  } else {
-    _cyclePos += inc;
-  }
+  // One timebase: the wall clock, advanced by the tempo. There used to be a
+  // hook here for an external provider to pin cyclePos to an audio playhead,
+  // but the audio module it existed for was never wired to anything, so the
+  // branch only ever took the fallback. Sync to an outside clock belongs back
+  // here when something actually drives it, shaped by what that needs.
+  _cyclePos += inc;
 
   for (const cb of _callbacks) {
     try {

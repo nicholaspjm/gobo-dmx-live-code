@@ -467,12 +467,3 @@ export function getAllUniverses(): Map<number, Uint8Array> {
 export function getPrimaryUniverseSnapshot(): number[] {
   return Array.from(getUniverse(0));
 }
-
-/**
- * @deprecated Use `getPrimaryUniverseSnapshot()` instead. Kept for one release
- * in case external scripts still reference the old name; it now reads the
- * primary universe (0), not specifically universe 1.
- */
-export function getUniverse1Snapshot(): number[] {
-  return getPrimaryUniverseSnapshot();
-}

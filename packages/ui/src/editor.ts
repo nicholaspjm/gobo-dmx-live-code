@@ -107,7 +107,3 @@ export function createEditor(
   return new EditorView({ state, parent });
 }
 
-/** Read the current text contents of an editor view. */
-export function getEditorCode(view: EditorView): string {
-  return view.state.doc.toString();
-}

@@ -11,8 +11,11 @@
  * The code strings are copied verbatim from the scenes they replace. These
  * are working, rehearsed scenes, so they are content, not code to tidy up.
  *
- * EXAMPLES[0] is load-bearing: buffer.ts seeds a brand-new buffer from it,
- * so the first entry must stay the general introduction to the language.
+ * EXAMPLES[0] is load-bearing: buffer.ts seeds a brand-new buffer from it, so
+ * the first entry is what a first-time visitor sees. It is kept to two lines
+ * on purpose. A wall of API in the editor is the wrong first impression when
+ * the reference is one click away, and the tour that used to live there is
+ * still here as its own entry.
  */
 
 export interface Example {
@@ -28,6 +31,21 @@ export interface Example {
 }
 
 export const EXAMPLES: Example[] = [
+  {
+    id: 'hello',
+    label: 'hello',
+    blurb: 'Two lines. A light made of screen, so it works with nothing plugged in.',
+    // What a new browser opens on, so it is the whole first impression.
+    //
+    // Deliberately tiny, and deliberately a screen() rather than a patched
+    // fixture: it needs no hardware, no output target and no address, so it
+    // lights up on the first ctrl+enter instead of running clean and doing
+    // nothing visible. The fuller tour is one tab away.
+    code: `// ctrl+enter to run · ctrl+space to stop · 'docs' for everything else
+const light = screen()
+light.fill(sine().slow(2), 0, cosine().slow(2))
+`,
+  },
   {
     id: 'starter',
     label: 'starter demo',

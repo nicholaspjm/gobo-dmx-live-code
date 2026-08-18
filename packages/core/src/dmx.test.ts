@@ -29,7 +29,6 @@ import {
   getUniverseBuffer,
   getAllUniverses,
   getPrimaryUniverseSnapshot,
-  getUniverse1Snapshot,
   getQueryFailures,
   getQueryFailureGeneration,
   type PatternLike,
@@ -429,9 +428,6 @@ describe('universes', () => {
     expect(Array.isArray(snap)).toBe(true);
     expect(snap).toHaveLength(512);
     expect(snap.slice(0, 3)).toEqual([255, 128, 0]);
-
-    // The deprecated alias reads the same universe despite its name.
-    expect(getUniverse1Snapshot()).toEqual(snap);
   });
 });
 
