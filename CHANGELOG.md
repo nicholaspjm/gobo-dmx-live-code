@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+> **A blackout that did not black out.** `.off()` walked six hardcoded channel
+> names, so a blinder whose bulbs are called warm/cold matched none of them: both
+> stayed lit and the call reported success. Which channels emit light is now
+> derived from the fixture rather than from a list.
+>
 > **A channel write that could not work used to look like one that did.**
 > `wash.red()` stored nothing, read as 0, and left the status bar green, so the
 > light was off and the tool said the scene was running. Naming a channel and no
@@ -43,6 +48,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   the above. A mini string is one cycle however it is typed, so a backtick string
   laid out eight tokens to a line and chained `.slow(8)` gives one bar per line.
   That is byte-identical to `cat()` of the same bars and far easier to read.
+- **Strips can be grids.** A pixel wash is usually a rectangle, and addressing
+  one meant hand-writing `i % 12` and `Math.floor(i / 12)` in every scene. Pass
+  `columns` to `rgbStrip` / `rgbwStrip`, or declare it on a fixture's strip
+  channel so the shape travels with the fixture, and the strip gains `width`,
+  `height`, `pixelXY`, `row`, `column` and `eachXY`. A plain strip is the same
+  model with a single row, so nothing needed a special case. A width that does
+  not divide the pixel count is refused at patch time, since the ragged row
+  would put every position after it on the wrong pixel.
+- **`serpentine`**, for a matrix folded out of one strip so its odd rows run
+  backwards. Nothing in the channel count reveals this, so the fixture declares
+  it; without it every other row is mirrored and it only shows on the hardware.
+- **Named slots on selector channels.** A moving head picks colour, gobo and
+  prism by driving one channel into a documented range, so scenes read
+  `set('color', 37)` with the manual open beside them. A channel can now declare
+  `slots`, and the setter takes a name: `head.color('red')`, `head.gobo('dots')`.
+  A range aims at its middle, because hardware often treats a boundary as
+  belonging to the neighbouring slot. Patterns of names work too, so a wheel can
+  step per bar. `head.slots('color')` lists them.
 
 ### Changed
 
@@ -60,6 +83,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - **A colour is written whole or not at all.** `rgb(1, 0.5)` used to set green
   and blue to 0; it now says it needs all three, or none for full white. Same for
   `.color()` and `.fill()`.
+- **What counts as a light-emitting channel** comes from the fixture's own
+  declaration: `type: 'intensity'`, or a name matching a colour role, with that
+  role list widened well past red/green/blue/white/amber/dim to cover warm, cold,
+  uv, lime, cyan, magenta and the rest, numbered variants included. A warm/cold
+  blinder now answers `.off()` and `.full()`.
+- **A channel carrying slots never counts as emitting**, so `.off()` and
+  `.full()` leave a colour wheel exactly where it is, the way they already leave
+  pan and tilt. A blackout no longer spins the wheel to whatever sits at 255.
+- **`.off()`, `.full()` and `.color()` throw when they would apply to nothing**
+  rather than returning quietly. That silence is what let the blinder bug live.
 
 ## [0.3.0] - 2026-08-17
 

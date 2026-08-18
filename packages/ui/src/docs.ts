@@ -303,14 +303,14 @@ const DOCS: DocSection[] = [
         name: '.off',
         signature: '.off()',
         description:
-          'Zero every light-emitting channel (red, green, blue, white, amber, dim) and every pixel of any embedded strip. State channels (pan, tilt, strobe, gobo, colour wheel) are left alone, so a blackout does not lose your aim.',
+          "Zero every light-emitting channel and every pixel of any embedded strip. A channel counts as emitting if its type is 'intensity', or its name is a colour role (red, warm, uv, amber, cw …), so a warm/cold blinder goes dark like anything else. Channels that steer or shape (pan, tilt, focus, a slotted wheel) are left alone, so a blackout does not lose your aim. A fixture with nothing to darken throws rather than quietly doing nothing.",
         example: 'wash.off()',
       },
       {
         name: '.full',
         signature: '.full()',
         description:
-          'Drive every light-emitting channel to 1. On dim-RGB(W) fixtures this brings both the dimmer AND every colour channel up together.',
+          'Drive every light-emitting channel to 1, by the same rule as .off(). On dim-RGB(W) fixtures this brings the dimmer AND every colour channel up together.',
         example: 'wash.full()',
       },
       {
@@ -324,6 +324,86 @@ const DOCS: DocSection[] = [
         signature: '.channels()',
         description: 'List the channel names exposed by this fixture.',
         example: 'console.log(wash.channels())',
+      },
+    ],
+  },
+
+  {
+    category: 'fixtures',
+    title: 'grids',
+    blurb:
+      'A pixel wash is usually a rectangle, not a line. Tell a strip how wide it is and it can be addressed by position.',
+    entries: [
+      {
+        name: 'columns',
+        signature: 'rgbStrip(start, count, uni, { columns })',
+        description:
+          "Declare how many pixels make up a row and the strip becomes a grid: width, height, pixelXY, row, column and eachXY all start working. Without it a strip is a single row, and those same methods still work on it. Declare it on a fixture's strip channel instead and the shape travels with the fixture, so scenes never repeat it.",
+        example:
+          "const grid = rgbStrip(1, 48, 0, { columns: 12 })   // 12 across, 4 down\ngrid.width   // 12\ngrid.height  // 4\n\n// or on the fixture, so scenes never repeat the shape:\n// { name: 'pixels', type: 'strip', pixelCount: 48, pixelLayout: 'rgb', columns: 12 }\n// then reach it as wash.pixels",
+      },
+      {
+        name: 'serpentine',
+        signature: '{ columns, serpentine: true }',
+        description:
+          'A matrix folded out of one strip has its odd rows wired backwards, so grid x = 0 is physically the last pixel of that row. Nothing in the channel count reveals this, so the fixture has to say. Get it wrong and every other row is mirrored, which only shows up on the hardware.',
+        example: 'const bar = rgbStrip(1, 32, 0, { columns: 8, serpentine: true })',
+      },
+      {
+        name: '.pixelXY / .row / .column',
+        signature: '.pixelXY(x, y, …)  ·  .row(y, …)  ·  .column(x, …)',
+        description:
+          'Address by position instead of index. x runs left to right, y top to bottom, both 0-indexed. Value shapes are the same as .pixel(): a level, or the full colour. A position outside the grid throws rather than wrapping onto the wrong pixel.',
+        example:
+          "grid.pixelXY(3, 1, 1, 0, 0)   // column 3, row 1, red\ngrid.row(0, 1, 1, 1)          // top row white\ngrid.column(11, 0, 0, 1)      // last column blue",
+      },
+      {
+        name: '.eachXY(fn)',
+        signature: '.eachXY((x, y, w, h) => value)',
+        description:
+          'each() for when the shape matters. The callback runs once per pixel with its position and the grid size, and returns a level or [r, g, b]. This is how you write a sweep across the columns, a wipe down the rows, or a diagonal, without computing i % width anywhere.',
+        example:
+          "grid.eachXY((x, y, w) => sine().early(x / w).slow(4))         // sweep across\ngrid.eachXY((x, y, w, h) => sine().early(y / h).slow(2))      // wipe down\ngrid.eachXY((x, y, w, h) => sine().early((x + y) / (w + h)))  // diagonal",
+      },
+    ],
+  },
+
+  {
+    category: 'fixtures',
+    title: 'wheels and slots',
+    blurb:
+      'A moving head picks its colour, gobo and prism by driving one channel into a documented range. Name those ranges once and scenes read in words.',
+    entries: [
+      {
+        name: 'slots',
+        signature: "{ name: 'color', type: 'color', slots: [ … ] }",
+        description:
+          "Declare the named positions on a selector channel. Each slot is a name plus either a single value or the from/to range the manual quotes. gobo aims at the middle of a range, because hardware often treats a boundary as belonging to the neighbouring slot.",
+        example:
+          "{ offset: 3, name: 'color', type: 'color', slots: [\n  { name: 'open',  value: 0 },\n  { name: 'red',   from: 10, to: 19 },\n  { name: 'blue',  from: 20, to: 29 },\n] }",
+      },
+      {
+        name: 'picking a slot',
+        signature: "head.color('red')",
+        description:
+          'The setter takes a slot name as well as a level, so the manual stays shut. Names match regardless of case, spaces, hyphens and underscores. A name the channel does not have throws and lists the ones it does. A raw DMX number still works if you want one.',
+        example:
+          "head.color('red')\nhead.gobo('dots')\nhead.prism('3-facet')\nconsole.log(head.slots('color'))   // list them",
+      },
+      {
+        name: 'stepping through slots',
+        signature: "head.color(mini('<red blue green>'))",
+        description:
+          'A pattern of slot names works too, so a wheel can change per bar or per step like anything else. Unknown names in a pattern read as 0 and are reported once to the console rather than every frame.',
+        example:
+          "head.color(mini('<red blue green>'))       // one per bar\nhead.gobo(mini('open dots open star'))     // four per bar",
+      },
+      {
+        name: 'a slot is not a light',
+        signature: 'off() and full() skip it',
+        description:
+          'A channel carrying slots selects rather than emits, so .off() and .full() leave it exactly where it is, the same way they already leave pan and tilt. A blackout kills the output without spinning your colour wheel to whatever sits at 255.',
+        example: "head.color('red')\nhead.full()   // dimmer to full, wheel still on red",
       },
     ],
   },

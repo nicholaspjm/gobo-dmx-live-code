@@ -17,7 +17,7 @@
  *   head.dim(0.8)
  */
 
-import { uni, channelValue, channelValues, type PatternOrValue } from './dmx.js';
+import { uni, channelValue, channelValues, type PatternOrValue, type PatternLike } from './dmx.js';
 
 // ─── Fixture definition types ─────────────────────────────────────────────────
 
@@ -42,6 +42,44 @@ export interface ChannelDef {
    * .fill(r,g,b,w), .pixel(i,r,g,b,w), and a .white(v) setter.
    */
   pixelLayout?: 'rgb' | 'rgbw';
+  /**
+   * For type='strip': how many pixels make up one row. Omit for a plain line
+   * of pixels, which is the same thing with a single row.
+   */
+  columns?: number;
+  /**
+   * For type='strip': the wiring snakes back on itself, so odd rows run
+   * right-to-left. Common on pixel bars and matrices, and impossible to guess
+   * from the channel count, so the fixture has to say.
+   */
+  serpentine?: boolean;
+  /**
+   * Named positions on a channel that selects rather than dims: a colour
+   * wheel, a gobo wheel, a prism, a control channel with modes. Declaring
+   * them lets a scene say `head.color('red')` instead of looking a raw DMX
+   * number out of the manual.
+   *
+   * A channel with slots is a selector, so it is never treated as something
+   * that emits light: .off() and .full() leave it where it is, the same way
+   * they already leave pan and tilt alone.
+   */
+  slots?: ChannelSlot[];
+}
+
+/**
+ * One named position on a selector channel.
+ *
+ * Manuals give these as ranges, so a range is what this takes. `value` is the
+ * shorthand for a slot that is exactly one DMX step.
+ */
+export interface ChannelSlot {
+  name: string;
+  /** Single DMX value (0-255). Use instead of from/to. */
+  value?: number;
+  /** Inclusive start of the DMX range (0-255). */
+  from?: number;
+  /** Inclusive end of the DMX range (0-255). */
+  to?: number;
 }
 
 export interface FixtureDef {
@@ -51,6 +89,50 @@ export interface FixtureDef {
   /** Total channel count */
   channelCount: number;
   channels: ChannelDef[];
+}
+
+// ─── Which channels emit light ───────────────────────────────────────────────
+//
+// .off() and .full() need to know what to drive. They used to walk a hardcoded
+// six names, so a fixture whose emitters are called anything else was silently
+// skipped: a warm/cold blinder's .full() sent nothing, and worse, its .off()
+// left the bulbs lit. A blackout that does not black out is the worst failure
+// this API can have.
+//
+// Two ways in, because fixture defs in the wild use both conventions:
+//
+//   type: 'intensity'   anything declared as a raw emitter, whatever its name.
+//                       Covers warm1 / coldWhite / uv / bulbA without a list.
+//   a known colour name for defs that type their colour channels 'color' or
+//                       leave them 'generic'.
+//
+// A channel carrying `slots` is excluded from both: it selects rather than
+// emits, so a colour wheel stays put through a blackout the way pan and tilt
+// already do.
+
+/**
+ * Colour roles recognised by name. Longer than the old six because subtractive
+ * and tunable-white fixtures are ordinary now, and a name that is missing here
+ * is a light that will not respond to .off().
+ */
+const EMITTER_NAMES = new Set([
+  'red', 'green', 'blue', 'white', 'amber', 'dim', 'dimmer', 'intensity',
+  'uv', 'lime', 'cyan', 'magenta', 'yellow', 'indigo', 'mint',
+  'warm', 'cold', 'cool', 'warmwhite', 'coldwhite', 'coolwhite', 'ww', 'cw',
+]);
+
+/**
+ * Does this channel put light out, as opposed to steering or shaping it?
+ *
+ * A trailing number is dropped before the name check so the bulbs of a blinder
+ * (warm1, cold1, warm2, cold2) match the same roles as a single-cell fixture.
+ */
+export function isEmitterChannel(ch: ChannelDef): boolean {
+  if (ch.slots !== undefined && ch.slots.length > 0) return false;
+  if (ch.type === 'strip') return true;
+  if (ch.type === 'intensity') return true;
+  const bare = ch.name.toLowerCase().replace(/[\s_-]/g, '').replace(/\d+$/, '');
+  return EMITTER_NAMES.has(bare);
 }
 
 // ─── Built-in fixture library ─────────────────────────────────────────────────
@@ -411,11 +493,19 @@ export type FixtureInstance = {
   readonly startChannel: number;
   /**
    * Set any scalar channel by name. Throws for strip channels. Omit the value
-   * for full.
+   * for full. On a channel with named slots, the value may be a slot name, or
+   * a pattern of slot names.
    */
-  set(channelName: string, ...value: [PatternOrValue?]): void;
+  set(channelName: string, ...value: [(PatternOrValue | string)?]): void;
   /** List available channel names */
   channels(): string[];
+  /**
+   * The slot names declared on a channel, or an empty list if it has none.
+   *
+   * @example
+   *   console.log(head.slots('color'))   // ['open', 'red', 'blue', …]
+   */
+  slots(channelName: string): string[];
   /**
    * Opt into one or more inline editor visualizations for this fixture.
    * The editor scans the source for `.viz(...)` call sites and drops a
@@ -455,6 +545,145 @@ export type FixtureInstance = {
   // Named channels: setter function OR nested StripInstance (for type: 'strip')
   [key: string]: unknown;
 };
+
+// ─── Named slots on selector channels ────────────────────────────────────────
+//
+// A moving head picks its colour, gobo and prism by driving one channel to a
+// value inside a documented range. Without names, a scene reads
+// `head.set('color', 37)` and the manual has to be open next to it.
+//
+// Slots are resolved at the setter, not in the tick loop, so nothing about the
+// per-frame path changes: by the time a value reaches the buffer it is an
+// ordinary number or an ordinary pattern.
+
+/** The DMX value to send for a slot. A range aims at its middle. */
+function slotValue(slot: ChannelSlot): number {
+  if (typeof slot.value === 'number') return slot.value;
+  const from = slot.from ?? 0;
+  const to = slot.to ?? from;
+  // The middle of the range, because manuals quote the edges and hardware
+  // often treats the boundary as belonging to the neighbouring slot.
+  return Math.round((from + to) / 2);
+}
+
+/** Slot name (case and space insensitive) → DMX value. */
+function slotMap(slots: readonly ChannelSlot[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const s of slots) m.set(s.name.toLowerCase().replace(/[\s_-]/g, ''), slotValue(s));
+  return m;
+}
+
+function slotKey(name: string): string {
+  return name.toLowerCase().replace(/[\s_-]/g, '');
+}
+
+/**
+ * Turn a value that may name a slot into one the DMX layer understands.
+ *
+ * Handles both a bare name and a pattern of names, so `head.color('red')` and
+ * `head.color(mini('<red blue green>'))` both work. The pattern case wraps the
+ * original rather than rebuilding it: each query maps the names it yields and
+ * passes numbers through untouched.
+ */
+function resolveSlots(
+  value: PatternOrValue | string,
+  slots: readonly ChannelSlot[],
+  what: string,
+): PatternOrValue {
+  const map = slotMap(slots);
+  const names = (): string => slots.map((s) => s.name).join(', ');
+
+  if (typeof value === 'string') {
+    const hit = map.get(slotKey(value));
+    if (hit === undefined) {
+      throw new Error(`${what}: no slot named "${value}". Available: ${names()}.`);
+    }
+    return hit;
+  }
+
+  if (typeof value === 'number' || !isPatternLike(value)) return value as PatternOrValue;
+
+  // A pattern that may carry slot names. Unknown names would otherwise reach
+  // the buffer as a non-number and read as 0, which is a dark light and no
+  // error, so they are reported the first time one appears.
+  //
+  // The mapped value is divided by 255 because the two value domains differ:
+  // a bare number written to a channel is rescaled from 0-255 by the tick,
+  // but a value arriving from a pattern is taken as an already-normalised
+  // 0-1 level. Handing the raw slot number straight through put every slot
+  // above 1, which clamps, so every named colour came out as full.
+  const reported = new Set<string>();
+  return {
+    queryArc(begin: number, end: number) {
+      return (value as PatternLike).queryArc(begin, end).map((hap: { value: unknown }) => {
+        const v = (hap as { value: unknown }).value;
+        if (typeof v !== 'string') return hap;
+        const hit = map.get(slotKey(v));
+        if (hit === undefined) {
+          if (!reported.has(v)) {
+            reported.add(v);
+            console.error(`[gobo] ${what}: no slot named "${v}". Available: ${names()}.`);
+          }
+          return { ...hap, value: 0 };
+        }
+        return { ...hap, value: hit / 255 };
+      });
+    },
+  };
+}
+
+/** Local shape test, so this file does not need dmx.ts's private helper. */
+function isPatternLike(v: unknown): v is PatternLike {
+  try {
+    return typeof (v as PatternLike)?.queryArc === 'function';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Drive every light-emitting channel of a fixture to one level.
+ *
+ * Shared by .off() and .full(), which differ only in the level. Channels that
+ * steer or shape rather than emit (pan, tilt, gobo, a slotted colour wheel)
+ * are left where they are: an operator killing the lights mid-show wants the
+ * rig to go dark, not to lose its aim and have to re-find it.
+ *
+ * A fixture with nothing to drive throws. It used to return quietly, which is
+ * how a blinder's .off() could leave both bulbs lit and report success.
+ */
+function driveEmitters(
+  inst: FixtureInstance,
+  def: FixtureDef,
+  level: 0 | 1,
+  what: string,
+): void {
+  let driven = 0;
+  for (const ch of def.channels) {
+    if (!isEmitterChannel(ch)) continue;
+    if (ch.type === 'strip') {
+      // A strip channel is a nested Strip/RgbwStripInstance; fill() covers
+      // every pixel in one call.
+      const strip = inst[ch.name] as unknown as { fill: (...vs: number[]) => void } | undefined;
+      if (strip && typeof strip.fill === 'function') {
+        if (ch.pixelLayout === 'rgbw') strip.fill(level, level, level, level);
+        else strip.fill(level, level, level);
+        driven++;
+      }
+      continue;
+    }
+    inst.set(ch.name, level);
+    driven++;
+  }
+
+  if (driven === 0) {
+    throw new Error(
+      `Fixture "${def.name}"${what}: no channel on this fixture emits light, so this call would do nothing. ` +
+      `Channels: ${def.channels.map((c) => `${c.name} (${c.type})`).join(', ')}. ` +
+      `Give an emitter channel type 'intensity', or name it for the colour it drives.`,
+    );
+  }
+}
 
 /**
  * Load a fixture at a DMX address and return a named-channel setter object.
@@ -524,7 +753,24 @@ export function fixture(
       }
       // Named for the channel rather than for set(), because the named setters
       // below all route through here and `.red()` is how it was written.
-      uni(universe, startChannel + ch.offset, channelValue(args, `.${channelName}()`));
+      const what = `.${channelName}()`;
+      // A slotted channel accepts the slot's name as well as a raw level, so
+      // resolve before the value contract is applied: a name is legitimate
+      // here and would otherwise be rejected as a string.
+      const raw = ch.slots !== undefined && ch.slots.length > 0
+        ? resolveSlots(args[0] as PatternOrValue | string, ch.slots, what)
+        : args[0];
+      uni(universe, startChannel + ch.offset, channelValue(args.length === 0 ? [] : [raw], what));
+    },
+
+    slots(channelName: string): string[] {
+      const ch = def.channels.find((c) => c.name === channelName);
+      if (!ch) {
+        throw new Error(
+          `Fixture "${def.name}" has no channel "${channelName}". Available: ${def.channels.map((c) => c.name).join(', ')}`,
+        );
+      }
+      return (ch.slots ?? []).map((s) => s.name);
     },
 
     channels(): string[] {
@@ -553,53 +799,35 @@ export function fixture(
       const [r, g, b] = channelValues(args.slice(0, 3), ['r', 'g', 'b'], '.color()');
       const has = (name: string): boolean =>
         def.channels.some((c) => c.name === name && c.type !== 'strip');
-      if (has('red'))   inst.set('red',   r);
-      if (has('green')) inst.set('green', g);
-      if (has('blue'))  inst.set('blue',  b);
+      let painted = 0;
+      const paint = (name: string, v: PatternOrValue): void => {
+        if (!has(name)) return;
+        inst.set(name, v);
+        painted++;
+      };
+      paint('red', r);
+      paint('green', g);
+      paint('blue', b);
       // White stays opt-in: a three-argument call is a colour mix that the
       // fixture's own white channel would wash out.
-      if (args.length > 3 && has('white')) inst.set('white', channelValue([args[3]], '.color() w'));
+      if (args.length > 3) paint('white', channelValue([args[3]], '.color() w'));
+      // A fixture with no colour channels at all cannot honour this, and
+      // returning quietly would leave the scene looking correct and the light
+      // unchanged.
+      if (painted === 0) {
+        throw new Error(
+          `Fixture "${def.name}".color(): this fixture has no red/green/blue channels. ` +
+          `Channels: ${def.channels.map((c) => c.name).join(', ')}.`,
+        );
+      }
     },
 
     off() {
-      // Walk every channel; zero the standard light-emitting ones and
-      // fill embedded strips. Other channels (pan, tilt, strobe, gobo,
-      // colour wheel, etc.) are intentionally left alone: they describe
-      // STATE rather than brightness, and the user usually wants them
-      // preserved across a blackout.
-      const lightChannels = new Set(['red', 'green', 'blue', 'white', 'amber', 'dim']);
-      for (const ch of def.channels) {
-        if (ch.type === 'strip') {
-          // Strip channels live as a nested StripInstance on the fixture;
-          // fill() zeroes every pixel in one shot.
-          const strip = inst[ch.name] as unknown as { fill: (...vs: number[]) => void } | undefined;
-          if (strip && typeof strip.fill === 'function') {
-            if (ch.pixelLayout === 'rgbw') strip.fill(0, 0, 0, 0);
-            else strip.fill(0, 0, 0);
-          }
-        } else if (lightChannels.has(ch.name)) {
-          inst.set(ch.name, 0);
-        }
-      }
+      driveEmitters(inst, def, 0, '.off()');
     },
 
     full() {
-      // Mirror of .off(): drive every light-emitting channel (and every
-      // pixel of any embedded strip) to 1. Useful for "I just need this
-      // thing on, full white" without thinking about whether the fixture
-      // has a master dim, an RGB triad, both, or only one.
-      const lightChannels = new Set(['red', 'green', 'blue', 'white', 'amber', 'dim']);
-      for (const ch of def.channels) {
-        if (ch.type === 'strip') {
-          const strip = inst[ch.name] as unknown as { fill: (...vs: number[]) => void } | undefined;
-          if (strip && typeof strip.fill === 'function') {
-            if (ch.pixelLayout === 'rgbw') strip.fill(1, 1, 1, 1);
-            else strip.fill(1, 1, 1);
-          }
-        } else if (lightChannels.has(ch.name)) {
-          inst.set(ch.name, 1);
-        }
-      }
+      driveEmitters(inst, def, 1, '.full()');
     },
   } as FixtureInstance;
 
@@ -621,7 +849,14 @@ export function fixture(
         );
       }
       const stripStart = startChannel + ch.offset;
-      const stripOpts = { simLabel: `${fixtureId} · ${ch.name}`, movement };
+      const stripOpts = {
+        simLabel: `${fixtureId} · ${ch.name}`,
+        movement,
+        // A grid declared on the channel travels with the fixture, so a scene
+        // says pixelXY without repeating the wash's dimensions.
+        columns: ch.columns,
+        serpentine: ch.serpentine,
+      };
       inst[ch.name] =
         ch.pixelLayout === 'rgbw'
           ? rgbwStrip(stripStart, pixelCount, universe, stripOpts)
@@ -630,7 +865,7 @@ export function fixture(
       // Rest parameter, not a single value: a call with no argument has to stay
       // distinguishable from one that passed undefined, so `par.red()` can mean
       // full while `par.red(somethingBroken)` still reports.
-      inst[ch.name] = (...args: [PatternOrValue?]) => inst.set(ch.name, ...args);
+      inst[ch.name] = (...args: [(PatternOrValue | string)?]) => inst.set(ch.name, ...args);
     }
   }
 
@@ -693,6 +928,68 @@ export function listFixtures(): string[] {
 // A variable-length fixture: N pixels × 3 channels (R, G, B).
 // Not stored as a FixtureDef because the channel count is user-specified.
 
+// ─── Strip geometry ──────────────────────────────────────────────────────────
+//
+// A 12x4 pixel wash is one strip channel as far as DMX is concerned, and every
+// scene that wanted a column sweep had to write `i % 12` and
+// `Math.floor(i / 12)` by hand. Declaring the width once moves that arithmetic
+// into the fixture, where it can also account for how the thing is wired.
+//
+// A plain line of pixels is the same model with one row, so nothing needs a
+// special case: width defaults to pixelCount and height to 1.
+
+export interface StripGeometry {
+  /** Pixels per row. Defaults to the whole strip, i.e. a single row. */
+  columns?: number;
+  /**
+   * The wiring snakes, so odd rows run right to left. Physically the norm on
+   * matrices built from a single strip folded back on itself, and the only way
+   * to tell is from the fixture, so it has to be declared.
+   */
+  serpentine?: boolean;
+}
+
+/**
+ * Resolve a strip's grid, and give it a way to turn (x, y) into a pixel index.
+ *
+ * Returned as a small object rather than free functions so both strip kinds
+ * share one implementation of the serpentine flip, which is the part that is
+ * easy to get subtly wrong and invisible until the hardware is in front of you.
+ */
+function resolveGeometry(pixelCount: number, geo: StripGeometry, what: string) {
+  const columns = geo.columns ?? pixelCount;
+  if (!Number.isInteger(columns) || columns < 1) {
+    throw new Error(`${what}: columns must be an integer >= 1 (got ${geo.columns})`);
+  }
+  if (pixelCount % columns !== 0) {
+    throw new Error(
+      `${what}: ${pixelCount} pixels do not divide into rows of ${columns}. ` +
+      `A partial row would put the grid out of step with the hardware, so pick a width that divides ${pixelCount}.`,
+    );
+  }
+  const width = columns;
+  const height = pixelCount / columns;
+  const serpentine = geo.serpentine === true;
+
+  return {
+    width,
+    height,
+    /** Grid position to pixel index, accounting for how the strip is wired. */
+    index(x: number, y: number): number {
+      if (!Number.isInteger(x) || x < 0 || x >= width) {
+        throw new Error(`${what}: x ${x} out of range [0, ${width - 1}]`);
+      }
+      if (!Number.isInteger(y) || y < 0 || y >= height) {
+        throw new Error(`${what}: y ${y} out of range [0, ${height - 1}]`);
+      }
+      // On a serpentine strip the odd rows are wired backwards, so the same
+      // x lands at the mirrored position within the row.
+      const col = serpentine && y % 2 === 1 ? width - 1 - x : x;
+      return y * width + col;
+    },
+  };
+}
+
 /**
  * Chainable result of `strip.pixelGrid(values)`. The grid is already
  * applied (default: explicit pixels, rest at 0). Call one of the methods
@@ -717,6 +1014,59 @@ export interface StripInstance {
   readonly pixelCount: number;
   /** Total DMX channels consumed (pixelCount * 3). */
   readonly channelCount: number;
+
+  /** Pixels across one row. A plain line of pixels is width = pixelCount. */
+  readonly width: number;
+  /** Rows. A plain line of pixels is height = 1. */
+  readonly height: number;
+
+  /**
+   * Set one pixel by grid position. x runs left to right, y top to bottom,
+   * both 0-indexed. Same value shapes as pixel().
+   *
+   * @example
+   *   wash.pixels.pixelXY(3, 1, 1, 0, 0)   // column 3, row 1, red
+   */
+  pixelXY(
+    x: number,
+    y: number,
+    ...args:
+      | []
+      | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
+  ): void;
+
+  /** Set every pixel in one row (0-indexed from the top). */
+  row(
+    y: number,
+    ...args:
+      | []
+      | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
+  ): void;
+
+  /** Set every pixel in one column (0-indexed from the left). */
+  column(
+    x: number,
+    ...args:
+      | []
+      | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
+  ): void;
+
+  /**
+   * Run a callback per pixel with its grid position.
+   *
+   * The callback gets `(x, y, w, h)`. Return a level or `[r, g, b]`, the same
+   * as each(). This is each() for anything where the shape matters: a sweep
+   * across the columns, a wipe down the rows, a diagonal.
+   *
+   * @example
+   *   wash.pixels.eachXY((x, y, w) => sine().early(x / w).slow(4))
+   */
+  eachXY(
+    fn: (x: number, y: number, w: number, h: number) => PatternOrValue | PatternOrValue[],
+  ): void;
 
   /**
    * Set every pixel to the same r/g/b. Each arg may be a pattern or number.
@@ -800,28 +1150,37 @@ export interface StripInstance {
  * occupies 120 channels. The pattern engine queries each channel on every tick,
  * so per-pixel patterns (e.g. phase-shifted chases) work just like PARs.
  *
+ * Pass `columns` to treat it as a grid: a 48-pixel wash wired 12 across is
+ * `rgbStrip(1, 48, 0, { columns: 12 })`, and gains pixelXY / row / column /
+ * eachXY. Without it the strip is a single row, which the same methods still
+ * work on.
+ *
  * @param startChannel  1-based DMX channel of the first pixel's red channel
  * @param pixelCount    Number of pixels (>= 1)
  * @param universe      DMX universe (default 0, matching Art-Net convention)
+ * @param opts          columns / serpentine for a grid; sim metadata
  *
  * @example
  *   const strip = rgbStrip(1, 40)
  *   strip.fill(sine().slow(4), 0, cosine().slow(4))
  *
  *   // Per-pixel chase
- *   for (let i = 0; i < strip.pixelCount; i++) {
- *     strip.pixel(i, sine().slow(4).add(i / strip.pixelCount), 0, 0)
- *   }
+ *   strip.each(p => sine().early(p).slow(4))
+ *
+ *   // As a grid
+ *   const wash = rgbStrip(1, 48, 0, { columns: 12 })
+ *   wash.eachXY((x, y, w) => sine().early(x / w).slow(4))
  */
 export function rgbStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
-  opts: { simLabel?: string; movement?: SimMovement } = {},
+  opts: { simLabel?: string; movement?: SimMovement } & StripGeometry = {},
 ): StripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbStrip: pixelCount must be >= 1 (got ${pixelCount})`);
   }
+  const geo = resolveGeometry(pixelCount, opts, 'rgbStrip');
   const channelCount = pixelCount * 3;
   const lastChannel = startChannel + channelCount - 1;
   if (startChannel < 1) {
@@ -838,6 +1197,42 @@ export function rgbStrip(
     startChannel,
     pixelCount,
     channelCount,
+    width: geo.width,
+    height: geo.height,
+
+    pixelXY(x, y, ...args) {
+      inst.pixel(geo.index(x, y), ...(args as []));
+    },
+
+    row(y, ...args) {
+      for (let x = 0; x < geo.width; x++) inst.pixel(geo.index(x, y), ...(args as []));
+    },
+
+    column(x, ...args) {
+      for (let y = 0; y < geo.height; y++) inst.pixel(geo.index(x, y), ...(args as []));
+    },
+
+    eachXY(fn) {
+      for (let y = 0; y < geo.height; y++) {
+        for (let x = 0; x < geo.width; x++) {
+          const result = fn(x, y, geo.width, geo.height);
+          const i = geo.index(x, y);
+          const base = startChannel + i * 3;
+          if (Array.isArray(result)) {
+            for (let c = 0; c < 3; c++) {
+              uni(universe, base + c, c < result.length
+                ? channelValue([result[c]], `.eachXY() (${x}, ${y}) ${'rgb'[c]}`)
+                : 0);
+            }
+          } else {
+            const v = channelValue([result], `.eachXY() (${x}, ${y})`);
+            uni(universe, base,     v);
+            uni(universe, base + 1, v);
+            uni(universe, base + 2, v);
+          }
+        }
+      }
+    },
 
     fill(...args) {
       const [r, g, b] = channelValues(args, ['r', 'g', 'b'], '.fill()');
@@ -965,6 +1360,47 @@ export interface RgbwStripInstance {
   /** Total DMX channels consumed (pixelCount * 4). */
   readonly channelCount: number;
 
+  /** Pixels across one row. A plain line of pixels is width = pixelCount. */
+  readonly width: number;
+  /** Rows. A plain line of pixels is height = 1. */
+  readonly height: number;
+
+  /** Set one pixel by grid position, x left to right and y top to bottom. */
+  pixelXY(
+    x: number,
+    y: number,
+    ...args:
+      | []
+      | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
+  ): void;
+
+  /** Set every pixel in one row (0-indexed from the top). */
+  row(
+    y: number,
+    ...args:
+      | []
+      | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
+  ): void;
+
+  /** Set every pixel in one column (0-indexed from the left). */
+  column(
+    x: number,
+    ...args:
+      | []
+      | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
+  ): void;
+
+  /**
+   * Run a callback per pixel with its grid position `(x, y, w, h)`. Return a
+   * level or `[r, g, b, w]`. See {@link StripInstance.eachXY}.
+   */
+  eachXY(
+    fn: (x: number, y: number, w: number, h: number) => PatternOrValue | PatternOrValue[],
+  ): void;
+
   /** Set every pixel to the same r/g/b/w. Omit all four for full. */
   fill(
     ...args:
@@ -1041,11 +1477,12 @@ export function rgbwStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
-  opts: { simLabel?: string; movement?: SimMovement } = {},
+  opts: { simLabel?: string; movement?: SimMovement } & StripGeometry = {},
 ): RgbwStripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbwStrip: pixelCount must be >= 1 (got ${pixelCount})`);
   }
+  const geo = resolveGeometry(pixelCount, opts, 'rgbwStrip');
   const STRIDE = 4;
   const channelCount = pixelCount * STRIDE;
   const lastChannel = startChannel + channelCount - 1;
@@ -1063,6 +1500,44 @@ export function rgbwStrip(
     startChannel,
     pixelCount,
     channelCount,
+
+    width: geo.width,
+    height: geo.height,
+
+    pixelXY(x, y, ...args) {
+      inst.pixel(geo.index(x, y), ...(args as []));
+    },
+
+    row(y, ...args) {
+      for (let x = 0; x < geo.width; x++) inst.pixel(geo.index(x, y), ...(args as []));
+    },
+
+    column(x, ...args) {
+      for (let y = 0; y < geo.height; y++) inst.pixel(geo.index(x, y), ...(args as []));
+    },
+
+    eachXY(fn) {
+      for (let y = 0; y < geo.height; y++) {
+        for (let x = 0; x < geo.width; x++) {
+          const result = fn(x, y, geo.width, geo.height);
+          const base = startChannel + geo.index(x, y) * STRIDE;
+          if (Array.isArray(result)) {
+            for (let c = 0; c < STRIDE; c++) {
+              uni(universe, base + c, c < result.length
+                ? channelValue([result[c]], `.eachXY() (${x}, ${y}) ${'rgbw'[c]}`)
+                : 0);
+            }
+          } else {
+            // Monochrome, white held off, matching each().
+            const v = channelValue([result], `.eachXY() (${x}, ${y})`);
+            uni(universe, base,     v);
+            uni(universe, base + 1, v);
+            uni(universe, base + 2, v);
+            uni(universe, base + 3, 0);
+          }
+        }
+      }
+    },
 
     fill(...args) {
       const [r, g, b, w] = channelValues(args, ['r', 'g', 'b', 'w'], '.fill()');
