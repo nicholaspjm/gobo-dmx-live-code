@@ -1060,6 +1060,27 @@ setInterval(() => {
   if (_hoveredSim) renderTooltip(_hoveredSim);
 }, 100);
 
+// ─── Stopping from anywhere ──────────────────────────────────────────────────
+//
+// The stop shortcut lived only in the editor's keymap, so it fired when the
+// editor had focus and did nothing at all otherwise. Click the sim panel, a
+// toolbar button or the page background first and the panic key was silent,
+// which is the one behaviour a panic key must never have. The editor binding
+// stays (it can stop autocomplete taking Ctrl+Space); this catches the rest of
+// the page.
+document.addEventListener('keydown', (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  if (e.key !== '.' && e.key !== ' ' && e.code !== 'Space') return;
+  // The editor already dealt with it and called preventDefault. Running again
+  // would be harmless, but this keeps one keypress to one stop.
+  if (e.defaultPrevented) return;
+  e.preventDefault();
+  runStop();
+});
+
+const sceneStopEl = document.getElementById('scene-stop') as HTMLButtonElement;
+sceneStopEl.addEventListener('click', () => runStop());
+
 // ─── Scene bar ───────────────────────────────────────────────────────────────
 // Name (click to rename), save to file, open file, share link, examples.
 // There is no scene list any more: the browser holds one working buffer and
