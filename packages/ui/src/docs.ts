@@ -3,13 +3,26 @@
  *
  * The content here mirrors what is available in the eval sandbox
  * (see packages/core/src/eval.ts). Keep this in sync when the API changes.
+ *
+ * The bundled examples live here too, under their own tab. They used to hang
+ * off a separate top-bar menu, which put the working scenes and the reference
+ * that explains them in two different places.
  */
+
+import { EXAMPLES } from './examples.js';
 
 interface DocEntry {
   name: string;
   signature: string;
   description: string;
   example?: string;
+  /**
+   * When present, the entry renders as a button that loads the bundled
+   * example with this id into the editor. Kept as an id rather than a
+   * callback so the docs stay declarative data; the click is announced as an
+   * event and the buffer logic lives where the buffer does.
+   */
+  loadExample?: string;
   /**
    * When present, the entry renders as a compact clickable row that
    * switches the docs panel to the named tab. Used on the welcome page so
@@ -32,12 +45,13 @@ interface DocSection {
  * order they appear. DEFAULT_TAB is the walkthrough, so new users do not
  * land on the reference list.
  */
-type DocCategory = 'welcome' | 'patterns' | 'fixtures' | 'viz' | 'output' | 'reference';
+type DocCategory = 'welcome' | 'examples' | 'patterns' | 'fixtures' | 'viz' | 'output' | 'reference';
 
 // Tab layout: welcome · patterns · fixtures · viz · output · reference.
 // The viz tab covers the inline editor decorations.
 const DOC_TABS: Array<{ id: DocCategory; label: string }> = [
   { id: 'welcome',   label: 'welcome' },
+  { id: 'examples',  label: 'examples' },
   { id: 'patterns',  label: 'patterns' },
   { id: 'fixtures',  label: 'fixtures' },
   { id: 'viz',       label: 'viz' },
@@ -48,6 +62,22 @@ const DOC_TABS: Array<{ id: DocCategory; label: string }> = [
 const DEFAULT_TAB: DocCategory = 'welcome';
 
 const DOCS: DocSection[] = [
+  // ─── examples ───────────────────────────────────────────────────────────
+  // Built from the bundled scenes rather than written out, so a scene added
+  // or removed in examples.ts appears or disappears here with no second edit.
+  {
+    category: 'examples',
+    title: 'bundled scenes',
+    blurb:
+      'Working scenes to read or take apart. Loading one replaces what is in the editor, so save first if you want to keep it.',
+    entries: EXAMPLES.map((ex) => ({
+      name: ex.label,
+      signature: `${ex.code.split('\n').length} lines`,
+      description: ex.blurb,
+      loadExample: ex.id,
+    })),
+  },
+
   // ─── welcome ────────────────────────────────────────────────────────────
   // Everything actionable lives in its own tab. This page is a short intro
   // plus a link list.
@@ -1088,6 +1118,20 @@ function renderSection(sec: DocSection): string {
   const blurb = sec.blurb ? `<p class="doc-blurb">${escapeHtml(sec.blurb)}</p>` : '';
   const entries = sec.entries
     .map((e) => {
+      // An example entry is a clickable row that loads the scene. Same shape
+      // as a tab link, and it carries its blurb because that is the only
+      // description of what the scene does.
+      if (e.loadExample) {
+        const bag = [e.name, e.signature, e.description].join(' ').toLowerCase();
+        return `
+          <button type="button" class="doc-link" data-load-example="${escapeHtml(e.loadExample)}" data-search="${escapeHtml(bag)}">
+            <span class="doc-link-label">
+              <span class="doc-name">${escapeHtml(e.name)}</span>
+              <span class="doc-signature">${escapeHtml(e.description)}</span>
+            </span>
+            <span class="doc-link-arrow">load</span>
+          </button>`;
+      }
       // A tab-link entry is a compact clickable row: name, signature-style
       // subtitle, arrow. Full descriptions live in the target tab's own
       // sections.
@@ -1329,6 +1373,17 @@ export function renderDocs(body: HTMLElement): void {
     if (!btn) return;
     const next = btn.dataset.tab as DocCategory | undefined;
     if (next) switchTab(next);
+  });
+
+  // Loading an example replaces the editor buffer, which is not this module's
+  // business. Announce the intent and let whoever owns the buffer decide,
+  // including whether to warn about unsaved work.
+  body.addEventListener('click', (ev) => {
+    const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-load-example]');
+    if (!btn) return;
+    const id = btn.dataset.loadExample;
+    if (!id) return;
+    body.dispatchEvent(new CustomEvent('gobo:load-example', { detail: id, bubbles: true }));
   });
 
   // Welcome-page link rows. Delegate on the body since they're rebuilt

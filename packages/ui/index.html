@@ -245,6 +245,44 @@
         background: var(--surface);
       }
 
+      /* Screen lights: the page itself as a fixture. Sits above the sim so a
+         single-cell wash reads as a band of colour across the window, which is
+         what you want when there is no hardware in the room. */
+      .screen-wrap {
+        flex: 0 0 auto;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .screen-lights {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 2px;
+      }
+      .screen-panel {
+        position: relative;
+        display: grid;
+        gap: 1px;
+        min-height: 44px;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .screen-cell {
+        /* No transition: a strobe has to land on the frame it lands on. */
+        background: #000;
+      }
+      .screen-panel-label {
+        position: absolute;
+        top: 2px;
+        left: 4px;
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        color: var(--text-dim);
+        /* Readable over whatever colour the light happens to be. */
+        mix-blend-mode: difference;
+        pointer-events: none;
+      }
+
       /* Fixture sim panel */
       .fixture-panel {
         display: flex;
@@ -1794,20 +1832,9 @@
             <button type="button" class="scene-action" id="scene-save" title="save this scene as a .js file (ctrl+s)">save</button>
             <button type="button" class="scene-action" id="scene-open" title="open a .js or .txt scene from disk (.gobo files from the old version too)">open</button>
             <button type="button" class="scene-action" id="scene-share" title="copy a link containing this whole scene">share</button>
-            <div class="scene-menu-wrap">
-              <button
-                type="button"
-                class="scene-action"
-                id="scene-examples"
-                title="load a bundled example scene"
-                aria-haspopup="true"
-                aria-expanded="false"
-                aria-controls="examples-menu"
-              >examples</button>
-              <!-- Populated from EXAMPLES in main.ts so the menu matches the
-                   bundled scenes. -->
-              <div class="scene-menu" id="examples-menu" role="menu" aria-hidden="true"></div>
-            </div>
+            <!-- The bundled scenes live under the docs panel's examples tab,
+                 next to the reference that explains them, rather than behind
+                 a second menu up here. -->
           </div>
           <button type="button" class="docs-toggle" id="usb-toggle" title="connect a USB DMX interface (Enttec DMX USB Pro protocol)">usb</button>
           <button type="button" class="docs-toggle" id="library-toggle" title="custom fixture library">library</button>
@@ -1880,6 +1907,14 @@
       </div>
 
       <div class="divider"></div>
+
+      <!-- Screen lights. One panel per screen() the running scene declared,
+           drawn straight from the DMX values so it shows what a real fixture
+           on those channels would receive. Hidden entirely when the scene
+           declares none, so it costs nothing to anyone not using it. -->
+      <div class="screen-wrap" id="screen-wrap" hidden>
+        <div class="screen-lights" id="screen-lights"></div>
+      </div>
 
       <div class="viz-wrap">
         <div class="fixture-panel">

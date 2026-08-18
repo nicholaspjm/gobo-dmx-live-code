@@ -1257,7 +1257,7 @@ export function rgbStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
-  opts: { simLabel?: string; movement?: SimMovement } & StripGeometry = {},
+  opts: { simLabel?: string; movement?: SimMovement; skipSim?: boolean } & StripGeometry = {},
 ): StripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbStrip: pixelCount must be >= 1 (got ${pixelCount})`);
@@ -1420,7 +1420,9 @@ export function rgbStrip(
       rainbowChaseImpl(inst, opts);
     },
   };
-  registerSimFixture({
+  // A screen light draws itself, so it opts out of the hardware panel rather
+  // than showing up there as a fixture nobody patched.
+  if (opts.skipSim !== true) registerSimFixture({
     label: opts.simLabel ?? `rgbStrip ×${pixelCount}`,
     type: 'RGB pixel strip',
     universe,
@@ -1482,7 +1484,7 @@ export function monoStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
-  opts: { simLabel?: string; movement?: SimMovement } & StripGeometry = {},
+  opts: { simLabel?: string; movement?: SimMovement; skipSim?: boolean } & StripGeometry = {},
 ): MonoStripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`monoStrip: pixelCount must be >= 1 (got ${pixelCount})`);
@@ -1562,7 +1564,7 @@ export function monoStrip(
     },
   };
 
-  registerSimFixture({
+  if (opts.skipSim !== true) registerSimFixture({
     label: opts.simLabel ?? `monoStrip ×${pixelCount}`,
     type: 'Single-channel cells',
     universe,
@@ -1703,7 +1705,7 @@ export function rgbwStrip(
   startChannel: number,
   pixelCount: number,
   universe = 0,
-  opts: { simLabel?: string; movement?: SimMovement } & StripGeometry = {},
+  opts: { simLabel?: string; movement?: SimMovement; skipSim?: boolean } & StripGeometry = {},
 ): RgbwStripInstance {
   if (!Number.isFinite(pixelCount) || pixelCount < 1) {
     throw new Error(`rgbwStrip: pixelCount must be >= 1 (got ${pixelCount})`);
@@ -1851,7 +1853,7 @@ export function rgbwStrip(
       rainbowChaseImpl(inst, opts);
     },
   };
-  registerSimFixture({
+  if (opts.skipSim !== true) registerSimFixture({
     label: opts.simLabel ?? `rgbwStrip ×${pixelCount}`,
     type: 'RGBW pixel strip',
     universe,

@@ -40,6 +40,9 @@ import {
   onUsbStatusChange,
   restoreLibraryFixtures,
   getSimFixtures,
+  getScreens,
+  readScreen,
+  type ScreenPanel,
   clearDefs,
   getQueryFailures,
   getQueryFailureGeneration,
@@ -99,8 +102,8 @@ const sceneDirtyEl = document.getElementById('scene-dirty') as HTMLElement;
 const sceneSaveEl = document.getElementById('scene-save') as HTMLButtonElement;
 const sceneOpenEl = document.getElementById('scene-open') as HTMLButtonElement;
 const sceneShareEl = document.getElementById('scene-share') as HTMLButtonElement;
-const sceneExamplesEl = document.getElementById('scene-examples') as HTMLButtonElement;
-const examplesMenuEl = document.getElementById('examples-menu') as HTMLElement;
+
+
 
 // "This code came from a link" banner.
 const shareBannerEl = document.getElementById('share-banner') as HTMLElement;
@@ -162,6 +165,7 @@ async function runEval(code: string): Promise<void> {
     // Rebuild the sim panel: one fixture-unit per SimFixture registered by
     // the new code.
     rebuildSimPanel();
+    rebuildScreens();
     // Refresh the library panel: a new defineFixture call may have added or
     // replaced a custom fixture that the user can now save.
     _refreshLibraryAfterEval();
@@ -788,9 +792,71 @@ function applyMovement(r: RenderedSimFixture): void {
   dot.style.top  = `${(y * 100).toFixed(1)}%`;
 }
 
+// ─── Screen lights ───────────────────────────────────────────────────────────
+//
+// A screen() in the scene claims a panel here and is painted from its DMX
+// values, so what you see is what a fixture patched to those channels would
+// receive. Rebuilt when the scene changes, painted on the same 30fps loop as
+// the sim.
+
+const screenWrapEl = document.getElementById('screen-wrap') as HTMLElement;
+const screenLightsEl = document.getElementById('screen-lights') as HTMLElement;
+
+/** A declared panel and the cell elements painting it. */
+interface RenderedScreen {
+  panel: ScreenPanel;
+  cells: HTMLElement[];
+}
+let _renderedScreens: RenderedScreen[] = [];
+
+/** Rebuild the screen panels from whatever the current scene declared. */
+function rebuildScreens(): void {
+  _renderedScreens = [];
+  screenLightsEl.innerHTML = '';
+  const panels = getScreens();
+  // Hidden rather than empty, so a scene with no screen() costs no layout.
+  screenWrapEl.hidden = panels.length === 0;
+  if (panels.length === 0) return;
+
+  for (const panel of panels) {
+    const el = document.createElement('div');
+    el.className = 'screen-panel';
+    el.style.gridTemplateColumns = `repeat(${panel.width}, 1fr)`;
+    el.style.gridTemplateRows = `repeat(${panel.height}, 1fr)`;
+
+    const cells: HTMLElement[] = [];
+    for (let i = 0; i < panel.pixelCount; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'screen-cell';
+      el.appendChild(cell);
+      cells.push(cell);
+    }
+
+    const label = document.createElement('span');
+    label.className = 'screen-panel-label';
+    label.textContent = panel.label;
+    el.appendChild(label);
+
+    screenLightsEl.appendChild(el);
+    _renderedScreens.push({ panel, cells });
+  }
+}
+
+/** Paint every screen panel from the current buffer. */
+function paintScreens(): void {
+  for (const r of _renderedScreens) {
+    const colours = readScreen(r.panel);
+    for (let i = 0; i < r.cells.length; i++) {
+      const [red, green, blue] = colours[i] ?? [0, 0, 0];
+      r.cells[i].style.background = `rgb(${red}, ${green}, ${blue})`;
+    }
+  }
+}
+
 // ~30fps driver loop. Reads universe buffers, paints each rendered sim fixture
 // according to its render kind, then applies movement.
 setInterval(() => {
+  paintScreens();
   for (const r of _renderedSim) {
     const buf = getUniverseBuffer(r.core.universe);
     const base = r.core.startChannel - 1; // 0-indexed
@@ -1202,17 +1268,15 @@ async function handleShare(): Promise<void> {
 
 sceneShareEl.addEventListener('click', () => { void handleShare(); });
 
-// ─── Examples menu ───────────────────────────────────────────────────────────
-// The three bundled demos. They are source, not saved state: loading one
+// ─── Bundled examples ────────────────────────────────────────────────────────
+// The demos that ship with gobo. They are source, not saved state: loading one
 // fills the working buffer and from that moment it is the user's buffer.
+//
+// They are listed under the docs panel's examples tab rather than a menu of
+// their own, so the scenes sit next to the reference that explains them. The
+// panel announces a click; deciding what that does to the buffer is here.
 
-function setExamplesMenuOpen(open: boolean): void {
-  examplesMenuEl.classList.toggle('open', open);
-  examplesMenuEl.setAttribute('aria-hidden', open ? 'false' : 'true');
-  sceneExamplesEl.setAttribute('aria-expanded', open ? 'true' : 'false');
-  sceneExamplesEl.classList.toggle('active', open);
-}
-
+/** Load a bundled scene into the working buffer, warning about unsaved work. */
 function loadExample(ex: Example): void {
   if (!confirmReplace(`Load the "${ex.label}" example?`)) {
     setStatus('', 'example not loaded · nothing replaced');
@@ -1225,41 +1289,7 @@ function loadExample(ex: Example): void {
   setStatus('', `example: ${ex.label} · ctrl+enter to run`);
 }
 
-for (const ex of EXAMPLES) {
-  const item = document.createElement('button');
-  item.type = 'button';
-  item.className = 'scene-menu-item';
-  item.setAttribute('role', 'menuitem');
-  const label = document.createElement('span');
-  label.className = 'scene-menu-label';
-  label.textContent = ex.label;
-  const blurb = document.createElement('span');
-  blurb.className = 'scene-menu-blurb';
-  blurb.textContent = ex.blurb;
-  item.append(label, blurb);
-  item.addEventListener('click', () => {
-    setExamplesMenuOpen(false);
-    loadExample(ex);
-  });
-  examplesMenuEl.appendChild(item);
-}
 
-sceneExamplesEl.addEventListener('click', (e) => {
-  // Without this the document listener below sees the same click and closes
-  // the menu again in the same tick.
-  e.stopPropagation();
-  setExamplesMenuOpen(!examplesMenuEl.classList.contains('open'));
-});
-
-document.addEventListener('click', (e) => {
-  if (!examplesMenuEl.classList.contains('open')) return;
-  const target = e.target;
-  if (!(target instanceof Node) || !examplesMenuEl.contains(target)) setExamplesMenuOpen(false);
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') setExamplesMenuOpen(false);
-});
 
 // ─── Shared-scene banner ─────────────────────────────────────────────────────
 // Scene code is evaluated with full page privileges (SECURITY.md,
@@ -1398,6 +1428,19 @@ const docsPanelEl  = document.getElementById('docs-panel')  as HTMLElement;
 const docsBodyEl   = document.getElementById('docs-body')   as HTMLElement;
 
 renderDocs(docsBodyEl);
+
+// The docs panel raises this when one of its example rows is clicked. It
+// carries the id rather than the scene itself, so an unknown id fails visibly
+// here instead of quietly loading the wrong thing.
+docsBodyEl.addEventListener('gobo:load-example', (ev) => {
+  const id = (ev as CustomEvent<string>).detail;
+  const ex = EXAMPLES.find((e) => e.id === id);
+  if (!ex) {
+    setStatus('error', `no bundled example called "${id}"`);
+    return;
+  }
+  loadExample(ex);
+});
 
 function setDocsOpen(open: boolean): void {
   docsPanelEl.classList.toggle('open', open);

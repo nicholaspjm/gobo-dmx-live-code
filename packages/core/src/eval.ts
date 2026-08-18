@@ -50,6 +50,7 @@ import {
 import { sendConfig, connectDirect, isBlockedAsMixedContent, isConnected } from './websocket.js';
 import { isUsbConnected, isUsbDmxSupported } from './usb-dmx.js';
 import { clearPatternVizRegistry, registerPatternViz } from './pattern-viz.js';
+import { screen, clearScreens } from './screen.js';
 
 // Strudel functions, loaded once via initStrudel()
 const _strudelCtx: Record<string, unknown> = {};
@@ -102,6 +103,49 @@ export async function initStrudel(): Promise<void> {
     _strudelCtx.sequence = core.sequence;
     _strudelCtx.cat = core.cat;
     _strudelCtx.stack = core.stack;
+
+    // The rest of the pattern vocabulary, under the names strudel gives them.
+    //
+    // These were all present in @strudel/core and simply never handed to the
+    // sandbox, so a scene that reached for one got "irand is not defined" and
+    // no hint that the function existed. Chain methods (.euclid, .degradeBy,
+    // .sometimesBy …) already arrive on the Pattern prototype; what needed
+    // wiring is the top-level functions and the remaining signals.
+    //
+    // Names are strudel's, deliberately. Anything renamed here would be a
+    // dialect: a pattern copied out of the strudel docs should run.
+    const passthrough = [
+      // signals
+      'tri', 'isaw', 'perlin',
+      // randomness
+      'irand', 'brand', 'brandBy', 'choose', 'wchoose', 'chooseCycles',
+      'randcat', 'wrandcat', 'shuffle', 'scramble',
+      // structure
+      'polymeter', 'polyrhythm', 'pm', 'pr',
+      'slowcat', 'fastcat', 'timeCat', 'stepcat', 'run', 'pure', 'silence',
+    ] as const;
+    // Signals are exported as Pattern instances; wrap() makes them callable so
+    // scene code says tri() the way it says sine(). Everything else is already
+    // a function, or is meant to be used bare.
+    //
+    // silence is deliberately NOT in here. Strudel writes it without parens
+    // (`wash.red(silence)`), so wrapping it would turn the documented form
+    // into a function reaching the channel, which is now a rejected value.
+    const signals = new Set(['tri', 'isaw', 'perlin']);
+    for (const name of passthrough) {
+      // Each read is guarded on its own. A missing name must cost only that
+      // name: reading an absent export off a module namespace can throw rather
+      // than give undefined, and an escape from here lands in the outer catch,
+      // which marks the whole engine failed and makes evalCode refuse every
+      // scene. One optional extra would take the entire pattern engine down.
+      try {
+        const exported = (core as Record<string, unknown>)[name];
+        if (exported === undefined) continue;
+        _strudelCtx[name] = signals.has(name) ? wrap(exported) : exported;
+      } catch {
+        // This strudel build does not have it; the rest still load.
+      }
+    }
 
     // Mini-notation lives in a separate @strudel/mini package and is not
     // re-exported from core. Import it so users can write mini('1 - 1 -') as
@@ -522,6 +566,7 @@ export function evalCode(code: string): EvalResult {
     rgbwStrip,
     monoStrip,
     group,
+    screen,
     // Pattern extension: define custom chain methods at top level.
     register,
     // Patterns (populated by initStrudel)
@@ -583,6 +628,7 @@ export function evalCode(code: string): EvalResult {
     clearVizRegistry();
     clearPatternVizRegistry();
     clearSimFixtures();
+    clearScreens();
     fn(...values);
     result = { success: true };
   } catch (err) {
@@ -633,6 +679,7 @@ export function evalCode(code: string): EvalResult {
         clearVizRegistry();
         clearPatternVizRegistry();
         clearSimFixtures();
+        clearScreens();
       } catch {
         // Nothing left to do; the rig is already back on the old scene.
       }
