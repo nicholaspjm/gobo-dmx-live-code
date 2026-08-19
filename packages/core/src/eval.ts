@@ -106,6 +106,81 @@ export async function initStrudel(): Promise<void> {
     _strudelCtx.cat = core.cat;
     _strudelCtx.stack = core.stack;
 
+    // ── Named moves ────────────────────────────────────────────────────
+    //
+    // Four gestures a lighting desk has a button for, each one strudel
+    // expression that you have to already know to write. Real patterns, built
+    // from the primitives above, so they chain and stack like anything else:
+    // `wash.dim(flash().mul(0.7))` and `stack(pulse(8), flash())` both work.
+    //
+    // The negative floor in flash() and adsr() is the load-bearing trick and
+    // the one nobody guesses: a channel clamps below zero, so pushing most of
+    // a wave under the line leaves only its tip above, which is what makes a
+    // sharp hit out of a linear ramp.
+
+    /** The slow swell. Breathing, on any channel. */
+    _strudelCtx.pulse = (cycles = 4): PatternLike =>
+      (core.sine as PatternLike & { slow(n: number): PatternLike }).slow(cycles);
+
+    /** Hard on/off, `per` times a cycle. A software strobe for fixtures that
+     *  have no strobe channel of their own. */
+    _strudelCtx.strobe = (per = 8): PatternLike =>
+      (core.square as PatternLike & { fast(n: number): PatternLike }).fast(per);
+
+    /**
+     * Sharp hit, quick decay: the move you make on a kick.
+     *
+     * `tail` is how much of each beat it stays lit, so 0.3 is a snap and 0.9
+     * is nearly a sawtooth. isaw falls 1 to 0 across a cycle, and dropping the
+     * floor to 1 - 1/tail puts everything past that fraction below zero.
+     */
+    _strudelCtx.flash = (per = 1, tail = 0.3): PatternLike => {
+      const t = Math.min(1, Math.max(0.01, tail));
+      const isaw = _strudelCtx.isaw as (() => PatternLike) | undefined;
+      const base = isaw ? isaw() : (core.saw as PatternLike);
+      return (base as PatternLike & { fast(n: number): { range(lo: number, hi: number): PatternLike } })
+        .fast(per).range(1 - 1 / t, 1);
+    };
+
+    /** Candle, fire, a lamp on its way out. Wanders around full by `amount`. */
+    _strudelCtx.flicker = (amount = 0.3): PatternLike => {
+      const a = Math.min(1, Math.max(0, amount));
+      const perlin = _strudelCtx.perlin as (() => PatternLike) | undefined;
+      const base = perlin ? perlin() : (core.rand as PatternLike);
+      return (base as PatternLike & { range(lo: number, hi: number): PatternLike }).range(1 - a, 1);
+    };
+
+    /**
+     * An envelope to put over anything, once per cycle.
+     *
+     * Multiply it onto an effect and the effect gets a shape:
+     * `wash.dim(flicker().mul(adsr(0.1, 0.1, 0.7, 0.2)))`. The four numbers are
+     * fractions of a cycle for attack, decay and release, with sustain the
+     * level held in between, which is how every synth spells it.
+     *
+     * Built on fmap over a ramp rather than out of range/add arithmetic,
+     * because an envelope is piecewise and arithmetic on a single wave cannot
+     * be. Falls back to a plain ramp where fmap is missing, so a scene using
+     * it still runs.
+     */
+    _strudelCtx.adsr = (attack = 0.05, decay = 0.1, sustain = 0.7, release = 0.2): PatternLike => {
+      const a = Math.max(0, attack);
+      const d = Math.max(0, decay);
+      const s = Math.min(1, Math.max(0, sustain));
+      const r = Math.max(0, release);
+      const at = (t: number): number => {
+        if (a > 0 && t < a) return t / a;                        // rising
+        if (d > 0 && t < a + d) return 1 - (1 - s) * ((t - a) / d); // falling to sustain
+        const relStart = 1 - r;
+        if (r > 0 && t >= relStart) return s * (1 - (t - relStart) / r); // letting go
+        return s;                                                 // holding
+      };
+      const ramp = core.saw as PatternLike & { fmap?(fn: (v: number) => number): PatternLike };
+      if (typeof ramp.fmap === 'function') return ramp.fmap(at);
+      console.warn('[gobo] adsr(): this strudel build has no fmap, falling back to a plain ramp');
+      return ramp;
+    };
+
     // The rest of the pattern vocabulary, under the names strudel gives them.
     //
     // These were all present in @strudel/core and simply never handed to the
