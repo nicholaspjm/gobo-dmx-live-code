@@ -1051,6 +1051,42 @@
       .gobo-picker-swatch::-webkit-color-swatch-wrapper { padding: 1px; }
       .gobo-picker-swatch::-webkit-color-swatch { border: none; border-radius: 2px; }
 
+      /* The definition, written back out as the code that would make it. Every
+         fixture in the library is a worked channel map; this is how someone
+         starting their own gets to read one. Folded away: the list is for
+         browsing, and a dozen channel maps open at once is not browsable. */
+      .lib-row-template {
+        margin-top: 6px;
+      }
+      .lib-row-template-summary {
+        cursor: pointer;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: var(--accent);
+        list-style: none;
+      }
+      .lib-row-template-summary::-webkit-details-marker { display: none; }
+      .lib-row-template-summary::before {
+        content: '+ ';
+        opacity: 0.7;
+      }
+      .lib-row-template[open] .lib-row-template-summary::before { content: '- '; }
+      .lib-row-template-code {
+        margin-top: 5px;
+        padding: 8px 9px;
+        border-radius: 3px;
+        background: var(--code-bg);
+        font-family: var(--mono, ui-monospace, monospace);
+        font-size: 10.5px;
+        line-height: 1.55;
+        color: var(--text);
+        white-space: pre;
+        overflow-x: auto;
+      }
+      .lib-template-copy {
+        margin-top: 6px;
+      }
+
       .connector-how {
         margin-top: 8px;
       }
