@@ -18,17 +18,33 @@
  * only what the maker of the light decided it means.
  */
 
-/** A colour, as an r/g/b mix with each component 0 to 1. */
+/**
+ * A colour, as an r/g/b mix with each component 0 to 1.
+ *
+ * A component may also be a pattern, which is what makes `pick()` live: every
+ * call that takes a colour writes its components to channels, and a channel
+ * takes a pattern as readily as a number, so a colour whose components are
+ * patterns reaches all of them and updates without a re-run.
+ */
 export interface Color {
-  readonly r: number;
-  readonly g: number;
-  readonly b: number;
+  readonly r: ColorComponent;
+  readonly g: ColorComponent;
+  readonly b: ColorComponent;
 }
+
+/** A number 0 to 1, or anything the channel writer accepts as a pattern. */
+export type ColorComponent = number | { queryArc(begin: number, end: number): unknown };
 
 const COLOR_BRAND = Symbol.for('gobo.color');
 
 /** Build a colour from three components, each 0 to 1. */
 export function makeColor(r: number, g: number, b: number): Color {
+  return Object.freeze({ [COLOR_BRAND]: true, r, g, b } as unknown as Color);
+}
+
+/** Build a colour whose components are read live, for `pick()`. Not frozen
+ *  values but frozen references: the patterns answer differently each tick. */
+export function livingColor(r: ColorComponent, g: ColorComponent, b: ColorComponent): Color {
   return Object.freeze({ [COLOR_BRAND]: true, r, g, b } as unknown as Color);
 }
 

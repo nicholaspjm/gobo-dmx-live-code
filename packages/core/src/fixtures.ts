@@ -18,7 +18,7 @@
  */
 
 import { uni, channelValue, channelValues, type PatternOrValue, type PatternLike } from './dmx.js';
-import { readColor, isColor, checkOptions, type Color } from './colors.js';
+import { readColor, isColor, checkOptions, type Color, type ColorComponent } from './colors.js';
 
 // ─── Fixture definition types ─────────────────────────────────────────────────
 
@@ -607,6 +607,7 @@ export type FixtureInstance = {
   color(
     ...args:
       | []
+      | [color: Color]
       | [slot: PatternOrValue | string]
       | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
       | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
@@ -993,6 +994,15 @@ export function fixture(
     },
 
     color(...args) {
+      // A colour value spreads into the three components it already holds, so
+      // `wash.color(red)` and `wash.color(pick('warm'))` reach the same place
+      // as `wash.color(1, 0, 0)`. Checked before the wheel branch below, which
+      // also takes a single argument.
+      if (isColor(args[0])) {
+        const c = args[0] as Color;
+        inst.color(c.r as PatternOrValue, c.g as PatternOrValue, c.b as PatternOrValue);
+        return;
+      }
       // A colour wheel is picked by slot name, by raw DMX value, or by a
       // pattern stepping through slots, and a def is free to call that channel
       // `color`. On a fixture that has one, a single argument is that channel;
@@ -1386,7 +1396,10 @@ export interface StripInstance {
    * Set every pixel to the same r/g/b. Each arg may be a pattern or number.
    * Omit all three for full white.
    */
-  fill(...args: [] | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]): void;
+  fill(...args:
+    | []
+    | [color: Color]
+    | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]): void;
 
   /**
    * Set a single pixel (0-indexed). Three shapes:
@@ -1561,6 +1574,12 @@ export function rgbStrip(
     },
 
     fill(...args) {
+      // A colour value spreads into its components, so `strip.fill(red)` and
+      // `strip.fill(pick('warm'))` reach the same place as fill(1, 0, 0).
+      if (isColor(args[0])) {
+        const c = args[0] as Color;
+        args = [c.r as PatternOrValue, c.g as PatternOrValue, c.b as PatternOrValue];
+      }
       const [r, g, b] = channelValues(args, ['r', 'g', 'b'], '.fill()');
       for (let i = 0; i < pixelCount; i++) {
         const base = startChannel + i * 3;
@@ -1904,6 +1923,7 @@ export interface RgbwStripInstance {
   fill(
     ...args:
       | []
+      | [color: Color]
       | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
   ): void;
 
@@ -2051,6 +2071,28 @@ export function rgbwStrip(
     },
 
     fill(...args) {
+      // A colour value spreads into its components, so `strip.fill(red)` and
+      // `strip.fill(pick('warm'))` reach the same place as fill(1, 0, 0, 0).
+      //
+      // A colour is three components, and the fourth is a dedicated white LED,
+      // which a three-component mix has no business touching: that is the rule
+      // .color() has always followed on an RGBW fixture. So this writes r, g
+      // and b and leaves w wherever the scene last put it. `.full()` is still
+      // the call that lights every emitter.
+      if (isColor(args[0])) {
+        const c = args[0] as Color;
+        const [r, g, b] = channelValues(
+          [c.r as PatternOrValue, c.g as PatternOrValue, c.b as PatternOrValue],
+          ['r', 'g', 'b'], '.fill()',
+        );
+        for (let i = 0; i < pixelCount; i++) {
+          const base = startChannel + i * STRIDE;
+          uni(universe, base,     r);
+          uni(universe, base + 1, g);
+          uni(universe, base + 2, b);
+        }
+        return;
+      }
       const [r, g, b, w] = channelValues(args, ['r', 'g', 'b', 'w'], '.fill()');
       for (let i = 0; i < pixelCount; i++) {
         const base = startChannel + i * STRIDE;
@@ -2652,8 +2694,12 @@ function chaseImpl(
         continue;
       }
       const { r, g, b } = color;
-      const scale = (c: number): PatternOrValue =>
-        (c === 0 ? 0 : c === 1 ? bright : (bright as { mul(n: number): unknown }).mul(c)) as PatternOrValue;
+      // A component is usually a number, and 0 and 1 are worth short-cutting:
+      // no multiply, and a dark component stays exactly dark. A component from
+      // pick() is a pattern instead, and strudel's .mul() takes one, so the
+      // envelope is scaled by a colour that is still being chosen.
+      const scale = (c: ColorComponent): PatternOrValue =>
+        (c === 0 ? 0 : c === 1 ? bright : (bright as { mul(n: unknown): unknown }).mul(c)) as PatternOrValue;
       if (strip.channelCount === strip.pixelCount * 4) {
         (strip as RgbwStripInstance).pixelXY(x, y, scale(r), scale(g), scale(b), 0);
       } else {

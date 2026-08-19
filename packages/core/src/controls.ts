@@ -17,7 +17,7 @@
  * used the first time a name is seen and ignored afterwards.
  */
 
-import { checkOptions } from './colors.js';
+import { checkOptions, isColor, makeColor, livingColor, type Color } from './colors.js';
 import type { PatternLike } from './dmx.js';
 
 /** One control declared by the running scene. */
@@ -128,4 +128,97 @@ export function slider(
       return [{ value: _values.get(name) ?? initial }];
     },
   };
+}
+
+// ─── Colour picker ───────────────────────────────────────────────────────────
+
+/** One picker declared by the running scene. */
+export interface PickerEntry {
+  name: string;
+  /** Where it started, as the editor widget's hex, for the reset affordance. */
+  initial: Color;
+}
+
+let _pickers: PickerEntry[] = [];
+
+/**
+ * Chosen colours, by name. Kept across runs for the same reason slider
+ * positions are: a colour someone chose during a show survives an edit.
+ */
+const _picked = new Map<string, Color>();
+
+/** Forget the declarations. Chosen colours are kept. Called before each run. */
+export function clearPickers(): void {
+  _pickers = [];
+}
+
+/** The pickers the current scene declared, in source order. */
+export function getPickers(): readonly PickerEntry[] {
+  return _pickers;
+}
+
+/** The colour a named picker is on, or null if it has none. */
+export function getPickedColor(name: string): Color | null {
+  return _picked.get(name) ?? null;
+}
+
+/** Set a picker's colour. Called by the editor widget as the wheel moves. */
+export function setPickedColor(name: string, color: Color): void {
+  if (!isColor(color)) return;
+  _picked.set(name, color);
+}
+
+/** Forget every chosen colour. For a deliberate reset, not for a re-run. */
+export function resetPickers(): void {
+  _picked.clear();
+}
+
+/**
+ * A colour with a wheel on it.
+ *
+ * Reads as a colour anywhere a colour is taken, and its three components are
+ * live: the tick asks for them sixty times a second, so turning the wheel
+ * moves the rig without re-running the scene. That is the same trick slider()
+ * uses, applied to three channels at once.
+ *
+ * @param name  what to label it, and the key its colour is stored under
+ * @param opts  `start` for the opening colour, a predefined name or a mix
+ *
+ * @example
+ *   const warm = pick('warm')
+ *   wash.color(warm)
+ *   bar.pixels.chase(warm)
+ *
+ *   const accent = pick('accent', { start: blue })
+ */
+export function pick(name: string, opts: { start?: Color } = {}): Color {
+  checkOptions(opts as Record<string, unknown>, ['start'], 'pick()');
+  if (typeof name !== 'string' || name.trim() === '') {
+    throw new Error('pick: needs a name, which labels it and stores its colour');
+  }
+  if (opts.start !== undefined && !isColor(opts.start)) {
+    throw new Error(
+      `pick("${name}"): start must be a colour, written without quotes, as in pick('${name}', { start: blue }).`,
+    );
+  }
+  // Two pickers sharing a name would share a colour and fight over it.
+  if (_pickers.some((p) => p.name === name)) {
+    throw new Error(`pick("${name}"): already declared in this scene. Give each picker its own name.`);
+  }
+
+  const initial = opts.start ?? makeColor(1, 1, 1);
+  _pickers.push({ name, initial });
+  // First sighting sets the colour; later runs leave a chosen one alone.
+  if (!_picked.has(name)) _picked.set(name, initial);
+
+  const live = (component: 'r' | 'g' | 'b'): PatternLike => ({
+    queryArc() {
+      return [{ value: (_picked.get(name) ?? initial)[component] }];
+    },
+  });
+
+  // A colour whose components are patterns rather than numbers. Everything
+  // that takes a colour writes its components to channels, and a channel is
+  // just as happy with a pattern, so this reaches every one of them.
+  return livingColor(live('r'), live('g'), live('b'));
 }

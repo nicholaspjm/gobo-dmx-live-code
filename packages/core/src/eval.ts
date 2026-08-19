@@ -52,7 +52,7 @@ import { sendConfig, connectDirect, isBlockedAsMixedContent, isConnected } from 
 import { isUsbConnected, isUsbDmxSupported } from './usb-dmx.js';
 import { clearPatternVizRegistry, registerPatternViz } from './pattern-viz.js';
 import { screen, clearScreens } from './screen.js';
-import { slider, clearControls } from './controls.js';
+import { slider, pick, clearControls, clearPickers } from './controls.js';
 
 // Strudel functions, loaded once via initStrudel()
 const _strudelCtx: Record<string, unknown> = {};
@@ -608,6 +608,7 @@ export function evalCode(code: string): EvalResult {
     group,
     screen,
     slider,
+    pick,
     // Pattern extension: define custom chain methods at top level.
     register,
     // Patterns (populated by initStrudel)
@@ -671,6 +672,7 @@ export function evalCode(code: string): EvalResult {
     clearSimFixtures();
     clearScreens();
     clearControls();
+  clearPickers();
     fn(...values);
     result = { success: true };
   } catch (err) {
