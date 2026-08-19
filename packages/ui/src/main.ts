@@ -1570,7 +1570,7 @@ _panelClosers.set('settings', settingsPanel.setOpen);
 
 // Outputs panel. Opened by the connection light rather than by a button of its
 // own: the light already answers half this question, and the top bar has no
-// room for another control. Mounted last, and the reference is kept in
+// room for another word. Mounted last, and the reference is kept in
 // _outputsPanel so the connection listeners can repaint it.
 _outputsPanel = mountOutputsPanel({
   panelEl:  document.getElementById('outputs-panel') as HTMLElement,
