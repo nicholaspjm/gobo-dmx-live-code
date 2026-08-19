@@ -2553,6 +2553,16 @@ export interface ChaseOptions {
   waves?: number;
   /** Run down the rows instead of across the columns. Needs a grid. */
   down?: boolean;
+  /**
+   * Start the chase this many cycles ahead, so two of them can run out of step
+   * with each other. A negative number starts it later.
+   *
+   * This is an option rather than a `.early()` on the end of the call, because
+   * `.early()` belongs to patterns and a chase is not one: it is a command that
+   * writes every channel on the strip. `strip.chase(green).early(1)` reads as
+   * though it should work and cannot.
+   */
+  early?: number;
 }
 
 /**
@@ -2581,7 +2591,7 @@ function splitChaseArgs(args: readonly unknown[]): { color: Color; opts: ChaseOp
  * width, and a waveform chained three deep are a lot to know before your first
  * moving light.
  */
-export const CHASE_OPTION_KEYS = ['cycles', 'width', 'waves', 'reverse', 'down'] as const;
+export const CHASE_OPTION_KEYS = ['cycles', 'width', 'waves', 'reverse', 'down', 'early'] as const;
 
 function chaseImpl(
   strip: StripInstance | RgbwStripInstance | MonoStripInstance,
@@ -2602,7 +2612,11 @@ function chaseImpl(
   const count = opts.down ? strip.height : strip.width;
   const brightAt = (step: number): unknown => {
     const phase = ((step * waves) / count) * (opts.reverse ? -1 : 1);
-    return sine().early(phase).slow(cycles).range(lo, 1);
+    // Per-cell phase goes on before .slow(), so it is a fraction of one lap.
+    // The scene's own offset goes on after, so `early: 1` is one cycle of real
+    // time, which is what .early() means everywhere else.
+    const wave = sine().early(phase).slow(cycles);
+    return (opts.early ? wave.early(opts.early) : wave).range(lo, 1);
   };
 
   for (let y = 0; y < strip.height; y++) {

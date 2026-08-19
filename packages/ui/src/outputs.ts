@@ -473,7 +473,82 @@ export function mountOutputsPanel(opts: {
         + 'page cannot put those packets on the network itself. Without it, usb() and td() '
         + 'still work from the browser alone.';
     box.append(head, what);
+    // When it is not running, the next question is always "so how do I start
+    // it", and the answer was nowhere on screen. Folded away rather than
+    // printed, because it is three routes and only one of them is yours.
+    if (!up) box.appendChild(renderHowToStart());
     return box;
+  }
+
+  /**
+   * How to start the connector, in a details element the panel opens on
+   * demand.
+   *
+   * Three routes, because there genuinely are three: the packaged connector
+   * most people download, the npm package, and running it from a clone. Each
+   * says what you end up with, so nobody follows the wrong one and wonders why
+   * there is no window.
+   */
+  function renderHowToStart(): HTMLElement {
+    const wrap = document.createElement('details');
+    wrap.className = 'connector-how';
+
+    const summary = document.createElement('summary');
+    summary.className = 'connector-how-summary';
+    const icon = document.createElement('span');
+    icon.className = 'connector-how-icon';
+    icon.textContent = 'i';
+    icon.setAttribute('aria-hidden', 'true');
+    summary.append(icon, document.createTextNode('how do I start it?'));
+    wrap.appendChild(summary);
+
+    const routes: Array<{ title: string; body: string; code?: string }> = [
+      {
+        title: 'the download',
+        body:
+          'The usual one. Download the connector for this computer and run it once. '
+          + 'It registers itself to start with your computer and then stays out of the way: '
+          + 'there is no window, and this panel turning green is how you know it is up.',
+      },
+      {
+        title: 'from npm',
+        body: 'If you have Node installed, this fetches and runs it without installing anything permanently.',
+        code: 'npx gobo-connector',
+      },
+      {
+        title: 'from a clone',
+        body: 'If you have the repository, this runs the connector from source.',
+        code: 'npm run dev:bridge',
+      },
+    ];
+
+    for (const r of routes) {
+      const row = document.createElement('div');
+      row.className = 'connector-how-route';
+      const t = document.createElement('div');
+      t.className = 'connector-how-title';
+      t.textContent = r.title;
+      const b = document.createElement('p');
+      b.className = 'connector-how-body';
+      b.textContent = r.body;
+      row.append(t, b);
+      if (r.code) {
+        const pre = document.createElement('pre');
+        pre.className = 'connector-how-code';
+        pre.textContent = r.code;
+        row.appendChild(pre);
+      }
+      wrap.appendChild(row);
+    }
+
+    const foot = document.createElement('p');
+    foot.className = 'connector-how-body connector-how-foot';
+    foot.textContent =
+      'It listens on localhost:3001, so only this computer can reach it. '
+      + 'Whichever route you take, this panel goes green within a couple of seconds of it starting. '
+      + 'If it does not, something else is already on that port, usually a second connector.';
+    wrap.appendChild(foot);
+    return wrap;
   }
 
   function render(): void {
