@@ -689,18 +689,6 @@
         color: var(--accent);
         border-color: var(--accent);
       }
-      /* The panic control. Reads as itself without shouting: this sits in a
-         dark room next to the save button. */
-      .scene-action.scene-stop {
-        color: var(--error);
-        border-color: color-mix(in srgb, var(--error) 45%, var(--border));
-      }
-      .scene-action.scene-stop:hover {
-        color: var(--error);
-        border-color: var(--error);
-        background: color-mix(in srgb, var(--error) 12%, transparent);
-      }
-
       /* Momentary "copied" state on the share button. Green rather than the
          accent, because it reports that something happened rather than that a
          mode is on, and the two should not look alike. */
@@ -2237,11 +2225,13 @@
             <button type="button" class="scene-action" id="scene-save" title="save this scene as a .js file (ctrl+s)">save</button>
             <button type="button" class="scene-action" id="scene-open" title="open a .js or .txt scene from disk (.gobo files from the old version too)">open</button>
             <button type="button" class="scene-action" id="scene-share" title="copy a link containing this whole scene">share</button>
-            <!-- Something to click. The stop shortcut used to be the only way
-                 to black out, and it was bound inside the editor, so it did
-                 nothing at all unless the editor happened to have focus. That
-                 is the wrong way for a panic control to behave. -->
-            <button type="button" class="scene-action scene-stop" id="scene-stop" title="stop the scene and black out (ctrl+. or ctrl+space, from anywhere)">stop</button>
+            <!-- No stop button. Stopping is ctrl+. / cmd+. (or ctrl+space),
+                 handled at the document so it fires wherever focus happens to
+                 be. It was briefly a button here, added when the shortcut was
+                 bound inside the editor and did nothing unless the editor had
+                 focus; the shortcut reaching the whole page is the fix, and
+                 the button was the workaround. -->
+
             <!-- The bundled scenes live under the docs panel's examples tab,
                  next to the reference that explains them, rather than behind
                  a second menu up here. -->
