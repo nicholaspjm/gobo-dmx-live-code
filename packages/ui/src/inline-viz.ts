@@ -46,6 +46,12 @@ import {
   samplePattern,
   sampleCycle,
   getControls,
+  getPickers,
+  getPickedColor,
+  setPickedColor,
+  makeColor,
+  type PickerEntry,
+  type Color,
   getControlValue,
   setControlValue,
   type ControlEntry,
@@ -465,6 +471,79 @@ class SliderWidget extends WidgetType {
 /** Live slider widgets, so the tick can keep their handles in step. */
 let _sliderWidgets: SliderWidget[] = [];
 
+/**
+ * A colour, with the wheel behind it.
+ *
+ * A swatch showing what pick() is currently on. Clicking opens the operating
+ * system's own colour picker, which is a real wheel with an eyedropper, rather
+ * than something hand-drawn here that would be worse at the one job. The
+ * chosen colour is stored by name and read live by the pattern the picker
+ * handed the scene, so the rig follows the wheel without a re-run.
+ */
+class PickerWidget extends WidgetType {
+  private input: HTMLInputElement | null = null;
+
+  constructor(readonly entry: PickerEntry) {
+    super();
+  }
+
+  eq(other: WidgetType): boolean {
+    return other instanceof PickerWidget && other.entry.name === this.entry.name;
+  }
+
+  /** Repaint the swatch from the stored colour. Called by the refresh loop so
+   *  a colour restored across a re-run shows without waiting for a click. */
+  sync(): void {
+    if (this.input) this.input.value = toHex(getPickedColor(this.entry.name) ?? this.entry.initial);
+  }
+
+  toDOM(): HTMLElement {
+    const wrap = document.createElement('span');
+    wrap.className = 'gobo-picker';
+
+    const label = document.createElement('span');
+    label.className = 'gobo-picker-label';
+    label.textContent = this.entry.name;
+
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.className = 'gobo-picker-swatch';
+    input.title = `${this.entry.name} · click for the colour wheel`;
+    input.value = toHex(getPickedColor(this.entry.name) ?? this.entry.initial);
+    this.input = input;
+
+    // 'input' rather than 'change': the rig follows the wheel while it moves.
+    input.addEventListener('input', () => setPickedColor(this.entry.name, fromHex(input.value)));
+    // The editor would otherwise take the click back and close the picker.
+    input.addEventListener('mousedown', (e) => e.stopPropagation());
+
+    wrap.append(label, input);
+    return wrap;
+  }
+
+  ignoreEvent(): boolean {
+    return true;
+  }
+}
+
+/** A colour to the #rrggbb the OS picker speaks. Live components read once so
+ *  a picker whose colour is itself a pattern still shows something. */
+function toHex(c: Color): string {
+  const part = (v: unknown): string => {
+    const n = typeof v === 'number' ? v : 0;
+    return Math.round(Math.max(0, Math.min(1, n)) * 255).toString(16).padStart(2, '0');
+  };
+  return `#${part(c.r)}${part(c.g)}${part(c.b)}`;
+}
+
+function fromHex(hex: string): Color {
+  const n = parseInt(hex.slice(1), 16);
+  return makeColor(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
+}
+
+let _pickerWidgets: PickerWidget[] = [];
+
+
 /** The kinds drawn as a canvas at line-end rather than as a line decoration. */
 const SHAPE_KINDS = new Set<PatternVizKind>(['roll', 'punchcard', 'spiral', 'spectrum']);
 
@@ -781,6 +860,7 @@ onTick(() => {
   // cannot leave a stale position on screen. Skipped while one is being
   // dragged, which the widget checks by focus.
   for (const w of _sliderWidgets) w.sync();
+  for (const w of _pickerWidgets) w.sync();
 
   if (_patternVizEntries.size === 0) return;
   const cyclePos = getCyclePos();
@@ -918,6 +998,30 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
     const widget = new SliderWidget(controls[i]);
     _sliderWidgets.push(widget);
     const lineObj = doc.line(sliderLines[i]);
+    ranges.push({
+      from: lineObj.to,
+      to: lineObj.to,
+      value: Decoration.widget({ widget, side: 1 }),
+    });
+  }
+
+
+  // ─── Colour pickers (pick) ──────────────────────────────────────────────
+  _pickerWidgets = [];
+  const pickers = getPickers();
+  const pickLines: number[] = [];
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i);
+    const commentIdx = line.text.indexOf('//');
+    const code = commentIdx >= 0 ? line.text.slice(0, commentIdx) : line.text;
+    const re = /pick\s*\(/g;
+    while (re.exec(code) !== null) pickLines.push(i);
+  }
+  const pickPairs = Math.min(pickers.length, pickLines.length);
+  for (let i = 0; i < pickPairs; i++) {
+    const widget = new PickerWidget(pickers[i]);
+    _pickerWidgets.push(widget);
+    const lineObj = doc.line(pickLines[i]);
     ranges.push({
       from: lineObj.to,
       to: lineObj.to,

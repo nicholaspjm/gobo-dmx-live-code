@@ -1024,6 +1024,33 @@
       }
       /* "how do I start it", shown only when the connector is down. Folded
          away: three routes, and only one of them is the reader's. */
+      /* Colour picker: a swatch beside the pick() that made it. The wheel
+         itself is the operating system's, which is better at being a wheel
+         than anything drawn here would be. */
+      .gobo-picker {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-left: 10px;
+        vertical-align: middle;
+      }
+      .gobo-picker-label {
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+      }
+      .gobo-picker-swatch {
+        width: 22px;
+        height: 14px;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background: none;
+        cursor: pointer;
+      }
+      .gobo-picker-swatch::-webkit-color-swatch-wrapper { padding: 1px; }
+      .gobo-picker-swatch::-webkit-color-swatch { border: none; border-radius: 2px; }
+
       .connector-how {
         margin-top: 8px;
       }
