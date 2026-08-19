@@ -221,6 +221,17 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'function',
   },
 
+  {
+    label: 'pick',
+    signature: 'pick(name, { start }) => Color',
+    description:
+      'A colour with a wheel behind it. Shows a swatch beside the call; clicking opens the colour picker, '
+      + 'and turning it moves the rig live without a re-run. Reads as a colour anywhere a colour is taken.',
+    example: "const warm = pick('warm', { start: amber })\nwash.color(warm)",
+    context: 'command',
+    kind: 'function',
+  },
+
   // ─── Fixtures ──────────────────────────────────────────────────────────────
   {
     label: 'fixture',

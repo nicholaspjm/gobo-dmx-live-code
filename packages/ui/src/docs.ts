@@ -688,6 +688,13 @@ const DOCS: DocSection[] = [
       "Higher-level scene recipes exposed as methods on strip / pixel instances. Call them the same way you'd call any other strip method (.fill, .pixel, etc.).",
     entries: [
       {
+        name: 'pick',
+        signature: "pick(name, { start }) => Color",
+        description:
+          "A colour with a wheel behind it. The name labels it and stores the colour, so a colour chosen during a show survives an edit, the way a slider keeps its position. A swatch appears beside the call: clicking opens the operating system's own colour picker, which is better at being a wheel than anything drawn here would be. Its three components are read live, so turning the wheel moves the rig without re-running the scene. It is a colour value, so it reaches every call that takes one. `start` is the opening colour, written without quotes like any other.",
+        example: "const warm = pick('warm', { start: amber })\nwash.color(warm)\nstrip.fill(warm)\nstrip.chase(warm)",
+      },
+      {
         name: 'colours',
         signature: 'red · orange · amber · yellow · green · cyan · blue · purple · magenta · pink · white',
         description:
