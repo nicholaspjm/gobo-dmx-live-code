@@ -1,0 +1,4 @@
+#!/bin/sh
+# The message itself is published, and a default trailer is the usual way one
+# of these gets in. $1 is the file git wrote the message to.
+exec node scripts/check-names.mjs --message "$1"

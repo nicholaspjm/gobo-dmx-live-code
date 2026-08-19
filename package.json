@@ -22,8 +22,9 @@
     "desktop:build": "npm run build && npm run bridge:build && npm run build --workspace=packages/desktop",
     "desktop:package": "npm run desktop:build && electron-builder --projectDir packages/desktop",
     "doctor": "node scripts/doctor.mjs",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "node scripts/check-names.mjs && vitest run",
+    "test:watch": "vitest",
+    "check:names": "node scripts/check-names.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.0",

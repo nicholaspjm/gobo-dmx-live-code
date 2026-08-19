@@ -43,8 +43,8 @@ interface BridgeConfig {
 
 /**
  * An unrecognised mode used to fall through the router's `default:` branch
- * into mock, so a typo like "artnett" logged happily while nothing reached the
- * rig. Both entry points (the config file and runtime config messages) check
+ * into mock, so a typo like "artnett" logged mock output while nothing reached
+ * the rig. Both entry points (the config file and runtime config messages) check
  * this before assigning config.mode, so an invalid value cannot reach the
  * router.
  */
