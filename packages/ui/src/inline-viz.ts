@@ -1014,7 +1014,7 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
     const line = doc.line(i);
     const commentIdx = line.text.indexOf('//');
     const code = commentIdx >= 0 ? line.text.slice(0, commentIdx) : line.text;
-    const re = /pick\s*\(/g;
+    const re = /\bpick\s*\(/g;
     while (re.exec(code) !== null) pickLines.push(i);
   }
   const pickPairs = Math.min(pickers.length, pickLines.length);
