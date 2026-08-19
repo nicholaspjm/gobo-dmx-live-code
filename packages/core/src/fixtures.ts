@@ -2609,7 +2609,7 @@ export function setStripEffectWaveforms(
 export interface ChaseOptions {
   /** Cycles for one full lap of the strip (default 4). Bigger is slower. */
   cycles?: number;
-  /** Travel the other way. */
+  /** Travel the other way: right to left, or bottom to top with `down`. */
   reverse?: boolean;
   /**
    * How much of the strip is lit at once, 0 to 1 (default 0.5). At 1 it is a
@@ -2618,7 +2618,8 @@ export interface ChaseOptions {
   width?: number;
   /** Crests on the strip at once (default 1). */
   waves?: number;
-  /** Run down the rows instead of across the columns. Needs a grid. */
+  /** Run top to bottom down the rows, instead of left to right across the
+   *  columns. Needs a grid. */
   down?: boolean;
   /**
    * Start the chase this many cycles ahead, so two of them can run out of step
@@ -2678,7 +2679,11 @@ function chaseImpl(
 
   const count = opts.down ? strip.height : strip.width;
   const brightAt = (step: number): unknown => {
-    const phase = ((step * waves) / count) * (opts.reverse ? -1 : 1);
+    // Negative, so a cell further along the strip runs LATER and the crest
+    // travels left to right, or top to bottom with `down`. Positive made each
+    // successive cell lead the one before it, which ran the whole thing
+    // backwards: correct as a wave, and the wrong way round as a light.
+    const phase = ((step * waves) / count) * (opts.reverse ? 1 : -1);
     // Per-cell phase goes on before .slow(), so it is a fraction of one lap.
     // The scene's own offset goes on after, so `early: 1` is one cycle of real
     // time, which is what .early() means everywhere else.
@@ -2737,7 +2742,9 @@ function rainbowChaseImpl(
   const isRgbw = strip.channelCount === strip.pixelCount * 4;
 
   for (let i = 0; i < strip.pixelCount; i++) {
-    const phase = (i * packets) / strip.pixelCount;
+    // Negative for the same reason as .chase(): a pixel further along runs
+    // later, so the packet travels left to right rather than back to front.
+    const phase = -(i * packets) / strip.pixelCount;
     const bright = cosine().early(phase).slow(speed).range(-narrow, 1);
     if (isRgbw) {
       (strip as RgbwStripInstance).pixel(
