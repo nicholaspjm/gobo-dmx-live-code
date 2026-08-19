@@ -14,15 +14,17 @@ import { COLORS, makeColor } from './colors.js';
 import { clearDefs } from './dmx.js';
 
 /** Calls recorded by the fake waveform, in the order chase() made them. */
-let calls: Array<{ early: number; slow: number; lo: number; mul: number | null }>;
+let calls: Array<{ early: number; earlies: number[]; slow: number; lo: number; mul: number | null }>;
 
 /** Chainable stand-in that records what was asked of it. `queryArc` is what
  *  makes the value count as a pattern to the channel writer. */
 function fakeWave(): unknown {
-  const rec = { early: NaN, slow: NaN, lo: NaN, mul: null as number | null };
+  // `early` is the first call, which is the cell's own phase. `earlies` keeps
+  // every call, because a scene offset adds a second one after .slow().
+  const rec = { early: NaN, earlies: [] as number[], slow: NaN, lo: NaN, mul: null as number | null };
   const self: Record<string, unknown> = {
     queryArc: () => [],
-    early(p: number) { rec.early = p; return self; },
+    early(p: number) { rec.earlies.push(p); if (Number.isNaN(rec.early)) rec.early = p; return self; },
     slow(n: number) { rec.slow = n; return self; },
     range(lo: number) { rec.lo = lo; calls.push(rec); return self; },
     // One envelope per cell is shared by that cell's components, so a scaled
@@ -99,6 +101,22 @@ describe('chase', () => {
     // Three rows, four cells each, all cells in a row sharing a phase.
     expect(calls.map((c) => c.early))
       .toEqual([0, 0, 0, 0, 1 / 3, 1 / 3, 1 / 3, 1 / 3, 2 / 3, 2 / 3, 2 / 3, 2 / 3]);
+  });
+
+  it('offsets the whole chase when asked, so two can run out of step', () => {
+    // `.early()` cannot go on the end of the call: it belongs to patterns, and
+    // a chase is a command that writes every channel. So it is an option.
+    const strip = rgbStrip(1, 2, 0, { skipSim: true });
+    strip.chase(COLORS.red, { early: 1 });
+    // Cell phase first, then the scene's offset, which lands after .slow() so
+    // it counts in cycles of real time.
+    expect(calls.map((c) => c.earlies)).toEqual([[0, 1], [0.5, 1]]);
+  });
+
+  it('leaves the phases alone when no offset is given', () => {
+    const strip = rgbStrip(1, 2, 0, { skipSim: true });
+    strip.chase(COLORS.red);
+    expect(calls.map((c) => c.earlies)).toEqual([[0], [0.5]]);
   });
 
   it('needs no colour on a single-channel strip', () => {

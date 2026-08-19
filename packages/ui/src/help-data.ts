@@ -1042,11 +1042,12 @@ strip.each(p => [sine().early(p), 0, cosine().early(p)])`,
   },
   {
     label: 'chase',
-    signature: '.chase(color, { cycles?, width?, waves?, reverse?, down? })',
+    signature: '.chase(color, { cycles?, width?, waves?, reverse?, down?, early? })',
     description:
       'A band of colour travelling along the strip, endlessly. No callback: this is the plain way to get a moving light. '
       + 'Colour by name without quotes (red, blue, amber...), or three numbers 0 to 1. cycles = how long a lap takes (4), width = how much is lit at once (0.5), '
-      + 'waves = crests at a time (1). A single-channel strip takes options alone.',
+      + 'waves = crests at a time (1), early = start this many cycles ahead. A single-channel strip takes options alone. '
+      + 'Not chainable: .early() belongs to patterns, and a chase writes channels rather than being one.',
     example: 'wash.pixels.chase(red)\nwash.pixels.chase(blue, { cycles: 2, width: 0.2 })',
     context: 'fixture-method',
     kind: 'method',
