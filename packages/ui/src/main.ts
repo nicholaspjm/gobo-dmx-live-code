@@ -1103,9 +1103,6 @@ document.addEventListener('keydown', (e) => {
   runStop();
 });
 
-const sceneStopEl = document.getElementById('scene-stop') as HTMLButtonElement;
-sceneStopEl.addEventListener('click', () => runStop());
-
 // ─── Scene bar ───────────────────────────────────────────────────────────────
 // Name (click to rename), save to file, open file, share link, examples.
 // There is no scene list any more: the browser holds one working buffer and
