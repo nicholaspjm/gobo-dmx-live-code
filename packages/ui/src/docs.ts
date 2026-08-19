@@ -695,6 +695,21 @@ const DOCS: DocSection[] = [
         example: 'wash.pixels.chase(red)\nwash.color(1, 0.4, 0)\nwash.pixels.chase(1, 0.4, 0, { cycles: 2 })',
       },
       {
+        name: '.stut · .linger · .when',
+        signature: '.stut(n, feedback, time) · .linger(fraction) · .when(test, fn)',
+        description:
+          "Three that arrived free on strudel's Pattern and were never written down, so nobody could find them. .stut repeats n times, each quieter than the last, which is an echo that decays: it is the trail effect, already built in, and the reason a feedback command was not needed. .linger repeats the first fraction of a cycle for the whole cycle, a hold or a stutter. .when applies a transformation only on the cycles where its test passes, so a scene can change every fourth bar without a second pattern.",
+        example:
+          "wash.dim(flash().stut(4, 0.6, 0.125))\nwash.dim(mini('1 0 0 0').linger(0.25))\nwash.dim(sine().when(c => c % 4 === 0, p => p.fast(4)))",
+      },
+      {
+        name: 'hush · setcps · setcpm',
+        signature: 'hush() · setcps(cps) · setcpm(cpm)',
+        description:
+          "hush() takes everything dark from inside the scene, dropping every channel it has driven. setcps and setcpm are the tempo as strudel writes it, so code pasted from strudel runs rather than stopping on an undefined name. One gobo cycle is one bar of four beats, so setcpm(30) is setBPM(120).",
+        example: 'setcpm(30)\nsetcps(0.5)\nhush()',
+      },
+      {
         name: 'named moves',
         signature: 'pulse(cycles) · strobe(per) · flash(per, tail) · flicker(amount) · adsr(a, d, s, r)',
         description:
