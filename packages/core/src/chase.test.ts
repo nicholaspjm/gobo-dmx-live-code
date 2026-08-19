@@ -44,15 +44,16 @@ describe('chase', () => {
   it('phases each column by its place across the strip', () => {
     const strip = rgbStrip(1, 12, 0, { skipSim: true });
     strip.chase(COLORS.red);
-    // One record per lit component. Red only, so one per pixel.
+    // One record per lit component. Red only, so one per pixel. Negative: a
+    // cell further right runs later, which is what sends the crest rightward.
     expect(calls.map((c) => Number(c.early.toFixed(4))))
-      .toEqual([0, 0.0833, 0.1667, 0.25, 0.3333, 0.4167, 0.5, 0.5833, 0.6667, 0.75, 0.8333, 0.9167]);
+      .toEqual([0, -0.0833, -0.1667, -0.25, -0.3333, -0.4167, -0.5, -0.5833, -0.6667, -0.75, -0.8333, -0.9167]);
   });
 
   it('runs the other way when reversed', () => {
     const strip = rgbStrip(1, 4, 0, { skipSim: true });
     strip.chase(COLORS.red, { reverse: true });
-    expect(calls.map((c) => c.early)).toEqual([-0, -0.25, -0.5, -0.75]);
+    expect(calls.map((c) => c.early)).toEqual([0, 0.25, 0.5, 0.75]);
   });
 
   it('takes one lap every four cycles by default', () => {
@@ -70,7 +71,7 @@ describe('chase', () => {
   it('fits more crests on the strip', () => {
     const strip = rgbStrip(1, 4, 0, { skipSim: true });
     strip.chase(COLORS.red, { waves: 2 });
-    expect(calls.map((c) => c.early)).toEqual([0, 0.5, 1, 1.5]);
+    expect(calls.map((c) => c.early)).toEqual([-0, -0.5, -1, -1.5]);
   });
 
   it('narrows the lit band as width falls', () => {
@@ -100,7 +101,7 @@ describe('chase', () => {
     strip.chase(COLORS.red, { down: true });
     // Three rows, four cells each, all cells in a row sharing a phase.
     expect(calls.map((c) => c.early))
-      .toEqual([0, 0, 0, 0, 1 / 3, 1 / 3, 1 / 3, 1 / 3, 2 / 3, 2 / 3, 2 / 3, 2 / 3]);
+      .toEqual([-0, -0, -0, -0, -1 / 3, -1 / 3, -1 / 3, -1 / 3, -2 / 3, -2 / 3, -2 / 3, -2 / 3]);
   });
 
   it('offsets the whole chase when asked, so two can run out of step', () => {
@@ -110,19 +111,19 @@ describe('chase', () => {
     strip.chase(COLORS.red, { early: 1 });
     // Cell phase first, then the scene's offset, which lands after .slow() so
     // it counts in cycles of real time.
-    expect(calls.map((c) => c.earlies)).toEqual([[0, 1], [0.5, 1]]);
+    expect(calls.map((c) => c.earlies)).toEqual([[-0, 1], [-0.5, 1]]);
   });
 
   it('leaves the phases alone when no offset is given', () => {
     const strip = rgbStrip(1, 2, 0, { skipSim: true });
     strip.chase(COLORS.red);
-    expect(calls.map((c) => c.earlies)).toEqual([[0], [0.5]]);
+    expect(calls.map((c) => c.earlies)).toEqual([[-0], [-0.5]]);
   });
 
   it('needs no colour on a single-channel strip', () => {
     const cells = monoStrip(1, 4, 0, { skipSim: true });
     cells.chase();
-    expect(calls.map((c) => c.early)).toEqual([0, 0.25, 0.5, 0.75]);
+    expect(calls.map((c) => c.early)).toEqual([-0, -0.25, -0.5, -0.75]);
   });
 
   it('refuses a quoted colour and names the identifier instead', () => {
