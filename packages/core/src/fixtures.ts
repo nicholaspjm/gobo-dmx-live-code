@@ -2573,15 +2573,23 @@ export function group(...members: GroupMember[]): GroupInstance {
 // once strudel is loaded. rainbowChase() called before that is a no-op rather
 // than a thrown error, since the setup is otherwise automatic.
 
+/**
+ * Spelled the way .chase() spells the same three ideas.
+ *
+ * They used to be `speed`, `narrow` and `packets` here and `cycles`, `width`
+ * and `waves` next door, which made reaching for the neighbour's word the
+ * likeliest mistake on the surface. `narrow` was also inverted against
+ * `width`: bigger meant less lit, where width is the fraction that is.
+ */
 export interface RainbowChaseOptions {
-  /** Beats per packet pass across the strip (default 2). */
-  speed?: number;
-  /** Peak narrowness: bigger = narrower lit window (default 8). */
-  narrow?: number;
-  /** Beats per full rainbow cycle (default 12). */
-  rainbowSpeed?: number;
-  /** Simultaneous chase packets across the strip (default 1). */
-  packets?: number;
+  /** Cycles for one lap of the strip (default 2). Bigger is slower. */
+  cycles?: number;
+  /** How much of the strip is lit at once, 0 to 1 (default 0.11). */
+  width?: number;
+  /** Crests on the strip at once (default 1). */
+  waves?: number;
+  /** Cycles for one full turn of the hue wheel (default 12). */
+  hue?: number;
 }
 
 // The waveform types are `any` because sine() / cosine() return values carry
@@ -2784,11 +2792,14 @@ function rainbowChaseImpl(
   if (!sine || !cosine) return;
 
   checkOptions(opts as Record<string, unknown>,
-    ['speed', 'narrow', 'rainbowSpeed', 'packets'], '.rainbowChase()');
-  const speed = opts.speed ?? 2;
-  const narrow = opts.narrow ?? 8;
-  const rainbowSpeed = opts.rainbowSpeed ?? 12;
-  const packets = opts.packets ?? 1;
+    ['cycles', 'width', 'waves', 'hue'], '.rainbowChase()');
+  const speed = opts.cycles ?? 2;
+  // width is the lit fraction, the way .chase() means it. The envelope below
+  // wants the old inverted floor, so it is derived rather than asked for.
+  const width = Math.min(1, Math.max(0.02, opts.width ?? 1 / 9));
+  const narrow = 1 / width - 1;
+  const rainbowSpeed = opts.hue ?? 12;
+  const packets = opts.waves ?? 1;
 
   const hueR = sine().slow(rainbowSpeed).range(0, 1);
   const hueG = sine().early(1 / 3).slow(rainbowSpeed).range(0, 1);

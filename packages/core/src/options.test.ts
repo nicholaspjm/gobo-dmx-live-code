@@ -60,13 +60,16 @@ describe('the bags on the authoring surface', () => {
       .not.toThrow();
   });
 
-  it("rejects the other chase's option names", () => {
-    // The two chases spell the same three knobs differently, which is exactly
-    // the mistake this check exists to catch.
+  it('rejects the names the two chases used to spell differently', () => {
+    // They now agree on cycles, width and waves. The old rainbowChase-only
+    // spellings are gone, and reaching for one says so rather than running at
+    // the default.
     clearDefs();
     setStripEffectWaveforms((() => ({ queryArc: () => [], early() { return this; }, slow() { return this; }, range() { return this; }, mul() { return this; } })) as never, (() => ({})) as never);
     const strip = rgbStrip(1, 4, 0, { skipSim: true });
     expect(() => strip.chase(COLORS.red, { speed: 2 } as never)).toThrow(/\.chase\(\).*speed/s);
-    expect(() => strip.rainbowChase({ cycles: 2 } as never)).toThrow(/\.rainbowChase\(\).*cycles/s);
+    expect(() => strip.rainbowChase({ speed: 2 } as never)).toThrow(/\.rainbowChase\(\).*speed/s);
+    expect(() => strip.rainbowChase({ narrow: 8 } as never)).toThrow(/\.rainbowChase\(\).*narrow/s);
+    expect(() => strip.rainbowChase({ packets: 2 } as never)).toThrow(/\.rainbowChase\(\).*packets/s);
   });
 });

@@ -720,9 +720,9 @@ const DOCS: DocSection[] = [
       },
       {
         name: '.rainbowChase',
-        signature: 'strip.rainbowChase({ speed?, narrow?, rainbowSpeed?, packets? })',
+        signature: 'strip.rainbowChase({ cycles?, width?, waves?, hue? })',
         description:
-          "A single bright pixel sweeps across the strip while its colour walks the hue wheel. Each pixel gets a cosine brightness envelope offset by its position (.early(i/N) shifts pixel i's peak later in the cycle), thresholded via .range(-narrow, 1) so most of the cycle sits below zero. The DMX pipeline clamps negatives to 0, leaving the tip above zero as the lit window. Bigger `narrow` gives a narrower window and fewer pixels lit at once. The hue comes from three sines 120° apart on R/G/B, so only one primary peaks at a time. Defaults: speed 2 beats/pass, narrow 8, rainbowSpeed 12 beats/cycle, packets 1. Works on RGB (rgbStrip) and RGBW (rgbwStrip, bar.pixels) instances; RGBW gets W zeroed so colours stay pure.",
+          "A single bright pixel sweeps across the strip while its colour walks the hue wheel. Each pixel gets a cosine brightness envelope offset by its position (.early(i/N) shifts pixel i's peak later in the cycle), thresholded via .range(-narrow, 1) so most of the cycle sits below zero. The DMX pipeline clamps negatives to 0, leaving the tip above zero as the lit window. Bigger `narrow` gives a narrower window and fewer pixels lit at once. The hue comes from three sines 120° apart on R/G/B, so only one primary peaks at a time. Options are spelled as .chase() spells them: cycles for the lap time (2), width for how much is lit at once (0.11), waves for crests at a time (1), plus hue for cycles per turn of the hue wheel (12). They used to be speed, narrow and packets here, with narrow inverted against width, which made reaching for the neighbour's word the likeliest mistake on the surface. Works on RGB (rgbStrip) and RGBW (rgbwStrip, bar.pixels) instances; RGBW gets W zeroed so colours stay pure.",
         example:
           "strip.rainbowChase()\nstrip.rainbowChase({ speed: 0.5, narrow: 16 })\nbar.pixels.rainbowChase({ packets: 2, rainbowSpeed: 4 })",
       },
