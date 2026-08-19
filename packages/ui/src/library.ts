@@ -20,6 +20,7 @@ import {
   getCustomFixtures,
   defineFixture,
   isEmitterChannel,
+  defineFixtureSource,
   BUILT_IN_FIXTURES,
   type FixtureDef,
 } from '@gobo/core';
@@ -63,6 +64,22 @@ export function mountLibraryPanel(opts: {
   // Body-level click delegation. Buttons are rebuilt on every refresh, so
   // the action is read off the clicked element's data attributes.
   bodyEl.addEventListener('click', (ev) => {
+    // The template's copy button, which is not a lib-action: it touches no
+    // library state, it just puts the code on the clipboard to paste into a
+    // scene. Says "copied" on itself, the way the share button does, because
+    // a clipboard write is otherwise invisible.
+    const copyBtn = (ev.target as HTMLElement).closest<HTMLElement>('[data-copy-id]');
+    if (copyBtn) {
+      const code = copyBtn.parentElement?.querySelector('.lib-row-template-code')?.textContent ?? '';
+      void navigator.clipboard?.writeText(code).then(
+        () => {
+          copyBtn.textContent = 'copied';
+          setTimeout(() => { copyBtn.textContent = 'copy'; }, 1600);
+        },
+        () => { copyBtn.textContent = 'clipboard blocked'; },
+      );
+      return;
+    }
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-lib-action]');
     if (!btn) return;
     const action = btn.dataset.libAction;
@@ -250,6 +267,11 @@ export function mountLibraryPanel(opts: {
           </div>
           <div class="lib-row-sub">${escapeText(channelSummary(entry.def))} · ${escapeText(channelNamesSummary(entry.def))}</div>
           <pre class="lib-row-usage">${escapeText(usageExample(entry.id, entry.def))}</pre>
+          <details class="lib-row-template">
+            <summary class="lib-row-template-summary">the code that makes it</summary>
+            <pre class="lib-row-template-code">${escapeText(defineFixtureSource(entry.id, entry.def))}</pre>
+            <button type="button" class="scene-action lib-template-copy" data-copy-id="${escapeText(entry.id)}">copy</button>
+          </details>
         </div>
         <div class="lib-row-actions">${actions}</div>
       </div>`;

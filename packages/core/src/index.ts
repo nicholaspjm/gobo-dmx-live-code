@@ -5,6 +5,7 @@ export * from './websocket.js';
 export * from './usb-dmx.js';
 export * from './colors.js';
 export * from './fixtures.js';
+export * from './fixture-source.js';
 export * from './fixture-library.js';
 export * from './fixture-validator.js';
 export * from './pattern-viz.js';
