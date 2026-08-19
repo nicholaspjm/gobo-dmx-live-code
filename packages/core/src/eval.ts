@@ -32,6 +32,7 @@ import {
   uni,
   dim,
   rgb,
+  hushDefs,
   type PatternLike,
 } from './dmx.js';
 import { COLORS } from './colors.js';
@@ -673,6 +674,16 @@ export function evalCode(code: string): EvalResult {
     uni,
     dim,
     rgb,
+    /** Everything dark, from inside the scene. Strudel spells it this way. */
+    hush: hushDefs,
+    /**
+     * Tempo the way strudel writes it, so pasted code runs.
+     *
+     * One gobo cycle is one bar of four beats, so cycles per second times
+     * four times sixty is the tempo setBPM already takes.
+     */
+    setcps: (cps: number) => setBPM(cps * 4 * 60),
+    setcpm: (cpm: number) => setBPM(cpm * 4),
     // Fixture system
     fixture,
     defineFixture,

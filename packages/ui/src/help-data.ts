@@ -171,6 +171,56 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'function',
   },
 
+  // ─── From strudel, spelled as strudel spells them ──────────────────────────
+  {
+    label: 'stut',
+    signature: '.stut(n, feedback, time)',
+    description: 'Repeat n times, each quieter than the last: an echo that decays. The trail effect, already built in.',
+    example: "wash.dim(flash().stut(4, 0.6, 0.125))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'linger',
+    signature: '.linger(fraction)',
+    description: 'Repeat the first part of a cycle for the whole cycle. A hold, or a stutter.',
+    example: "wash.dim(mini('1 0 0 0').linger(0.25))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'when',
+    signature: '.when(test, fn)',
+    description: 'Apply fn only when test says so. test is given the cycle number.',
+    example: "wash.dim(sine().when(c => c % 4 === 0, p => p.fast(4)))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'hush',
+    signature: 'hush()',
+    description: 'Everything dark, from inside the scene. Drops every channel the scene has driven.',
+    example: "hush()",
+    context: 'command',
+    kind: 'function',
+  },
+  {
+    label: 'setcps',
+    signature: 'setcps(cyclesPerSecond)',
+    description: 'Tempo as strudel writes it, so pasted code runs. One cycle is one bar of four beats.',
+    example: "setcps(0.5)",
+    context: 'command',
+    kind: 'function',
+  },
+  {
+    label: 'setcpm',
+    signature: 'setcpm(cyclesPerMinute)',
+    description: 'Tempo in cycles per minute. setcpm(30) is 120 bpm.',
+    example: "setcpm(30)",
+    context: 'command',
+    kind: 'function',
+  },
+
   // ─── Fixtures ──────────────────────────────────────────────────────────────
   {
     label: 'fixture',

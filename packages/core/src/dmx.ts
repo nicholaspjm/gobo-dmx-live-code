@@ -405,6 +405,19 @@ function levelOf(v: unknown): number | null {
  * with no further tick coming (the stop / blackout path), zero the buffers
  * themselves via getAllUniverses().
  */
+/**
+ * Drop everything the scene has driven so far, leaving it dark.
+ *
+ * Clears the staged map during an eval and the live one outside it. Using
+ * clearDefs() would empty the running scene while the staged one carried on to
+ * be committed over the top, which is the opposite of stopping.
+ */
+export function hushDefs(): void {
+  if (_staging !== null) _staging.clear();
+  else _defs.clear();
+  resetQueryFailures();
+}
+
 export function clearDefs(): void {
   _defs.clear();
   resetQueryFailures();
