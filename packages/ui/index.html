@@ -481,6 +481,9 @@
       }
 
       /* Pixel-strip sim: horizontal row of small rectangular "LEDs" */
+      /* One row: a strip, drawn as one. The cell size comes from JS, which
+         divides a width budget by the column count so a 48-pixel wash and an
+         8-cell bar do not come out the same size. */
       .fixture-strip {
         display: flex;
         gap: 2px;
@@ -492,9 +495,18 @@
         align-items: center;
       }
 
+      /* More than one row: a grid, laid out at the light's own proportions, so
+         a 12 x 4 wash is three times wider than it is tall. */
+      .fixture-strip.is-grid {
+        display: grid;
+        grid-template-columns: repeat(var(--cols), var(--cell-w));
+        gap: 1px;
+        height: auto;
+      }
+
       .fixture-strip-pixel {
-        width: 9px;
-        height: 26px;
+        width: var(--cell-w, 9px);
+        height: var(--cell-h, 26px);
         border-radius: 1px;
         background: var(--bg);
         transition: background 0.05s, box-shadow 0.05s;

@@ -322,6 +322,22 @@ export interface SimMovement {
   direction?: number;
 }
 
+/**
+ * How a strip is laid out on the light, so the panel can draw it that way.
+ *
+ * `order` maps picture position to wire position: order[y * columns + x] is
+ * the pixel index the hardware puts there. Serpentine wiring and a bottom-right
+ * origin both live in that array, so the panel does not have to know the rules,
+ * only which cell to read for the square it is painting. Without it a 12 x 4
+ * wash drew as one row of 48 in wire order, which is neither its shape nor its
+ * arrangement.
+ */
+export interface SimGrid {
+  columns: number;
+  rows: number;
+  order: readonly number[];
+}
+
 export interface SimFixture {
   /** Short label shown under the element in the sim panel (falls back to
    *  `id` when no better name is available). */
@@ -366,9 +382,9 @@ export interface SimFixture {
   render:
     | { kind: 'globe-rgbw'; r?: number; g?: number; b?: number; w?: number; dim?: number }
     | { kind: 'globe-dim';  dim: number }
-    | { kind: 'strip-rgb';  pixelCount: number }
-    | { kind: 'strip-rgbw'; pixelCount: number }
-    | { kind: 'strip-mono'; pixelCount: number };
+    | { kind: 'strip-rgb';  pixelCount: number; grid?: SimGrid }
+    | { kind: 'strip-rgbw'; pixelCount: number; grid?: SimGrid }
+    | { kind: 'strip-mono'; pixelCount: number; grid?: SimGrid };
 }
 
 const _simFixtures: SimFixture[] = [];
@@ -1191,6 +1207,15 @@ export interface StripGeometry {
  * share one implementation of the serpentine flip, which is the part that is
  * easy to get subtly wrong and invisible until the hardware is in front of you.
  */
+/** Picture-order to wire-order map, for the sim panel. */
+function simGrid(geo: { width: number; height: number; index(x: number, y: number): number }): SimGrid {
+  const order: number[] = [];
+  for (let y = 0; y < geo.height; y++) {
+    for (let x = 0; x < geo.width; x++) order.push(geo.index(x, y));
+  }
+  return { columns: geo.width, rows: geo.height, order };
+}
+
 function resolveGeometry(pixelCount: number, geo: StripGeometry, what: string) {
   const columns = geo.columns ?? pixelCount;
   if (!Number.isInteger(columns) || columns < 1) {
@@ -1657,7 +1682,7 @@ export function rgbStrip(
     master: opts.simMaster,
     commands: opts.simCommands ?? stripCommands('rgb'),
     movement: opts.movement,
-    render: { kind: 'strip-rgb', pixelCount },
+    render: { kind: 'strip-rgb', pixelCount, grid: simGrid(geo) },
   });
   return inst;
 }
@@ -1817,7 +1842,7 @@ export function monoStrip(
     master: opts.simMaster,
     commands: opts.simCommands ?? stripCommands('mono'),
     movement: opts.movement,
-    render: { kind: 'strip-mono', pixelCount },
+    render: { kind: 'strip-mono', pixelCount, grid: simGrid(geo) },
   });
   return inst;
 }
@@ -2127,7 +2152,7 @@ export function rgbwStrip(
     master: opts.simMaster,
     commands: opts.simCommands ?? stripCommands('rgbw'),
     movement: opts.movement,
-    render: { kind: 'strip-rgbw', pixelCount },
+    render: { kind: 'strip-rgbw', pixelCount, grid: simGrid(geo) },
   });
   return inst;
 }

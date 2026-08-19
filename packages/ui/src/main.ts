@@ -689,12 +689,37 @@ function rebuildSimPanel(): void {
     if (fix.render.kind === 'strip-rgb' || fix.render.kind === 'strip-rgbw' || fix.render.kind === 'strip-mono') {
       mainEl = document.createElement('div');
       mainEl.className = 'fixture-strip';
+      const grid = fix.render.grid;
+      const cols = grid?.columns ?? fix.render.pixelCount;
+      const rows = grid?.rows ?? 1;
+
+      // A grid is drawn as a grid. Cells are square when there is more than one
+      // row and tall when there is not, because a single row of pixels is a
+      // strip and reads like one. Either way the element ends up the shape of
+      // the light: a 12 x 4 wash is three times wider than it is tall.
+      if (rows > 1) mainEl.classList.add('is-grid');
+      // Sized to fit a budget rather than a fixed cell, so 48 pixels and 8 do
+      // not come out the same width and neither runs off the panel.
+      const cell = Math.max(3, Math.min(rows > 1 ? 11 : 9, Math.round(150 / cols)));
+      mainEl.style.setProperty('--cols', String(cols));
+      mainEl.style.setProperty('--cell-w', `${cell}px`);
+      mainEl.style.setProperty('--cell-h', rows > 1 ? `${cell}px` : '26px');
+
       pixelEls = [];
+      // Built in picture order and told which wire pixel each square shows, so
+      // serpentine wiring and a bottom-right origin land where the eye expects.
       for (let i = 0; i < fix.render.pixelCount; i++) {
         const p = document.createElement('div');
         p.className = 'fixture-strip-pixel';
         mainEl.appendChild(p);
         pixelEls.push(p);
+      }
+      if (grid) {
+        // pixelEls[i] is the square at picture position i; it reads wire pixel
+        // grid.order[i].
+        const reordered: HTMLElement[] = [];
+        for (let i = 0; i < pixelEls.length; i++) reordered[grid.order[i]] = pixelEls[i];
+        pixelEls = reordered;
       }
     } else {
       mainEl = document.createElement('div');
