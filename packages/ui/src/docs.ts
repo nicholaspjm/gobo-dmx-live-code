@@ -695,6 +695,22 @@ const DOCS: DocSection[] = [
         example: 'wash.pixels.chase(red)\nwash.color(1, 0.4, 0)\nwash.pixels.chase(1, 0.4, 0, { cycles: 2 })',
       },
       {
+        name: 'named moves',
+        signature: 'pulse(cycles) · strobe(per) · flash(per, tail) · flicker(amount) · adsr(a, d, s, r)',
+        description:
+          "Five gestures a desk has a button for, each one strudel expression you would otherwise have to know to write. They are ordinary patterns, so they chain and stack like anything else. pulse is the slow swell. strobe is hard on and off, `per` times a cycle, for fixtures with no strobe channel of their own. flash is the sharp hit on a kick: `tail` is how much of each beat it stays lit, 0.3 for a snap and 0.9 for nearly a sawtooth. flicker wanders around full, for candles and failing lamps. adsr is an envelope to multiply onto any of them, four fractions of a cycle spelled the way a synth spells them. The trick inside flash and adsr is worth knowing on its own: a channel clamps below zero, so pushing most of a wave under the line leaves only its tip above, which is how a linear ramp becomes a sharp hit.",
+        example:
+          'wash.dim(pulse(4))\nwash.dim(flash())                       // on every beat\nwash.dim(flash(1, 0.9))                 // longer tail\nstrb.dim(strobe(16))\nwash.dim(flicker(0.4))\nwash.dim(flicker().mul(adsr(0.1, 0.1, 0.7, 0.2)))\nwash.dim(stack(pulse(8), flash()))      // layered, brightest wins',
+      },
+      {
+        name: 'sparkle',
+        signature: 'strip.each((p, i) => rand().early(i * 0.37).range(-3, 1))',
+        description:
+          "Random pixels lighting and dying: not a built-in, because it is four tokens once you know the two tricks in it. rand() is one signal, so every pixel handed the same one twinkles in lockstep and the strip just breathes; .early(i * 0.37) gives each pixel its own place in that stream. And .range(-3, 1) puts three quarters of the signal below zero, where the channel clamps it, so only the occasional peak shows. Raise the floor for more sparkle, lower it for less.",
+        example:
+          'strip.each((p, i) => rand().early(i * 0.37).range(-3, 1))\n\n// warmer, and sparser\nstrip.each((p, i) => [rand().early(i * 0.37).range(-6, 1), 0, 0])',
+      },
+      {
         name: '.chase',
         signature: 'strip.chase(color, { cycles?, width?, waves?, reverse?, down?, early? })',
         description:

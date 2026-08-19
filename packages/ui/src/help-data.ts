@@ -129,6 +129,48 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'variable',
   },
 
+  // ─── Named moves ───────────────────────────────────────────────────────────
+  {
+    label: 'pulse',
+    signature: 'pulse(cycles = 4) => Pattern',
+    description: 'The slow swell. Breathing, on any channel.',
+    example: 'wash.dim(pulse(4))',
+    context: 'command',
+    kind: 'function',
+  },
+  {
+    label: 'strobe',
+    signature: 'strobe(per = 8) => Pattern',
+    description: 'Hard on and off, `per` times a cycle. A software strobe for a fixture without one.',
+    example: 'wash.dim(strobe(16))',
+    context: 'command',
+    kind: 'function',
+  },
+  {
+    label: 'flash',
+    signature: 'flash(per = 1, tail = 0.3) => Pattern',
+    description: 'Sharp hit, quick decay: the move you make on a kick. `tail` is how much of each beat it stays lit.',
+    example: 'wash.dim(flash())',
+    context: 'command',
+    kind: 'function',
+  },
+  {
+    label: 'flicker',
+    signature: 'flicker(amount = 0.3) => Pattern',
+    description: 'Wanders around full. Candles, fire, a lamp on its way out.',
+    example: 'wash.dim(flicker(0.4))',
+    context: 'command',
+    kind: 'function',
+  },
+  {
+    label: 'adsr',
+    signature: 'adsr(attack, decay, sustain, release) => Pattern',
+    description: 'An envelope to multiply onto any effect, once per cycle. Fractions of a cycle, spelled as a synth spells them.',
+    example: 'wash.dim(flicker().mul(adsr(0.1, 0.1, 0.7, 0.2)))',
+    context: 'command',
+    kind: 'function',
+  },
+
   // ─── Fixtures ──────────────────────────────────────────────────────────────
   {
     label: 'fixture',
