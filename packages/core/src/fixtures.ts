@@ -1476,8 +1476,8 @@ export interface StripInstance {
    *   strip.chase(white, { width: 0.2 })     // tight moving band
    *   strip.chase(1, 0.4, 0)                 // a mix, spelled as .color() spells it
    */
-  chase(color: Color, opts?: ChaseOptions): void;
-  chase(r: number, g: number, b: number, opts?: ChaseOptions): void;
+  chase(color: Color, opts?: ChaseOptions): ChaseHandle;
+  chase(r: number, g: number, b: number, opts?: ChaseOptions): ChaseHandle;
   rainbowChase(opts?: RainbowChaseOptions): void;
 }
 
@@ -1679,9 +1679,9 @@ export function rgbStrip(
       return inst;
     },
 
-    chase(...args: unknown[]): void {
+    chase(...args: unknown[]): ChaseHandle {
       const { color, opts } = splitChaseArgs(args);
-      chaseImpl(inst, color, opts);
+      return chaseWithHandle(inst, color, opts);
     },
 
     rainbowChase(opts: RainbowChaseOptions = {}): void {
@@ -1749,7 +1749,7 @@ export interface MonoStripInstance {
    *   cells.chase()                    // one lap every 4 cycles
    *   cells.chase({ width: 0.2 })      // a tight moving band
    */
-  chase(opts?: ChaseOptions): void;
+  chase(opts?: ChaseOptions): ChaseHandle;
   /** Opt into an inline editor visualization (default kind 'strip'). */
   viz(...kinds: VizKind[]): MonoStripInstance;
 }
@@ -1833,8 +1833,8 @@ export function monoStrip(
       }
     },
 
-    chase(opts: ChaseOptions = {}): void {
-      chaseImpl(inst, null, opts);
+    chase(opts: ChaseOptions = {}): ChaseHandle {
+      return chaseWithHandle(inst, null, opts);
     },
 
     viz(...kinds: VizKind[]): MonoStripInstance {
@@ -1990,8 +1990,8 @@ export interface RgbwStripInstance {
    *   strip.chase(white, { width: 0.2 })     // tight moving band
    *   strip.chase(1, 0.4, 0)                 // a mix, spelled as .color() spells it
    */
-  chase(color: Color, opts?: ChaseOptions): void;
-  chase(r: number, g: number, b: number, opts?: ChaseOptions): void;
+  chase(color: Color, opts?: ChaseOptions): ChaseHandle;
+  chase(r: number, g: number, b: number, opts?: ChaseOptions): ChaseHandle;
   rainbowChase(opts?: RainbowChaseOptions): void;
 }
 
@@ -2174,9 +2174,9 @@ export function rgbwStrip(
       return inst;
     },
 
-    chase(...args: unknown[]): void {
+    chase(...args: unknown[]): ChaseHandle {
       const { color, opts } = splitChaseArgs(args);
-      chaseImpl(inst, color, opts);
+      return chaseWithHandle(inst, color, opts);
     },
 
     rainbowChase(opts: RainbowChaseOptions = {}): void {
@@ -2659,6 +2659,61 @@ function splitChaseArgs(args: readonly unknown[]): { color: Color; opts: ChaseOp
  * width, and a waveform chained three deep are a lot to know before your first
  * moving light.
  */
+
+/**
+ * What `.chase()` hands back.
+ *
+ * A chase is a command that writes every channel on the strip, not a pattern,
+ * so `.slow()` and `.early()` had nothing to chain onto and threw a raw
+ * TypeError. People reach for those verbs anyway, twice in one week here, and
+ * telling them the option bag exists is losing an argument with the language
+ * they already know.
+ *
+ * So the verbs work, by meaning what they mean: each returns a fresh handle
+ * with one option changed and re-applies the chase. Re-applying overwrites the
+ * same channel definitions, so the last spelling of a chain is what runs, and
+ * they compose in any order.
+ */
+export interface ChaseHandle {
+  /** Longer lap: .slow(2) takes twice as many cycles. */
+  slow(n: number): ChaseHandle;
+  /** Shorter lap. */
+  fast(n: number): ChaseHandle;
+  /** Start this many cycles ahead. */
+  early(n: number): ChaseHandle;
+  /** Start this many cycles behind. */
+  late(n: number): ChaseHandle;
+  /** The other way: right to left, or bottom to top with .down(). */
+  reverse(): ChaseHandle;
+  /** Along the rows instead of the columns. */
+  down(): ChaseHandle;
+  /** How much of the strip is lit at once, 0 to 1. */
+  width(n: number): ChaseHandle;
+  /** Crests on the strip at once. */
+  waves(n: number): ChaseHandle;
+}
+
+/** Apply a chase and hand back the handle that can restate it. */
+function chaseWithHandle(
+  strip: StripInstance | RgbwStripInstance | MonoStripInstance,
+  color: Color | null,
+  opts: ChaseOptions,
+): ChaseHandle {
+  chaseImpl(strip, color, opts);
+  const next = (change: ChaseOptions): ChaseHandle =>
+    chaseWithHandle(strip, color, { ...opts, ...change });
+  return {
+    slow: (n) => next({ cycles: (opts.cycles ?? 4) * n }),
+    fast: (n) => next({ cycles: (opts.cycles ?? 4) / n }),
+    early: (n) => next({ early: (opts.early ?? 0) + n }),
+    late: (n) => next({ early: (opts.early ?? 0) - n }),
+    reverse: () => next({ reverse: !opts.reverse }),
+    down: () => next({ down: true }),
+    width: (n) => next({ width: n }),
+    waves: (n) => next({ waves: n }),
+  };
+}
+
 export const CHASE_OPTION_KEYS = ['cycles', 'width', 'waves', 'reverse', 'down', 'early'] as const;
 
 function chaseImpl(

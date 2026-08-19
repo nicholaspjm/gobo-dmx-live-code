@@ -126,6 +126,38 @@ describe('chase', () => {
     expect(calls.map((c) => c.early)).toEqual([-0, -0.25, -0.5, -0.75]);
   });
 
+  it('takes the pattern verbs, which is how people reach for it', () => {
+    // A chase is a command, not a pattern, but .slow() and .early() are the
+    // words people already have. Each restates the chase with one option
+    // changed, so the last spelling in the chain is what runs.
+    const strip = rgbStrip(1, 2, 0, { skipSim: true });
+    strip.chase(COLORS.red).slow(4);
+    // Both applications are recorded; the later one is the one that survives
+    // on the channel, so it is the last records that matter.
+    expect(calls.slice(-2).every((c) => c.slow === 16)).toBe(true);   // 4 by default, x4
+  });
+
+  it('composes the verbs in any order', () => {
+    const strip = rgbStrip(1, 2, 0, { skipSim: true });
+    strip.chase(COLORS.red).slow(2).early(1).reverse();
+    const last = calls.slice(-2);
+    expect(last.every((c) => c.slow === 8)).toBe(true);
+    expect(last.map((c) => c.earlies[0])).toEqual([0, 0.5]);  // reversed sign
+    expect(last.every((c) => c.earlies[1] === 1)).toBe(true); // the offset
+  });
+
+  it('lets fast undo slow', () => {
+    const strip = rgbStrip(1, 1, 0, { skipSim: true });
+    strip.chase(COLORS.red).slow(4).fast(4);
+    expect(calls[calls.length - 1].slow).toBe(4);
+  });
+
+  it('hands the same verbs to a single-channel strip', () => {
+    const cells = monoStrip(1, 2, 0, { skipSim: true });
+    cells.chase().slow(3).reverse();
+    expect(calls[calls.length - 1].slow).toBe(12);
+  });
+
   it('refuses a quoted colour and names the identifier instead', () => {
     // The rule: a colour is a value, never a string. A quoted name that IS a
     // colour gets pointed at its identifier rather than a list.
