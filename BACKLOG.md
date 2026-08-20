@@ -69,11 +69,31 @@ After a dot, the pool is pattern methods and fixture methods merged. A receiver
 that is a declared light should weight its own verbs first;
 `packages/ui/src/declared-lights.ts` already knows which names are lights.
 
-### `dim` should default to 1
-Raised as an inconsistency, and it is one. Worth deciding deliberately: a
-fixture that patches at full is friendlier to write and louder to get wrong,
-and "why is everything on" is a better failure than "why is nothing on". A
-patch that lights the rig by existing is still a change worth making on purpose.
+### A colour should imply its own brightness
+Decided against defaulting `dim` to 1: a rig that comes up hot the moment a
+fixture is patched is a worse failure than a dark one, because it happens on a
+half-written scene.
+
+Infer instead. On a fixture that has a master dimmer, driving an emitter and
+never touching the dimmer is always a mistake, so raise the dimmer to full at
+commit time. Rules:
+
+- Only when the scene drove at least one emitter on that fixture.
+- Only when the scene never set the dimmer itself, so `dim(0)` and `dim(0.5)`
+  are left exactly as written, including a deliberate blackout.
+- Applied once per run at commit, not per call, so the order of lines does not
+  matter.
+
+This is the failure that cost real time on the 154-channel wash: a perfect
+yellow picture on the pixels with channel 1 at zero and nothing visible. The
+fixture's own description says "nothing is visible at all unless this is up",
+which is the definition of a value nobody should have to remember.
+
+Needs care: it changes what a scene outputs without the scene saying so, and
+that is the kind of help that is infuriating when it guesses wrong. The
+"scene never set the dimmer" condition is what keeps it honest, and it should
+be visible somewhere, probably the status line or the hover tooltip, rather
+than silent.
 
 ### `pick('warm')` repeats itself
 `const warm = pick('warm')` says the name twice. The string keys the stored
