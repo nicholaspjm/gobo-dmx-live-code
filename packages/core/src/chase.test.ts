@@ -10,8 +10,8 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { rgbStrip, monoStrip, setStripEffectWaveforms } from './fixtures.js';
-import { COLORS, makeColor } from './colors.js';
-import { clearDefs } from './dmx.js';
+import { COLORS, makeColor, livingColor } from './colors.js';
+import { clearDefs, tick, getUniverseBuffer } from './dmx.js';
 
 /** Calls recorded by the fake waveform, in the order chase() made them. */
 let calls: Array<{ early: number; earlies: number[]; slow: number; lo: number; mul: number | null }>;
@@ -94,6 +94,64 @@ describe('chase', () => {
     expect(calls).toHaveLength(2);
     expect(calls[0].mul).toBe(null);
     expect(calls[1].mul).toBe(0.5);
+  });
+
+  /**
+   * The bug these pin ran silently for as long as `pick()` has existed.
+   *
+   * A component from `pick()` is a pattern, and `.mul()` looked like the verb
+   * that scales an envelope by one. It is not: strudel reifies a duck-typed
+   * object with `pure()`, so the multiply becomes a union of two control
+   * objects rather than a product. The result carries the envelope's own level
+   * with the colour hanging off it under a key nothing reads, so the channel
+   * saw full brightness on all three components. Every `.chase(pick(…))` ran
+   * white, with no error and no failed query to notice, and the docs used that
+   * exact call as the example.
+   */
+  it('does not put a pattern component through the waveform mul()', () => {
+    const strip = rgbStrip(1, 1, 0, { skipSim: true });
+    const half = { queryArc: () => [{ value: 0.5 }] };
+    strip.chase(livingColor(half, 0, 0));
+    expect(calls.every((c) => c.mul === null)).toBe(true);
+  });
+
+  it('multiplies the envelope by a pattern component', () => {
+    // A waveform that answers with a real level, so the value reaches a buffer.
+    const wave = () => {
+      const self: Record<string, unknown> = {
+        queryArc: () => [{ value: 0.8 }],
+        early() { return self; },
+        slow() { return self; },
+        range() { return self; },
+        mul() { throw new Error('a pattern component must not reach mul()'); },
+      };
+      return self;
+    };
+    setStripEffectWaveforms(wave as () => never, wave as () => never);
+    const strip = rgbStrip(1, 1, 0, { skipSim: true });
+    const half = { queryArc: () => [{ value: 0.5 }] };
+    strip.chase(livingColor(half, half, 0));
+    tick(0);
+    const buf = getUniverseBuffer(0);
+    // 0.8 envelope x 0.5 component. Unscaled would be 204, which is what the
+    // union produced, and what made the chase white.
+    expect([buf[0], buf[1], buf[2]]).toEqual([102, 102, 0]);
+  });
+
+  it('reads a silent component as dark rather than as full', () => {
+    const wave = () => {
+      const self: Record<string, unknown> = {
+        queryArc: () => [{ value: 1 }],
+        early() { return self; }, slow() { return self; }, range() { return self; },
+        mul() { return self; },
+      };
+      return self;
+    };
+    setStripEffectWaveforms(wave as () => never, wave as () => never);
+    const strip = rgbStrip(1, 1, 0, { skipSim: true });
+    strip.chase(livingColor({ queryArc: () => [] }, 0, 0));
+    tick(0);
+    expect(getUniverseBuffer(0)[0]).toBe(0);
   });
 
   it('phases down the rows on a grid when asked', () => {
