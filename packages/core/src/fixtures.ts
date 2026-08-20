@@ -18,7 +18,19 @@
  */
 
 import { uni, channelValue, channelValues, levelOf, type PatternOrValue, type PatternLike } from './dmx.js';
-import { readColor, isColor, checkOptions, type Color, type ColorComponent } from './colors.js';
+import {
+  readColor,
+  readColorStops,
+  readColorRun,
+  sampleStops,
+  phaseFor,
+  isColor,
+  isPalette,
+  toColorValue,
+  checkOptions,
+  type Color,
+  type ColorComponent,
+} from './colors.js';
 
 // ─── Fixture definition types ─────────────────────────────────────────────────
 
@@ -709,6 +721,32 @@ function resolveSlots(
   };
 }
 
+/**
+ * A callback that returned a colour means the same as one that returned its
+ * three components.
+ *
+ * Only a branded colour is spread. An array is left exactly as it was, because
+ * `[255, 0, 0]` is a raw DMX triple in the 0-255 domain and reading it as a
+ * colour would clamp it to 1 and turn full red into almost nothing.
+ */
+function spreadIfColor(result: unknown): unknown {
+  return isColor(result) ? [result.r, result.g, result.b] : result;
+}
+
+/** Whether every argument spells a colour, which is what separates a run of
+ *  stops from the per-component `r, g, b` spelling. */
+function everyArgIsColour(args: readonly unknown[]): boolean {
+  return args.length > 0 && args.every((a) => toColorValue(a) !== null);
+}
+
+/** The message for a call that paints one position and was handed a run. */
+function oneColourOnly(what: string, count: number): Error {
+  return new Error(
+    `${what}: takes one colour, not ${count}. Take one stop with warm[0], ` +
+    `or put the palette in time with cat(...warm).slow(4).`,
+  );
+}
+
 /** Local shape test, so this file does not need dmx.ts's private helper. */
 function isPatternLike(v: unknown): v is PatternLike {
   try {
@@ -998,6 +1036,16 @@ export function fixture(
       // `wash.color(red)` and `wash.color(pick('warm'))` reach the same place
       // as `wash.color(1, 0, 0)`. Checked before the wheel branch below, which
       // also takes a single argument.
+      // One light is one position, so a run of stops has nowhere to go.
+      // Refused rather than quietly painted with the first one, and refused
+      // BEFORE the single-colour branch below, which would otherwise take the
+      // first argument and drop the rest without saying so.
+      if (isPalette(args[0])) {
+        throw oneColourOnly(`Fixture "${def.name}".color()`, (args[0] as unknown[]).length);
+      }
+      if (args.length > 1 && everyArgIsColour(args)) {
+        throw oneColourOnly(`Fixture "${def.name}".color()`, args.length);
+      }
       if (isColor(args[0])) {
         const c = args[0] as Color;
         inst.color(c.r as PatternOrValue, c.g as PatternOrValue, c.b as PatternOrValue);
@@ -1009,8 +1057,19 @@ export function fixture(
       // a mix is three, and full is none. Counting arguments separates them
       // where inspecting types would not: a wheel takes numbers and patterns
       // too, so only the arity says which call this is.
+      //
+      // This stays ahead of the colour-token rule below. On a fixture with a
+      // slotted wheel, `head.color(mini('<red blue>'))` means slot names, which
+      // is the documented case resolveSlots() exists for.
       if (args.length === 1 && slotChannel !== undefined) {
         inst.set(slotChannel, args[0] as PatternOrValue | string);
+        return;
+      }
+      // A pattern of colour names on a fixture with no wheel: one colour that
+      // changes with the pattern, so `wash.color(mini('r - g - b'))` works.
+      if (args.length === 1 && isPatternLike(args[0])) {
+        const c = readColor(args, `Fixture "${def.name}".color()`);
+        inst.color(c.r as PatternOrValue, c.g as PatternOrValue, c.b as PatternOrValue);
         return;
       }
       // Skip channels that don't exist on this fixture so the same call
@@ -1554,7 +1613,7 @@ export function rgbStrip(
     eachXY(fn) {
       for (let y = 0; y < geo.height; y++) {
         for (let x = 0; x < geo.width; x++) {
-          const result = fn(x, y, geo.width, geo.height);
+          const result = spreadIfColor(fn(x, y, geo.width, geo.height));
           const i = geo.index(x, y);
           const base = startChannel + i * 3;
           if (Array.isArray(result)) {
@@ -1574,15 +1633,27 @@ export function rgbStrip(
     },
 
     fill(...args) {
-      // A colour value spreads into its components, so `strip.fill(red)` and
-      // `strip.fill(pick('warm'))` reach the same place as fill(1, 0, 0).
-      if (isColor(args[0])) {
-        const c = args[0] as Color;
-        args = [c.r as PatternOrValue, c.g as PatternOrValue, c.b as PatternOrValue];
+      // Nothing at all is full, and three or more values that are not colours
+      // is the per-component spelling. Both keep the rung they always had, so
+      // the documented `.fill(sine(), 0, cosine())` cannot be captured below.
+      if (args.length === 0 || (args.length >= 3 && !everyArgIsColour(args))) {
+        const [r, g, b] = channelValues(args, ['r', 'g', 'b'], '.fill()');
+        for (let i = 0; i < pixelCount; i++) {
+          const base = startChannel + i * 3;
+          uni(universe, base,     r);
+          uni(universe, base + 1, g);
+          uni(universe, base + 2, b);
+        }
+        return;
       }
-      const [r, g, b] = channelValues(args, ['r', 'g', 'b'], '.fill()');
+      // A colour, several colours, a palette, or a pattern of colour tokens.
+      // Several stops spread across the strip, endpoint to endpoint. One stop
+      // repeats, by identity, so `.fill(red)` writes what it always wrote.
+      const run = readColorRun(args, pixelCount, '.fill()');
       for (let i = 0; i < pixelCount; i++) {
         const base = startChannel + i * 3;
+        const c = run[i];
+        const [r, g, b] = channelValues([c.r, c.g, c.b], ['r', 'g', 'b'], `.fill() pixel ${i}`);
         uni(universe, base,     r);
         uni(universe, base + 1, g);
         uni(universe, base + 2, b);
@@ -1594,6 +1665,17 @@ export function rgbStrip(
         throw new Error(
           `rgbStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`,
         );
+      }
+      // One position, so a run of stops has nowhere to go. Refused rather than
+      // quietly painted with the first one.
+      if (isPalette(args[0])) {
+        throw oneColourOnly(`.pixel(${index})`, (args[0] as unknown[]).length);
+      }
+      // A colour spreads into its components. Left alone it would be taken as
+      // the monochrome shortcut below and the channel writer would refuse it.
+      if (args.length === 1 && isColor(args[0])) {
+        const c = args[0] as Color;
+        args = [c.r, c.g, c.b] as unknown as typeof args;
       }
       // Monochrome shortcut: pixel(i, value) replicates `value` across R/G/B.
       // Saves repeating the brightness pattern three times in chase loops.
@@ -1623,7 +1705,7 @@ export function rgbStrip(
     each(fn) {
       for (let i = 0; i < pixelCount; i++) {
         const phase = i / pixelCount;
-        const result = fn(phase, i, pixelCount);
+        const result = spreadIfColor(fn(phase, i, pixelCount));
         // Picture order in, wire order out, so a chase runs left to right on
         // the light whatever direction the strip is wired in.
         const base = startChannel + geo.seq(i) * 3;
@@ -1680,8 +1762,8 @@ export function rgbStrip(
     },
 
     chase(...args: unknown[]): ChaseHandle {
-      const { color, opts } = splitChaseArgs(args);
-      return chaseWithHandle(inst, color, opts);
+      const { stops, opts } = splitChaseArgs(args);
+      return chaseWithHandle(inst, stops, opts);
     },
 
     rainbowChase(opts: RainbowChaseOptions = {}): void {
@@ -1794,6 +1876,16 @@ export function monoStrip(
     height: geo.height,
 
     fill(...v) {
+      // A single-channel strip has one level per pixel and no colour to put
+      // anywhere. Refused by name, because a palette left to fall through
+      // lands in the options bag and comes back as "no options named 0, 1, 2",
+      // which teaches the wrong thing entirely.
+      if (isColor(v[0]) || isPalette(v[0])) {
+        throw new Error(
+          `.fill(): a single-channel strip has no colour. Write a level with .fill(0.5), ` +
+          `or drive the pixels one at a time with .each().`,
+        );
+      }
       const level = channelValue(v, '.fill()');
       for (let i = 0; i < pixelCount; i++) set(i, level);
     },
@@ -1801,6 +1893,16 @@ export function monoStrip(
     pixel(index, ...v) {
       if (!Number.isInteger(index) || index < 0 || index >= pixelCount) {
         throw new Error(`monoStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`);
+      }
+      // A single-channel strip has one level per pixel and no colour to put
+      // anywhere. Refused by name, because a palette left to fall through
+      // lands in the options bag and comes back as "no options named 0, 1, 2",
+      // which teaches the wrong thing entirely.
+      if (isColor(v[0]) || isPalette(v[0])) {
+        throw new Error(
+          `.pixel(): a single-channel strip has no colour. Write a level with .pixel(i, 0.5), ` +
+          `or drive the pixels one at a time with .each().`,
+        );
       }
       set(geo.seq(index), channelValue(v, `.pixel(${index})`));
     },
@@ -1834,6 +1936,15 @@ export function monoStrip(
     },
 
     chase(opts: ChaseOptions = {}): ChaseHandle {
+      // Named here too. Left to fall through, a colour or a palette would be
+      // read as the options bag and come back as "no options named 0, 1, 2",
+      // which points at the wrong thing entirely.
+      if (isColor(opts) || isPalette(opts)) {
+        throw new Error(
+          '.chase(): a single-channel strip has no colour, so the chase takes only options. ' +
+          'Write .chase({ cycles: 2 }), or drive the pixels one at a time with .each().',
+        );
+      }
       return chaseWithHandle(inst, null, opts);
     },
 
@@ -2050,7 +2161,7 @@ export function rgbwStrip(
     eachXY(fn) {
       for (let y = 0; y < geo.height; y++) {
         for (let x = 0; x < geo.width; x++) {
-          const result = fn(x, y, geo.width, geo.height);
+          const result = spreadIfColor(fn(x, y, geo.width, geo.height));
           const base = startChannel + geo.index(x, y) * STRIDE;
           if (Array.isArray(result)) {
             for (let c = 0; c < STRIDE; c++) {
@@ -2079,14 +2190,13 @@ export function rgbwStrip(
       // .color() has always followed on an RGBW fixture. So this writes r, g
       // and b and leaves w wherever the scene last put it. `.full()` is still
       // the call that lights every emitter.
-      if (isColor(args[0])) {
-        const c = args[0] as Color;
-        const [r, g, b] = channelValues(
-          [c.r as PatternOrValue, c.g as PatternOrValue, c.b as PatternOrValue],
-          ['r', 'g', 'b'], '.fill()',
-        );
+      // Several stops spread across the strip; one repeats by identity.
+      if (args.length > 0 && (everyArgIsColour(args) || isPalette(args[0]) || isPatternLike(args[0]))) {
+        const run = readColorRun(args, pixelCount, '.fill()');
         for (let i = 0; i < pixelCount; i++) {
           const base = startChannel + i * STRIDE;
+          const c = run[i];
+          const [r, g, b] = channelValues([c.r, c.g, c.b], ['r', 'g', 'b'], `.fill() pixel ${i}`);
           uni(universe, base,     r);
           uni(universe, base + 1, g);
           uni(universe, base + 2, b);
@@ -2108,6 +2218,21 @@ export function rgbwStrip(
         throw new Error(
           `rgbwStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`,
         );
+      }
+      if (isPalette(args[0])) {
+        throw oneColourOnly(`.pixel(${index})`, (args[0] as unknown[]).length);
+      }
+      // A colour is three components, and the fourth is a dedicated white LED
+      // that a three-component mix has no business touching. So W is left
+      // where the scene last put it, which is the rule .fill() states above.
+      if (args.length === 1 && isColor(args[0])) {
+        const c = args[0] as Color;
+        const [r, g, b] = channelValues([c.r, c.g, c.b], ['r', 'g', 'b'], `.pixel(${index})`);
+        const base = startChannel + geo.seq(index) * STRIDE;
+        uni(universe, base,     r);
+        uni(universe, base + 1, g);
+        uni(universe, base + 2, b);
+        return;
       }
       // Monochrome shortcut: pixel(i, value) sets R = G = B = value with
       // W = 0. The four-arg call is the verbose form for explicit colour
@@ -2135,7 +2260,7 @@ export function rgbwStrip(
     each(fn) {
       for (let i = 0; i < pixelCount; i++) {
         const phase = i / pixelCount;
-        const result = fn(phase, i, pixelCount);
+        const result = spreadIfColor(fn(phase, i, pixelCount));
         // Picture order in, wire order out. See rgbStrip.each().
         const base = startChannel + geo.seq(i) * STRIDE;
         if (Array.isArray(result)) {
@@ -2175,8 +2300,8 @@ export function rgbwStrip(
     },
 
     chase(...args: unknown[]): ChaseHandle {
-      const { color, opts } = splitChaseArgs(args);
-      return chaseWithHandle(inst, color, opts);
+      const { stops, opts } = splitChaseArgs(args);
+      return chaseWithHandle(inst, stops, opts);
     },
 
     rainbowChase(opts: RainbowChaseOptions = {}): void {
@@ -2501,6 +2626,28 @@ export function group(...members: GroupMember[]): GroupInstance {
     dim: roleSetter('dim'),
 
     color(...args) {
+      // A colour, a palette, or a pattern of colour names. A run of stops
+      // spreads across the members in order, so `rig.color(warm)` puts the
+      // first colour on the first light and the last on the last. A single
+      // colour repeats, which is also what makes `rig.color(red)` work: it
+      // used to reach channelValues as one argument and come back asking for
+      // all three of r, g and b.
+      if (args.length > 0 && (everyArgIsColour(args) || isPalette(args[0]) || isPatternLike(args[0]))) {
+        const run = readColorRun(args, cells.length, 'group.color()');
+        let painted = 0;
+        cells.forEach((cell, i) => {
+          const c = run[i];
+          for (const [role, value] of [['red', c.r], ['green', c.g], ['blue', c.b]] as const) {
+            if (!cell.roles.has(role)) continue;
+            cell.set(role, channelValue([value], `group.color() ${role}`));
+            painted++;
+          }
+        });
+        if (painted === 0) {
+          throw new Error('group.color(): no member of this group has a colour channel.');
+        }
+        return;
+      }
       const [r, g, b] = channelValues(args.slice(0, 3), ['r', 'g', 'b'], 'group.color()');
       // Unlike a single role, a colour that lands on nothing is worth
       // reporting once for the call rather than three times for its parts, so
@@ -2546,7 +2693,7 @@ export function group(...members: GroupMember[]): GroupInstance {
     each(fn) {
       const count = cells.length;
       for (let i = 0; i < count; i++) {
-        const result = fn(i / count, i, count);
+        const result = spreadIfColor(fn(i / count, i, count));
         if (Array.isArray(result)) {
           // The array names roles positionally, r/g/b/w, and stops where it
           // stops: [1, 0, 0] leaves white alone rather than zeroing it.
@@ -2648,12 +2795,17 @@ export interface ChaseOptions {
  * `.chase(red, { cycles: 2 })` all read the same way as `.color(1, 0, 0)`
  * does. The options bag is whichever trailing argument is a plain object.
  */
-function splitChaseArgs(args: readonly unknown[]): { color: Color; opts: ChaseOptions } {
+function splitChaseArgs(args: readonly unknown[]): { stops: Color[]; opts: ChaseOptions } {
   const last = args[args.length - 1];
-  const hasOpts = typeof last === 'object' && last !== null && !Array.isArray(last) && !isColor(last);
+  // An array is a palette and a pattern answers queries, so neither is the
+  // options bag. Without the pattern test .chase(mini('r g')) would have its
+  // only argument read as options and come back asking for a colour.
+  const hasOpts =
+    typeof last === 'object' && last !== null &&
+    !Array.isArray(last) && !isColor(last) && !isPatternLike(last);
   const colorArgs = hasOpts ? args.slice(0, -1) : args;
   return {
-    color: readColor(colorArgs, '.chase()'),
+    stops: readColorStops(colorArgs, '.chase()'),
     opts: (hasOpts ? last : {}) as ChaseOptions,
   };
 }
@@ -2704,12 +2856,12 @@ export interface ChaseHandle {
 /** Apply a chase and hand back the handle that can restate it. */
 function chaseWithHandle(
   strip: StripInstance | RgbwStripInstance | MonoStripInstance,
-  color: Color | null,
+  stops: readonly Color[] | null,
   opts: ChaseOptions,
 ): ChaseHandle {
-  chaseImpl(strip, color, opts);
+  chaseImpl(strip, stops, opts);
   const next = (change: ChaseOptions): ChaseHandle =>
-    chaseWithHandle(strip, color, { ...opts, ...change });
+    chaseWithHandle(strip, stops, { ...opts, ...change });
   return {
     slow: (n) => next({ cycles: (opts.cycles ?? 4) * n }),
     fast: (n) => next({ cycles: (opts.cycles ?? 4) / n }),
@@ -2726,7 +2878,7 @@ export const CHASE_OPTION_KEYS = ['cycles', 'width', 'waves', 'reverse', 'down',
 
 function chaseImpl(
   strip: StripInstance | RgbwStripInstance | MonoStripInstance,
-  color: Color | null,
+  stops: readonly Color[] | null,
   opts: ChaseOptions,
 ): void {
   checkOptions(opts as Record<string, unknown>, CHASE_OPTION_KEYS, '.chase()');
@@ -2756,12 +2908,17 @@ function chaseImpl(
 
   for (let y = 0; y < strip.height; y++) {
     for (let x = 0; x < strip.width; x++) {
-      const bright = brightAt(opts.down ? y : x);
-      if (color === null) {
+      const step = opts.down ? y : x;
+      const bright = brightAt(step);
+      if (stops === null) {
         (strip as MonoStripInstance).pixelXY(x, y, bright as PatternOrValue);
         continue;
       }
-      const { r, g, b } = color;
+      // Where this cell sits along the axis the chase runs on, so a palette
+      // spreads across the strip and re-spreads onto the rows under .down().
+      // One stop comes back by identity, which is what keeps the short cuts
+      // below firing and .chase(red) writing exactly what it always wrote.
+      const { r, g, b } = sampleStops(stops, phaseFor(step, count));
       // A component is usually a number, and 0 and 1 are worth short-cutting:
       // no multiply, and a dark component stays exactly dark.
       const scale = (c: ColorComponent): PatternOrValue => {
@@ -2770,7 +2927,7 @@ function chaseImpl(
         if (typeof c === 'number') {
           return (bright as { mul(n: unknown): unknown }).mul(c) as PatternOrValue;
         }
-        return scaleByPattern(bright as PatternLike, c) as PatternOrValue;
+        return scaleByPattern(bright as PatternLike, c as unknown as PatternLike) as PatternOrValue;
       };
       if (strip.channelCount === strip.pixelCount * 4) {
         (strip as RgbwStripInstance).pixelXY(x, y, scale(r), scale(g), scale(b), 0);
