@@ -17,7 +17,15 @@
  *   head.dim(0.8)
  */
 
-import { uni, channelValue, channelValues, levelOf, type PatternOrValue, type PatternLike } from './dmx.js';
+import {
+  uni,
+  channelValue,
+  channelValues,
+  levelOf,
+  isChannelDriven,
+  type PatternOrValue,
+  type PatternLike,
+} from './dmx.js';
 import {
   readColor,
   readColorStops,
@@ -413,6 +421,99 @@ export function getSimFixtures(): readonly SimFixture[] {
 /** Called from eval.ts at the start of every evalCode(). */
 export function clearSimFixtures(): void {
   _simFixtures.length = 0;
+}
+
+// ─── Implied brightness ───────────────────────────────────────────────────────
+
+/**
+ * A colour on a fixture with a master dimmer implies its own brightness.
+ *
+ * On a fixture whose dimmer gates everything else, driving an emitter and never
+ * touching the dimmer is always a mistake. The picture on the pixels is
+ * perfect, channel one is at zero, and nothing is visible at all. That failure
+ * cost real time on a 154-channel wash whose own description says "nothing is
+ * visible unless this is up", which is the definition of a value nobody should
+ * have to remember.
+ *
+ * Defaulting the dimmer to full was the other option and it is worse: a rig
+ * comes up hot the moment a fixture is patched, on a half-written scene. So it
+ * is inferred rather than defaulted, under rules that keep it honest:
+ *
+ *   - only when the run drove an emitter on that fixture,
+ *   - only when the run never set that dimmer itself, so dim(0) and dim(0.5)
+ *     stand exactly as written, a deliberate blackout included,
+ *   - once at the end of the run rather than per call, so line order does not
+ *     matter and a scene that sets the dimmer last is still left alone.
+ *
+ * What the run drove is read back off the staged channel definitions rather
+ * than recorded as it happens. Everything that writes a channel ends up there:
+ * a strip's pixels, a group's members and a bare ch() alike. Hooking the write
+ * paths instead would have missed the strips, which is the case that started
+ * this.
+ */
+interface FixtureActivity {
+  universe: number;
+  /** The master dimmer, as an absolute channel. */
+  dimmer: number;
+  /** Every other light-emitting channel, absolute, with strips expanded. */
+  emitters: number[];
+  /** For the note the UI shows. */
+  name: string;
+}
+
+const _fixtureActivity: FixtureActivity[] = [];
+
+export function clearFixtureActivity(): void {
+  _fixtureActivity.length = 0;
+}
+
+function channelsPerPixelOf(ch: ChannelDef): number {
+  return ch.pixelLayout === 'rgbw' ? 4 : ch.pixelLayout === 'mono' ? 1 : 3;
+}
+
+function registerFixtureActivity(def: FixtureDef, universe: number, startChannel: number): void {
+  const dimmer = masterDimmerChannel(def, startChannel);
+  // No master means nothing gates the emitters, so there is nothing to infer.
+  if (dimmer === undefined) return;
+
+  const emitters: number[] = [];
+  for (const ch of def.channels) {
+    if (!isEmitterChannel(ch)) continue;
+    const abs = startChannel + ch.offset;
+    // The dimmer is an emitter by name. It is the thing being inferred, so it
+    // cannot also be the evidence for inferring it.
+    if (abs === dimmer) continue;
+    const span = ch.type === 'strip' ? (ch.pixelCount ?? 0) * channelsPerPixelOf(ch) : 1;
+    for (let k = 0; k < span; k++) emitters.push(abs + k);
+  }
+  if (emitters.length === 0) return;
+  _fixtureActivity.push({ universe, dimmer, emitters, name: def.name });
+}
+
+/**
+ * Raise every dimmer this run drove light through but never set, and name them.
+ *
+ * Called once at the end of a run, while staging is still open, so the writes
+ * commit with the rest of the scene or roll back with it.
+ */
+export function raiseImpliedDimmers(): string[] {
+  const raised: string[] = [];
+  for (const { universe, channel, name } of impliedDimmers()) {
+    uni(universe, channel, 1);
+    raised.push(`${name} at ${universe}:${channel}`);
+  }
+  return raised;
+}
+
+/** The dimmers this run drove light through but never set. */
+export function impliedDimmers(): Array<{ universe: number; channel: number; name: string }> {
+  const out: Array<{ universe: number; channel: number; name: string }> = [];
+  for (const a of _fixtureActivity) {
+    if (isChannelDriven(a.universe, a.dimmer)) continue;
+    if (!a.emitters.some((c) => isChannelDriven(a.universe, c))) continue;
+    out.push({ universe: a.universe, channel: a.dimmer, name: a.name });
+  }
+  return out;
 }
 
 // ─── pixelGrid helpers ────────────────────────────────────────────────────────
@@ -967,6 +1068,10 @@ export function fixture(
       `fixture: "${fixtureId}" (${def.channelCount} channels) starting at ${startChannel} would run to channel ${lastChannel}, which exceeds 512 by ${lastChannel - 512}. Move it to a lower address or split across universes.`,
     );
   }
+
+  // Note what could imply its own brightness, once at patch time, so the check
+  // at the end of the run is a lookup rather than a walk of every definition.
+  registerFixtureActivity(def, universe, startChannel);
 
   // A channel named `color` that has slots is a colour wheel, and .color()
   // dispatches a slot name to it. Resolved once, here, rather than per call.

@@ -47,6 +47,8 @@ import {
   group,
   clearVizRegistry,
   clearSimFixtures,
+  clearFixtureActivity,
+  raiseImpliedDimmers,
   setStripEffectWaveforms,
 } from './fixtures.js';
 import { sendConfig, connectDirect, isBlockedAsMixedContent, isConnected } from './websocket.js';
@@ -754,6 +756,8 @@ export function evalCode(code: string): EvalResult {
   // finally without setting a result rolls back rather than publishing a scene
   // nobody confirmed.
   let result: EvalResult = { success: false, error: 'evaluation did not complete' };
+  /** Dimmers this run raised because a colour implied it. Reported, never silent. */
+  let implied: string[] = [];
   beginStaging();
   try {
     // Claim ownership of the output-changing calls. From here until the finally
@@ -767,8 +771,13 @@ export function evalCode(code: string): EvalResult {
     clearSimFixtures();
     clearScreens();
     clearControls();
-  clearPickers();
+    clearPickers();
+    clearFixtureActivity();
     fn(...values);
+    // Inside the try and before the commit, so raised dimmers belong to the
+    // same transaction: a scene that throws after this rolls them back with
+    // everything else rather than leaving a rig lit by a run that failed.
+    implied = raiseImpliedDimmers();
     result = { success: true };
   } catch (err) {
     result = { success: false, error: errorMessage(err) };
@@ -792,8 +801,16 @@ export function evalCode(code: string): EvalResult {
       // The scene is live either way; this only says whether anything is
       // carrying it out of the page. Read after the flush so it reflects the
       // output the run actually settled on.
-      const warning =
+      const outputWarning =
         sideEffects.config === null ? null : unreachableOutputWarning(sideEffects.config);
+      // Raising a dimmer changes what a scene puts on the wire without the
+      // scene saying so, which is the kind of help that is infuriating when it
+      // guesses wrong. So it is always said out loud.
+      const impliedNote = implied.length === 0
+        ? null
+        : `brightness inferred: ${implied.join(', ')}. ` +
+          `Write dim(…) on the fixture to say otherwise.`;
+      const warning = [outputWarning, impliedNote].filter((w) => w !== null).join(' ') || null;
       if (warning !== null) {
         // The status line is the UI's to write, and it may be showing something
         // else by the time anyone looks. The console keeps the reason where it
