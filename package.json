@@ -22,8 +22,9 @@
     "desktop:build": "npm run build && npm run bridge:build && npm run build --workspace=packages/desktop",
     "desktop:package": "npm run desktop:build && electron-builder --projectDir packages/desktop",
     "doctor": "node scripts/doctor.mjs",
-    "test": "node scripts/check-names.mjs && vitest run",
+    "test": "node scripts/check-names.mjs && npm run typecheck && vitest run",
     "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p packages/core && tsc --noEmit -p packages/ui && tsc --noEmit -p packages/bridge",
     "check:names": "node scripts/check-names.mjs"
   },
   "devDependencies": {
