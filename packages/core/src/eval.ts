@@ -837,6 +837,11 @@ export function evalCode(code: string): EvalResult {
         clearSimFixtures();
         clearScreens();
         clearControls();
+        // Pickers and fixture activity are cleared on the way in, so a failed
+        // run leaves both holding a scene that never reached the wire. The
+        // panel would keep offering swatches for lights the run rolled back.
+        clearPickers();
+        clearFixtureActivity();
       } catch {
         // Nothing left to do; the rig is already back on the old scene.
       }

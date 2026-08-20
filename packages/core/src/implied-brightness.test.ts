@@ -17,6 +17,14 @@ import { fixture, defineFixture, clearFixtureActivity, raiseImpliedDimmers } fro
 import { beginStaging, commitStaging, abortStaging, clearDefs, tick, getUniverseBuffer } from './dmx.js';
 
 /**
+ * A fixture's named setters and its nested strips are attached at run time from
+ * the definition, so the static type does not carry them. Named here once
+ * rather than cast at every call.
+ */
+type Dimmable = { dim(level: number): void; off(): void; color(r: number, g: number, b: number): void };
+type Stripped = { pixels: { fill(r: number, g: number, b: number): void } };
+
+/**
  * One run, the way evalCode() makes one: staging open, the scene, then the
  * inference, then the commit. The inference has to sit inside the transaction,
  * so it is called in the same place here.
@@ -77,7 +85,7 @@ describe('implied brightness', () => {
 
   it('leaves a deliberate blackout exactly as written', () => {
     const { raised, ch } = run(() => {
-      const w = fixture(1, 'dim-rgb');
+      const w = fixture(1, 'dim-rgb') as unknown as Dimmable;
       w.color(1, 0, 0);
       w.dim(0);
     });
@@ -87,7 +95,7 @@ describe('implied brightness', () => {
 
   it('leaves a half level exactly as written', () => {
     const { ch } = run(() => {
-      const w = fixture(1, 'dim-rgb');
+      const w = fixture(1, 'dim-rgb') as unknown as Dimmable;
       w.color(1, 0, 0);
       w.dim(0.5);
     });
@@ -98,7 +106,7 @@ describe('implied brightness', () => {
     // Applied once at the end of the run rather than per call, so a scene that
     // sets the dimmer before the colour is still left alone.
     const { raised, ch } = run(() => {
-      const w = fixture(1, 'dim-rgb');
+      const w = fixture(1, 'dim-rgb') as unknown as Dimmable;
       w.dim(0.25);
       w.color(1, 0, 0);
     });
@@ -121,7 +129,7 @@ describe('implied brightness', () => {
     // and there is nothing to infer. Tracking the scene's calls instead of the
     // channels they produced would have missed this and lit the rig back up.
     const { ch } = run(() => {
-      const w = fixture(1, 'dim-rgb');
+      const w = fixture(1, 'dim-rgb') as unknown as Dimmable;
       w.color(1, 0, 0);
       w.off();
     });
@@ -133,7 +141,7 @@ describe('implied brightness', () => {
     // watching that setter would miss them. This is the case that started it:
     // a 154-channel wash whose only emitters are its pixels.
     const { raised, ch } = run(() => {
-      fixture(1, 'dim-strip').pixels.fill(1, 1, 0);
+      (fixture(1, 'dim-strip') as unknown as Stripped).pixels.fill(1, 1, 0);
     });
     expect(ch(1)).toBe(255);
     expect(raised).toHaveLength(1);

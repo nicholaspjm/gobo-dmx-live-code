@@ -3,6 +3,45 @@
 Raised in one batch. Ordered by what a person hits first, not by effort.
 Notes marked **checked** were verified against the running engine.
 
+Anything touching patterns has to be verified in a browser. `@strudel/core`
+cannot load under the test runner: its entry imports `SalatRepl` from
+`@kabelsalat/web`, which is a browser-only bundle, so the import fails before
+any gobo code runs. Hand-rolled `{ queryArc }` fakes are faithful stand-ins in
+unit tests, because that is exactly the shape `pick()` produces.
+
+## Done
+
+### Gradients and colour palettes
+A palette is a plain array of colours. `const warm = [amber, orange, red]`
+spreads across a strip with `.fill(warm)`, across a group with
+`rig.color(warm)`, and along a chase with `.chase(warm)`. No new type: an array
+already indexes, reverses and slices, and `cat(...warm)` puts it in time.
+
+### `fill()` takes a colour
+Predefined, a mix, several stops, a palette, or a pattern of colour tokens.
+`readColorStops()` is now the one ladder every caller reads through, so the
+rules cannot drift apart between `.fill()` and `.color()`.
+
+### A mini-notation for colour
+`mini('r - g - b')` flashes red, green, blue. Tokens resolve against the eleven
+predefined names by full name or by any prefix naming one colour. A number
+token is a grey, so `mini('1 - 1 -')` means the same shape in a colour position
+as in a level position. A rest is silence rather than black.
+
+### A colour implies its own brightness
+On a fixture with a master dimmer, driving an emitter and never setting the
+dimmer raises it at the end of the run, and says so. `dim(0)` and `dim(0.5)`
+stand exactly as written, wherever they appear in the scene. Read off the
+staged definitions rather than by watching the setters, so a strip's pixels
+count, and `.off()` stays off.
+
+### A chase on a picked colour ran white
+Not on the original list, found while building the above. `.mul()` does not
+scale a duck-typed component: strudel reifies it with `pure()`, so the multiply
+became a union and the channel read the envelope alone. Every
+`.chase(pick(...))` ran at full brightness in white, with no error and nothing
+to notice, and the docs used that call as the example.
+
 ## Wrong behaviour
 
 ### Blackout lags by about a bar
@@ -27,21 +66,6 @@ likely the registry keeping the entry from the last run rather than the scan.
 
 ## Missing, and asked for directly
 
-### Gradients and colour palettes
-Define a palette once, use it everywhere a colour is taken. Should compose with
-`pick()` and the predefined colours, and be the natural input to `.chase()` and
-`.fill()`. Probably the largest item here and the one that unlocks the most.
-
-### `fill()` should take a colour
-Predefined, a mix, a defined palette colour, or a pattern. Partly done:
-`.fill(color)` and `.color(color)` accept a colour value now. What is missing is
-palette input and clearer precedence.
-
-### A mini-notation for colour
-`mini('r - g - b')` to flash red, green, blue in order, the way `'1 - 1 -'`
-works for levels. Needs a decision about whether tokens resolve against the
-predefined names, a scene palette, or both.
-
 ### Library search, independent of the docs search
 The docs panel has search; the library panel does not. Should not share state
 or ranking with the docs one.
@@ -60,40 +84,16 @@ double next to the BPM. `setBPM` already clamps 1..400.
 **Checked:** strips already answer to `.red()`, `.green()`, `.blue()` and
 `.white()`, so `strip.red(1)` works today. What does not work is a fixture whose
 def has a strip channel: `wash.red(1)` reaches no pixels, because the loop that
-attaches named setters only sees scalar channels. That is the real gap, and it
-matches the audit finding that the r,g,b mix is `.color()` on a fixture and
-`.fill()` on a strip.
+attaches named setters only sees scalar channels. That is the real gap.
+
+Now smaller than it was: `.fill()` on the nested strip takes a colour, so
+`wash.pixels.fill(red)` is the working spelling. What is missing is the
+whole-fixture shortcut reaching through to the pixels.
 
 ### Autocomplete should rank lighting commands above pattern chains
 After a dot, the pool is pattern methods and fixture methods merged. A receiver
 that is a declared light should weight its own verbs first;
 `packages/ui/src/declared-lights.ts` already knows which names are lights.
-
-### A colour should imply its own brightness
-Decided against defaulting `dim` to 1: a rig that comes up hot the moment a
-fixture is patched is a worse failure than a dark one, because it happens on a
-half-written scene.
-
-Infer instead. On a fixture that has a master dimmer, driving an emitter and
-never touching the dimmer is always a mistake, so raise the dimmer to full at
-commit time. Rules:
-
-- Only when the scene drove at least one emitter on that fixture.
-- Only when the scene never set the dimmer itself, so `dim(0)` and `dim(0.5)`
-  are left exactly as written, including a deliberate blackout.
-- Applied once per run at commit, not per call, so the order of lines does not
-  matter.
-
-This is the failure that cost real time on the 154-channel wash: a perfect
-yellow picture on the pixels with channel 1 at zero and nothing visible. The
-fixture's own description says "nothing is visible at all unless this is up",
-which is the definition of a value nobody should have to remember.
-
-Needs care: it changes what a scene outputs without the scene saying so, and
-that is the kind of help that is infuriating when it guesses wrong. The
-"scene never set the dimmer" condition is what keeps it honest, and it should
-be visible somewhere, probably the status line or the hover tooltip, rather
-than silent.
 
 ### `pick('warm')` repeats itself
 `const warm = pick('warm')` says the name twice. The string keys the stored
@@ -107,6 +107,15 @@ It currently opens the operating system's picker, which is a wheel on most
 platforms but not all, and cannot be styled. A drawn circular picker would be
 consistent everywhere at the cost of owning it.
 
+### `.chase()` zeroes W, `.fill()` leaves it alone
+On an RGBW strip a colour path writes r, g and b and leaves the dedicated white
+channel where the scene last put it. `.chase()` zeroes it instead. One of the
+two is wrong and they should agree.
+
+### `rgbwStrip.fill(r, g, b)` with three numbers throws
+It asks for all four of r, g, b, w, where `rgbStrip` takes three. A real
+inconsistency, deliberately left alone while the colour work was in flight.
+
 ## Already open elsewhere
 
 - `trail` on `.chase()`: attempted, reverted, notes recorded.
@@ -115,3 +124,5 @@ consistent everywhere at the cost of owning it.
   slot channels.
 - Chainable setters: `.fill()` returns void while `.viz()` returns the instance.
 - Retake the README screenshot and `og.png`.
+- `clearPickers()` is missing from `evalCode()`'s failure branch, so a
+  rolled-back run leaves its picker declarations stale. One line, its own commit.
