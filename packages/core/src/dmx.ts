@@ -383,7 +383,7 @@ function recordQueryFailure(def: ChannelDef, err: unknown): void {
  * Parameters that describe sound rather than level (speed, pan, room) are
  * ignored, which is the right reading for a lamp.
  */
-function levelOf(v: unknown): number | null {
+export function levelOf(v: unknown): number | null {
   if (typeof v === 'number') return v;
   if (v === null || typeof v !== 'object') return null;
   const inner = (v as { value?: unknown }).value;

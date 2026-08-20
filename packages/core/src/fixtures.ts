@@ -17,7 +17,7 @@
  *   head.dim(0.8)
  */
 
-import { uni, channelValue, channelValues, type PatternOrValue, type PatternLike } from './dmx.js';
+import { uni, channelValue, channelValues, levelOf, type PatternOrValue, type PatternLike } from './dmx.js';
 import { readColor, isColor, checkOptions, type Color, type ColorComponent } from './colors.js';
 
 // ─── Fixture definition types ─────────────────────────────────────────────────
@@ -2763,11 +2763,15 @@ function chaseImpl(
       }
       const { r, g, b } = color;
       // A component is usually a number, and 0 and 1 are worth short-cutting:
-      // no multiply, and a dark component stays exactly dark. A component from
-      // pick() is a pattern instead, and strudel's .mul() takes one, so the
-      // envelope is scaled by a colour that is still being chosen.
-      const scale = (c: ColorComponent): PatternOrValue =>
-        (c === 0 ? 0 : c === 1 ? bright : (bright as { mul(n: unknown): unknown }).mul(c)) as PatternOrValue;
+      // no multiply, and a dark component stays exactly dark.
+      const scale = (c: ColorComponent): PatternOrValue => {
+        if (c === 0) return 0 as PatternOrValue;
+        if (c === 1) return bright as PatternOrValue;
+        if (typeof c === 'number') {
+          return (bright as { mul(n: unknown): unknown }).mul(c) as PatternOrValue;
+        }
+        return scaleByPattern(bright as PatternLike, c) as PatternOrValue;
+      };
       if (strip.channelCount === strip.pixelCount * 4) {
         (strip as RgbwStripInstance).pixelXY(x, y, scale(r), scale(g), scale(b), 0);
       } else {
@@ -2775,6 +2779,37 @@ function chaseImpl(
       }
     }
   }
+}
+
+/**
+ * Scale a brightness envelope by a colour component that is itself a pattern.
+ *
+ * `.mul()` reads like the right verb here and is not. Strudel reifies a
+ * duck-typed component with `pure()`, so the multiply becomes a union of two
+ * control objects rather than a product: the result carries the envelope's own
+ * level, with the colour hanging off it under a key nothing reads. The channel
+ * then sees the envelope alone, which is a chase at full brightness in white.
+ * It never threw and never queried wrong, so nothing said so, and the example
+ * in the docs advertised it.
+ *
+ * Querying both sides over the same arc and multiplying the levels is what the
+ * multiply was meant to be. Several haps in one arc reduce by taking the
+ * highest, which is how tick() already merges anything that overlaps.
+ */
+function scaleByPattern(bright: PatternLike, c: PatternLike): PatternLike {
+  return {
+    queryArc(begin: number, end: number) {
+      let k = 0;
+      for (const hap of c.queryArc(begin, end)) {
+        const v = levelOf((hap as { value: unknown }).value);
+        if (v !== null && v > k) k = v;
+      }
+      return bright.queryArc(begin, end).map((hap: { value: unknown }) => {
+        const v = levelOf(hap.value);
+        return v === null ? hap : { ...hap, value: v * k };
+      });
+    },
+  };
 }
 
 /**
