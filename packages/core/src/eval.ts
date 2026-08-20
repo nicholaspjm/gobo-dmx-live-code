@@ -35,7 +35,7 @@ import {
   hushDefs,
   type PatternLike,
 } from './dmx.js';
-import { COLORS } from './colors.js';
+import { COLORS, mix } from './colors.js';
 import { setBPM } from './scheduler.js';
 import {
   fixture,
@@ -241,7 +241,13 @@ export async function initStrudel(): Promise<void> {
         const tokens = str.trim().split(/\s+/).map((t) => {
           if (t === '-' || t === '~') return 0;
           const n = Number(t);
-          return Number.isFinite(n) ? n : 0;
+          // A token that is not a number is passed through as itself, so a
+          // colour name still reaches whatever consumes it. Mapping it to 0
+          // made every colour token silently black on a build where the real
+          // mini failed to load. Safe to pass a string on: the hook that
+          // parses one into a pattern is installed by @strudel/mini, which by
+          // definition is not here.
+          return Number.isFinite(n) ? n : t;
         });
         return seq(...tokens);
       };
@@ -695,6 +701,9 @@ export function evalCode(code: string): EvalResult {
     screen,
     slider,
     pick,
+    /** Blend two colours, for a curve the built-in spread does not give:
+     *  `bar.each(p => mix(red, blue, p * p))`. */
+    mix,
     // Pattern extension: define custom chain methods at top level.
     register,
     // Patterns (populated by initStrudel)
