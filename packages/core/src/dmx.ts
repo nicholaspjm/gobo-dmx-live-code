@@ -189,6 +189,19 @@ export function uni(universe: number, channel: number, ...args: [PatternOrValue?
   target.set(key(universe, channel), { universe, channel, value });
 }
 
+/**
+ * Whether the run in progress has defined this channel.
+ *
+ * Reads the staging map while a transaction is open, so it answers about the
+ * scene being built rather than the one still on the wire. Asking the defs is
+ * how anything can tell what a run actually drove without hooking every path
+ * that writes: a strip's pixels, a group's members and a plain `ch()` all end
+ * up here, and only here.
+ */
+export function isChannelDriven(universe: number, channel: number): boolean {
+  return (_staging ?? _defs).has(key(universe, channel));
+}
+
 /** Alias for ch(): set a dimmer channel. Omit the value for full. */
 export function dim(channel: number, ...args: [PatternOrValue?]): void {
   uni(1, channel, channelValue(args, `dim(${channel})`));
