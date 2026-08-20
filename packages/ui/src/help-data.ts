@@ -232,6 +232,17 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'function',
   },
 
+  {
+    label: 'mix',
+    signature: 'mix(a, b, t) => Color',
+    description:
+      'Blend two colours, t of the way from the first to the second. The escape hatch for a curve the even '
+      + 'spread across a palette does not give. Both endpoints come back as themselves, so mix(red, blue, 0) is red.',
+    example: 'bar.pixels.each(p => mix(red, blue, p * p))',
+    context: 'command',
+    kind: 'function',
+  },
+
   // ─── Fixtures ──────────────────────────────────────────────────────────────
   {
     label: 'fixture',
@@ -959,12 +970,20 @@ spot.white(mini('1 - - -').punch())`,
   // ─── Fixture / strip methods ───────────────────────────────────────────────
   {
     label: 'color',
-    signature: '.color(r, g, b [, w])',
+    signature: '.color(color) | .color(r, g, b [, w])',
     description:
-      'Set R / G / B (and optionally W) in one call. Channels absent on the fixture are skipped silently, so the same line works on rgb / rgbw / dim-rgbw / moving heads.',
-    example: `wash.color(1, 0, 0)         // red on any colour fixture
+      'Set R / G / B (and optionally W) in one call. Takes a colour by name without quotes, a pattern of colour '
+      + 'tokens, or the components. Channels absent on the fixture are skipped silently, so the same line works on '
+      + 'rgb / rgbw / dim-rgbw / moving heads. One light is one position, so a palette is refused there rather than '
+      + 'quietly painted with its first stop: take one stop with warm[0], or put the palette in time with '
+      + 'cat(...warm).slow(4). On a group it spreads across the members in order, first colour on the first light. '
+      + "A fixture with a colour wheel reads a single argument as a slot instead: head.color('red').",
+    example: `wash.color(red)             // a colour by name, no quotes
+wash.color(1, 0, 0)         // red on any colour fixture
 wash.color(1, 0, 0, 0.3)    // RGBW: red + a touch of white
-wash.color(sine(), 0, 0)    // animated red`,
+wash.color(sine(), 0, 0)    // animated red
+wash.color(mini('r - g - b'))  // colour tokens, changing in time
+rig.color(warm)             // a palette across the members of a group`,
     context: 'fixture-method',
     kind: 'method',
   },
@@ -1056,9 +1075,20 @@ wash.color(sine(), 0, 0)    // animated red`,
   },
   {
     label: 'fill',
-    signature: '.fill(r, g, b [, w])',
-    description: 'Set every pixel on a strip to the same colour.',
-    example: 'strip.fill(0, 0, 0, 0)',
+    signature: '.fill(color) | .fill(...stops) | .fill(palette) | .fill(r, g, b [, w])',
+    description:
+      'Paint every pixel on a strip. One colour repeats across the whole strip. Two or more spread as a gradient, '
+      + 'endpoint to endpoint: the first colour lands on the first pixel, the last on the last, blended in between. '
+      + 'A palette is a plain array of colours and spreads the same way. A pattern of colour tokens is one colour that '
+      + 'changes in time, so the strip moves together. Three or more values that are not colours stay the per-component '
+      + 'spelling, which on an RGB strip takes patterns as readily as numbers. On an RGBW strip a colour writes r, g '
+      + 'and b and leaves the dedicated white emitter where the scene last put it; .full() is still the call that '
+      + 'lights every emitter. A single-channel strip has no colour and takes a level.',
+    example: `strip.fill(red)                  // one colour, every pixel
+strip.fill(red, blue)            // two stops, a gradient across the strip
+strip.fill(warm)                 // a palette, spread the same way
+strip.fill(mini('r - g - b'))    // colour tokens, changing in time
+strip.fill(0, 0, 0, 0)`,
     context: 'fixture-method',
     kind: 'method',
   },
@@ -1135,23 +1165,35 @@ wash.color(sine(), 0, 0)    // animated red`,
   },
   {
     label: 'each',
-    signature: '.each((phase, i, count) => value | [r,g,b] | [r,g,b,w])',
+    signature: '.each((phase, i, count) => value | Color | [r,g,b] | [r,g,b,w])',
     description:
-      'Run a callback per pixel. Return one value for a monochrome chase (applied to R=G=B) or an array for full colour control. phase = i / count.',
+      'Run a callback per pixel. Return one value for a monochrome chase (applied to R=G=B), a colour to paint that '
+      + 'pixel, or an array for full colour control. phase = i / count. Indexing a palette gives hard bands where '
+      + '.fill() blends; mix(a, b, t) gives a curve of your own. An array stays the per-component form, so a raw '
+      + 'triple is left as written.',
     example: `strip.each(p => cosine().early(p).slow(2).range(-7, 1))
-strip.each(p => [sine().early(p), 0, cosine().early(p)])`,
+strip.each(p => [sine().early(p), 0, cosine().early(p)])
+strip.each((p, i) => warm[i % warm.length])   // hard bands
+strip.each(p => mix(red, blue, p * p))        // a curve of your own`,
     context: 'fixture-method',
     kind: 'method',
   },
   {
     label: 'chase',
-    signature: '.chase(color, { cycles?, width?, waves?, reverse?, down?, early? })',
+    signature: '.chase(color | palette, { cycles?, width?, waves?, reverse?, down?, early? })',
     description:
       'A band of colour travelling along the strip, endlessly. No callback: this is the plain way to get a moving light. '
-      + 'Colour by name without quotes (red, blue, amber...), or three numbers 0 to 1. cycles = how long a lap takes (4), width = how much is lit at once (0.5), '
+      + 'Colour by name without quotes (red, blue, amber...), three numbers 0 to 1, or a palette, whose stops spread '
+      + 'along the strip so the band runs over a gradient. Under .down() the stops re-sample onto the rows instead of '
+      + 'the columns. A pattern of colour tokens changes the whole band in time rather than across space. '
+      + 'On an RGBW strip .chase() zeroes the dedicated white channel, where .fill() leaves it alone. '
+      + 'cycles = how long a lap takes (4), width = how much is lit at once (0.5), '
       + 'waves = crests at a time (1), early = start this many cycles ahead. A single-channel strip takes options alone. '
       + 'Chainable: .slow(n), .fast(n), .early(n), .late(n), .reverse(), .down(), .width(n) and .waves(n) restate it with one option changed. Travels left to right by default.',
-    example: 'wash.pixels.chase(red)\nwash.pixels.chase(blue, { cycles: 2, width: 0.2 })',
+    example: `wash.pixels.chase(red)
+wash.pixels.chase(blue, { cycles: 2, width: 0.2 })
+bar.pixels.chase(warm, { cycles: 2 })            // over a gradient
+bar.pixels.chase(warm, { cycles: 2 }).down()     // stops onto the rows`,
     context: 'fixture-method',
     kind: 'method',
   },

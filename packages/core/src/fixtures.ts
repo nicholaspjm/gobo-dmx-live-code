@@ -834,6 +834,20 @@ function spreadIfColor(result: unknown): unknown {
   return isColor(result) ? [result.r, result.g, result.b] : result;
 }
 
+/**
+ * A palette holding one stop is one colour.
+ *
+ * Narrowing a palette with `warm.slice(0, 1)` and handing it to a single light
+ * came back as "takes one colour, not 1", which reads as a contradiction and
+ * points at an array that already has exactly one thing in it.
+ */
+function unwrapSingleStop(args: readonly unknown[]): readonly unknown[] {
+  if (args.length === 1 && isPalette(args[0]) && (args[0] as unknown[]).length === 1) {
+    return [toColorValue((args[0] as unknown[])[0])];
+  }
+  return args;
+}
+
 /** Whether every argument spells a colour, which is what separates a run of
  *  stops from the per-component `r, g, b` spelling. */
 function everyArgIsColour(args: readonly unknown[]): boolean {
@@ -1141,6 +1155,7 @@ export function fixture(
       // `wash.color(red)` and `wash.color(pick('warm'))` reach the same place
       // as `wash.color(1, 0, 0)`. Checked before the wheel branch below, which
       // also takes a single argument.
+      args = unwrapSingleStop(args) as typeof args;
       // One light is one position, so a run of stops has nowhere to go.
       // Refused rather than quietly painted with the first one, and refused
       // BEFORE the single-colour branch below, which would otherwise take the
@@ -1151,9 +1166,16 @@ export function fixture(
       if (args.length > 1 && everyArgIsColour(args)) {
         throw oneColourOnly(`Fixture "${def.name}".color()`, args.length);
       }
-      if (isColor(args[0])) {
-        const c = args[0] as Color;
-        inst.color(c.r as PatternOrValue, c.g as PatternOrValue, c.b as PatternOrValue);
+      // A colour, whether branded or spelled as three numbers in an array. The
+      // array form is what .each() hands back, and it used to reach
+      // channelValues as a single argument and come back asking for all three.
+      const asColour = toColorValue(args[0]);
+      if (args.length === 1 && asColour !== null) {
+        inst.color(
+          asColour.r as PatternOrValue,
+          asColour.g as PatternOrValue,
+          asColour.b as PatternOrValue,
+        );
         return;
       }
       // A colour wheel is picked by slot name, by raw DMX value, or by a
@@ -1771,6 +1793,7 @@ export function rgbStrip(
           `rgbStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`,
         );
       }
+      args = unwrapSingleStop(args) as typeof args;
       // One position, so a run of stops has nowhere to go. Refused rather than
       // quietly painted with the first one.
       if (isPalette(args[0])) {
@@ -2296,7 +2319,7 @@ export function rgbwStrip(
       // and b and leaves w wherever the scene last put it. `.full()` is still
       // the call that lights every emitter.
       // Several stops spread across the strip; one repeats by identity.
-      if (args.length > 0 && (everyArgIsColour(args) || isPalette(args[0]) || isPatternLike(args[0]))) {
+      if (everyArgIsColour(args) || (args.length === 1 && (isPalette(args[0]) || isPatternLike(args[0])))) {
         const run = readColorRun(args, pixelCount, '.fill()');
         for (let i = 0; i < pixelCount; i++) {
           const base = startChannel + i * STRIDE;
@@ -2324,6 +2347,7 @@ export function rgbwStrip(
           `rgbwStrip: pixel index ${index} out of range [0, ${pixelCount - 1}]`,
         );
       }
+      args = unwrapSingleStop(args) as typeof args;
       if (isPalette(args[0])) {
         throw oneColourOnly(`.pixel(${index})`, (args[0] as unknown[]).length);
       }
@@ -2737,8 +2761,11 @@ export function group(...members: GroupMember[]): GroupInstance {
       // colour repeats, which is also what makes `rig.color(red)` work: it
       // used to reach channelValues as one argument and come back asking for
       // all three of r, g and b.
-      if (args.length > 0 && (everyArgIsColour(args) || isPalette(args[0]) || isPatternLike(args[0]))) {
-        const run = readColorRun(args, cells.length, 'group.color()');
+      // Widened deliberately: the signature names the arities a scene should
+      // write, and a scene can still hand over anything at all.
+      const given = args as readonly unknown[];
+      if (everyArgIsColour(given) || (given.length === 1 && (isPalette(given[0]) || isPatternLike(given[0])))) {
+        const run = readColorRun(given, cells.length, 'group.color()');
         let painted = 0;
         cells.forEach((cell, i) => {
           const c = run[i];

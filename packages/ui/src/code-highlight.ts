@@ -26,7 +26,8 @@
  *   gobo-pattern-chain  pattern TRANSFORMS: .slow .fast .early .late .range
  *                       .add .mul, plus bare `register` (it defines a new
  *                       chain method, so it belongs to this family)
- *   gobo-color          .color, the multi-channel setter that is no one hue
+ *   gobo-color          .color, the multi-channel setter that is no one hue,
+ *                       and bare mix, which blends two colours into a third
  *   gobo-color-red      .red        \
  *   gobo-color-green    .green       |  per-channel colour setters, each
  *   gobo-color-blue     .blue        |  tinted towards the channel it drives
@@ -153,6 +154,11 @@ const BARE_TOKENS = buildTable([
   // family rather than as a fixture factory.
   [patternChainMark, ['register']],
   [dmxMark,          ['ch', 'uni', 'dim', 'rgb']],
+  // `mix` returns a colour that is no single hue, which is what gobo-color
+  // already means for `.color`. It is safe in the BARE table and would not be
+  // in METHOD_TOKENS: `.mix` is not a call gobo has, and painting it would
+  // colour any user method that happened to be named that.
+  [colorMark,        ['mix']],
 ]);
 
 /**

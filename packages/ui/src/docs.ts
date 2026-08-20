@@ -769,6 +769,127 @@ const DOCS: DocSection[] = [
 
   {
     category: 'patterns',
+    title: 'colour and palettes',
+    blurb:
+      'A colour is a value, and a run of colours is a plain array of them. The same value reaches a par, a strip, a group and a chase, so a look worked out once can be moved without rewriting it.',
+    entries: [
+      {
+        name: 'a colour is a value',
+        signature: 'wash.color(red)  ·  wash.color(1, 0.4, 0)',
+        description:
+          "Two ways to write a colour and only two: one of the eleven predefined names, written without quotes, or three numbers from 0 to 1. A name is an identifier, so a misspelling is a scene error at the point you typed it rather than a light that reads dark; a quoted colour is refused, and the message names the identifier to write instead. Either form is one value, and every call that takes a colour takes both, so a colour can be lifted into a const and reused.",
+        example:
+          "wash.color(red)\nwash.color(1, 0.4, 0)\n\nconst house = amber\nwash.color(house)\nstrip.fill(house)",
+      },
+      {
+        name: 'a palette is an array',
+        signature: 'const warm = [amber, orange, red]',
+        description:
+          "Several colours are a plain array, with no palette type and no constructor to learn. Everything you already know about arrays therefore works: warm[0] takes one stop, [...warm].reverse() turns it round, warm.slice(0, 2) shortens it, and cat(...warm) puts it in time. An array of numbers stays one colour and is never a palette, so [1, 0, 0.5] is a mix. A colour is its own kind of value and a number is not, so the two cannot be mistaken for each other.",
+        example:
+          "const warm = [amber, orange, red]\nstrip.fill(warm)\nstrip.fill([...warm].reverse())\nstrip.fill(warm.slice(0, 2))\nwash.color(warm[0])",
+      },
+      {
+        name: '.fill',
+        signature: 'strip.fill(warm)  ·  strip.fill(red, blue)',
+        description:
+          "Spreads whatever stops it was given across the pixels, endpoint to endpoint: the first colour lands on the first pixel, the last on the last, blended in between. Two colours are the two-stop gradient, which used to paint the first one and drop the second without saying so. One colour repeats, so .fill(red) writes what it always wrote. Three or more values that are not colours is still the per-component spelling, so .fill(sine(), 0, cosine()) is unchanged.",
+        example:
+          "strip.fill(warm)                  // amber at one end, red at the other\nstrip.fill(red, blue)             // two stops\nstrip.fill(red)                   // every pixel\nstrip.fill(sine(), 0, cosine())   // per component, as before",
+      },
+      {
+        name: 'a palette across a group',
+        signature: 'rig.color(warm)',
+        description:
+          "A group spreads the stops across its members in the order they were written, one colour each, by the same endpoint-to-endpoint rule the strips use. A single colour paints the whole group, which is new: rig.color(red) used to throw asking for all three of r, g and b, so the only spelling that worked was rig.color(1, 0, 0).",
+        example:
+          "const rig = group(washA, washB, washC)\nrig.color(warm)   // amber, orange, red, in that order\nrig.color(red)    // all three",
+      },
+      {
+        name: '.chase',
+        signature: 'strip.chase(warm, { cycles: 2 })',
+        description:
+          "The travelling band takes a palette wherever it takes a colour, and runs over the gradient instead of over one colour. The stops spread along the axis the chase runs on, so under .down() they re-sample onto the rows rather than the columns. Nothing else about the call changes: one colour is still one colour, and the options and the chained verbs mean what they meant.",
+        example:
+          "strip.chase(warm, { cycles: 2 })\nstrip.chase([blue, cyan]).down()   // stops across the rows\nstrip.chase(red)                   // unchanged",
+      },
+      {
+        name: 'one light is one position',
+        signature: 'wash.color(warm) is refused',
+        description:
+          "A call that paints a single position has nowhere to put a run of stops, so it refuses the palette rather than quietly painting the first one and dropping the rest. That covers a fixture's .color(), a strip's .pixel(), and handing several colours to anything that wanted one. The message names the two things you probably meant: warm[0] for one stop, or cat(...warm).slow(4) for the whole palette in time. A single-channel strip refuses a colour outright, because a cell that is one channel has nothing to mix, and points at a level or at .each().",
+        example:
+          "wash.color(warm)                    // refused, and told what to write\nwash.color(warm[0])                 // one stop\nwash.color(cat(...warm).slow(4))    // the palette, in time\n\nseg.fill(0.5)                       // mono strip: a level, not a colour",
+      },
+      {
+        name: 'cat',
+        signature: 'cat(...warm).slow(4)',
+        description:
+          "A palette across a strip is a gradient; the same palette across time is a cue list. cat() gives one stop per cycle and .slow(n) holds each for n cycles, which is how a single light works through a palette. The result is a pattern of colours, so it goes anywhere a colour goes, including the calls that refuse the array itself.",
+        example:
+          "wash.color(cat(...warm).slow(4))   // four bars each\nwash.color(cat(red, blue))         // a bar each\nstrip.fill(cat(...warm))           // whole strip, one stop per cycle",
+      },
+      {
+        name: 'mix',
+        signature: 'mix(a, b, t)',
+        description:
+          "Blend two colours, t of the way from the first to the second. The spread across a strip is linear and evenly spaced, and mix() is how you get any other curve, because the callback decides t for itself. t can be a pattern as well as a number, which gives a crossfade in time. Both endpoints come back by identity, so mix(red, blue, 0) is red rather than a rebuilt copy of it.",
+        example:
+          "strip.each(p => mix(red, blue, p * p))       // blue crowded to one end\nwash.color(mix(red, blue, sine().slow(4)))  // crossfade, four bars",
+      },
+      {
+        name: '.each',
+        signature: 'strip.each((p, i) => warm[i % warm.length])',
+        description:
+          'A callback may hand back a colour now, and that means the same as handing back its three components. Indexing the array rather than sampling across it gives hard bands instead of a blend, which is the other thing a palette on a strip is usually for.',
+        example:
+          "strip.each((p, i) => warm[i % warm.length])   // hard bands of three\nstrip.each(p => mix(red, blue, p * p))        // a curve instead",
+      },
+      {
+        name: 'colour tokens',
+        signature: "mini('r - g - b')",
+        description:
+          "A mini string works in a colour position, so a colour sequences with the same notation as a level. A token is one of the eleven names, matched by the full name or by any prefix that names only one colour: 'r' is red, 'cy' is cyan, 'ma' is magenta. Every name but purple and pink is reachable by its first letter, and 'p' is refused because it could be either of those two; the message says so and offers 'pu' and 'pi'. A token that is not a colour throws while the scene is being evaluated, and the whole run rolls back rather than half a scene going live. The exception is a token hidden behind an alternation, where only the first cycle is inspected: mini('<red bluu>') passes that check, reports to the console when its cycle comes round, and reads dark on it.",
+        example:
+          "wash.color(mini('r - g - b'))\nwash.color(mini('cy ma ye'))\nstrip.fill(mini('<red blue>'))    // one colour, alternating per bar",
+      },
+      {
+        name: 'a number is a grey',
+        signature: "mini('1 - 1 -')  ·  mini('0.5')",
+        description:
+          "A bare number in a colour position is a grey at that level: 1 is white, 0.5 is mid grey, 0 is dark. That is what makes a level string mean the same shape wherever it is used. mini('1 - 1 -') is a strobe on a dimmer and a white strobe on a colour, so moving it from one to the other keeps the rhythm you wrote.",
+        example:
+          "wash.dim(mini('1 - 1 -'))      // a strobe\nwash.color(mini('1 - 1 -'))    // the same strobe, in white\nwash.color(mini('0.5'))        // mid grey",
+      },
+      {
+        name: 'a rest is a gap',
+        signature: "'-' writes nothing",
+        description:
+          "A rest is silence, not black. On its own the two look identical, because nothing is written and the channel stays dark. They part company the moment something else is running: layers merge highest-takes-precedence, so a gap lets the layer underneath show through where a black would have held it down. Worth reading twice, since '-' looks like an off switch and is not one.",
+        example:
+          "wash.color(mini('r - g'))                       // dark on the rests\nwash.color(stack(mini('r - g'), mini('0.2')))   // the rests show the bed",
+      },
+      {
+        name: 'white on an RGBW strip',
+        signature: 'bar.pixels.fill(warm)  ·  bar.pixels.white(v)',
+        description:
+          "Every colour path writes r, g and b, because a colour is three components and the fourth is a dedicated emitter that a three-component mix has no business touching. A fill, a pixel or a group colour therefore leaves W wherever the scene last put it, and .full() is still the call that lights every emitter a fixture has. One exception, written down rather than hidden: .chase() writes W as 0, so a chase clears any white that was already there.",
+        example:
+          "bar.pixels.fill(warm)     // r, g, b; W left as it was\nbar.pixels.white(0.3)     // set it yourself\nbar.full()                // every emitter, W included\nbar.pixels.chase(warm)    // W goes to 0",
+      },
+      {
+        name: 'colour implies brightness',
+        signature: 'a master dimmer nobody set',
+        description:
+          "On a fixture whose master dimmer gates everything else, painting a colour and never touching the dimmer is a perfect picture on a dark light. So at the end of a run, any dimmer that gated an emitter the scene drove and that the scene never set itself is raised to full, and the run names the ones it raised. Set dim() yourself, anywhere in the scene, and it stands exactly as written, a deliberate blackout included.",
+        example:
+          "const wash = fixture(1, 'dim-rgb')\nwash.color(red)   // dimmer raised at the end of the run, and reported\n\nwash.dim(0.4)     // said out loud, so left alone",
+      },
+    ],
+  },
+
+  {
+    category: 'patterns',
     title: 'patterns',
     blurb:
       'Waveform and pattern builders. Output is normalised to 0-1 unless stated.',
