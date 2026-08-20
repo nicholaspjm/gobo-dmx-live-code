@@ -112,6 +112,28 @@ On an RGBW strip a colour path writes r, g and b and leaves the dedicated white
 channel where the scene last put it. `.chase()` zeroes it instead. One of the
 two is wrong and they should agree.
 
+### Bare colour names do not highlight, and now `mix` does
+`mix` was added to `BARE_TOKENS` in `packages/ui/src/code-highlight.ts`, so it
+is the only bare colour-family name the editor paints. `pick` and the eleven
+colour names have never been in that table, so `red` and `blue` still render as
+plain identifiers even though they are reserved words in the sandbox.
+
+Painting them is the consistent answer, and it is a design call rather than a
+line of code: `METHOD_TOKENS` has hue marks for red, green, blue, white and
+amber only, so orange, yellow, cyan, purple, magenta and pink would each need a
+mark and a theme colour. Adding the five that already have marks would be worse
+than either end state.
+
+### Reading a colour token costs three times what it should
+Each of `colorPattern`'s three component wrappers queries the source separately
+and resolves the whole colour before keeping one component, so a token is
+resolved three times per pixel per tick and two thirds is discarded. It is
+correct, and it is measurable only on a long strip driven by a token pattern.
+The `reported` set that keeps an unknown token from logging every frame is also
+unbounded and keyed by the raw token, so a source generating fresh strings
+defeats it. Both are contrived to hit, both are worth one pass if that path
+ever gets used in anger.
+
 ### `rgbwStrip.fill(r, g, b)` with three numbers throws
 It asks for all four of r, g, b, w, where `rgbStrip` takes three. A real
 inconsistency, deliberately left alone while the colour work was in flight.

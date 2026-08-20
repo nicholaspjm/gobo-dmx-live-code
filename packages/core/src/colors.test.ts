@@ -506,6 +506,13 @@ describe('readColorStops', () => {
       `.chase(): "puce" is not a colour. Write one of ${NAME_LIST} without quotes, ` +
       'or give three numbers from 0 to 1.',
     );
+    // This rung looks the token up in the same table, so it needs the same
+    // guard: 'constructor' is a property of every object and not a colour, and
+    // reading it through the prototype chain sent the wrong message of the two.
+    expect(messageOf(() => readColorStops(['constructor'], '.chase()'))).toBe(
+      `.chase(): "constructor" is not a colour. Write one of ${NAME_LIST} without quotes, ` +
+      'or give three numbers from 0 to 1.',
+    );
   });
 
   it('gives one stop per colour, so two colours are two stops', () => {

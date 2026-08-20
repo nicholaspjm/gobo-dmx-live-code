@@ -72,14 +72,22 @@ export type Palette = readonly Color[];
 /** The colour this value is or spells, or null if it is neither. */
 export function toColorValue(v: unknown): Color | null {
   if (isColor(v)) return v;
-  if (Array.isArray(v) && v.length >= 3 && v.every((n) => typeof n === 'number')) {
-    return makeColor(clamp01(v[0]), clamp01(v[1]), clamp01(v[2]));
+  // Indexed rather than checked with every(), which skips holes: a sparse
+  // array built as warm[0] = red; warm[2] = blue passed a vacuously true test
+  // and came back as a colour of undefined components.
+  if (!Array.isArray(v) || v.length < 3) return null;
+  for (let i = 0; i < v.length; i++) {
+    if (typeof v[i] !== 'number') return null;
   }
-  return null;
+  return makeColor(clamp01(v[0]), clamp01(v[1]), clamp01(v[2]));
 }
 
 export function isPalette(v: unknown): v is Color[] {
-  return Array.isArray(v) && v.length > 0 && v.every((e) => toColorValue(e) !== null);
+  if (!Array.isArray(v) || v.length === 0) return false;
+  for (let i = 0; i < v.length; i++) {
+    if (toColorValue(v[i]) === null) return false;
+  }
+  return true;
 }
 
 /** Anything that answers like a pattern. Reading `.queryArc` runs scene code
@@ -326,8 +334,12 @@ function componentOf(
 ): number {
   const known = toColorValue(v);
   if (known !== null) return componentLevel(known[comp], begin, end);
-  // A bare number is a grey, the same rule in every position.
-  if (typeof v === 'number') return clamp01(v);
+  // A bare number is a grey, the same rule in every position. A control object
+  // is read the same way: echo() and hurry() yield { value, gain }, which
+  // dmx.ts already unwraps as a level, so a colour position reads it as the
+  // grey of that level rather than refusing it as "not a colour".
+  const level = levelOf(v);
+  if (level !== null) return clamp01(level);
   if (typeof v === 'string') {
     try {
       return componentLevel(colorFromToken(v, what)[comp], begin, end);
@@ -339,10 +351,13 @@ function componentOf(
       return 0;
     }
   }
-  const tag = `type:${typeof v}`;
+  // Named rather than typed, because "object" for null is the least useful
+  // thing this could say about the value that caused it.
+  const described = v === null ? 'null' : v === undefined ? 'nothing' : typeof v;
+  const tag = `type:${described}`;
   if (!reported.has(tag)) {
     reported.add(tag);
-    console.error(`[gobo] ${what}: cannot read a colour from ${typeof v}.`);
+    console.error(`[gobo] ${what}: cannot read a colour from ${described}.`);
   }
   return 0;
 }
@@ -383,8 +398,13 @@ export function readColorStops(args: readonly unknown[], what: string): Color[] 
 
   // Three components. The same spelling as .color(r, g, b) and .fill(r, g, b),
   // so a mix reads the same wherever it appears.
-  const nums = args.filter((a) => typeof a === 'number') as number[];
-  if (nums.length >= 3) return [makeColor(clamp01(nums[0]), clamp01(nums[1]), clamp01(nums[2]))];
+  // Every argument, not merely three of them somewhere in the list. Counting
+  // with a filter meant .chase(red, 0, 0, 0) quietly dropped the red and ran
+  // the strip black, with nothing said about the colour that was written first.
+  if (args.length >= 3 && args.every((a) => typeof a === 'number')) {
+    const nums = args as readonly number[];
+    return [makeColor(clamp01(nums[0]), clamp01(nums[1]), clamp01(nums[2]))];
+  }
 
   // A pattern of colour tokens. One colour that changes over time, so every
   // position gets it and the run moves together rather than across space.
@@ -421,7 +441,11 @@ export function readColorRun(args: readonly unknown[], count: number, what: stri
 }
 
 function clamp01(n: number): number {
-  return n < 0 ? 0 : n > 1 ? 1 : n;
+  // Written as a positive test so NaN lands at 0. NaN fails both n < 0 and
+  // n > 1, so the obvious spelling let it through unclamped and a channel got
+  // a value nothing can render.
+  if (!(n > 0)) return 0;
+  return n > 1 ? 1 : n;
 }
 
 /**
