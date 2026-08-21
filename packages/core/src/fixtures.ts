@@ -945,8 +945,36 @@ export function fixtureCommands(def: FixtureDef): string[] {
     }
     out.push(`${ch.name}(v)`);
   }
+  // A fixture whose emitters are its pixels answers to the emitter names as
+  // well: `wash.red(1)` drives every red channel the strip has. Listed because
+  // this is what the tooltip and the library panel both read, and a call that
+  // works and is not listed is a call nobody finds. Skipped when a scalar
+  // channel of that name already put it in the list.
+  for (const role of stripEmitterRoles(def)) {
+    if (!out.includes(`${role}(v)`)) out.push(`${role}(v)`);
+  }
   out.push('color(r,g,b)', 'full()', 'off()', 'set(name, v)', 'viz(kind)');
   return out;
+}
+
+/**
+ * The emitter names a fixture's strip channels answer to.
+ *
+ * Read off the declared layout rather than off a built instance, so the command
+ * list can be made from a definition alone, which is all the library panel has.
+ * rgb and rgbw both drive red, green and blue; only rgbw has a white; a mono
+ * strip is one level per cell with no colour to name, so it contributes none.
+ */
+function stripEmitterRoles(def: FixtureDef): string[] {
+  const roles = new Set<string>();
+  for (const ch of def.channels) {
+    if (ch.type !== 'strip' || ch.pixelLayout === 'mono') continue;
+    roles.add('red');
+    roles.add('green');
+    roles.add('blue');
+    if (ch.pixelLayout === 'rgbw') roles.add('white');
+  }
+  return [...roles];
 }
 
 /**
@@ -1296,6 +1324,39 @@ export function fixture(
       // full while `par.red(somethingBroken)` still reports.
       inst[ch.name] = (...args: [(PatternOrValue | string)?]) => inst.set(ch.name, ...args);
     }
+  }
+
+  // ── Emitter names reach the pixels too ──
+  //
+  // The loop above only sees scalar channels, so on a fixture whose emitters
+  // ARE its strip, `wash.red(1)` reached nothing: no such method at all, or on
+  // a fixture that also has a scalar red, one channel lit while 48 pixels
+  // stayed dark. An emitter name on a fixture means that emitter everywhere the
+  // fixture has one, which is the rule .off() and .full() already follow and
+  // the rule a group already applies through the same fixture.
+  //
+  // Only the roles a strip actually answers to are attached, so a mono strip,
+  // which is one level per cell with no colour, gains nothing.
+  const stripInstances = def.channels
+    .filter((c) => c.type === 'strip')
+    .map((c) => ({ name: c.name, strip: inst[c.name] as Record<string, unknown> }));
+  for (const role of stripEmitterRoles(def)) {
+    // A method on every fixture keeps its name. Nothing on that list is a strip
+    // role today; the guard is here because the list is free to grow, and a
+    // silently replaced .off() is the worst thing this file can ship.
+    if (RESERVED_METHODS.has(role)) continue;
+    // A strip channel named for a role keeps its own object: it answers .fill()
+    // and .pixel(), and a setter here would take its place.
+    if (stripInstances.some((s) => s.name === role)) continue;
+    const targets = stripInstances
+      .map((s) => s.strip)
+      .filter((s) => typeof s[role] === 'function');
+    if (targets.length === 0) continue;
+    const hasScalar = def.channels.some((c) => c.name === role && c.type !== 'strip');
+    inst[role] = (...args: [(PatternOrValue | string)?]): void => {
+      if (hasScalar) inst.set(role, ...args);
+      for (const s of targets) (s[role] as (...a: unknown[]) => void)(...args);
+    };
   }
 
   // ── Register with the sim panel ──
@@ -2122,13 +2183,15 @@ export interface RgbwStripInstance {
   /** Rows. A plain line of pixels is height = 1. */
   readonly height: number;
 
-  /** Set one pixel by grid position, x left to right and y top to bottom. */
+  /** Set one pixel by grid position, x left to right and y top to bottom.
+   *  Three values are a mix and leave W where it was; four set it. */
   pixelXY(
     x: number,
     y: number,
     ...args:
       | []
       | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
       | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
   ): void;
 
@@ -2138,6 +2201,7 @@ export interface RgbwStripInstance {
     ...args:
       | []
       | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
       | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
   ): void;
 
@@ -2147,6 +2211,7 @@ export interface RgbwStripInstance {
     ...args:
       | []
       | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
       | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
   ): void;
 
@@ -2158,18 +2223,25 @@ export interface RgbwStripInstance {
     fn: (x: number, y: number, w: number, h: number) => PatternOrValue | PatternOrValue[],
   ): void;
 
-  /** Set every pixel to the same r/g/b/w. Omit all four for full. */
+  /**
+   * Set every pixel to the same colour. Three values are a mix, r, g and b,
+   * and leave W wherever the scene last put it, the same rule a colour value
+   * follows here. Four set W as well. Omit all of them for full on every
+   * channel.
+   */
   fill(
     ...args:
       | []
       | [color: Color]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
       | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
   ): void;
 
   /**
-   * Set a single pixel (0-indexed). Three shapes:
+   * Set a single pixel (0-indexed). Four shapes:
    *   pixel(i)                         → monochrome at full
    *   pixel(i, brightness)             → monochrome (R = G = B = brightness, W = 0)
+   *   pixel(i, r, g, b)                → a mix, W left where it was
    *   pixel(i, r, g, b, w)             → full RGBW
    * The monochrome form is the usual chase-loop shorthand: it saves
    * repeating the same pattern four times.
@@ -2179,6 +2251,7 @@ export interface RgbwStripInstance {
     ...args:
       | []
       | [brightness: PatternOrValue]
+      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
       | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
   ): void;
 
@@ -2232,6 +2305,38 @@ export interface RgbwStripInstance {
   chase(color: Color, opts?: ChaseOptions): ChaseHandle;
   chase(r: number, g: number, b: number, opts?: ChaseOptions): ChaseHandle;
   rainbowChase(opts?: RainbowChaseOptions): void;
+}
+
+/**
+ * Read the value arguments of an RGBW strip call, and say whether W was named.
+ *
+ * Three is a mix: r, g and b, with W left undefined so the caller writes
+ * nothing to it. The fourth channel is a dedicated white emitter, and a
+ * three-component mix has no business touching it, which is the rule the colour
+ * paths on this strip already follow and the rule .color() has always followed
+ * on an RGBW fixture. Four is the explicit spelling, and none at all is full on
+ * every channel, the way .full() means it.
+ *
+ * One or two values is a half-written colour, and the message names both
+ * spellings: channelValues on its own would ask for all four and never mention
+ * that three is a colour.
+ */
+function rgbwArgs(
+  args: readonly unknown[],
+  what: string,
+): [PatternOrValue, PatternOrValue, PatternOrValue, PatternOrValue | undefined] {
+  if (args.length === 3) {
+    const [r, g, b] = channelValues(args, ['r', 'g', 'b'], what);
+    return [r, g, b, undefined];
+  }
+  if (args.length === 1 || args.length === 2) {
+    throw new Error(
+      `${what}: needs r, g and b, or all four of r, g, b, w (got ${args.length}), ` +
+      `or none of them for full.`,
+    );
+  }
+  const [r, g, b, w] = channelValues(args, ['r', 'g', 'b', 'w'], what);
+  return [r, g, b, w];
 }
 
 /**
@@ -2331,13 +2436,17 @@ export function rgbwStrip(
         }
         return;
       }
-      const [r, g, b, w] = channelValues(args, ['r', 'g', 'b', 'w'], '.fill()');
+      // Three numbers are that same mix, spelled per component: rgbStrip takes
+      // three and this one demanded four, so `.fill(sine(), 0, cosine())`
+      // worked on one strip and threw on the other. W is written only when the
+      // call named it.
+      const [r, g, b, w] = rgbwArgs(args, '.fill()');
       for (let i = 0; i < pixelCount; i++) {
         const base = startChannel + i * STRIDE;
         uni(universe, base,     r);
         uni(universe, base + 1, g);
         uni(universe, base + 2, b);
-        uni(universe, base + 3, w);
+        if (w !== undefined) uni(universe, base + 3, w);
       }
     },
 
@@ -2363,18 +2472,27 @@ export function rgbwStrip(
         uni(universe, base + 2, b);
         return;
       }
-      // Monochrome shortcut: pixel(i, value) sets R = G = B = value with
-      // W = 0. The four-arg call is the verbose form for explicit colour
-      // control. pixel(i) on its own is the shortcut at full.
-      const mono = args.length < 2;
-      const [r, g, b, w] = mono
-        ? [...Array(3).fill(channelValue(args, `.pixel(${index})`)), 0]
-        : channelValues(args, ['r', 'g', 'b', 'w'], `.pixel(${index})`);
       const base = startChannel + geo.seq(index) * STRIDE;
+      // Monochrome shortcut: pixel(i, value) sets R = G = B = value with
+      // W = 0. pixel(i) on its own is the shortcut at full. A level is not a
+      // colour, so this one does zero the white: it is the form that means
+      // "this pixel, this bright", and a white left up under it would be a
+      // second colour nobody asked for.
+      if (args.length < 2) {
+        const v = channelValue(args, `.pixel(${index})`);
+        uni(universe, base,     v);
+        uni(universe, base + 1, v);
+        uni(universe, base + 2, v);
+        uni(universe, base + 3, 0);
+        return;
+      }
+      // Three values are a mix and leave W alone; four are the explicit
+      // spelling. See rgbwArgs().
+      const [r, g, b, w] = rgbwArgs(args, `.pixel(${index})`);
       uni(universe, base,     r);
       uni(universe, base + 1, g);
       uni(universe, base + 2, b);
-      uni(universe, base + 3, w);
+      if (w !== undefined) uni(universe, base + 3, w);
     },
 
     pixelGrid(values) {
@@ -3061,11 +3179,13 @@ function chaseImpl(
         }
         return scaleByPattern(bright as PatternLike, c as unknown as PatternLike) as PatternOrValue;
       };
-      if (strip.channelCount === strip.pixelCount * 4) {
-        (strip as RgbwStripInstance).pixelXY(x, y, scale(r), scale(g), scale(b), 0);
-      } else {
-        (strip as StripInstance).pixelXY(x, y, scale(r), scale(g), scale(b));
-      }
+      // Three components, whatever the layout underneath. A chase used to pass
+      // 0 for W on an RGBW strip, so it cleared any white the scene had put up,
+      // where .fill() and .pixel() left it alone. A three-component mix never
+      // disturbs a dedicated white emitter, and .full() is the call that lights
+      // every emitter; the chase was the one outlier, so there is nothing to
+      // branch on here any more.
+      (strip as StripInstance | RgbwStripInstance).pixelXY(x, y, scale(r), scale(g), scale(b));
     }
   }
 }
@@ -3129,29 +3249,21 @@ function rainbowChaseImpl(
   const hueG = sine().early(1 / 3).slow(rainbowSpeed).range(0, 1);
   const hueB = sine().early(2 / 3).slow(rainbowSpeed).range(0, 1);
 
-  const isRgbw = strip.channelCount === strip.pixelCount * 4;
-
   for (let i = 0; i < strip.pixelCount; i++) {
     // Negative for the same reason as .chase(): a pixel further along runs
     // later, so the packet travels left to right rather than back to front.
     const phase = -(i * packets) / strip.pixelCount;
     const bright = cosine().early(phase).slow(speed).range(-narrow, 1);
-    if (isRgbw) {
-      (strip as RgbwStripInstance).pixel(
-        i,
-        bright.mul(hueR),
-        bright.mul(hueG),
-        bright.mul(hueB),
-        0,
-      );
-    } else {
-      (strip as StripInstance).pixel(
-        i,
-        bright.mul(hueR),
-        bright.mul(hueG),
-        bright.mul(hueB),
-      );
-    }
+    // Three components on both strip kinds. A rainbow is a mix, and a mix has
+    // no business touching a dedicated white emitter, which is the rule
+    // .fill(), .pixel() and .chase() all follow. This used to pass 0 for W and
+    // was the last call that cleared a white the scene had put up.
+    (strip as StripInstance | RgbwStripInstance).pixel(
+      i,
+      bright.mul(hueR),
+      bright.mul(hueG),
+      bright.mul(hueB),
+    );
   }
 }
 

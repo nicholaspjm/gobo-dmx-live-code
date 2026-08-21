@@ -227,6 +227,7 @@ anything else in this version.
 | `Ctrl+S` | Save the scene to a `.js` file (the browser copy saves itself) |
 | `Ctrl+Shift+F` | Format the buffer |
 | `T` | Tap tempo (ignored while typing in the editor or any input) |
+| `Alt+M` | Performance view: hide the top bar, sim panel and level strip |
 
 ---
 

@@ -8,6 +8,11 @@
  *
  * It sits in a sliding side-panel keyed off a topbar button, mirroring
  * the docs panel.
+ *
+ * A search field in the toolbar filters every tier at once, ranked by
+ * rankFixtures() at the bottom of this file. It shares nothing with the docs
+ * panel's search except the look of the input: what a library holds is
+ * fixture definitions, and the question asked of it is a different one.
  */
 
 import {
@@ -43,6 +48,45 @@ export function mountLibraryPanel(opts: {
 }): { refresh: () => void; setOpen: (open: boolean) => void; isOpen: () => boolean } {
   const { panelEl, bodyEl, toggleEl, closeEl, onOpen } = opts;
 
+  // The panel's fixed furniture: the toolbar (import button and search
+  // field), the banner, and the container everything else renders into.
+  // Built once, not as part of refresh(), because a redraw mid-search would
+  // take the field, its text and the caret with it. It also means a banner
+  // survives the refresh that follows the action it is reporting on.
+  //
+  // The field is styled by the docs panel's own .doc-search rules: this
+  // panel is a .docs-panel instance and already borrows its chrome, so the
+  // search looks like the one people have used. Three properties are set
+  // here because that bar is a sticky full-width row of its own and this one
+  // shares the toolbar. Nothing but the appearance is shared; the ranking
+  // lives at the bottom of this file.
+  bodyEl.innerHTML = `
+    <div class="lib-toolbar">
+      <button type="button" class="lib-action lib-primary" data-lib-action="import">import from file…</button>
+      <div class="doc-search" style="flex: 1; padding: 0; position: static">
+        <input type="text" id="lib-search-input" placeholder="search fixtures…" autocomplete="off" spellcheck="false" />
+        <button type="button" id="lib-search-clear" class="doc-search-clear" title="clear" aria-label="clear search">×</button>
+      </div>
+    </div>
+    <div class="lib-banner" id="lib-banner"></div>
+    <div id="lib-list"></div>`;
+
+  const searchEl = bodyEl.querySelector<HTMLInputElement>('#lib-search-input')!;
+  const searchClearEl = bodyEl.querySelector<HTMLButtonElement>('#lib-search-clear')!;
+  const bannerEl = bodyEl.querySelector<HTMLElement>('#lib-banner')!;
+  const listEl = bodyEl.querySelector<HTMLElement>('#lib-list')!;
+
+  searchEl.addEventListener('input', () => {
+    searchClearEl.classList.toggle('visible', searchEl.value.trim() !== '');
+    refresh();
+  });
+  searchClearEl.addEventListener('click', () => {
+    searchEl.value = '';
+    searchClearEl.classList.remove('visible');
+    refresh();
+    searchEl.focus();
+  });
+
   function setOpen(open: boolean): void {
     panelEl.classList.toggle('open', open);
     panelEl.setAttribute('aria-hidden', open ? 'false' : 'true');
@@ -50,6 +94,14 @@ export function mountLibraryPanel(opts: {
     if (open) {
       refresh();
       onOpen?.();
+      // Straight into the search, the way the docs panel does it: the panel
+      // is usually opened to find one fixture. Deferred so the slide-in
+      // doesn't fight the focus. Any previous query is left selected, so
+      // typing replaces it and Backspace still gets you the whole list.
+      setTimeout(() => {
+        searchEl.focus();
+        searchEl.select();
+      }, 50);
     }
   }
   function isOpen(): boolean { return panelEl.classList.contains('open'); }
@@ -225,7 +277,21 @@ export function mountLibraryPanel(opts: {
 
   type RowTier = 'builtin' | 'public' | 'saved' | 'session';
 
-  function renderRow(entry: { id: string; def: FixtureDef }, tier: RowTier): string {
+  /** What a search result calls the block it would otherwise have sat in. */
+  const TIER_LABEL: Record<RowTier, string> = {
+    builtin: 'built-in',
+    public: 'public',
+    saved: 'yours',
+    session: 'session',
+  };
+
+  /** `match` is set only in the search view, where it names the field the
+   *  query landed on. */
+  function renderRow(
+    entry: { id: string; def: FixtureDef },
+    tier: RowTier,
+    match?: MatchField,
+  ): string {
     const idAttr = escapeAttr(entry.id);
     // Action buttons differ per tier:
     //   builtin  shipped with the core, always present, view-only.
@@ -255,9 +321,15 @@ export function mountLibraryPanel(opts: {
     const extraClass =
       tier === 'session' ? ' lib-row-unsaved' :
       tier === 'builtin' ? ' lib-row-builtin' : '';
-    const tierTag =
-      tier === 'public'  ? ` <span class="lib-row-tag">public</span>` :
-      tier === 'builtin' ? ` <span class="lib-row-tag">built-in</span>` : '';
+    // A search result is out of its block, so it carries the tier it came
+    // from and the field the query landed on. Without the second tag a
+    // fixture found by a sentence about one of its channels reads as a
+    // mistake, since nothing visible on the row says the word.
+    const tierTag = match
+      ? ` <span class="lib-row-tag">${TIER_LABEL[tier]}</span>` +
+        ` <span class="lib-row-tag">${MATCH_LABEL[match]}</span>`
+      : tier === 'public'  ? ` <span class="lib-row-tag">public</span>` :
+        tier === 'builtin' ? ` <span class="lib-row-tag">built-in</span>` : '';
     return `
       <div class="lib-row${extraClass}">
         <div class="lib-row-meta">
@@ -346,6 +418,22 @@ export function mountLibraryPanel(opts: {
       )
       .sort((a, b) => a.id.localeCompare(b.id));
 
+    // One flat list of everything on show, tagged with the block it belongs
+    // to. The search runs over this, so a query reaches all four tiers at
+    // once: at a gig you want the fixture, not the tier it happens to be in.
+    const all: Array<{ id: string; def: FixtureDef; tier: RowTier }> = [
+      ...builtIns.map((e) => ({ ...e, tier: 'builtin' as const })),
+      ...publicFixtures.map((e) => ({ ...e, tier: 'public' as const })),
+      ...saved.map((e) => ({ ...e, tier: 'saved' as const })),
+      ...runtime.map((e) => ({ ...e, tier: 'session' as const })),
+    ];
+
+    const query = searchEl.value;
+    if (query.trim() !== '') {
+      listEl.innerHTML = renderSearchResults(all, query);
+      return;
+    }
+
     const builtInBlock = builtIns.map((e) => renderRow(e, 'builtin')).join('');
 
     const publicBlock = publicFixtures.length
@@ -360,12 +448,7 @@ export function mountLibraryPanel(opts: {
       ? `<h3 class="lib-heading">Defined this session</h3>${runtime.map((e) => renderRow(e, 'session')).join('')}`
       : '';
 
-    bodyEl.innerHTML = `
-      <div class="lib-toolbar">
-        <button type="button" class="lib-action lib-primary" data-lib-action="import">import from file…</button>
-      </div>
-      <div class="lib-banner" id="lib-banner"></div>
-
+    listEl.innerHTML = `
       <h3 class="lib-heading">Built-in</h3>
       <p class="lib-note">Shipped with gobo. Every fixture also has the generic helpers <code>.color(r,g,b[,w])</code>, <code>.off()</code>, <code>.full()</code> on top of its named channel setters.</p>
       ${builtInBlock}
@@ -382,12 +465,29 @@ export function mountLibraryPanel(opts: {
     `;
   }
 
+  /** The search view: one ranked list across every tier, in place of the
+   *  four blocks. */
+  function renderSearchResults(
+    rows: Array<{ id: string; def: FixtureDef; tier: RowTier }>,
+    query: string,
+  ): string {
+    const hits = rankFixtures(rows, query);
+    if (hits.length === 0) {
+      return `<div class="lib-empty">Nothing matches "${escapeText(query.trim())}". Try a manufacturer, a channel count, or part of the name.</div>`;
+    }
+    const heading = `<h3 class="lib-heading">${hits.length} ${hits.length === 1 ? 'match' : 'matches'}</h3>`;
+    return heading + hits.map((h) => renderRow(h.entry, h.entry.tier, h.where)).join('');
+  }
+
+  let bannerTimer: ReturnType<typeof setTimeout> | undefined;
+
   function flashBanner(msg: string, kind: 'ok' | 'error' = 'ok'): void {
-    const banner = bodyEl.querySelector<HTMLElement>('#lib-banner');
-    if (!banner) return;
-    banner.textContent = msg;
-    banner.className = `lib-banner visible lib-banner-${kind}`;
-    setTimeout(() => { banner.className = 'lib-banner'; }, 2400);
+    bannerEl.textContent = msg;
+    bannerEl.className = `lib-banner visible lib-banner-${kind}`;
+    // One timer, restarted: two messages in quick succession used to leave
+    // the first one's timeout to hide the second early.
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => { bannerEl.className = 'lib-banner'; }, 2400);
   }
 
   return { refresh, setOpen, isOpen };
@@ -398,4 +498,345 @@ function escapeText(s: string): string {
 }
 function escapeAttr(s: string): string {
   return escapeText(s).replace(/"/g, '&quot;');
+}
+
+// ─── Searching the library ───────────────────────────────────────────────────
+//
+// The docs panel searches too, and this is deliberately not that search. There
+// the thing being looked for is a name half-remembered from a scene, ranked
+// over the prose written about an API. Here it is a fixture definition, and
+// the person asking has the light in front of them: they know the make on the
+// badge, or the channel count the desk is asking for, or roughly what the
+// thing is called.
+//
+// So the order is what a fixture IS before what is written about it. Identity
+// first (id, name, make), then what it amounts to (its type, its channel
+// layout, the colour mix its channels add up to), then its channel names, and
+// only last the sentences describing individual channels. A fixture whose name
+// carries the word beats one that merely mentions it three levels down.
+//
+// A number is read as a channel count before it is read as text, because
+// "8" typed into a fixture library means an 8-channel fixture far more often
+// than it means anything else.
+
+/**
+ * Where a query term landed. Carried on every hit so a result row can say why
+ * it is in the list: a fixture matched by a sentence about one of its channels
+ * reads as a mistake until the row admits that is what happened.
+ */
+export type MatchField =
+  | 'id'
+  | 'name'
+  | 'manufacturer'
+  | 'channelCount'
+  | 'pixelCount'
+  | 'tag'
+  | 'channel'
+  | 'description';
+
+/** What the tag on a result row says for each field. */
+const MATCH_LABEL: Record<MatchField, string> = {
+  id: 'id',
+  name: 'name',
+  manufacturer: 'make',
+  channelCount: 'channels',
+  pixelCount: 'pixels',
+  tag: 'type',
+  channel: 'channel',
+  description: 'channel notes',
+};
+
+/** A ranked entry: whatever the caller passed in, its total score, and the
+ *  strongest single place a term landed. */
+export interface FixtureMatch<T> {
+  entry: T;
+  score: number;
+  where: MatchField;
+}
+
+/** One term's best landing place in one fixture. */
+interface TermHit {
+  score: number;
+  where: MatchField;
+}
+
+/** A fixture flattened into everything the search looks at. Rebuilt per
+ *  query: the library is a few dozen entries, so there is nothing to cache
+ *  and a cache would only go stale as fixtures are saved and deleted. */
+interface SearchText {
+  id: string;
+  idWords: string[];
+  name: string;
+  nameWords: string[];
+  manufacturer: string;
+  /** What the fixture amounts to, in words someone might type: its declared
+   *  type, the types of its channels, the layout of any pixel strip, and the
+   *  colour mix its channels add up to. Folded, so 'moving-head' is reached
+   *  by typing it with the hyphen or without. */
+  tags: string[];
+  channelCount: number;
+  /** Pixel counts of any strip channels, so "8" finds an 8-pixel bar. */
+  pixelCounts: number[];
+  channelNames: string[];
+  /** Every channel description, joined. Searched last. */
+  notes: string;
+}
+
+function lower(s: string | undefined): string {
+  return (s ?? '').toLowerCase();
+}
+
+/**
+ * Lowercase, and drop everything that is not a letter or a digit. Spaces,
+ * hyphens and underscores are noise in a fixture id: "moving head",
+ * "moving-head" and "movinghead" are one thing typed three ways. The core
+ * folds slot names the same way for the same reason.
+ */
+function fold(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+/** The words of a string, any of which someone might type on its own:
+ *  "Moving Head Wash (14ch, 16-bit)" gives moving, head, wash, 14ch, 16, bit. */
+function searchWords(s: string | undefined): string[] {
+  return (s ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+/**
+ * The colour mix a def adds up to, spelled the way a person says it: a def
+ * with red, green, blue and white channels is an rgbw fixture whether or not
+ * anything in it says so. Worth deriving, because "rgbw" is exactly what gets
+ * typed when that is the light in front of you, and plenty of fixtures are
+ * named after the product rather than the mix. Returns null unless all three
+ * primaries are there, since two of them are not a mix anyone asks for.
+ */
+const MIX_ROLES: Array<[role: string, letter: string]> = [
+  ['red', 'r'], ['green', 'g'], ['blue', 'b'],
+  ['white', 'w'], ['amber', 'a'], ['uv', 'uv'],
+];
+
+function mixTag(channelNames: ReadonlySet<string>): string | null {
+  if (!channelNames.has('red') || !channelNames.has('green') || !channelNames.has('blue')) {
+    return null;
+  }
+  return MIX_ROLES
+    .filter(([role]) => channelNames.has(role))
+    .map(([, letter]) => letter)
+    .join('');
+}
+
+/** A def reaching here can come from `defineFixture` in a user's scene, so a
+ *  field the type says is there may not be. Missing ones are skipped rather
+ *  than throwing: a half-written fixture should still be findable. */
+function searchTextFor(id: string, def: FixtureDef): SearchText {
+  const channelNames = def.channels.map((c) => fold(c.name));
+  const tags = new Set<string>();
+  const pixelCounts: number[] = [];
+  if (def.type) tags.add(fold(def.type));
+  for (const c of def.channels) {
+    if (c.type) tags.add(fold(c.type));
+    if (c.type === 'strip') {
+      if (c.pixelCount !== undefined) pixelCounts.push(c.pixelCount);
+      tags.add(fold(c.pixelLayout ?? 'rgb'));
+    }
+  }
+  const mix = mixTag(new Set(channelNames));
+  if (mix) tags.add(mix);
+
+  return {
+    id: id.toLowerCase(),
+    idWords: searchWords(id),
+    name: lower(def.name),
+    nameWords: searchWords(def.name),
+    manufacturer: lower(def.manufacturer),
+    tags: [...tags],
+    channelCount: def.channelCount,
+    pixelCounts,
+    channelNames,
+    notes: def.channels.map((c) => c.description ?? '').join(' ').toLowerCase(),
+  };
+}
+
+/** Endings a word in the text may carry and still be the word that was typed,
+ *  so "pixel" finds a sentence about pixels. The empty string first, because
+ *  the word standing on its own is the ordinary case. */
+const SUFFIXES = ['', 's', 'es', 'ed', 'ing'];
+
+/** charAt off the end of a string is '', which is not a word character, so
+ *  the start and end of the text count as boundaries without a special case. */
+function isWordChar(c: string): boolean {
+  return c !== '' && /[a-z0-9]/.test(c);
+}
+
+/**
+ * Where `term` appears in `text` as a whole word, or -1.
+ *
+ * Whole words only: plain containment made "red" match "required" and "off"
+ * match "offset", which in a panel of channel descriptions is most of the
+ * library. Done by hand rather than with a regex because a query is typed,
+ * not authored, and "c++" must not compile as a quantifier.
+ */
+function wordIndex(text: string, term: string): number {
+  let at = text.indexOf(term);
+  while (at >= 0) {
+    if (!isWordChar(text.charAt(at - 1))) {
+      for (const suffix of SUFFIXES) {
+        const end = at + term.length + suffix.length;
+        if (text.slice(at + term.length, end) !== suffix) continue;
+        if (!isWordChar(text.charAt(end))) return at;
+      }
+    }
+    at = text.indexOf(term, at + 1);
+  }
+  return -1;
+}
+
+/** A number, optionally carrying the unit someone would say out loud: "8",
+ *  "14ch", "12channels", "48px". */
+const NUMBER_TERM = /^(\d+)(chs?|chans?|channels?|px|pixels?)?$/;
+
+/** The same units written as a word of their own, so "12 channels" is one
+ *  question rather than two. Only ever joined onto a bare number: on its own,
+ *  "pixels" is a channel someone is looking for. */
+const UNIT_WORDS = new Set([
+  'ch', 'chs', 'chan', 'chans', 'channel', 'channels', 'px', 'pixel', 'pixels',
+]);
+
+/**
+ * A numeric term against the counts a fixture actually has. Returns null for
+ * anything that is not a number, and for a number this fixture does not
+ * carry, leaving the text ladder to have its go: "154" still finds
+ * atomic-strobe-154ch by its id.
+ */
+function scoreNumber(term: string, t: SearchText): TermHit | null {
+  const m = NUMBER_TERM.exec(term);
+  if (!m) return null;
+  const n = Number(m[1]);
+  const saidPixels = (m[2] ?? '').startsWith('p');
+  if (!saidPixels && t.channelCount === n) return { score: 9_800, where: 'channelCount' };
+  if (t.pixelCounts.includes(n)) {
+    // Unprompted, a pixel count is the weaker reading of a bare number; asked
+    // for by name, it is the whole question.
+    return { score: saidPixels ? 9_800 : 5_600, where: 'pixelCount' };
+  }
+  return null;
+}
+
+/**
+ * One term against everything textual, best landing first.
+ *
+ * The ladder is ordered, so the first hit is the best one: an id someone
+ * typed in full beats a word inside a name, which beats a channel called
+ * that, which beats a sentence mentioning it.
+ */
+function scoreText(term: string, t: SearchText): TermHit | null {
+  const f = fold(term);
+  if (f === '') return null;
+
+  const id = fold(t.id);
+  const name = fold(t.name);
+  const make = fold(t.manufacturer);
+
+  if (id === f) return { score: 10_000, where: 'id' };
+  if (name === f) return { score: 9_600, where: 'name' };
+  if (make === f) return { score: 9_200, where: 'manufacturer' };
+
+  if (t.idWords.includes(term)) return { score: 8_400, where: 'id' };
+  if (t.nameWords.includes(term)) return { score: 8_200, where: 'name' };
+
+  // Shorter is a closer match: "rgb" typed against `rgba` and a 14-channel
+  // `rgbw-moving-head` means the first one.
+  if (id.startsWith(f)) return { score: 7_400 - id.length, where: 'id' };
+  if (name.startsWith(f)) return { score: 7_000 - name.length, where: 'name' };
+  if (t.idWords.some((w) => w.startsWith(term))) return { score: 6_600, where: 'id' };
+  if (t.nameWords.some((w) => w.startsWith(term))) return { score: 6_200, where: 'name' };
+  if (make.startsWith(f)) return { score: 5_800, where: 'manufacturer' };
+
+  if (id.includes(f)) return { score: 5_400, where: 'id' };
+  if (name.includes(f)) return { score: 5_000, where: 'name' };
+  if (make.includes(f)) return { score: 4_600, where: 'manufacturer' };
+
+  if (t.tags.includes(f)) return { score: 4_200, where: 'tag' };
+  if (t.tags.some((tag) => tag.startsWith(f))) return { score: 3_800, where: 'tag' };
+
+  if (t.channelNames.includes(f)) return { score: 3_400, where: 'channel' };
+  if (t.channelNames.some((n) => n.startsWith(f))) return { score: 3_000, where: 'channel' };
+  if (t.channelNames.some((n) => n.includes(f))) return { score: 2_600, where: 'channel' };
+
+  // Last resort: the fixture is not called this, it just says it somewhere.
+  // Earlier in the sentence scores higher, which is a weak signal, but the
+  // whole tier sits below everything above it either way.
+  const at = wordIndex(t.notes, term);
+  if (at >= 0) return { score: 1_000 - Math.min(at, 900), where: 'description' };
+
+  return null;
+}
+
+function scoreTerm(term: string, t: SearchText): TermHit | null {
+  const byNumber = scoreNumber(term, t);
+  const byText = scoreText(term, t);
+  if (!byNumber) return byText;
+  if (!byText) return byNumber;
+  return byNumber.score >= byText.score ? byNumber : byText;
+}
+
+/** Split a typed query into terms, dropping punctuation people type around
+ *  them: "(14ch)" is 14ch, "rgbw," is rgbw. */
+function queryTerms(query: string): string[] {
+  const parts = query
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/^[^a-z0-9]+/, '').replace(/[^a-z0-9]+$/, ''))
+    .filter(Boolean);
+
+  const terms: string[] = [];
+  for (const part of parts) {
+    const prev = terms[terms.length - 1];
+    if (prev !== undefined && /^\d+$/.test(prev) && UNIT_WORDS.has(part)) {
+      terms[terms.length - 1] = prev + part;
+      continue;
+    }
+    terms.push(part);
+  }
+  return terms;
+}
+
+/**
+ * Rank fixture entries against a typed query, best first.
+ *
+ * Terms are ANDed: every word has to land somewhere, so "chauvet 8" is the
+ * 8-channel Chauvet rather than everything Chauvet plus everything 8-channel.
+ * The score is the sum across terms, and `where` names the strongest single
+ * landing, which is what the row shows.
+ *
+ * Ties break on id so the list is stable while typing: a result that has not
+ * changed rank must not jump.
+ *
+ * A blank query ranks nothing at all. The panel shows its normal grouped list
+ * in that case, rather than a flat one in some arbitrary order.
+ */
+export function rankFixtures<T extends { id: string; def: FixtureDef }>(
+  entries: readonly T[],
+  query: string,
+): Array<FixtureMatch<T>> {
+  const terms = queryTerms(query);
+  if (terms.length === 0) return [];
+
+  const out: Array<FixtureMatch<T>> = [];
+  for (const entry of entries) {
+    const text = searchTextFor(entry.id, entry.def);
+    let total = 0;
+    let best: TermHit | null = null;
+    let all = true;
+    for (const term of terms) {
+      const hit = scoreTerm(term, text);
+      if (!hit) { all = false; break; }
+      total += hit.score;
+      if (!best || hit.score > best.score) best = hit;
+    }
+    if (!all || !best) continue;
+    out.push({ entry, score: total, where: best.where });
+  }
+  out.sort((a, b) => b.score - a.score || a.entry.id.localeCompare(b.entry.id));
+  return out;
 }

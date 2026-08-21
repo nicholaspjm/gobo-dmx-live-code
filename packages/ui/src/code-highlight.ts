@@ -27,12 +27,19 @@
  *                       .add .mul, plus bare `register` (it defines a new
  *                       chain method, so it belongs to this family)
  *   gobo-color          .color, the multi-channel setter that is no one hue,
- *                       and bare mix, which blends two colours into a third
- *   gobo-color-red      .red        \
- *   gobo-color-green    .green       |  per-channel colour setters, each
- *   gobo-color-blue     .blue        |  tinted towards the channel it drives
- *   gobo-color-white    .white       |
- *   gobo-color-amber    .amber      /
+ *                       plus bare mix and pick: both answer with a colour, and
+ *                       neither answers with a fixed one
+ *   gobo-color-red      .red, red      \
+ *   gobo-color-orange   orange          |  one class per colour, tinted
+ *   gobo-color-amber    .amber, amber   |  towards the colour it names. The
+ *   gobo-color-yellow   yellow          |  five with a channel of their own
+ *   gobo-color-green    .green, green   |  cover both spellings: the setter
+ *   gobo-color-cyan     cyan            |  drives that channel, the bare name
+ *   gobo-color-blue     .blue, blue     |  is the colour value of the same
+ *   gobo-color-purple   purple          |  name. The other six are values
+ *   gobo-color-magenta  magenta         |  only, because no fixture has a
+ *   gobo-color-pink     pink            |  magenta emitter to drive
+ *   gobo-color-white    .white, white  /
  *   gobo-intensity      .dim .strobe .full .off: how much light, not what
  *                       colour. Note bare `dim` is the low-level DMX function
  *                       and takes gobo-dmx instead; only `.dim` is intensity
@@ -75,14 +82,18 @@
  *      pattern, register, dmx).
  *   5. Otherwise, no decoration. It is a user identifier and stays var(--text).
  *
- * Within the two tables the name sets are disjoint, which buildTable()
- * asserts at module load, so table order carries no meaning.
+ * Within each table the names are unique, which buildTable() asserts at module
+ * load, so table order carries no meaning. Across the two they need not be:
+ * five colours are in both, because `.red` drives the red channel and bare
+ * `red` is the colour of that name, and the dot has already decided which
+ * table is consulted before either is looked in.
  *
  * ## Known limitations
  *
  * The scan does not consult the syntax tree, so it does not skip strings or
  * comments: `fixture(1, 'rgb')` paints the `rgb` inside the string literal as
- * gobo-dmx, and a command name written in a comment is coloured too. Full
+ * gobo-dmx, a wheel slot written `head.color('red')` paints the quoted name as
+ * the colour red, and a command name written in a comment is coloured too. Full
  * tokenisation on every keystroke costs more than the mistake does. The wider
  * palette makes it more visible than it was with two colours, so it may be
  * worth revisiting.
@@ -113,6 +124,12 @@ const colorGreenMark   = Decoration.mark({ class: 'gobo-color-green'   });
 const colorBlueMark    = Decoration.mark({ class: 'gobo-color-blue'    });
 const colorWhiteMark   = Decoration.mark({ class: 'gobo-color-white'   });
 const colorAmberMark   = Decoration.mark({ class: 'gobo-color-amber'   });
+const colorOrangeMark  = Decoration.mark({ class: 'gobo-color-orange'  });
+const colorYellowMark  = Decoration.mark({ class: 'gobo-color-yellow'  });
+const colorCyanMark    = Decoration.mark({ class: 'gobo-color-cyan'    });
+const colorPurpleMark  = Decoration.mark({ class: 'gobo-color-purple'  });
+const colorMagentaMark = Decoration.mark({ class: 'gobo-color-magenta' });
+const colorPinkMark    = Decoration.mark({ class: 'gobo-color-pink'    });
 const intensityMark    = Decoration.mark({ class: 'gobo-intensity'     });
 const moveMark         = Decoration.mark({ class: 'gobo-move'          });
 const pixelMark        = Decoration.mark({ class: 'gobo-pixel'         });
@@ -154,11 +171,28 @@ const BARE_TOKENS = buildTable([
   // family rather than as a fixture factory.
   [patternChainMark, ['register']],
   [dmxMark,          ['ch', 'uni', 'dim', 'rgb']],
-  // `mix` returns a colour that is no single hue, which is what gobo-color
-  // already means for `.color`. It is safe in the BARE table and would not be
-  // in METHOD_TOKENS: `.mix` is not a call gobo has, and painting it would
-  // colour any user method that happened to be named that.
-  [colorMark,        ['mix']],
+  // `mix` and `pick` return a colour that is no single hue, which is what
+  // gobo-color already means for `.color`. Both are safe in the BARE table and
+  // would not be in METHOD_TOKENS: neither is a call gobo has after a dot, and
+  // painting them there would colour any user method named that.
+  [colorMark,        ['mix', 'pick']],
+  // The eleven predefined colours, each painted as the colour it names. They
+  // are values rather than calls, and they are reserved in the sandbox, so a
+  // scene cannot bind one: `const red = 1` is a SyntaxError, and painting the
+  // name is what says so before the run does. Listed in the order of
+  // COLOR_NAMES in packages/core/src/colors.ts, which is the list this must
+  // match.
+  [colorRedMark,     ['red']],
+  [colorOrangeMark,  ['orange']],
+  [colorAmberMark,   ['amber']],
+  [colorYellowMark,  ['yellow']],
+  [colorGreenMark,   ['green']],
+  [colorCyanMark,    ['cyan']],
+  [colorBlueMark,    ['blue']],
+  [colorPurpleMark,  ['purple']],
+  [colorMagentaMark, ['magenta']],
+  [colorPinkMark,    ['pink']],
+  [colorWhiteMark,   ['white']],
 ]);
 
 /**

@@ -154,8 +154,11 @@
         color: var(--accent2);
       }
 
-      /* Tap-tempo button. Flashes briefly on each tap for feedback. */
-      .bpm-tap {
+      /* Tap-tempo button, and the small controls beside it: halve, double and
+         resync. One look for all four, so the tempo group reads as a row of
+         buttons rather than four different shapes. Only tap flashes. */
+      .bpm-tap,
+      .bpm-btn {
         background: transparent;
         border: 1px solid var(--border);
         color: var(--text-muted);
@@ -168,7 +171,8 @@
         text-transform: lowercase;
         transition: color 0.1s, border-color 0.1s, background 0.1s;
       }
-      .bpm-tap:hover {
+      .bpm-tap:hover,
+      .bpm-btn:hover {
         color: var(--text);
         border-color: var(--accent2);
       }
@@ -176,6 +180,13 @@
         color: var(--accent);
         border-color: var(--accent);
         background: rgba(196, 114, 74, 0.18);
+      }
+
+      /* Two characters of label at most, so they take less padding than `tap`
+         and the whole group still fits beside the number. */
+      .bpm-btn {
+        padding: 2px 6px;
+        font-variant-numeric: tabular-nums;
       }
 
       .cycle-bar {
@@ -621,6 +632,40 @@
         color: var(--sage);
       }
 
+      /* Performance view. The class goes on <body> so one rule takes out the
+         chrome, rather than main.ts reaching for each element. The screen
+         lights are deliberately left alone: a scene using screen() is aiming at
+         them, so they are output, not furniture. */
+      body.minimal-view .topbar,
+      body.minimal-view .viz-wrap,
+      body.minimal-view .divider {
+        display: none;
+      }
+
+      /* The way out of the performance view, and the only thing on screen that
+         says which mode this is. It lives in the status bar because that is the
+         one strip the performance view keeps, and it is drawn in the accent so
+         it is not mistaken for status text. */
+      .minimal-exit {
+        margin-left: auto;
+        padding: 1px 8px;
+        background: transparent;
+        border: 1px solid var(--accent);
+        border-radius: 3px;
+        color: var(--accent);
+        font: inherit;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .minimal-exit:hover {
+        background: rgba(196, 114, 74, 0.15);
+      }
+      .minimal-exit[hidden] {
+        display: none;
+      }
+
       /* ─── Scene bar ──────────────────────────────────────────────────────
          There is one working buffer, so the top bar carries a name plus four
          verbs instead of a picker: rename in place, save to a file, open one,
@@ -1027,17 +1072,19 @@
         letter-spacing: 0.06em;
         color: var(--text-muted);
       }
+      /* A button, not an <input type="color">. The wheel it opens is drawn in
+         color-wheel.ts, so it looks and behaves the same on every platform and
+         picks up the editor theme, which the operating system's picker could do
+         neither of. The chip colour is set inline from the stored value, along
+         with an appearance reset, so there is no background rule here. */
       .gobo-picker-swatch {
         width: 22px;
         height: 14px;
         padding: 0;
         border: 1px solid var(--border);
         border-radius: 3px;
-        background: none;
         cursor: pointer;
       }
-      .gobo-picker-swatch::-webkit-color-swatch-wrapper { padding: 1px; }
-      .gobo-picker-swatch::-webkit-color-swatch { border: none; border-radius: 2px; }
 
       /* The definition, written back out as the code that would make it. Every
          fixture in the library is a worked channel map; this is how someone
@@ -1937,6 +1984,26 @@
       .cm-content .gobo-color-amber {
         color: var(--syn-color-amber);
       }
+      /* The six colours no fixture has an emitter for. They are values only,
+         so they appear as bare names and never after a dot. */
+      .cm-content .gobo-color-orange {
+        color: var(--syn-color-orange);
+      }
+      .cm-content .gobo-color-yellow {
+        color: var(--syn-color-yellow);
+      }
+      .cm-content .gobo-color-cyan {
+        color: var(--syn-color-cyan);
+      }
+      .cm-content .gobo-color-purple {
+        color: var(--syn-color-purple);
+      }
+      .cm-content .gobo-color-magenta {
+        color: var(--syn-color-magenta);
+      }
+      .cm-content .gobo-color-pink {
+        color: var(--syn-color-pink);
+      }
 
       /* How much light (.dim .strobe .full .off) versus where the beam
          points and what shape it is (.pan .tilt .zoom .gobo …). */
@@ -2178,7 +2245,14 @@
               aria-valuemin="1"
               aria-valuemax="400"
             >120</span>
+            <!-- Halve and double. Both commit through the same clamp as the
+                 field above, so the ends hold: 400 doubled is 400. -->
+            <button type="button" id="bpm-halve" class="bpm-btn" title="halve the tempo (stops at 1)">/2</button>
+            <button type="button" id="bpm-double" class="bpm-btn" title="double the tempo (stops at 400)">x2</button>
             <button type="button" id="bpm-tap" class="bpm-tap" title="tap tempo (T)">tap</button>
+            <!-- Puts the count back to the top of a cycle, for when the tempo
+                 is right and the downbeat is not. Tempo is left alone. -->
+            <button type="button" id="bpm-resync" class="bpm-btn" title="restart the cycle count at 1 · tempo unchanged">sync</button>
           </span>
           <div class="cycle-bar" title="cycle position">
             <div class="cycle-bar-fill" id="cycle-fill"></div>
@@ -2333,6 +2407,10 @@
 
       <div class="statusbar">
         <span id="eval-status">ctrl+enter to run  ·  ctrl+. to stop</span>
+        <!-- On screen only in the performance view, where the top bar is gone.
+             It names the mode and the key, and clicking it is the way back, so
+             forgetting the key cannot strand anyone in there. -->
+        <button type="button" class="minimal-exit" id="minimal-exit" hidden>performance view · exit (alt+m)</button>
       </div>
     </div>
 

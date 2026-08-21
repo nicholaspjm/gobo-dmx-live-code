@@ -691,7 +691,7 @@ const DOCS: DocSection[] = [
         name: 'pick',
         signature: "pick(name, { start }) => Color",
         description:
-          "A colour with a wheel behind it. The name labels it and stores the colour, so a colour chosen during a show survives an edit, the way a slider keeps its position. A swatch appears beside the call: clicking opens the operating system's own colour picker, which is better at being a wheel than anything drawn here would be. Its three components are read live, so turning the wheel moves the rig without re-running the scene. It is a colour value, so it reaches every call that takes one. `start` is the opening colour, written without quotes like any other.",
+          "A colour with a wheel behind it. The name labels it and stores the colour, so a colour chosen during a show survives an edit, the way a slider keeps its position. A swatch appears beside the call, and clicking it opens a colour wheel: hue around the disc, saturation out from the middle, brightness on the bar beside it. It takes the arrow keys as well as the mouse, and closes on Escape or a click away. Its three components are read live, so turning the wheel moves the rig without re-running the scene. It is a colour value, so it reaches every call that takes one. `start` is the opening colour, written without quotes like any other.",
         example: "const warm = pick('warm', { start: amber })\nwash.color(warm)\nstrip.fill(warm)\nstrip.chase(warm)",
       },
       {
@@ -744,7 +744,7 @@ const DOCS: DocSection[] = [
         name: '.rainbowChase',
         signature: 'strip.rainbowChase({ cycles?, width?, waves?, hue? })',
         description:
-          "A single bright pixel sweeps across the strip while its colour walks the hue wheel. Each pixel gets a cosine brightness envelope offset by its position (.early(i/N) shifts pixel i's peak later in the cycle), thresholded via .range(-narrow, 1) so most of the cycle sits below zero. The DMX pipeline clamps negatives to 0, leaving the tip above zero as the lit window. Bigger `narrow` gives a narrower window and fewer pixels lit at once. The hue comes from three sines 120° apart on R/G/B, so only one primary peaks at a time. Options are spelled as .chase() spells them: cycles for the lap time (2), width for how much is lit at once (0.11), waves for crests at a time (1), plus hue for cycles per turn of the hue wheel (12). They used to be speed, narrow and packets here, with narrow inverted against width, which made reaching for the neighbour's word the likeliest mistake on the surface. Works on RGB (rgbStrip) and RGBW (rgbwStrip, bar.pixels) instances; RGBW gets W zeroed so colours stay pure.",
+          "A single bright pixel sweeps across the strip while its colour walks the hue wheel. Each pixel gets a cosine brightness envelope offset by its position (.early(i/N) shifts pixel i's peak later in the cycle), thresholded via .range(-narrow, 1) so most of the cycle sits below zero. The DMX pipeline clamps negatives to 0, leaving the tip above zero as the lit window. Bigger `narrow` gives a narrower window and fewer pixels lit at once. The hue comes from three sines 120° apart on R/G/B, so only one primary peaks at a time. Options are spelled as .chase() spells them: cycles for the lap time (2), width for how much is lit at once (0.11), waves for crests at a time (1), plus hue for cycles per turn of the hue wheel (12). They used to be speed, narrow and packets here, with narrow inverted against width, which made reaching for the neighbour's word the likeliest mistake on the surface. Works on RGB (rgbStrip) and RGBW (rgbwStrip, bar.pixels) instances. It writes r, g and b only, so a dedicated white stays where the scene put it; use .white(0) first if you want the hues on their own.",
         example:
           "strip.rainbowChase()\nstrip.rainbowChase({ speed: 0.5, narrow: 16 })\nbar.pixels.rainbowChase({ packets: 2, rainbowSpeed: 4 })",
       },
@@ -873,9 +873,9 @@ const DOCS: DocSection[] = [
         name: 'white on an RGBW strip',
         signature: 'bar.pixels.fill(warm)  ·  bar.pixels.white(v)',
         description:
-          "Every colour path writes r, g and b, because a colour is three components and the fourth is a dedicated emitter that a three-component mix has no business touching. A fill, a pixel or a group colour therefore leaves W wherever the scene last put it, and .full() is still the call that lights every emitter a fixture has. One exception, written down rather than hidden: .chase() writes W as 0, so a chase clears any white that was already there.",
+          "Every colour path writes r, g and b, because a colour is three components and the fourth is a dedicated emitter that a three-component mix has no business touching. A fill, a pixel, a chase or a group colour therefore leaves W wherever the scene last put it, and .full() is still the call that lights every emitter a fixture has. Every one of them agrees, rainbowChase() included.",
         example:
-          "bar.pixels.fill(warm)     // r, g, b; W left as it was\nbar.pixels.white(0.3)     // set it yourself\nbar.full()                // every emitter, W included\nbar.pixels.chase(warm)    // W goes to 0",
+          "bar.pixels.fill(warm)     // r, g, b; W left as it was\nbar.pixels.white(0.3)     // set it yourself\nbar.full()                // every emitter, W included\nbar.pixels.chase(warm)    // r, g, b; W left as it was",
       },
       {
         name: 'colour implies brightness',
@@ -1491,6 +1491,31 @@ const DOCS: DocSection[] = [
         name: 'Ctrl+.',
         signature: 'Ctrl+.',
         description: 'Zero all channels and pause the scheduler.',
+      },
+      {
+        name: 'Ctrl+Space',
+        signature: 'Ctrl+Space',
+        description: 'Stop, as an alias that also preempts the autocomplete popup.',
+      },
+      {
+        name: 'Alt+M',
+        signature: 'Alt+M',
+        description: 'The performance view: hides the top bar, the sim panel and the level strip, leaving the code. The same key brings them back, and the status bar says so while it is on. Not remembered across a reload.',
+      },
+      {
+        name: 'Ctrl+S',
+        signature: 'Ctrl+S',
+        description: 'Save the scene to a .js file. The browser copy saves itself.',
+      },
+      {
+        name: 'Ctrl+Shift+F',
+        signature: 'Ctrl+Shift+F',
+        description: 'Format the buffer.',
+      },
+      {
+        name: 'T',
+        signature: 'T',
+        description: 'Tap tempo. Ignored while typing in the editor or in any input.',
       },
       {
         name: 'hover a name',

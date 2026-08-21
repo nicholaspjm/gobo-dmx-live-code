@@ -9,11 +9,11 @@
  * the docs panel without theme-specific code paths.
  *
  * The schema is in two halves. The first 14 variables are UI chrome:
- * ground, text, borders, one accent pair. The remaining 24 are the syntax
+ * ground, text, borders, one accent pair. The remaining 30 are the syntax
  * palette, one variable per token class the editor can paint, so the
  * highlighter never has to know which theme is active.
  *
- * Adding a theme: drop a new entry into THEMES with a name and all 38
+ * Adding a theme: drop a new entry into THEMES with a name and all 44
  * colours. The settings panel populates its dropdown from the keys.
  * Every syntax colour should clear 4.5:1 against that theme's own `bg`.
  * The values below sit at 4.87:1 or better so rounding cannot flip a pass
@@ -59,7 +59,7 @@ export interface ThemeVars {
    *  more contrast than `selection` on dark themes. */
   selectionBg: string;
 
-  // ---- Syntax palette (24) ----
+  // ---- Syntax palette (30) ----
   // Painted by the regex highlighter (packages/ui/src/code-highlight.ts)
   // as .gobo-* classes, except the last five, which are bound to lezer
   // tags in the HighlightStyle.
@@ -92,19 +92,52 @@ export interface ThemeVars {
   /** `.gobo-color`: `.color`, the multi-channel setter that is not any
    *  one hue. The neutral member of the colour-setter family. */
   synColor: string;
-  /** `.gobo-color-red`: the `.red` channel setter, tinted red. */
+  /** `.gobo-color-red`: the `.red` channel setter and the bare `red` colour,
+   *  tinted red. */
   synColorRed: string;
-  /** `.gobo-color-green`: the `.green` channel setter, tinted green. */
+  /** `.gobo-color-green`: the `.green` channel setter and the bare `green`
+   *  colour, tinted green. */
   synColorGreen: string;
-  /** `.gobo-color-blue`: the `.blue` channel setter, tinted blue. */
+  /** `.gobo-color-blue`: the `.blue` channel setter and the bare `blue`
+   *  colour, tinted blue. */
   synColorBlue: string;
-  /** `.gobo-color-white`: the `.white` channel setter. The neutral of the
-   *  hue-hinted set: near-zero chroma, same contrast band as the others
-   *  so no setter outranks another. */
+  /** `.gobo-color-white`: the `.white` channel setter and the bare `white`
+   *  colour. The neutral of the hue-hinted set: near-zero chroma, same
+   *  contrast band as the others so no setter outranks another. */
   synColorWhite: string;
-  /** `.gobo-color-amber`: the `.amber` channel setter (rgba fixtures),
-   *  tinted amber. */
+  /** `.gobo-color-amber`: the `.amber` channel setter (rgba fixtures) and
+   *  the bare `amber` colour, tinted amber. */
   synColorAmber: string;
+
+  // The six predefined colours no fixture has a channel for. They are values
+  // and never setters, so unlike the five above these paint a bare name only.
+  //
+  // Each takes the hue its own r, g, b mix has in COLORS
+  // (packages/core/src/colors.ts), at the contrast every setter above shares
+  // and at the chroma the four hue-tinted ones average, white being the
+  // deliberate neutral of that set. Where sRGB cannot carry that much chroma
+  // at that lightness the colour gets what there is, which is why cyan is the
+  // quietest of the six. So all eleven read as one family and none shouts
+  // over another.
+  //
+  // A colour name is legible as itself, so the tint confirms rather than
+  // identifies. In a palette this crowded it can land near another category's
+  // colour, which is a trade the setters already make.
+
+  /** `.gobo-color-orange`: the bare `orange` colour. */
+  synColorOrange: string;
+  /** `.gobo-color-yellow`: the bare `yellow` colour. Reads olive on the dark
+   *  themes: a true yellow is far brighter than the band every syntax colour
+   *  is held to, and brightness would read as importance. */
+  synColorYellow: string;
+  /** `.gobo-color-cyan`: the bare `cyan` colour. */
+  synColorCyan: string;
+  /** `.gobo-color-purple`: the bare `purple` colour. */
+  synColorPurple: string;
+  /** `.gobo-color-magenta`: the bare `magenta` colour. */
+  synColorMagenta: string;
+  /** `.gobo-color-pink`: the bare `pink` colour. */
+  synColorPink: string;
   /** `.gobo-intensity`: intensity and shutter (.dim .strobe .full .off),
    *  how much light rather than what colour. The BARE `dim` is the
    *  low-level DMX function and takes --syn-dmx instead. */
@@ -190,6 +223,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#7c95cf',
       synColorWhite: '#92969c',
       synColorAmber: '#ab9449',
+      synColorOrange: '#d18166',
+      synColorYellow: '#999a47',
+      synColorCyan: '#39a5a4',
+      synColorPurple: '#9c8bd4',
+      synColorMagenta: '#be82bb',
+      synColorPink: '#d07d97',
       synIntensity: '#84a92d',
       synMove: '#9883d1',
       synPixel: '#3d98c0',
@@ -236,6 +275,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#6c9bc3',
       synColorWhite: '#91979b',
       synColorAmber: '#b68f62',
+      synColorOrange: '#ce8369',
+      synColorYellow: '#999a4d',
+      synColorCyan: '#39a5a5',
+      synColorPurple: '#9c8cd1',
+      synColorMagenta: '#bc83b9',
+      synColorPink: '#cd7f97',
       synIntensity: '#9ca332',
       synMove: '#8a88cf',
       synPixel: '#3a9da4',
@@ -283,6 +328,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#7697c9',
       synColorWhite: '#91969b',
       synColorAmber: '#b19151',
+      synColorOrange: '#cf8267',
+      synColorYellow: '#989a4a',
+      synColorCyan: '#39a4a4',
+      synColorPurple: '#9b8bd2',
+      synColorMagenta: '#bc82b9',
+      synColorPink: '#ce7e96',
       synIntensity: '#8ea630',
       synMove: '#9185cf',
       synPixel: '#3c9ab2',
@@ -329,6 +380,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#7d91d2',
       synColorWhite: '#90949b',
       synColorAmber: '#a49443',
+      synColorOrange: '#d07e62',
+      synColorYellow: '#979841',
+      synColorCyan: '#38a2a2',
+      synColorPurple: '#9a89d4',
+      synColorMagenta: '#bd7fba',
+      synColorPink: '#cf7a95',
       synIntensity: '#79a829',
       synMove: '#9a7ed2',
       synPixel: '#3e94c6',
@@ -376,6 +433,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#4065ae',
       synColorWhite: '#63676d',
       synColorAmber: '#776533',
+      synColorOrange: '#9e5136',
+      synColorYellow: '#6a6a21',
+      synColorCyan: '#257171',
+      synColorPurple: '#6d5ca3',
+      synColorMagenta: '#8d528b',
+      synColorPink: '#9d4d68',
       synIntensity: '#596e1d',
       synMove: '#6d54c0',
       synPixel: '#2b6e87',
@@ -390,7 +453,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     },
   },
   // A house blackout: every instrument dead, red panic lamp still lit.
-  // Monochrome, so the six colour setters collapse to one value; a
+  // Monochrome, so the twelve colour classes collapse to one value; a
   // brightness ladder would imply one channel matters more than another.
   // Chrome values byte-identical to the old 'ikeda'.
   blackout: {
@@ -424,6 +487,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#b1b1b1',
       synColorWhite: '#b1b1b1',
       synColorAmber: '#b1b1b1',
+      synColorOrange: '#b1b1b1',
+      synColorYellow: '#b1b1b1',
+      synColorCyan: '#b1b1b1',
+      synColorPurple: '#b1b1b1',
+      synColorMagenta: '#b1b1b1',
+      synColorPink: '#b1b1b1',
       synIntensity: '#c5c5c5',
       synMove: '#939faa',
       synPixel: '#a9b3bb',
@@ -472,6 +541,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#32ca72',
       synColorWhite: '#32ca72',
       synColorAmber: '#32ca72',
+      synColorOrange: '#32ca72',
+      synColorYellow: '#32ca72',
+      synColorCyan: '#32ca72',
+      synColorPurple: '#32ca72',
+      synColorMagenta: '#32ca72',
+      synColorPink: '#32ca72',
       synIntensity: '#6ddb9b',
       synMove: '#7ea6a0',
       synPixel: '#98b7b3',
@@ -520,6 +595,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#e8a854',
       synColorWhite: '#e8a854',
       synColorAmber: '#e8a854',
+      synColorOrange: '#e8a854',
+      synColorYellow: '#e8a854',
+      synColorCyan: '#e8a854',
+      synColorPurple: '#e8a854',
+      synColorMagenta: '#e8a854',
+      synColorPink: '#e8a854',
       synIntensity: '#eec186',
       synMove: '#a8a187',
       synPixel: '#bab4a0',
@@ -568,6 +649,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#4068a4',
       synColorWhite: '#63686d',
       synColorAmber: '#7b6537',
+      synColorOrange: '#9d543a',
+      synColorYellow: '#6b6b21',
+      synColorCyan: '#257272',
+      synColorPurple: '#6e5da0',
+      synColorMagenta: '#8c548a',
+      synColorPink: '#9c5069',
       synIntensity: '#5f6e20',
       synMove: '#6958be',
       synPixel: '#2c7081',
@@ -618,6 +705,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#6d9bc9',
       synColorWhite: '#92989c',
       synColorAmber: '#b9905b',
+      synColorOrange: '#d38367',
+      synColorYellow: '#9a9c48',
+      synColorCyan: '#3aa6a6',
+      synColorPurple: '#9d8dd6',
+      synColorMagenta: '#bf83bc',
+      synColorPink: '#d27f98',
       synIntensity: '#99a62c',
       synMove: '#8d88d3',
       synPixel: '#359ea9',
@@ -665,6 +758,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#8592d5',
       synColorWhite: '#93969e',
       synColorAmber: '#a29842',
+      synColorOrange: '#d28165',
+      synColorYellow: '#999b46',
+      synColorCyan: '#39a5a5',
+      synColorPurple: '#9c8bd5',
+      synColorMagenta: '#bf82bc',
+      synColorPink: '#d17d97',
       synIntensity: '#74ac2a',
       synMove: '#a180d3',
       synPixel: '#4f95cb',
@@ -712,6 +811,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#406db9',
       synColorWhite: '#696e74',
       synColorAmber: '#826b35',
+      synColorOrange: '#aa5638',
+      synColorYellow: '#717123',
+      synColorCyan: '#287979',
+      synColorPurple: '#7561af',
+      synColorMagenta: '#975795',
+      synColorPink: '#a9516f',
       synIntensity: '#60751c',
       synMove: '#725dc6',
       synPixel: '#2a778e',
@@ -761,6 +866,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synColorBlue: '#b5b1a6',
       synColorWhite: '#b5b1a6',
       synColorAmber: '#b5b1a6',
+      synColorOrange: '#b5b1a6',
+      synColorYellow: '#b5b1a6',
+      synColorCyan: '#b5b1a6',
+      synColorPurple: '#b5b1a6',
+      synColorMagenta: '#b5b1a6',
+      synColorPink: '#b5b1a6',
       synIntensity: '#c8c5bd',
       synMove: '#88a1b3',
       synPixel: '#a0b4c2',

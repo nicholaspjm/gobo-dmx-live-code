@@ -1186,7 +1186,7 @@ strip.each(p => mix(red, blue, p * p))        // a curve of your own`,
       + 'Colour by name without quotes (red, blue, amber...), three numbers 0 to 1, or a palette, whose stops spread '
       + 'along the strip so the band runs over a gradient. Under .down() the stops re-sample onto the rows instead of '
       + 'the columns. A pattern of colour tokens changes the whole band in time rather than across space. '
-      + 'On an RGBW strip .chase() zeroes the dedicated white channel, where .fill() leaves it alone. '
+      + 'On an RGBW strip .chase() leaves the dedicated white channel where the scene put it, the same as .fill(). '
       + 'cycles = how long a lap takes (4), width = how much is lit at once (0.5), '
       + 'waves = crests at a time (1), early = start this many cycles ahead. A single-channel strip takes options alone. '
       + 'Chainable: .slow(n), .fast(n), .early(n), .late(n), .reverse(), .down(), .width(n) and .waves(n) restate it with one option changed. Travels left to right by default.',

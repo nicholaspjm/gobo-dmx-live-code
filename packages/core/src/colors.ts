@@ -298,16 +298,44 @@ function listOr(items: readonly string[]): string {
  */
 export function colorPattern(pat: ColorPatternLike, what: string): Color {
   const reported = new Set<string>();
-  const wrap = (comp: 'r' | 'g' | 'b'): ColorComponent => ({
+
+  // One reading of the source per arc, shared by the three components.
+  //
+  // Each component used to query the source itself and resolve the whole colour
+  // before keeping its own third, so a token was read three times for every
+  // pixel on every tick and two thirds of that work was thrown away. tick()
+  // asks every channel about the same instant, and every pixel of a strip holds
+  // the same colour object, so one reading answers the lot.
+  //
+  // Keyed on the arc and holding exactly one, so the next tick, which asks
+  // about a later instant, reads the source again rather than replaying stale
+  // haps. A live source keeps moving, which is the whole point of pick().
+  type ReadHap = { hap: object; rgb: readonly [number, number, number] };
+  let memoBegin = NaN;
+  let memoEnd = NaN;
+  let memo: ReadHap[] | null = null;
+
+  const readArc = (begin: number, end: number): ReadHap[] => {
+    if (memo !== null && begin === memoBegin && end === memoEnd) return memo;
+    const read = pat.queryArc(begin, end).map((hap) => ({
+      hap: hap as object,
+      rgb: rgbOf(hap.value, begin, end, what, reported),
+    }));
+    memoBegin = begin;
+    memoEnd = end;
+    memo = read;
+    return read;
+  };
+
+  const wrap = (comp: 0 | 1 | 2): ColorComponent => ({
     queryArc(begin: number, end: number) {
-      return pat.queryArc(begin, end).map((hap) => ({
-        ...(hap as object),
-        value: componentOf(hap.value, comp, begin, end, what, reported),
-      }));
+      // Spread rather than rebuilt, so whatever the source put on the hap
+      // reaches the channel writer intact.
+      return readArc(begin, end).map(({ hap, rgb }) => ({ ...hap, value: rgb[comp] }));
     },
   });
 
-  // Resolve once here, so a typo throws while the scene is being evaluated and
+  // Checked here, so a typo throws while the scene is being evaluated and
   // the whole run rolls back. Left to query time it would report sixty times a
   // second into a console nobody has open, and the light would just be dark.
   // A token hidden behind an alternation is not visible in the first cycle and
@@ -321,34 +349,43 @@ export function colorPattern(pat: ColorPatternLike, what: string): Color {
     // A source that throws on its own is not this function's to report.
   }
 
-  return livingColor(wrap('r'), wrap('g'), wrap('b'));
+  return livingColor(wrap(0), wrap(1), wrap(2));
 }
 
-function componentOf(
+/**
+ * The three levels one hap's value spells, in one pass.
+ *
+ * All three rather than a named one: the work of deciding what the value is
+ * happens once whichever component asked, so keeping the other two costs a
+ * lookup each and saves reading the source twice more.
+ */
+function rgbOf(
   v: unknown,
-  comp: 'r' | 'g' | 'b',
   begin: number,
   end: number,
   what: string,
   reported: Set<string>,
-): number {
+): readonly [number, number, number] {
   const known = toColorValue(v);
-  if (known !== null) return componentLevel(known[comp], begin, end);
+  if (known !== null) return levelsOf(known, begin, end);
   // A bare number is a grey, the same rule in every position. A control object
   // is read the same way: echo() and hurry() yield { value, gain }, which
   // dmx.ts already unwraps as a level, so a colour position reads it as the
   // grey of that level rather than refusing it as "not a colour".
   const level = levelOf(v);
-  if (level !== null) return clamp01(level);
+  if (level !== null) {
+    const grey = clamp01(level);
+    return [grey, grey, grey];
+  }
   if (typeof v === 'string') {
     try {
-      return componentLevel(colorFromToken(v, what)[comp], begin, end);
+      return levelsOf(colorFromToken(v, what), begin, end);
     } catch (err) {
       if (!reported.has(v)) {
         reported.add(v);
         console.error(`[gobo] ${(err as Error).message}`);
       }
-      return 0;
+      return [0, 0, 0];
     }
   }
   // Named rather than typed, because "object" for null is the least useful
@@ -359,7 +396,16 @@ function componentOf(
     reported.add(tag);
     console.error(`[gobo] ${what}: cannot read a colour from ${described}.`);
   }
-  return 0;
+  return [0, 0, 0];
+}
+
+/** A colour's three components as levels, over one arc. */
+function levelsOf(c: Color, begin: number, end: number): readonly [number, number, number] {
+  return [
+    componentLevel(c.r, begin, end),
+    componentLevel(c.g, begin, end),
+    componentLevel(c.b, begin, end),
+  ];
 }
 
 /**

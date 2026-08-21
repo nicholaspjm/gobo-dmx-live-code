@@ -12,6 +12,7 @@ import {
   start,
   stop,
   isRunning,
+  resetPhase,
   onTick,
   getBPM,
   setBPM,
@@ -94,6 +95,9 @@ const visualizerLabelEl = document.getElementById('visualizer-label') as HTMLEle
 const evalStatusEl = document.getElementById('eval-status')!;
 const bpmValEl = document.getElementById('bpm-val') as HTMLElement;
 const bpmTapEl = document.getElementById('bpm-tap') as HTMLButtonElement;
+const bpmHalveEl = document.getElementById('bpm-halve') as HTMLButtonElement;
+const bpmDoubleEl = document.getElementById('bpm-double') as HTMLButtonElement;
+const bpmResyncEl = document.getElementById('bpm-resync') as HTMLButtonElement;
 const cycleFillEl = document.getElementById('cycle-fill')!;
 const wsDotEl = document.getElementById('ws-dot')!;
 const wsLabelEl = document.getElementById('ws-label')!;
@@ -549,6 +553,31 @@ bpmValEl.addEventListener('keydown', (e) => {
   }
 });
 
+// ─── Halve and double ────────────────────────────────────────────────────────
+// Two buttons beside the readout, for the moment a scene turns out to be at
+// twice or half the tempo of the room. Kept to two characters: this is a top
+// bar at a gig, not a settings page.
+
+/**
+ * Scale the tempo and put the result back through setBPM, the same call the
+ * inline editor commits through, so there is one clamp rather than two.
+ *
+ * The ends hold rather than wrap, because setBPM clamps to 1..400: 400 doubled
+ * stays 400, and 1 halved stays 1 whichever way the rounding falls. The readout
+ * is repainted from getBPM() rather than from the number computed here, so a
+ * clamped value shows the tempo actually in force.
+ */
+function scaleBpm(factor: number): void {
+  setBPM(Math.round(getBPM() * factor));
+  // Painted now rather than on the next 100ms status tick: a button that takes
+  // a tenth of a second to show anything reads as a button that missed the
+  // click.
+  bpmValEl.textContent = String(getBPM());
+}
+
+bpmHalveEl.addEventListener('click', () => scaleBpm(0.5));
+bpmDoubleEl.addEventListener('click', () => scaleBpm(2));
+
 // ─── Tap tempo ───────────────────────────────────────────────────────────────
 // Click the `tap` button or press T (outside the editor and other inputs) to
 // tap along with the beat. From the second tap on, a rolling buffer of
@@ -596,6 +625,31 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
   tap();
 });
+
+// ─── Resync ──────────────────────────────────────────────────────────────────
+// Tapping a tempo fixes the speed and says nothing about where the downbeat is,
+// so a set can end up running at exactly the right BPM and half a bar out. This
+// puts the count back to the top of a cycle and leaves the tempo alone.
+//
+// resetPhase() is a single assignment between ticks, so the clock keeps
+// running and no frame is dropped. Stopping and starting the clock would zero
+// the accumulator too, and would cost the few milliseconds a replacement
+// worker takes to come up, which the rig shows as a stutter.
+
+function resync(): void {
+  if (!isRunning()) {
+    // A stopped clock is already at zero, and starting one here would put a
+    // scene on the rig that nobody asked to run.
+    setStatus('', 'nothing running · ctrl+enter to run');
+    return;
+  }
+  resetPhase();
+  // The tempo is in the message because the whole point of this button is that
+  // it does not touch the tempo.
+  setStatus('ok', `resynced · cycle back to 1 · ${getBPM()} bpm`);
+}
+
+bpmResyncEl.addEventListener('click', resync);
 
 // ─── Bridge connection ───────────────────────────────────────────────────────
 
@@ -1594,6 +1648,68 @@ onSettingsChange((s) => applyTheme(s.theme));
 // "Defined this session" section as save-able.
 const _refreshLibraryAfterEval = (): void => libraryPanel.refresh();
 
+// ─── Performance view ────────────────────────────────────────────────────────
+// One key takes away everything that is not the code: the top bar, the sim
+// panel and the level strip. The screen lights stay, because a scene using
+// screen() is aiming at them and they are output rather than furniture, and so
+// does the status bar, which is where a pattern error turns up mid-set.
+//
+// Bound on the document, not in the editor's keymap. A CodeMirror keymap only
+// fires while the editor has focus, which is how the stop shortcut once ended
+// up doing nothing unless you had clicked into the code first: every test
+// passed, because the tests focused the editor before pressing anything.
+//
+// alt+m rather than a ctrl+shift combination: ctrl+shift+m switches profile in
+// Chrome and opens responsive mode in Firefox, and a page cannot take either of
+// those back. The keymaps under the editor were checked rather than assumed:
+// CodeMirror's default keymap binds alt+l, alt+shift+a, ctrl+m and, on macOS,
+// shift+alt+m, and the autocomplete keymap binds no alt at all. Plain alt+m is
+// bound by none of them, which is why shift is rejected below: shift+alt+m is
+// macOS's tab-focus toggle and taking it would cost an accessibility control.
+//
+// Not persisted. settings.ts is where a preference would live and its Settings
+// type has no key for this one, so the view starts off on every load. That is
+// also the safer default: nobody opens gobo into a window with no controls on
+// it and has to work out why.
+
+const minimalExitEl = document.getElementById('minimal-exit') as HTMLButtonElement;
+
+let _minimalView = false;
+
+function setMinimalView(on: boolean): void {
+  _minimalView = on;
+  document.body.classList.toggle('minimal-view', on);
+  // The exit button is the only thing on screen naming this mode, and clicking
+  // it is the way out, so forgetting the key does not strand anyone.
+  minimalExitEl.hidden = !on;
+  if (!on) return;
+  // Every panel opens from a button in the top bar, so one left open would be
+  // unreachable as well as uncloseable once the bar is gone.
+  for (const closePanel of _panelClosers.values()) closePanel(false);
+  // Whatever had focus may have just become display:none, which drops focus to
+  // the body. The code is the only thing left to type into.
+  editorView.focus();
+}
+
+document.addEventListener('keydown', (e) => {
+  // Ctrl is rejected as well as the other modifiers because Windows sends
+  // ctrl+alt for AltGr, so an international layout typing a character on that
+  // key must not toggle the layout out from under the typist.
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  // Either identifier will do. e.code is the physical key, which is what holds
+  // up where alt composes a character (alt+m is µ on macOS) or the layout is
+  // not Latin. e.key covers the sources that send no code at all: on-screen
+  // keyboards, some remote-desktop clients, and the browser automation this was
+  // tested through, all of which would otherwise find the shortcut dead.
+  if (e.code !== 'KeyM' && e.key.toLowerCase() !== 'm') return;
+  // Holding the key repeats at the OS rate, which would strobe the layout.
+  if (e.repeat) return;
+  e.preventDefault();
+  setMinimalView(!_minimalView);
+});
+
+minimalExitEl.addEventListener('click', () => setMinimalView(false));
+
 // ─── Init ────────────────────────────────────────────────────────────────────
 
 // Register the bundled public-library fixtures so `fixture(1, 'any-public-id')`
@@ -1636,7 +1752,7 @@ initStrudel().then(() => {
   // whichever order the network decides, and its message, that the code on
   // screen came from a link, says more than the generic hint.
   if (!_openedFromLink) {
-    setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop');
+    setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop  ·  alt+m for the performance view');
   }
 });
 

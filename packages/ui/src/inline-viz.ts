@@ -15,10 +15,12 @@
  *    which is fragile, so it is deliberately not done.
  *
  * 2. After a successful eval, the main app calls `refreshViz(view)`. That
- *    scans the editor doc for lines containing `.viz(` and zips those source
+ *    scans the editor doc for `.viz(` call sites and zips those source
  *    locations against the registry (both are walked top-to-bottom so the
  *    orders line up). Each (line, entry) pair emits a line-end
- *    Decoration.widget.
+ *    Decoration.widget. The scan runs over source with comments and string
+ *    contents blanked out (source-scan.ts), which is what makes commenting a
+ *    line out take its widget away.
  *
  * 3. Each widget is a `WidgetType` subclass that, on toDOM(), registers
  *    itself in a shared animation loop. The loop reads the live
@@ -62,6 +64,8 @@ import {
   type PatternVizEntry,
   type PatternVizKind,
 } from '@gobo/core';
+import { stripNonCode, findCalls } from './source-scan.js';
+import { openColorWheel, type ColorWheel } from './color-wheel.js';
 
 // ─── Widget base class ───────────────────────────────────────────────────────
 
@@ -474,14 +478,23 @@ let _sliderWidgets: SliderWidget[] = [];
 /**
  * A colour, with the wheel behind it.
  *
- * A swatch showing what pick() is currently on. Clicking opens the operating
- * system's own colour picker, which is a real wheel with an eyedropper, rather
- * than something hand-drawn here that would be worse at the one job. The
- * chosen colour is stored by name and read live by the pattern the picker
- * handed the scene, so the rig follows the wheel without a re-run.
+ * A swatch showing what pick() is currently on. Clicking opens the wheel in
+ * color-wheel.ts, which is drawn here rather than handed to the operating
+ * system: the native picker is a wheel on most platforms but not all, and it
+ * takes none of the editor's theme. The chosen colour is stored by name and
+ * read live by the pattern the picker handed the scene, so the rig follows
+ * the wheel without a re-run.
+ *
+ * The wheel speaks the same #rrggbb the native input did, and the colour
+ * still reaches the store through fromHex(), so nothing downstream of pick()
+ * can tell which control moved it.
  */
 class PickerWidget extends WidgetType {
-  private input: HTMLInputElement | null = null;
+  private swatch: HTMLButtonElement | null = null;
+  private wheel: ColorWheel | null = null;
+  /** Last hex painted on the swatch, so the per-tick sync does nothing on the
+   *  overwhelming majority of ticks, where the colour has not moved. */
+  private shown = '';
 
   constructor(readonly entry: PickerEntry) {
     super();
@@ -494,7 +507,15 @@ class PickerWidget extends WidgetType {
   /** Repaint the swatch from the stored colour. Called by the refresh loop so
    *  a colour restored across a re-run shows without waiting for a click. */
   sync(): void {
-    if (this.input) this.input.value = toHex(getPickedColor(this.entry.name) ?? this.entry.initial);
+    const swatch = this.swatch;
+    if (!swatch) return;
+    const hex = toHex(getPickedColor(this.entry.name) ?? this.entry.initial);
+    if (hex === this.shown) return;
+    this.shown = hex;
+    swatch.style.background = hex;
+    // The wheel writes through this same store, so reaching here means
+    // something else moved the colour and an open wheel should follow it.
+    this.wheel?.setHex(hex);
   }
 
   toDOM(): HTMLElement {
@@ -505,20 +526,68 @@ class PickerWidget extends WidgetType {
     label.className = 'gobo-picker-label';
     label.textContent = this.entry.name;
 
-    const input = document.createElement('input');
-    input.type = 'color';
-    input.className = 'gobo-picker-swatch';
-    input.title = `${this.entry.name} · click for the colour wheel`;
-    input.value = toHex(getPickedColor(this.entry.name) ?? this.entry.initial);
-    this.input = input;
+    const hex = toHex(getPickedColor(this.entry.name) ?? this.entry.initial);
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'gobo-picker-swatch';
+    swatch.title = `${this.entry.name} · click for the colour wheel`;
+    swatch.setAttribute('aria-label', `${this.entry.name}: colour`);
+    swatch.setAttribute('aria-haspopup', 'dialog');
+    // Inline, because the shared rule paints no background of its own: it
+    // was written for an <input type="color">, which brings its own. The
+    // appearance reset goes with it, or a platform button style paints over
+    // the colour on the browsers that still have one.
+    swatch.style.setProperty('-webkit-appearance', 'none');
+    swatch.style.setProperty('appearance', 'none');
+    swatch.style.background = hex;
+    this.swatch = swatch;
+    this.shown = hex;
 
-    // 'input' rather than 'change': the rig follows the wheel while it moves.
-    input.addEventListener('input', () => setPickedColor(this.entry.name, fromHex(input.value)));
-    // The editor would otherwise take the click back and close the picker.
-    input.addEventListener('mousedown', (e) => e.stopPropagation());
+    swatch.addEventListener('click', () => this.toggle());
+    // The editor would otherwise take the click back and move the caret.
+    swatch.addEventListener('mousedown', (e) => e.stopPropagation());
+    // Only the two keys the button itself answers to are taken off the
+    // editor. Ctrl+Enter has to keep running the scene from here.
+    swatch.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
+    });
 
-    wrap.append(label, input);
+    wrap.append(label, swatch);
+    _livePickers.add(this);
     return wrap;
+  }
+
+  /** Second click on the swatch puts the wheel away again. */
+  private toggle(): void {
+    if (this.wheel) {
+      this.wheel.close();
+      return;
+    }
+    const swatch = this.swatch;
+    if (!swatch) return;
+    this.wheel = openColorWheel({
+      anchor: swatch,
+      label: this.entry.name,
+      hex: toHex(getPickedColor(this.entry.name) ?? this.entry.initial),
+      onInput: (next) => {
+        this.shown = next;
+        if (this.swatch) this.swatch.style.background = next;
+        setPickedColor(this.entry.name, fromHex(next));
+      },
+      onClose: () => {
+        this.wheel = null;
+      },
+    });
+  }
+
+  destroy(): void {
+    // The popover lives on <body>, so nothing else would take it down with
+    // the line it belonged to.
+    this.wheel?.close();
+    this.wheel = null;
+    this.swatch = null;
+    _livePickers.delete(this);
   }
 
   ignoreEvent(): boolean {
@@ -526,8 +595,8 @@ class PickerWidget extends WidgetType {
   }
 }
 
-/** A colour to the #rrggbb the OS picker speaks. Live components read once so
- *  a picker whose colour is itself a pattern still shows something. */
+/** A colour to the #rrggbb the wheel speaks. Live components read once so a
+ *  picker whose colour is itself a pattern still shows something. */
 function toHex(c: Color): string {
   const part = (v: unknown): string => {
     const n = typeof v === 'number' ? v : 0;
@@ -541,7 +610,18 @@ function fromHex(hex: string): Color {
   return makeColor(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }
 
-let _pickerWidgets: PickerWidget[] = [];
+/**
+ * Picker widgets that currently have DOM, so the tick can keep their swatches
+ * in step.
+ *
+ * Filled by toDOM and drained by destroy, the way the viz widgets above do it,
+ * rather than collected in refreshViz. CodeMirror keeps a widget's DOM when
+ * the replacement compares equal, and the instance holding that DOM is then
+ * the one from the earlier run, not the one the refresh just built. A list
+ * built during the refresh would be full of widgets that never rendered, and
+ * every sync() on them would quietly do nothing.
+ */
+const _livePickers = new Set<PickerWidget>();
 
 
 /** The kinds drawn as a canvas at line-end rather than as a line decoration. */
@@ -860,7 +940,7 @@ onTick(() => {
   // cannot leave a stale position on screen. Skipped while one is being
   // dragged, which the widget checks by focus.
   for (const w of _sliderWidgets) w.sync();
-  for (const w of _pickerWidgets) w.sync();
+  for (const w of _livePickers) w.sync();
 
   if (_patternVizEntries.size === 0) return;
   const cyclePos = getCyclePos();
@@ -937,12 +1017,15 @@ export const vizDecorationsField = StateField.define<DecorationSet>({
  *
  * Call after every successful eval. The steps:
  *   1. Read VizEntries from @gobo/core (populated by `.viz()` calls during eval).
- *   2. Walk the doc and record the line numbers that contain `.viz(` (in code,
- *      not comments).
- *   3. Zip the two lists 1:1. If the doc has more `.viz(` hits than there are
- *      entries (e.g. a commented-out one the regex still matched), the extras
- *      are ignored, and vice versa.
+ *   2. Strip the doc of comments and string contents, then record where every
+ *      `.viz(` call site is, one entry per call rather than per line.
+ *   3. Zip the two lists 1:1. Any excess on either side is ignored.
  *   4. For each (entry, line) pair, emit one widget per kind at line-end.
+ *
+ * Step 2 is the load-bearing one. The zip is positional, so a call site the
+ * scan sees but the run never made pushes every later widget onto the wrong
+ * line, and a widget lands on the very line that was supposed to have gone
+ * quiet. Both lists have to be counted the same way for that not to happen.
  */
 export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}): void {
   // Settings can disable inline viz entirely. Dispatch an empty decoration
@@ -955,20 +1038,19 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   const entries = getVizEntries();
   const doc = view.state.doc;
 
-  // Collect source lines with a .viz( call, skipping // line comments.
-  const vizLines: number[] = [];
-  for (let i = 1; i <= doc.lines; i++) {
-    const line = doc.line(i);
-    const commentIdx = line.text.indexOf('//');
-    const code = commentIdx >= 0 ? line.text.slice(0, commentIdx) : line.text;
-    if (/\.viz\s*\(/.test(code)) vizLines.push(i);
-  }
+  // One strip of the whole buffer, shared by every scan below. Comments and
+  // string contents are spaces in it, so a call site that has been commented
+  // out is not a call site. See source-scan.ts for why that is not as simple
+  // as cutting each line at its first pair of slashes.
+  const code = stripNonCode(doc.toString());
+
+  const vizHits = findCalls(code, /\.viz\s*\(/g);
 
   const ranges: Array<{ from: number; to: number; value: Decoration }> = [];
-  const pairs = Math.min(entries.length, vizLines.length);
+  const pairs = Math.min(entries.length, vizHits.length);
   for (let i = 0; i < pairs; i++) {
     const entry = entries[i];
-    const line = doc.line(vizLines[i]);
+    const line = doc.line(vizHits[i].line);
     const signature = `${i}:${entry.startChannel}:${entry.channelCount}`;
     for (const kind of entry.kinds) {
       const widget = makeWidget(entry, kind, signature);
@@ -985,19 +1067,12 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   // them in order with what the scene declared.
   _sliderWidgets = [];
   const controls = getControls();
-  const sliderLines: number[] = [];
-  for (let i = 1; i <= doc.lines; i++) {
-    const line = doc.line(i);
-    const commentIdx = line.text.indexOf('//');
-    const code = commentIdx >= 0 ? line.text.slice(0, commentIdx) : line.text;
-    const re = /\bslider\s*\(/g;
-    while (re.exec(code) !== null) sliderLines.push(i);
-  }
-  const sliderPairs = Math.min(controls.length, sliderLines.length);
+  const sliderHits = findCalls(code, /\bslider\s*\(/g);
+  const sliderPairs = Math.min(controls.length, sliderHits.length);
   for (let i = 0; i < sliderPairs; i++) {
     const widget = new SliderWidget(controls[i]);
     _sliderWidgets.push(widget);
-    const lineObj = doc.line(sliderLines[i]);
+    const lineObj = doc.line(sliderHits[i].line);
     ranges.push({
       from: lineObj.to,
       to: lineObj.to,
@@ -1007,21 +1082,12 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
 
 
   // ─── Colour pickers (pick) ──────────────────────────────────────────────
-  _pickerWidgets = [];
   const pickers = getPickers();
-  const pickLines: number[] = [];
-  for (let i = 1; i <= doc.lines; i++) {
-    const line = doc.line(i);
-    const commentIdx = line.text.indexOf('//');
-    const code = commentIdx >= 0 ? line.text.slice(0, commentIdx) : line.text;
-    const re = /\bpick\s*\(/g;
-    while (re.exec(code) !== null) pickLines.push(i);
-  }
-  const pickPairs = Math.min(pickers.length, pickLines.length);
+  const pickHits = findCalls(code, /\bpick\s*\(/g);
+  const pickPairs = Math.min(pickers.length, pickHits.length);
   for (let i = 0; i < pickPairs; i++) {
     const widget = new PickerWidget(pickers[i]);
-    _pickerWidgets.push(widget);
-    const lineObj = doc.line(pickLines[i]);
+    const lineObj = doc.line(pickHits[i].line);
     ranges.push({
       from: lineObj.to,
       to: lineObj.to,
@@ -1030,33 +1096,19 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   }
 
   // ─── Pattern-level viz (.flash / .glow / .wave on pattern calls) ────────
-  // Walk the doc again looking for each kind's call marker, tracking the
-  // kind per line plus a flat in-order list that zips 1:1 with the core
-  // registry.
+  // One regex over the stripped source, so the order of matches within a
+  // line is the order the entries were pushed in and the 1:1 zip holds.
   _patternVizEntries.clear();
   const patEntries = getPatternVizEntries();
-  const patHits: Array<{ line: number; kind: PatternVizKind }> = [];
-
-  for (let i = 1; i <= doc.lines; i++) {
-    const lineObj = doc.line(i);
-    const commentIdx = lineObj.text.indexOf('//');
-    const code = commentIdx >= 0 ? lineObj.text.slice(0, commentIdx) : lineObj.text;
-    // Order of matches within a line matters for the 1:1 zip, so use a
-    // single regex with /g and record each hit in order.
-    const re = /\.(flash|glow|wave|roll|punchcard|spiral|spectrum)\s*\(/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(code)) !== null) {
-      patHits.push({ line: i, kind: m[1] as PatternVizKind });
-    }
-  }
+  const patHits = findCalls(code, /\.(flash|glow|wave|roll|punchcard|spiral|spectrum)\s*\(/g);
 
   const patPairs = Math.min(patEntries.length, patHits.length);
   for (let i = 0; i < patPairs; i++) {
     const coreEntry = patEntries[i];
     const hit = patHits[i];
     // Skip if the source kind and the registered kind disagree; that is
-    // usually a comment/identifier collision, not a real chain call.
-    if (hit.kind !== coreEntry.kind) continue;
+    // usually an identifier collision, not a real chain call.
+    if ((hit.match[1] as PatternVizKind) !== coreEntry.kind) continue;
     const lineObj = doc.line(hit.line);
     const deco: PatternVizDecoEntry = { core: coreEntry, line: hit.line, idx: i };
     _patternVizEntries.set(i, deco);
