@@ -480,6 +480,53 @@ describe('colorPattern', () => {
     };
     expect(() => colorPattern(angry, '.color()')).not.toThrow();
   });
+
+  it('reads the source once for a set of components, not once each', () => {
+    // Three wrappers over one source. Each used to query it and resolve the
+    // whole colour before keeping its own third, so a token cost three readings
+    // per pixel per tick and two thirds was thrown away.
+    let reads = 0;
+    const counted = {
+      queryArc: (): Array<{ value: unknown }> => {
+        reads++;
+        return [{ value: COLORS.blue }];
+      },
+    };
+    const c = colorPattern(counted, '.color()');
+    // The typo check reads once while the scene is being evaluated. What is
+    // being counted here is what a tick costs, so the count starts after it.
+    reads = 0;
+    expect([levelsOf(c.r)[0], levelsOf(c.g)[0], levelsOf(c.b)[0]]).toEqual([0, 0, 1]);
+    expect(reads).toBe(1);
+
+    // Every pixel of a strip holds the same colour, so the channel writer asks
+    // each component once per pixel, all about the same instant. Four pixels is
+    // twelve queries and still one reading.
+    for (let pixel = 0; pixel < 4; pixel++) {
+      levelsOf(c.r);
+      levelsOf(c.g);
+      levelsOf(c.b);
+    }
+    expect(reads).toBe(1);
+  });
+
+  it('reads again when the arc moves on, so a live colour keeps moving', () => {
+    // A source that answers differently on every call, which is the case a
+    // shared reading has to get right: the three components agree on one
+    // answer, and the next tick, asking about a later instant, reaches the
+    // source rather than replaying the last one.
+    const answers = [COLORS.red, COLORS.green, COLORS.blue];
+    let n = 0;
+    const moving = {
+      queryArc: (): Array<{ value: unknown }> =>
+        [{ value: answers[Math.min(n++, answers.length - 1)] }],
+    };
+    const c = colorPattern(moving, '.color()');   // the typo check takes red
+    const mixAt = (begin: number, end: number): number[] =>
+      [levelsOf(c.r, begin, end)[0], levelsOf(c.g, begin, end)[0], levelsOf(c.b, begin, end)[0]];
+    expect(mixAt(0, 1)).toEqual([0, 1, 0]);       // green, on all three
+    expect(mixAt(1, 2)).toEqual([0, 0, 1]);       // blue, one arc later
+  });
 });
 
 // ─── The reading ladder ───────────────────────────────────────────────────────

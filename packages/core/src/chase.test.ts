@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { rgbStrip, monoStrip, setStripEffectWaveforms } from './fixtures.js';
+import { rgbStrip, rgbwStrip, monoStrip, setStripEffectWaveforms } from './fixtures.js';
 import { COLORS, makeColor, livingColor } from './colors.js';
 import { clearDefs, tick, getUniverseBuffer } from './dmx.js';
 
@@ -152,6 +152,29 @@ describe('chase', () => {
     strip.chase(livingColor({ queryArc: () => [] }, 0, 0));
     tick(0);
     expect(getUniverseBuffer(0)[0]).toBe(0);
+  });
+
+  it('leaves a dedicated white where the scene put it', () => {
+    // A colour is three components, and the fourth channel is a white emitter
+    // that a three-component mix has no business touching. .fill() and .pixel()
+    // already worked that way; .chase() passed 0 for W, so a chase over a strip
+    // with white up went dark under the band instead of running the colour
+    // across it. .full() is still the call that lights every emitter.
+    const wave = (): unknown => {
+      const self: Record<string, unknown> = {
+        queryArc: () => [{ value: 1 }],
+        early() { return self; }, slow() { return self; }, range() { return self; },
+        mul() { return self; },
+      };
+      return self;
+    };
+    setStripEffectWaveforms(wave as () => never, wave as () => never);
+    const strip = rgbwStrip(1, 2, 0, { skipSim: true });
+    strip.white(0.5);
+    strip.chase(COLORS.red);
+    tick(0);
+    const buf = getUniverseBuffer(0);
+    expect(Array.from(buf.slice(0, 8))).toEqual([255, 0, 0, 128, 255, 0, 0, 128]);
   });
 
   it('phases down the rows on a grid when asked', () => {

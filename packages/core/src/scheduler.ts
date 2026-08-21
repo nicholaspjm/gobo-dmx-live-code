@@ -58,6 +58,23 @@ export function getCycleFraction(): number {
   return _cyclePos % 1;
 }
 
+/**
+ * Put the count back to the top of a cycle, without touching the tempo.
+ *
+ * Tapping a tempo fixes the speed and says nothing about where the downbeat
+ * is, so a set can end up at exactly the right BPM and half a bar out. This is
+ * the other half of that.
+ *
+ * Deliberately separate from stop()/start(), which also zero the accumulator:
+ * restarting the clock costs the few milliseconds a replacement worker takes
+ * to come up, and no tick runs in that window, so the rig holds its last frame
+ * and a resync can be seen as a stutter. This is a single assignment between
+ * ticks, so nothing is dropped.
+ */
+export function resetPhase(): void {
+  _cyclePos = 0;
+}
+
 /** Register a tick callback. Returns an unsubscribe function. */
 export function onTick(cb: TickCallback): () => void {
   _callbacks.add(cb);

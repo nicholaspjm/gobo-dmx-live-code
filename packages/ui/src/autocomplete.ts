@@ -10,7 +10,10 @@
  *   2. After a dot (`wash.|` or `sine().slow(4).|`): common method names,
  *      meaning channel setters (.red, .dim, …), pattern chains (.slow,
  *      .range, …), pixel/strip ops (.pixel, .fill, …), and the viz
- *      methods (.viz, .flash, .glow, .wave).
+ *      methods (.viz, .flash, .glow, .wave). When the receiver is a light
+ *      the document declares, the verbs that light actually answers to are
+ *      ranked above the rest of the pool. Nothing is dropped: `.slow()` on
+ *      a light is still offered, further down.
  *
  * The completion set is curated rather than derived at eval time: eval
  * runs in a sandbox and its fixture metadata is not available to the
@@ -26,7 +29,7 @@ import {
 } from '@codemirror/autocomplete';
 import { syntaxTree } from '@codemirror/language';
 import { HELP_ENTRIES, type HelpEntry } from './help-data.js';
-import { describeLight, findLights } from './declared-lights.js';
+import { describeLight, findLight, findLights } from './declared-lights.js';
 
 // ─── Completion pools ────────────────────────────────────────────────────────
 // Derived from the shared help index so signatures/examples are authored once
@@ -110,8 +113,22 @@ const fixtureMethods: Completion[] = HELP_ENTRIES
   .filter((e) => e.context === 'fixture-method' || e.context === 'property')
   .map(toCompletion);
 
-// Merged method pool shown when we can't narrow by receiver.
+// Merged method pool. Everything in it is offered after any dot; what the
+// receiver is changes the order, never the membership.
 const allMethods: Completion[] = [...patternMethods, ...fixtureMethods];
+
+/**
+ * How well a label answers what has been typed, as a boost: an exact match
+ * first, then prefix matches shortest-first, and nothing for a name only
+ * CodeMirror's fuzzy matcher would let through. `q` is already lower-cased.
+ */
+function matchBoost(label: string, q: string): number {
+  if (q === '') return 0;
+  const l = label.toLowerCase();
+  if (l === q) return 99;
+  if (l.startsWith(q)) return Math.max(20, 80 - l.length * 2);
+  return 0;
+}
 
 /**
  * Put the obvious answer at the top.
@@ -122,17 +139,85 @@ const allMethods: Completion[] = [...patternMethods, ...fixtureMethods];
  * also lets `punchcard` and `startChannel` through on the same two letters.
  *
  * A boost is added to CodeMirror's own score, so this reorders without hiding
- * anything: an exact match first, then prefix matches shortest-first, then
- * whatever the fuzzy matcher found.
+ * anything.
  */
 export function rankFor(options: Completion[], typed: string): Completion[] {
   if (typed === '') return options;
   const q = typed.toLowerCase();
   return options.map((o) => {
-    const label = o.label.toLowerCase();
-    if (label === q) return { ...o, boost: 99 };
-    if (label.startsWith(q)) return { ...o, boost: Math.max(20, 80 - label.length * 2) };
-    return o;
+    const boost = matchBoost(o.label, q);
+    return boost === 0 ? o : { ...o, boost };
+  });
+}
+
+// ─── Ranking a method pool for the thing it is called on ─────────────────────
+
+const NO_VERBS: ReadonlySet<string> = new Set();
+const ALL_FIXTURE_VERBS: ReadonlySet<string> = new Set(fixtureMethods.map((o) => o.label));
+
+/**
+ * The verbs a light answers to, empty for a receiver that is not one.
+ *
+ * `describeLight` writes each command the way it is called: `red(v)`,
+ * `color(r,g,b)`, `pixels.fill(r,g,b)`, `size`. The name is what precedes the
+ * arguments; one carrying a dot belongs to a member rather than to the light
+ * itself. So `wash.` is ranked on the names with no dot and `wash.pixels.` on
+ * the ones written under `pixels`, which is why the receiver passed in is the
+ * whole chain before the last dot rather than the last name in it.
+ */
+function verbsOn(doc: string, receiver: string): ReadonlySet<string> {
+  const dot = receiver.indexOf('.');
+  const decl = findLight(doc, dot === -1 ? receiver : receiver.slice(0, dot));
+  if (decl === undefined) return NO_VERBS;
+
+  const { commands } = describeLight(decl);
+  // A fixture whose id is not loaded, or is not written as a literal, lists no
+  // commands at all. It is still a light, so the whole fixture pool goes above
+  // the pattern methods: which channels it has is unknown, that it has some is
+  // not.
+  if (commands.length === 0) return ALL_FIXTURE_VERBS;
+
+  const path = dot === -1 ? '' : `${receiver.slice(dot + 1)}.`;
+  const out = new Set<string>();
+  for (const command of commands) {
+    const paren = command.indexOf('(');
+    const name = paren === -1 ? command : command.slice(0, paren);
+    if (!name.startsWith(path)) continue;
+    const verb = name.slice(path.length);
+    if (!verb.includes('.')) out.add(verb);
+  }
+  return out;
+}
+
+/**
+ * Half of what CodeMirror documents for a boost (-99 to 99), so a band and a
+ * match tier can be added together without leaving that range.
+ */
+const BAND = 50;
+
+/**
+ * The method pool as it would be offered after `receiver.` in this document.
+ *
+ * A light's own verbs were lost in the merge. The pool after a dot is every
+ * pattern method and every fixture method at once, while any one light answers
+ * to a dozen of them at most, so `.chase` on a strip ranked below chain methods
+ * that strip has no use for. The pool is ranked in two bands instead, the
+ * light's own verbs above everything else, with the match tier deciding the
+ * order inside each band.
+ *
+ * Two bands rather than a filter, because the reading can be wrong: the
+ * receiver is recognised from the text, `register()` adds chain methods at run
+ * time, and a custom fixture's channels are not known until the scene has run.
+ * A wrong guess that reorders costs a keystroke. A wrong guess that filtered
+ * would hide a method that is really there.
+ */
+export function methodsAfter(doc: string, receiver: string, typed: string): Completion[] {
+  const own = verbsOn(doc, receiver);
+  if (own.size === 0) return rankFor(allMethods, typed);
+  const q = typed.toLowerCase();
+  return allMethods.map((o) => {
+    const tier = Math.floor(matchBoost(o.label, q) / 2);
+    return { ...o, boost: own.has(o.label) ? BAND + tier : tier - BAND };
   });
 }
 
@@ -151,13 +236,18 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
   // Case 1: method context, where the text before the cursor ends in
   // `.word` (the word may be empty). Show the merged pattern + fixture
   // method pool; the autocomplete UI handles prefix filtering.
-  const dotMatch = context.matchBefore(/([A-Za-z_$][\w$]*)\.(\w*)$/);
+  const dotMatch = context.matchBefore(/([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\.(\w*)$/);
   if (dotMatch) {
-    const methodStart = dotMatch.from + dotMatch.text.indexOf('.') + 1;
+    // Split at the LAST dot: the match runs back over a whole chain so that
+    // `bar.pixels.` can be recognised as a strip, and everything before that
+    // dot is the receiver.
+    const cut = dotMatch.text.lastIndexOf('.');
+    const methodStart = dotMatch.from + cut + 1;
     const typed = context.state.sliceDoc(methodStart, context.pos);
     // No validFor: the ranking depends on what has been typed so far, so the
     // list has to be rebuilt as it grows rather than filtered in place.
-    return { from: methodStart, options: rankFor(allMethods, typed) };
+    const doc = context.state.doc.toString();
+    return { from: methodStart, options: methodsAfter(doc, dotMatch.text.slice(0, cut), typed) };
   }
 
   // Case 2: bare identifier. Commands plus user-declared light names.

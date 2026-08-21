@@ -1,6 +1,5 @@
 # Backlog
 
-Raised in one batch. Ordered by what a person hits first, not by effort.
 Notes marked **checked** were verified against the running engine.
 
 Anything touching patterns has to be verified in a browser. `@strudel/core`
@@ -9,134 +8,47 @@ cannot load under the test runner: its entry imports `SalatRepl` from
 any gobo code runs. Hand-rolled `{ queryArc }` fakes are faithful stand-ins in
 unit tests, because that is exactly the shape `pick()` produces.
 
-## Done
+## Open
 
-### Gradients and colour palettes
-A palette is a plain array of colours. `const warm = [amber, orange, red]`
-spreads across a strip with `.fill(warm)`, across a group with
-`rig.color(warm)`, and along a chase with `.chase(warm)`. No new type: an array
-already indexes, reverses and slices, and `cat(...warm)` puts it in time.
+### The performance view is not remembered
+Alt+M is off again after a reload. Persisting it needs a `minimalView` key on
+the `Settings` interface and in `DEFAULTS`, which is a closed type.
 
-### `fill()` takes a colour
-Predefined, a mix, several stops, a palette, or a pattern of colour tokens.
-`readColorStops()` is now the one ladder every caller reads through, so the
-rules cannot drift apart between `.fill()` and `.color()`.
+### A colour name inside a string is painted as a colour
+The editor now paints bare colour names, and the scanner has always been blind
+to strings, so the `'red'` in `head.color('red')` is painted as the colour value
+when it is a wheel slot name. `stripNonCode()` in `packages/ui/src/source-scan.ts`
+already blanks strings and comments properly for the widget scan. Pointing the
+highlighter at the same helper would fix this and the same class of mistake in
+comments.
 
-### A mini-notation for colour
-`mini('r - g - b')` flashes red, green, blue. Tokens resolve against the eleven
-predefined names by full name or by any prefix naming one colour. A number
-token is a grey, so `mini('1 - 1 -')` means the same shape in a colour position
-as in a level position. A rest is silence rather than black.
+### Sliders stop following the stored value after a re-run
+`_sliderWidgets` in `inline-viz.ts` is filled during `refreshViz`, so after a
+re-run where the decoration compares equal it holds instances that were never
+rendered, and every `sync()` on them does nothing. The picker had exactly this
+defect and was fixed by tracking from `toDOM`/`destroy` instead. Same shape of
+fix, deliberately not applied at the same time because changing how a control
+behaves mid-show was not what was asked for.
 
-### A colour implies its own brightness
-On a fixture with a master dimmer, driving an emitter and never setting the
-dimmer raises it at the end of the run, and says so. `dim(0)` and `dim(0.5)`
-stand exactly as written, wherever they appear in the scene. Read off the
-staged definitions rather than by watching the setters, so a strip's pixels
-count, and `.off()` stays off.
+### `pick('warm')` repeats itself: decided, no fix
+`const warm = pick('warm')` says the name twice, and it stays that way. The
+string keys the stored colour so a colour chosen during a show survives an edit.
+The alternatives are worse: keying by position in the source breaks when lines
+move, and the variable name is not visible to the sandbox. Every spelling that
+avoids the repetition either loses the colour on an edit or cannot be written.
+Closed as a decision rather than left open as work.
 
-### A chase on a picked colour ran white
-Not on the original list, found while building the above. `.mul()` does not
-scale a duck-typed component: strudel reifies it with `pure()`, so the multiply
-became a union and the channel read the envelope alone. Every
-`.chase(pick(...))` ran at full brightness in white, with no error and nothing
-to notice, and the docs used that call as the example.
+### Blackout: connector rebuilt, needs swapping over
+**Checked, and this was never a code bug.** The fix shipped in `94b0175` on
+19 August. The connector holding port 3001 is
+`C:\Users\Admin\Downloads\gobo-connector-windows.exe`, built 14 August, five
+days earlier. The 19 August re-download is byte-identical to it, so the
+published release asset was never rebuilt either, and a startup script
+relaunches that same old binary at every login.
 
-## Wrong behaviour
-
-### Blackout lags by about a bar
-Stopping darkens the rig eventually rather than immediately. The browser side
-is verified: buffers zero, sim and screens go dark, and a zero frame leaves the
-page in the same tick. The connector repeats that frame three times over about
-a sixth of a second.
-
-So the delay is downstream of both. Three candidates, cheapest first:
-1. **A fade time set on the fixture itself.** Many washes have a dimmer curve
-   or fade-time menu option, and a one-bar fade on blackout is exactly what
-   that looks like. Check the fixture's own menu before touching code.
-2. **An old connector binary.** The repeated-blackout fix ships in
-   `packages/bridge/dist`. A `gobo-connector-*.exe` downloaded earlier does not
-   have it. Confirm which process holds port 3001.
-3. **The node's own hold/failover.** Some Art-Net nodes ramp rather than cut.
-
-### `.viz()` widgets keep running when commented out
-An inline visualisation should stop when its line is commented. The line scan
-in `packages/ui/src/inline-viz.ts` already strips `//` comments, so this is
-likely the registry keeping the entry from the last run rather than the scan.
-
-## Missing, and asked for directly
-
-### Library search, independent of the docs search
-The docs panel has search; the library panel does not. Should not share state
-or ranking with the docs one.
-
-### Minimal / performance view
-Hide the output nodes, the sim panel and the top bar. Code and a few essentials
-only. Worth a keybinding.
-
-### Resync, and BPM x2 / ÷2
-A button to bring the count back to 1 when it has drifted, and quick halve and
-double next to the BPM. `setBPM` already clamps 1..400.
-
-## Consistency
-
-### Whole-fixture setters on strips and on fixtures that contain strips
-**Checked:** strips already answer to `.red()`, `.green()`, `.blue()` and
-`.white()`, so `strip.red(1)` works today. What does not work is a fixture whose
-def has a strip channel: `wash.red(1)` reaches no pixels, because the loop that
-attaches named setters only sees scalar channels. That is the real gap.
-
-Now smaller than it was: `.fill()` on the nested strip takes a colour, so
-`wash.pixels.fill(red)` is the working spelling. What is missing is the
-whole-fixture shortcut reaching through to the pixels.
-
-### Autocomplete should rank lighting commands above pattern chains
-After a dot, the pool is pattern methods and fixture methods merged. A receiver
-that is a declared light should weight its own verbs first;
-`packages/ui/src/declared-lights.ts` already knows which names are lights.
-
-### `pick('warm')` repeats itself
-`const warm = pick('warm')` says the name twice. The string keys the stored
-colour so it survives an edit, which is why it exists. Alternatives: key by
-position in the source, which breaks when lines move, or infer the variable
-name, which the sandbox cannot see. Neither is obviously better than the
-repetition, so this needs a decision rather than a fix.
-
-### The colour picker should be a wheel
-It currently opens the operating system's picker, which is a wheel on most
-platforms but not all, and cannot be styled. A drawn circular picker would be
-consistent everywhere at the cost of owning it.
-
-### `.chase()` zeroes W, `.fill()` leaves it alone
-On an RGBW strip a colour path writes r, g and b and leaves the dedicated white
-channel where the scene last put it. `.chase()` zeroes it instead. One of the
-two is wrong and they should agree.
-
-### Bare colour names do not highlight, and now `mix` does
-`mix` was added to `BARE_TOKENS` in `packages/ui/src/code-highlight.ts`, so it
-is the only bare colour-family name the editor paints. `pick` and the eleven
-colour names have never been in that table, so `red` and `blue` still render as
-plain identifiers even though they are reserved words in the sandbox.
-
-Painting them is the consistent answer, and it is a design call rather than a
-line of code: `METHOD_TOKENS` has hue marks for red, green, blue, white and
-amber only, so orange, yellow, cyan, purple, magenta and pink would each need a
-mark and a theme colour. Adding the five that already have marks would be worse
-than either end state.
-
-### Reading a colour token costs three times what it should
-Each of `colorPattern`'s three component wrappers queries the source separately
-and resolves the whole colour before keeping one component, so a token is
-resolved three times per pixel per tick and two thirds is discarded. It is
-correct, and it is measurable only on a long strip driven by a token pattern.
-The `reported` set that keeps an unknown token from logging every frame is also
-unbounded and keyed by the raw token, so a source generating fresh strings
-defeats it. Both are contrived to hit, both are worth one pass if that path
-ever gets used in anger.
-
-### `rgbwStrip.fill(r, g, b)` with three numbers throws
-It asks for all four of r, g, b, w, where `rgbStrip` takes three. A real
-inconsistency, deliberately left alone while the colour work was in flight.
+`release/gobo-connector-windows.exe` has been rebuilt and contains the fix,
+confirmed by byte search. Point the startup script at it and restart the
+process. If the lag survives that, then it is the fixture's own fade-time menu.
 
 ## Already open elsewhere
 
@@ -146,5 +58,77 @@ inconsistency, deliberately left alone while the colour work was in flight.
   slot channels.
 - Chainable setters: `.fill()` returns void while `.viz()` returns the instance.
 - Retake the README screenshot and `og.png`.
-- `clearPickers()` is missing from `evalCode()`'s failure branch, so a
-  rolled-back run leaves its picker declarations stale. One line, its own commit.
+- No eyedropper on the drawn colour wheel. The platform picker had one, and
+  reproducing it needs the EyeDropper API, which is Chromium only.
+
+## Done
+
+### Gradients and colour palettes
+A palette is a plain array of colours. `const warm = [amber, orange, red]`
+spreads across a strip with `.fill(warm)`, across a group with
+`rig.color(warm)`, and along a chase with `.chase(warm)`.
+
+### `fill()` takes a colour
+Predefined, a mix, several stops, a palette, or a pattern of colour tokens.
+`readColorStops()` is the one ladder every caller reads through.
+
+### A mini-notation for colour
+`mini('r - g - b')` flashes red, green, blue. Tokens resolve by full name or by
+any prefix naming one colour. A number token is a grey. A rest is silence
+rather than black.
+
+### A colour implies its own brightness
+On a fixture with a master dimmer, driving an emitter and never setting the
+dimmer raises it at the end of the run, and says so. `dim(0)` and `dim(0.5)`
+stand exactly as written, wherever they appear.
+
+### A chase on a picked colour ran white
+`.mul()` does not scale a duck-typed component: strudel reifies it with
+`pure()`, so the multiply became a union and the channel read the envelope
+alone. Silent, and the docs used that call as the example.
+
+### Library search, independent of the docs search
+Its own ranking over names, manufacturers, channel counts and channel names,
+sharing nothing with the docs search. A name match beats a description match.
+
+### Minimal / performance view
+Alt+M hides the top bar, sim panel and level strip. Document-level handler, not
+a CodeMirror keymap, so it fires without editor focus.
+
+### Resync, and BPM x2 / ÷2
+`resetPhase()` in the scheduler puts the count back to the top of a cycle
+between ticks, so nothing is dropped. Halve and double go through the existing
+clamp.
+
+### Whole-fixture setters reach strip pixels
+`wash.red(1)` now drives every pixel of every strip channel the fixture has, and
+its own scalar channel of that name when it has one.
+
+### Autocomplete ranks lighting commands first
+A declared light's own verbs sort above pattern methods. Nothing is filtered
+out, so `.slow()` is still reachable on a light.
+
+### Bare colour names highlight
+The eleven colour names and `pick` are painted in the editor, with six new hues
+themed across every theme.
+
+### `.viz()` widgets kept running when commented out
+The cause was the scan, not the registry: it cut each line at the first `//`, so
+a block comment went straight through, and a `//` inside a string hid real calls
+after it. `source-scan.ts` now blanks comments and string contents properly and
+counts one hit per call rather than per line.
+
+### The colour picker is a wheel
+A drawn HSV disc with a value bar, keyboard reachable, themed, closing on
+Escape or a click away. It emits the same `#rrggbb` the native input did.
+
+### `.chase()` and `rainbowChase()` no longer clear a dedicated white
+Every colour path now writes r, g and b and leaves W where the scene put it.
+`.full()` is still the call that lights every emitter.
+
+### `rgbwStrip.fill(r, g, b)` with three numbers
+Three values are a mix leaving W alone. Four still write W.
+
+### Reading a colour token cost three times what it should
+`colorPattern()` reads the source once per arc and shares it across the three
+components. On a 48-pixel strip that is 144 queries a tick down to one.
