@@ -704,6 +704,10 @@ export type FixtureInstance = {
    * absent on this fixture are skipped silently so the same call works
    * across rgb / rgbw / dim-rgb / dim-rgbw / moving-head fixtures.
    *
+   * A colour strip channel takes the mix on every one of its pixels, the same
+   * as .fill() on that strip. A fixture with both spellings gets both. A mono
+   * strip has no colour to mix and is left alone.
+   *
    * On a fixture whose def gives a slotted channel the name `color`, meaning a
    * colour wheel, a single argument addresses that channel instead: a slot
    * name, a raw DMX value, or a pattern stepping through slots. The arity
@@ -715,6 +719,7 @@ export type FixtureInstance = {
    *   wash.color(1, 0, 0, 0.3)    // red + a touch of white (RGBW)
    *   wash.color(sine(), 0, 0)    // animated red
    *   wash.color()                // full white
+   *   wash.color(red)             // every pixel, on a wash whose colour is its strip
    *   head.color('open')          // a wheel slot, on a fixture that has one
    */
   color(
@@ -1240,12 +1245,33 @@ export function fixture(
         inst.set(name, v);
         painted++;
       };
+      // White stays opt-in: a three-argument call is a colour mix that the
+      // fixture's own white channel would wash out. Read once, because the
+      // pixels below take the same value.
+      const w = args.length > 3 ? channelValue([args[3]], '.color() w') : undefined;
       paint('red', r);
       paint('green', g);
       paint('blue', b);
-      // White stays opt-in: a three-argument call is a colour mix that the
-      // fixture's own white channel would wash out.
-      if (args.length > 3) paint('white', channelValue([args[3]], '.color() w'));
+      if (w !== undefined) paint('white', w);
+      // A fixture whose colour lives in its pixels still has colour, and this
+      // used to throw on it: the 154-channel wash answered .red(1) and refused
+      // .color(red), while the hover panel advertised the call. An emitter name
+      // means that emitter everywhere the fixture has one, so a mix means every
+      // pixel of every colour strip, which is what .fill() on that strip writes.
+      // A mono strip is one level per cell with no colour to mix, so it is left
+      // alone here exactly as the named setters leave it.
+      for (const ch of def.channels) {
+        if (ch.type !== 'strip' || ch.pixelLayout === 'mono') continue;
+        const strip = inst[ch.name] as { fill?: (...vs: PatternOrValue[]) => void } | undefined;
+        if (typeof strip?.fill !== 'function') continue;
+        // Three values unless the call named a white and the strip has one to
+        // take it. An RGBW strip handed three leaves its W where the scene put
+        // it, which is the rule every colour path follows: .full() is the call
+        // that lights every emitter.
+        if (ch.pixelLayout === 'rgbw' && w !== undefined) strip.fill(r, g, b, w);
+        else strip.fill(r, g, b);
+        painted++;
+      }
       // A fixture with no colour channels at all cannot honour this, and
       // returning quietly would leave the scene looking correct and the light
       // unchanged.

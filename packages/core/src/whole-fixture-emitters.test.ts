@@ -14,6 +14,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { defineFixture, fixture, rgbStrip } from './fixtures.js';
+import { COLORS } from './colors.js';
 import { tick, clearDefs, getUniverseBuffer } from './dmx.js';
 
 beforeEach(() => {
@@ -50,6 +51,20 @@ defineFixture('cell-bar', {
   name: 'Cell bar', manufacturer: 'test', type: 'generic', channelCount: 4,
   channels: [
     { offset: 0, name: 'cells', type: 'strip', pixelCount: 4, pixelLayout: 'mono' },
+  ],
+});
+
+// The 154-channel wash, declared here rather than resolved by id: the real
+// 'atomic-strobe-154ch' is a public definition the browser loads at runtime, so
+// the engine's own tests cannot reach it. Same shape, channel for channel: a
+// master dimmer, a strobe, a 12x4 RGB matrix and eight white segments.
+defineFixture('atomic-154', {
+  name: 'Atomic 154', manufacturer: 'Generic', type: 'generic', channelCount: 154,
+  channels: [
+    { offset: 0, name: 'dim', type: 'intensity' },
+    { offset: 1, name: 'strobe', type: 'strobe' },
+    { offset: 2, name: 'pixels', type: 'strip', pixelCount: 48, pixelLayout: 'rgb', columns: 12, origin: 'bottom-right' },
+    { offset: 146, name: 'strip', type: 'strip', pixelCount: 8, pixelLayout: 'mono', origin: 'top-right' },
   ],
 });
 
@@ -132,5 +147,110 @@ describe('a named emitter on a fixture with a strip', () => {
     (wash.red as (v: number) => void)(1);
     wash.off();
     expect(channels(13)).toEqual(Array(13).fill(0));
+  });
+});
+
+/**
+ * .color() follows the same rule as the named setters above.
+ *
+ * It did not, and the fixture that shows it is the one people own: on the
+ * 154-channel wash, `.red(1)` painted all 48 pixels and `.color(red)` threw
+ * "this fixture has no red/green/blue channels", while the hover panel listed
+ * color(r,g,b) among the calls the fixture answers to. A mix now reaches every
+ * colour strip, exactly as .fill() on that strip writes it.
+ */
+describe('.color() on a fixture whose colour lives in a strip', () => {
+  /** The 48 pixels of the matrix as r, g, b triples. */
+  function matrix(): number[][] {
+    tick(0);
+    const b = getUniverseBuffer(0);
+    return Array.from({ length: 48 }, (_, i) => [b[2 + i * 3], b[3 + i * 3], b[4 + i * 3]]);
+  }
+
+  /** The eight white strobe segments, one level each. */
+  function segments(): number[] {
+    tick(0);
+    return Array.from(getUniverseBuffer(0).slice(146, 154));
+  }
+
+  it('paints every pixel of the matrix', () => {
+    const wash = fixture(1, 'atomic-154');
+    wash.color(COLORS.red);
+    expect(matrix()).toEqual(Array.from({ length: 48 }, () => [255, 0, 0]));
+  });
+
+  it('takes the same mix spelled as three values', () => {
+    const wash = fixture(1, 'atomic-154');
+    wash.color(1, 0.4, 0);
+    expect(matrix()).toEqual(Array.from({ length: 48 }, () => [255, 102, 0]));
+  });
+
+  it('takes a pattern of colour tokens', () => {
+    // One colour that changes with the pattern, held by every pixel at once.
+    // The stand-in is what a pick() of colour names hands the channel writer.
+    const wash = fixture(1, 'atomic-154');
+    wash.color({ queryArc: () => [{ value: COLORS.blue }] });
+    expect(matrix()).toEqual(Array.from({ length: 48 }, () => [0, 0, 255]));
+  });
+
+  it('is full white on the pixels when handed nothing', () => {
+    const wash = fixture(1, 'atomic-154');
+    wash.color();
+    expect(matrix()).toEqual(Array.from({ length: 48 }, () => [255, 255, 255]));
+  });
+
+  it('leaves the control channels and the white segments alone', () => {
+    // The eight segments are a dedicated white emitter, and a three-component
+    // mix does not touch one. .full() is the call that lights everything, and
+    // dim and strobe steer rather than emit.
+    const wash = fixture(1, 'atomic-154');
+    wash.color(COLORS.green);
+    tick(0);
+    expect(Array.from(getUniverseBuffer(0).slice(0, 2))).toEqual([0, 0]);
+    expect(segments()).toEqual(Array(8).fill(0));
+  });
+
+  it('drives the fixture channel and the pixels together', () => {
+    // Both spellings of red on one fixture, the way .red(1) already drives both.
+    const wash = fixture(1, 'scalar-and-strip');
+    wash.color(1, 0, 0);
+    expect(channels(9)).toEqual([255, 255, 0, 0, 0, 255, 0, 0, 0]);
+  });
+
+  it('leaves the dedicated white of an RGBW strip where the scene put it', () => {
+    const wash = fixture(1, 'scalar-and-strip');
+    (wash.white as (v: number) => void)(0.5);
+    wash.color(1, 0, 0);
+    expect(channels(9)).toEqual([255, 255, 0, 0, 128, 255, 0, 0, 128]);
+  });
+
+  it('writes that white when the call names it', () => {
+    const wash = fixture(1, 'scalar-and-strip');
+    wash.color(1, 0, 0, 0.2);
+    expect(channels(9)).toEqual([255, 255, 0, 0, 51, 255, 0, 0, 51]);
+  });
+
+  it('still refuses a palette on one light', () => {
+    // A run of stops spread across the pixels is .fill()'s job. One light is
+    // one position, whether that light is a par or 48 pixels behaving as one.
+    const wash = fixture(1, 'atomic-154');
+    expect(() => (wash.color as (...a: unknown[]) => void)([COLORS.red, COLORS.blue]))
+      .toThrow('takes one colour, not 2');
+  });
+
+  it('still throws on a fixture with no colour anywhere', () => {
+    // Mono cells are levels, so there is no mix to paint and returning quietly
+    // would leave the scene looking correct and the bar unchanged.
+    const bar = fixture(1, 'cell-bar');
+    expect(() => bar.color(1, 0, 0)).toThrow(
+      'Fixture "Cell bar".color(): this fixture has no red/green/blue channels. Channels: cells.',
+    );
+  });
+
+  it('leaves .full() as the call that lights the white segments too', () => {
+    const wash = fixture(1, 'atomic-154');
+    wash.full();
+    expect(segments()).toEqual(Array(8).fill(255));
+    expect(matrix()).toEqual(Array.from({ length: 48 }, () => [255, 255, 255]));
   });
 });

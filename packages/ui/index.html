@@ -1671,6 +1671,68 @@
         font-family: inherit;
       }
 
+      /* ─── Fixture provenance tags ──────────────────────────────────────
+         Where a fixture came from, on every row that shows one. Defined
+         out here rather than inside the library panel's block because the
+         docs panel tags the fixtures it documents with the same class
+         names, and one colour code kept in two places stops being one
+         colour code.
+
+         The label is what says which tier a row is. The colour is a second
+         reading of the same fact, so nothing is lost by a reader who
+         cannot separate four hues, and nothing is lost on the monochrome
+         themes, where there are not four hues to separate.
+
+         The four take their hue from the syntax palette rather than from
+         --accent and friends. A theme's chrome is one accent pair plus a
+         sage, which is three warm ambers on safelight and three greens on
+         glow tape; the syntax half is the part of the schema already
+         solved for spread and for contrast on all thirteen themes. Each is
+         then mixed 15% toward --text, because a syntax colour is solved
+         against --bg and these pills sit on --surface, one step off it.
+         Worst case over every theme in themes.ts: 4.6:1 for the text, and
+         the two closest tags 25 apart in Lab on the ten themes that have
+         hues at all. */
+      .fx-tag {
+        display: inline-block;
+        padding: 1px 7px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        vertical-align: middle;
+        color: var(--text-muted);
+      }
+      /* Fill and outline follow the tag's own colour, so a tier is
+         recognisable before the word is read. The fill is held to 8%: the
+         label sits on it, and the contrast quoted above is measured
+         through it. */
+      .fx-tag-builtin,
+      .fx-tag-public,
+      .fx-tag-saved,
+      .fx-tag-session {
+        border-color: color-mix(in srgb, currentColor 45%, var(--border));
+        background: color-mix(in srgb, currentColor 8%, transparent);
+      }
+      /* Cool for what arrived with the app, warm for what came from you,
+         and within each pair the quieter colour is the one that persists.
+         So the loudest tag on the list sits on the session fixture, which
+         is the one that will be gone on the next reload. */
+      .fx-tag-builtin {
+        color: color-mix(in srgb, var(--syn-meta) 85%, var(--text));
+      }
+      .fx-tag-public {
+        color: color-mix(in srgb, var(--syn-move) 85%, var(--text));
+      }
+      .fx-tag-saved {
+        color: color-mix(in srgb, var(--syn-fixture-ref) 85%, var(--text));
+      }
+      .fx-tag-session {
+        color: color-mix(in srgb, var(--syn-output) 85%, var(--text));
+      }
+
       /* ─── Fixture library panel ────────────────────────────────────────
          Lives in its own .docs-panel instance with a distinct id, reusing
          the slide-in layout / scrollbar / sticky header styling from the
@@ -1755,19 +1817,6 @@
         color: var(--text-muted);
         line-height: 1.45;
         margin: -4px 0 10px;
-      }
-      /* Pill next to a public fixture's name so it's obvious it's not
-         user-local state. */
-      .lib-row-tag {
-        display: inline-block;
-        padding: 1px 7px;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        font-size: 9px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--accent2);
-        vertical-align: middle;
       }
 
       .lib-row {

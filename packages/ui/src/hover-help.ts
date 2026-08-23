@@ -20,7 +20,12 @@
 import { hoverTooltip, type Tooltip } from '@codemirror/view';
 import type { EditorView } from '@codemirror/view';
 import { HELP_INDEX, type HelpEntry } from './help-data.js';
-import { describeLight, findLight, type LightInfo } from './declared-lights.js';
+import {
+  describeLight,
+  findLight,
+  formatChannelMap,
+  type LightInfo,
+} from './declared-lights.js';
 
 const IDENT_CHAR = /[A-Za-z0-9_$]/;
 
@@ -108,8 +113,9 @@ function renderTooltip(entry: HelpEntry): HTMLElement {
 /**
  * Build the tooltip for a light the user declared.
  *
- * Same three rows as an API entry, plus the list of verbs, because the useful
- * thing about a fixture you patched is which channels it turned out to have.
+ * Same three rows as an API entry, plus the channel map and the list of verbs,
+ * because the useful thing about a fixture you patched is which channels it
+ * turned out to have and what they answer to.
  */
 function renderLightTooltip(info: LightInfo): HTMLElement {
   const root = document.createElement('div');
@@ -124,6 +130,23 @@ function renderLightTooltip(info: LightInfo): HTMLElement {
   desc.className = 'gobo-hover-help-desc';
   desc.textContent = info.note ?? info.summary;
   root.appendChild(desc);
+
+  if (info.channels.length > 0) {
+    const mapLabel = document.createElement('div');
+    mapLabel.className = 'gobo-hover-help-ex-label';
+    mapLabel.textContent = 'channels';
+    root.appendChild(mapLabel);
+
+    const map = document.createElement('pre');
+    // The example block's class, because this is the same thing: columns of
+    // monospaced text whose whitespace has to survive. Styles live in theme.ts,
+    // and a second block that looked different would only ask why.
+    map.className = 'gobo-hover-help-ex';
+    // textContent rather than innerHTML: nothing here needs markup, so the
+    // escaping question does not arise.
+    map.textContent = formatChannelMap(info.channels).join('\n');
+    root.appendChild(map);
+  }
 
   if (info.commands.length > 0) {
     const label = document.createElement('div');

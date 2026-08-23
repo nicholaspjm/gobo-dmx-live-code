@@ -9,7 +9,13 @@
 
 import { describe, it, expect } from 'vitest';
 import { defineFixture } from '@gobo/core/fixtures';
-import { findLights, findLight, lightNames, describeLight } from './declared-lights.js';
+import {
+  findLights,
+  findLight,
+  lightNames,
+  describeLight,
+  formatChannelMap,
+} from './declared-lights.js';
 
 describe('findLights', () => {
   it('finds every constructor that makes something addressable', () => {
@@ -153,5 +159,117 @@ describe('describeLight', () => {
 
   it('falls back to a plain description when the count is an expression', () => {
     expect(only('const s = rgbStrip(start, count)').summary).toBe('An RGB strip.');
+  });
+});
+
+describe('the channel map', () => {
+  const only = (doc: string) => describeLight(findLights(doc)[0]);
+
+  // Shaped like the 154-channel wash in fixtures/: two scalar channels and two
+  // strips of different layouts. That fixture is the reason the map exists, and
+  // a copy of its shape is used here so the test does not depend on a
+  // definition someone else maintains.
+  defineFixture('test-wash-154ch', {
+    name: 'Test Wash', manufacturer: 'x', type: 'generic', channelCount: 154,
+    channels: [
+      { offset: 0, name: 'dim', type: 'intensity' },
+      { offset: 1, name: 'strobe', type: 'strobe' },
+      {
+        offset: 2, name: 'pixels', type: 'strip',
+        pixelCount: 48, pixelLayout: 'rgb', columns: 12,
+      },
+      { offset: 146, name: 'strip', type: 'strip', pixelCount: 8, pixelLayout: 'mono' },
+    ],
+  });
+
+  const wash = () => only("const wash = fixture(1, 'test-wash-154ch')");
+
+  it('puts each channel at the address it was patched to', () => {
+    expect(wash().channels.map((r) => [r.address, r.name, r.type])).toEqual([
+      [1, 'dim', 'intensity'],
+      [2, 'strobe', 'strobe'],
+      [3, 'pixels', 'strip'],
+      [147, 'strip', 'strip'],
+    ]);
+  });
+
+  it('gives a strip one row over the whole span it claims', () => {
+    const [, , pixels, strip] = wash().channels;
+    expect(pixels.span).toBe(48 * 3);
+    expect(pixels.strip).toEqual({ pixels: 48, layout: 'rgb', columns: 12 });
+    expect(strip.span).toBe(8);
+    expect(strip.strip).toEqual({ pixels: 8, layout: 'mono' });
+  });
+
+  it('prints a 154-channel fixture as four lines', () => {
+    // The rule the whole thing turns on: a 48-pixel strip is one row, not 48.
+    // A map that scrolls past the screen is one nobody reads.
+    expect(formatChannelMap(wash().channels)).toEqual([
+      '      1  dim     intensity',
+      '      2  strobe  strobe',
+      '  3-146  pixels  strip · 48 rgb pixels · 12 across, 4 down',
+      '147-154  strip   strip · 8 mono cells',
+    ]);
+  });
+
+  it('marks the positions as relative when the address is an expression', () => {
+    const info = only("const wash = fixture(base, 'test-wash-154ch')");
+    expect(info.channels.map((r) => r.address)).toEqual([null, null, null, null]);
+    expect(formatChannelMap(info.channels)).toEqual([
+      '      +1  dim     intensity',
+      '      +2  strobe  strobe',
+      '  +3-146  pixels  strip · 48 rgb pixels · 12 across, 4 down',
+      '+147-154  strip   strip · 8 mono cells',
+    ]);
+  });
+
+  it('reads the map in address order whatever order the definition lists', () => {
+    defineFixture('test-unsorted', {
+      name: 'Unsorted', manufacturer: 'x', type: 'rgb', channelCount: 3,
+      channels: [
+        { offset: 2, name: 'blue', type: 'color' },
+        { offset: 0, name: 'red', type: 'color' },
+        { offset: 1, name: 'green', type: 'color' },
+      ],
+    });
+    expect(only("const p = fixture(5, 'test-unsorted')").channels.map((r) => r.address))
+      .toEqual([5, 6, 7]);
+  });
+
+  it('cuts a long map short rather than growing past the window', () => {
+    defineFixture('test-twenty', {
+      name: 'Twenty', manufacturer: 'x', type: 'generic', channelCount: 20,
+      channels: Array.from({ length: 20 }, (_, i) => ({
+        offset: i, name: `ch${i + 1}`, type: 'generic' as const,
+      })),
+    });
+    const info = only("const d = fixture(1, 'test-twenty')");
+    // The map itself keeps every channel; only the printed form is cut, so a
+    // panel with room for all of them is not held to the tooltip's limit.
+    expect(info.channels).toHaveLength(20);
+    const lines = formatChannelMap(info.channels);
+    expect(lines).toHaveLength(17);
+    expect(lines[16]).toContain('… 4 more channels');
+  });
+
+  it('adds to the summary and the command list rather than replacing them', () => {
+    const info = wash();
+    expect(info.summary).toBe('Test Wash · 154 channels · 1 to 154');
+    expect(info.commands).toContain('dim(v)');
+    expect(info.commands).toContain('pixels.fill(r,g,b)');
+  });
+
+  it('has no map for an id the scene has not run yet', () => {
+    // defineFixture registers at run time, so before the first run there is no
+    // definition to read a map out of. The note says so and stands alone.
+    const info = only("const w = fixture(1, 'not-defined-yet')");
+    expect(info.channels).toEqual([]);
+    expect(info.note).toContain('defineFixture');
+  });
+
+  it('has no map for a strip, which declares its layout in the call', () => {
+    expect(only('const s = rgbStrip(1, 12, 0, { columns: 4 })').channels).toEqual([]);
+    expect(only('const room = screen(9)').channels).toEqual([]);
+    expect(only('const rig = group(a, b)').channels).toEqual([]);
   });
 });

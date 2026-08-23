@@ -13,6 +13,10 @@
  * rankFixtures() at the bottom of this file. It shares nothing with the docs
  * panel's search except the look of the input: what a library holds is
  * fixture definitions, and the question asked of it is a different one.
+ *
+ * Every row carries a tag saying which of the four tiers its fixture came
+ * from. The class names are shared with the docs panel and the colours behind
+ * them live in index.html; see provenanceTag() below.
  */
 
 import {
@@ -34,6 +38,43 @@ import { getPublicFixtures } from './public-fixtures.js';
 /** Destination of the GitHub "share" flow. Kept here so a repo rename
  *  is a one-line change. */
 const PUBLIC_REPO_SLUG = 'nicholaspjm/gobo-dmx-live-code';
+
+/**
+ * The four places a fixture on a row can have come from.
+ *
+ *   builtin  ships in the core, read-only, always there.
+ *   public   community-contributed, bundled with the app.
+ *   saved    pinned into this browser's storage by the user.
+ *   session  declared with defineFixture() in the running scene, not saved.
+ */
+export type RowTier = 'builtin' | 'public' | 'saved' | 'session';
+
+/** What the tag on a row says for each tier. Saved fixtures say "yours"
+ *  because the question a row answers is whose fixture this is, not what
+ *  happened to it. */
+const TIER_LABEL: Record<RowTier, string> = {
+  builtin: 'built-in',
+  public: 'public',
+  saved: 'yours',
+  session: 'session',
+};
+
+/**
+ * The provenance tag for one row.
+ *
+ * The class names are a contract shared with the docs panel, which tags
+ * the fixtures it documents the same way. The colours behind them are
+ * defined once in index.html rather than per panel, so the two cannot
+ * drift into two colour codes for one set of words.
+ *
+ * The label is always written out. The colour says the same thing a
+ * second way, so a reader who cannot separate the hues loses nothing, and
+ * neither does anyone on the monochrome themes, which have no four hues
+ * to give.
+ */
+export function provenanceTag(tier: RowTier): string {
+  return `<span class="fx-tag fx-tag-${tier}">${TIER_LABEL[tier]}</span>`;
+}
 
 /** Mount the library panel inside the page. The caller owns the toggle
  *  button's visibility; this only wires its click handler. The optional
@@ -275,16 +316,6 @@ export function mountLibraryPanel(opts: {
     return pieces.join(' · ');
   }
 
-  type RowTier = 'builtin' | 'public' | 'saved' | 'session';
-
-  /** What a search result calls the block it would otherwise have sat in. */
-  const TIER_LABEL: Record<RowTier, string> = {
-    builtin: 'built-in',
-    public: 'public',
-    saved: 'yours',
-    session: 'session',
-  };
-
   /** `match` is set only in the search view, where it names the field the
    *  query landed on. */
   function renderRow(
@@ -321,21 +352,25 @@ export function mountLibraryPanel(opts: {
     const extraClass =
       tier === 'session' ? ' lib-row-unsaved' :
       tier === 'builtin' ? ' lib-row-builtin' : '';
-    // A search result is out of its block, so it carries the tier it came
-    // from and the field the query landed on. Without the second tag a
-    // fixture found by a sentence about one of its channels reads as a
-    // mistake, since nothing visible on the row says the word.
-    const tierTag = match
-      ? ` <span class="lib-row-tag">${TIER_LABEL[tier]}</span>` +
-        ` <span class="lib-row-tag">${MATCH_LABEL[match]}</span>`
-      : tier === 'public'  ? ` <span class="lib-row-tag">public</span>` :
-        tier === 'builtin' ? ` <span class="lib-row-tag">built-in</span>` : '';
+    // Every row says where its fixture came from. The grouped view has a
+    // heading over each block, but a heading scrolls away and a search
+    // result is out of its block entirely, so provenance belongs on the
+    // row rather than on the list around it.
+    //
+    // A search result adds a second tag for the field the query landed on.
+    // Without it a fixture found by a sentence about one of its channels
+    // reads as a mistake, since nothing visible on the row says the word.
+    // That one is the plain pill: it is not provenance, and it should not
+    // read as a fifth tier.
+    const tags =
+      ` ${provenanceTag(tier)}` +
+      (match ? ` <span class="fx-tag">${MATCH_LABEL[match]}</span>` : '');
     return `
       <div class="lib-row${extraClass}">
         <div class="lib-row-meta">
           <div class="lib-row-title">
             <span class="lib-row-id">${escapeText(entry.id)}</span>
-            <span class="lib-row-name">${escapeText(entry.def.name)}</span>${tierTag}
+            <span class="lib-row-name">${escapeText(entry.def.name)}</span>${tags}
           </div>
           <div class="lib-row-sub">${escapeText(channelSummary(entry.def))} · ${escapeText(channelNamesSummary(entry.def))}</div>
           <pre class="lib-row-usage">${escapeText(usageExample(entry.id, entry.def))}</pre>

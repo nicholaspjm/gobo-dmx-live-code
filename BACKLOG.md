@@ -22,6 +22,14 @@ already blanks strings and comments properly for the widget scan. Pointing the
 highlighter at the same helper would fix this and the same class of mistake in
 comments.
 
+### Two copies of the fixture tier labels
+`TIER_LABEL` is declared in both `packages/ui/src/library.ts` and
+`packages/ui/src/docs.ts`, with the same four keys and the same four words. They
+agree today. This is the shape of problem `colors.ts` already has an opinion
+about, several lists that did not agree, and the fix is to export one and import
+it. Left alone because the two panels are otherwise independent and coupling
+them needs a shared module that does not exist yet.
+
 ### Sliders stop following the stored value after a re-run
 `_sliderWidgets` in `inline-viz.ts` is filled during `refreshViz`, so after a
 re-run where the decoration compares equal it holds instances that were never

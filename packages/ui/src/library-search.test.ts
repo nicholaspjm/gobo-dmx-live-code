@@ -1,5 +1,6 @@
 /**
- * Ranking for the fixture library's search.
+ * Ranking for the fixture library's search, and the provenance tag every
+ * row carries.
  *
  * The rule the whole thing hangs off: a fixture is ranked by what it IS
  * before what is written about it. Someone searching a library at a gig has
@@ -18,7 +19,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import type { ChannelDef, FixtureDef } from '@gobo/core';
-import { rankFixtures } from './library.js';
+import { rankFixtures, provenanceTag, type RowTier } from './library.js';
 
 vi.mock('@gobo/core', () => ({
   getLibraryFixtures: () => [],
@@ -267,5 +268,30 @@ describe('rankFixtures', () => {
     // moving-head-basic is named it; the other two carry it in their names.
     expect(ids('moving')).toEqual(['moving-head-basic', 'spot-12ch', 'wash-14ch']);
     expect(ids('moving')).toEqual(ids('moving'));
+  });
+});
+
+describe('provenanceTag', () => {
+  const TIERS: RowTier[] = ['builtin', 'public', 'saved', 'session'];
+
+  it('gives every tier the shared base class and its own', () => {
+    // The pair is the contract with the docs panel: .fx-tag is the pill,
+    // .fx-tag-<tier> is the colour. A tag with only one of them is either
+    // uncoloured or unshaped.
+    for (const tier of TIERS) {
+      expect(provenanceTag(tier)).toContain(`class="fx-tag fx-tag-${tier}"`);
+    }
+  });
+
+  it('writes the label out, so the colour is never the only thing saying it', () => {
+    expect(provenanceTag('builtin')).toContain('>built-in<');
+    expect(provenanceTag('public')).toContain('>public<');
+    expect(provenanceTag('saved')).toContain('>yours<');
+    expect(provenanceTag('session')).toContain('>session<');
+  });
+
+  it('says a different word for each tier', () => {
+    const words = new Set(TIERS.map((t) => provenanceTag(t).replace(/<[^>]*>/g, '')));
+    expect(words.size).toBe(TIERS.length);
   });
 });

@@ -11,11 +11,41 @@
 
 import { EXAMPLES } from './examples.js';
 
+/**
+ * Where a fixture came from. The library panel tags every row with one of
+ * these four, and the docs use the same four words for the same four things,
+ * so the tag on a row and the paragraph that explains it are recognisably one
+ * idea. The class names are shared with the panel and the rules for them live
+ * in index.html; nothing here styles them.
+ */
+type FixtureTier = 'builtin' | 'public' | 'saved' | 'session';
+
+/** The word on the pill, matching what the library panel prints. */
+const TIER_LABEL: Record<FixtureTier, string> = {
+  builtin: 'built-in',
+  public: 'public',
+  saved: 'yours',
+  session: 'session',
+};
+
+function renderTiers(tiers: readonly FixtureTier[] | undefined): string {
+  if (!tiers || tiers.length === 0) return '';
+  return tiers
+    .map((t) => ` <span class="fx-tag fx-tag-${t}">${TIER_LABEL[t]}</span>`)
+    .join('');
+}
+
 interface DocEntry {
   name: string;
   signature: string;
   description: string;
   example?: string;
+  /**
+   * Provenance pills shown beside the name. Only the fixtures orientation
+   * uses them: an entry about fixtures you saved wears the same tag the
+   * library panel puts on the row, so the two are learned once.
+   */
+  tiers?: FixtureTier[];
   /**
    * When present, the entry renders as a button that loads the bundled
    * example with this id into the editor. Kept as an id rather than a
@@ -183,6 +213,81 @@ const DOCS: DocSection[] = [
     ],
   },
 
+  // ─── fixtures: orientation ──────────────────────────────────────────────
+  // Where a definition comes from, before what a fixture can do. The tab used
+  // to open on fixture() and close on the catalogue, with the four sources
+  // written down nowhere, so the first question anyone asks of a lighting tool
+  // was the one it did not answer. The catalogue at the foot of the tab is
+  // still the reference list; this is the orientation in front of it, and it
+  // points at that list rather than repeating it.
+  {
+    category: 'fixtures',
+    title: 'where fixtures come from',
+    blurb:
+      'A fixture definition is the map from a channel number to what that channel does, and there are four places one can come from: the generics that ship with gobo, the public library other people contributed, the fixtures you saved, and a defineFixture() written in the scene in front of you. They are the same thing once patched, so the difference is about where it lives and who wrote it. The library panel tags every fixture with which of the four it is.',
+    entries: [
+      {
+        name: 'defineFixture',
+        signature: 'defineFixture(id, def)',
+        tiers: ['session'],
+        description:
+          "Write your own map and patch it like anything else: after this call, fixture(startChannel, id) works with your id. A def is { name, manufacturer, type, channelCount, channels }. name and manufacturer are labels, shown in the library panel and on hover in the sim. type says what the fixture is in general terms, one of 'dimmer', 'rgb', 'rgba', 'rgbw', 'moving-head', 'strobe' or 'generic'; it is used for searching and grouping and never for addressing. channelCount is the whole footprint, every channel the fixture occupies whether you named it or not, because that is what says whether the patch fits in the universe. channels is the list of the ones you want names for, and one you leave out simply never gets written.",
+        example:
+          "defineFixture('house-par', {\n  name: 'House PAR',\n  manufacturer: 'Acme',\n  type: 'rgbw',\n  channelCount: 6,\n  channels: [\n    { offset: 0, name: 'dim',    type: 'intensity' },\n    { offset: 1, name: 'red',    type: 'color' },\n    { offset: 2, name: 'green',  type: 'color' },\n    { offset: 3, name: 'blue',   type: 'color' },\n    { offset: 4, name: 'white',  type: 'color' },\n    { offset: 5, name: 'strobe', type: 'strobe' },\n  ],\n})\n\nconst par = fixture(21, 'house-par')   // channels 21 to 26\npar.color(red)\npar.strobe(mini('1 - 1 -'))",
+      },
+      {
+        name: 'a channel is offset, name, type',
+        signature: '{ offset, name, type }',
+        description:
+          "offset is 0-based and counts from wherever the fixture was patched, so offset 0 of a fixture at channel 21 is channel 21. It is the only thing that decides the address: list the channels in any order you like, as long as each offset is right and no two share one. name is what a scene calls it, so name: 'red' gives you .red(v), and the generic helpers read the names too, which is how .color() knows what to paint and .off() knows what to darken. type is the semantic hint, one of 'intensity', 'color', 'position', 'strobe', 'control', 'generic' or 'strip'; it changes no address at all. It decides how the sim draws the fixture, and a channel typed 'intensity' counts as light whatever it is called, which is how .off() reaches a blinder's warm1 and cold1 without those being colour names. Of the seven, only 'strip' takes more than one channel.",
+        example:
+          "// the same par, patched twice\nconst a = fixture(21, 'house-par')   // dim on 21, white on 25\nconst b = fixture(41, 'house-par')   // dim on 41, white on 45",
+      },
+      {
+        name: "type: 'strip'",
+        signature: "{ offset, name, type: 'strip', pixelCount: N }",
+        description:
+          "The one channel entry that claims more than one channel. A strip takes pixelCount pixels' worth from its offset, three channels per pixel by default, four under pixelLayout 'rgbw' and one under 'mono', and instead of a setter it puts a whole nested strip on the fixture under its name: wash.pixels.fill(red) rather than wash.pixels(v). Scalar channels before and after it work normally, and a fixture may carry more than one: the public atomic-strobe-154ch has a 48-pixel RGB matrix called pixels and an 8-segment white bar called strip, either side of a master dimmer and a strobe. The options that describe its shape are under 'strip channel (in defineFixture)' below, and what they do to addressing is under 'grids'.",
+        example:
+          "// one channel entry inside a def, claiming channels 3 to 146\n{ offset: 2, name: 'pixels', type: 'strip', pixelCount: 48,\n  pixelLayout: 'rgb', columns: 12 }\n\nconst wash = fixture(1, 'my-wash')\nwash.dim(1)\nwash.pixels.chase(red)",
+      },
+      {
+        name: 'the built-in generics',
+        signature: "fixture(1, 'rgbw')",
+        tiers: ['builtin'],
+        description:
+          'Nine definitions ship inside gobo for the fixtures that have no personality: dim, rgb, rgbw, rgba, dim-rgb, dim-rgbw, moving-head-basic, moving-head-spot and strobe. Nothing has to be imported, saved or contributed for these, and a scene written against one runs on anyone else\'s machine unchanged. A generic is enough whenever the channels you care about are contiguous and in the order the name implies, which covers most PARs, battens and cheap heads: patch it at the right address and drive it. Write your own instead when the fixture has channels the generic cannot name, when its channels sit in a different order, or when it has pixels. The channel list for each one is under \'built-in fixture catalogue\' at the foot of this tab.',
+        example:
+          "const par  = fixture(1, 'dim-rgb')      // 4 channels: dim, r, g, b\nconst head = fixture(5, 'moving-head-basic')\nconsole.log(listFixtures())            // every id currently registered",
+      },
+      {
+        name: 'the public library',
+        signature: 'fixtures/ at the repo root',
+        tiers: ['public'],
+        description:
+          'Definitions other people wrote and contributed, bundled into the app so they need no import step: patch one by its id and it is there. Each is one JSON file in fixtures/ at the repo root, loaded by packages/ui/src/public-fixtures.ts at build time. Every file is schema-checked on the way in, so a broken one is dropped with a console warning rather than taking the app down with it, but that check is on shape and size only. It cannot know whether the channel order matches the light in front of you, and these were written by other people, from their manual and their firmware. Read the row\'s channel list against your own manual before a show. If it disagrees, copy the definition out of the panel, fix it, and save it as yours.',
+        example:
+          "const atomic = fixture(1, 'atomic-strobe-154ch')\natomic.dim(1)\natomic.pixels.eachXY((x, y, w) => sine().early(x / w).slow(4))\natomic.strip.fill(mini('1 - - -'))",
+      },
+      {
+        name: 'saved, or only this scene',
+        signature: 'the library panel promotes one to the other',
+        tiers: ['saved', 'session'],
+        description:
+          "A defineFixture() call lives exactly as long as the scene that holds it. Open another scene and the id is unknown again, which is what you want while you are still working out what the channels are. When it is right, open the library panel: the fixture is listed under 'Defined this session' with a save to library button, and saving pins it to this browser. Saved fixtures are registered again at startup, so fixture(1, 'house-par') works in a fresh scene with no defineFixture line in it at all. They are per browser and are not synced: export one to a file to carry it to another machine, or share it to propose it for the public library. Deleting one does not touch a scene that is already running.",
+        example:
+          "// in the scene: session only, gone when the scene is\ndefineFixture('house-par', { /* … */ })\n\n// after 'save to library': just this, in any scene\nconst par = fixture(21, 'house-par')",
+      },
+      {
+        name: 'which one is this',
+        signature: 'the tag on the row',
+        tiers: ['builtin', 'public', 'saved', 'session'],
+        description:
+          'Open the library panel and every fixture wears the tag for where it came from: built-in for one shipped with gobo, public for a contributed one, yours for one you saved, session for one the current scene declared and nothing has saved yet. It matters where two of them nearly agree: a public definition you edited and saved is yours, the public copy is still there and still says public, and the two can differ by the channel you fixed. Each row also opens up to show the code that makes it, generated from the definition itself, which is the quickest way to start your own: find the nearest fixture, copy its defineFixture call into the scene, and change what is wrong.',
+      },
+    ],
+  },
+
   {
     category: 'fixtures',
     title: 'fixtures',
@@ -196,14 +301,6 @@ const DOCS: DocSection[] = [
           "Create a fixture instance. Returns an object with one setter per named channel (e.g. .red(), .dim(), .pan()) plus generic helpers .color(r,g,b[,w]), .off(), .full(). Built-in ids: dim, rgb, rgbw, rgba, dim-rgb, dim-rgbw, moving-head-basic, moving-head-spot, strobe. (The old `generic-*` ids still resolve via alias.) Universe defaults to 0 (matches Art-Net / TouchDesigner's first-universe convention).",
         example:
           "const wash = fixture(1, 'rgbw')\nwash.color(1, 0, 0, 0.3)        // red + a touch of white\nwash.red(sine().slow(4))         // or pick channels directly\n\n// Second universe\nconst par2 = fixture(1, 'rgbw', 1)",
-      },
-      {
-        name: 'defineFixture',
-        signature: 'defineFixture(id, def)',
-        description:
-          "Register a custom fixture. def has { name, manufacturer, type, channelCount, channels:[{offset,name,type}] }. After this, fixture(addr, id) works with your own id.",
-        example:
-          "defineFixture('my-par', {\n  name: 'My PAR',\n  manufacturer: 'Acme',\n  type: 'rgbw',\n  channelCount: 5,\n  channels: [\n    {offset:0, name:'dim',   type:'intensity'},\n    {offset:1, name:'red',   type:'color'},\n    {offset:2, name:'green', type:'color'},\n    {offset:3, name:'blue',  type:'color'},\n    {offset:4, name:'white', type:'color'},\n  ]\n})",
       },
       {
         name: 'listFixtures',
@@ -231,7 +328,7 @@ const DOCS: DocSection[] = [
         name: 'strip channel (in defineFixture)',
         signature: "{ offset, name, type: 'strip', pixelCount: N, pixelLayout?: 'rgb' | 'rgbw' }",
         description:
-          "Inside defineFixture(), a channel with type 'strip' claims pixelCount × channelsPerPixel DMX channels starting at its offset and exposes a nested StripInstance on the fixture. pixelLayout defaults to 'rgb' (3 chs/pixel); set it to 'rgbw' for a 4-ch-per-pixel RGBW strip, which gives you .fill(r,g,b,w), .pixel(i,r,g,b,w), and a .white(v) setter. Scalar channels before and after work normally, so a dimmer, a strobe, and a pixel segment can live in one fixture.",
+          "The options on the channel itself. What it is is at the top of this tab: it claims pixelCount × channelsPerPixel channels from its offset and exposes a nested StripInstance under its name. pixelLayout defaults to 'rgb' (3 chs/pixel); set it to 'rgbw' for a 4-ch-per-pixel RGBW strip, which gives you .fill(r,g,b,w), .pixel(i,r,g,b,w), and a .white(v) setter. Scalar channels before and after work normally, so a dimmer, a strobe, and a pixel segment can live in one fixture.",
         example:
           "defineFixture('my-bar', {\n  name: 'Custom Bar', manufacturer: 'Generic', type: 'generic',\n  channelCount: 12,\n  channels: [\n    { offset: 0,  name: 'dim',    type: 'intensity' },\n    { offset: 1,  name: 'strobe', type: 'strobe' },\n    { offset: 2,  name: 'pixels', type: 'strip', pixelCount: 3 }, // ch 3-11\n    { offset: 11, name: 'mode',   type: 'control' },\n  ],\n})\nconst bar = fixture(100, 'my-bar')\nbar.dim(0.8)\nbar.pixels.fill(sine(), 0, 0)\nbar.pixels.pixel(1, 1, 0, 0)",
       },
@@ -239,7 +336,7 @@ const DOCS: DocSection[] = [
         name: 'fixture library',
         signature: "open the 'library' panel in the top bar",
         description:
-          "Three tiers of fixture definitions: (1) built-ins in the core (dim, rgb, rgbw, etc.), always available; (2) public library, community-contributed files in fixtures/ at the repo root, bundled into the app; (3) your library, anything you defined and pinned locally via localStorage. The library panel shows the public bundle and your pinned/session entries with save / export / delete / share actions. Share opens a pre-filled GitHub page to propose your fixture as a PR to the public library. Every incoming fixture (file import or public bundle) is schema-validated against size and type limits, and rejected if its id collides with a built-in.",
+          "All four tiers in one list, tagged the way they are described at the top of this tab, and the place you act on them: save a session fixture to this browser, export one as a .gobo-fixture.json file, delete one of yours, or share it, which opens a pre-filled GitHub page proposing it as a pull request to the public library. Every fixture arriving from outside, a file import or the public bundle, is schema-validated against size and type limits and rejected if its id collides with a built-in. The search runs across all four tiers at once and says which tier a result came from and which field the query landed on, because at a gig you want the fixture and not the tier it happens to be in.",
       },
     ],
   },
@@ -1583,7 +1680,7 @@ function renderSection(sec: DocSection): string {
         : '';
       return `
         <div class="doc-entry" data-search="${escapeHtml(searchBag)}">
-          <div class="doc-sig"><span class="doc-name">${escapeHtml(e.name)}</span> <span class="doc-signature">${escapeHtml(e.signature)}</span></div>
+          <div class="doc-sig"><span class="doc-name">${escapeHtml(e.name)}</span> <span class="doc-signature">${escapeHtml(e.signature)}</span>${renderTiers(e.tiers)}</div>
           ${desc}
           ${example}
         </div>`;
@@ -1740,7 +1837,7 @@ function renderResultEntry(entry: DocEntry, section: DocSection): string {
     <div class="doc-entry doc-result">
       <div class="doc-sig">
         <span class="doc-name">${escapeHtml(entry.name)}</span>
-        <span class="doc-signature">${escapeHtml(entry.signature)}</span>
+        <span class="doc-signature">${escapeHtml(entry.signature)}</span>${renderTiers(entry.tiers)}
         <span class="doc-section-tag">${escapeHtml(section.title)}</span>
       </div>
       ${desc}

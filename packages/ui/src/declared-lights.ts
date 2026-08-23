@@ -4,7 +4,8 @@
  * `const wash = fixture(1, 'rgb')` binds a name to a thing with its own
  * channels and its own verbs, and the editor is told none of it: eval runs in
  * a sandbox and hands back no metadata. So the declaration is read directly,
- * which is enough to say what a name is and what it answers to.
+ * which is enough to say what a name is, what it answers to, and, once the id
+ * resolves to a definition, which address each of its channels lands on.
  *
  * Three surfaces want this and each used to carry its own copy of the regex:
  * syntax colouring (which names to paint as fixtures), autocomplete (which
@@ -24,6 +25,7 @@ import {
   fixtureCommands,
   groupCommands,
   stripCommands,
+  type ChannelDef,
   type FixtureDef,
 } from '@gobo/core/fixtures';
 
@@ -123,12 +125,50 @@ export function findLight(doc: string, name: string): LightDecl | undefined {
   return found;
 }
 
+/** The pixels behind one strip channel, for the row that stands for it. */
+export interface StripRow {
+  pixels: number;
+  layout: 'rgb' | 'rgbw' | 'mono';
+  /** Pixels per row, when the definition declares a grid. */
+  columns?: number;
+}
+
+/**
+ * One line of a fixture's channel map.
+ *
+ * A scalar channel covers one channel. A strip covers the whole span it claims:
+ * the 48-pixel wash in the library is 144 of them, and a line each would bury
+ * the two channels either side. One row is also how a person thinks about a
+ * strip, as a block of addresses with a shape.
+ */
+export interface ChannelRow {
+  name: string;
+  type: ChannelDef['type'];
+  /** 0-based offset from the fixture's start channel, as the definition gives it. */
+  offset: number;
+  /** Channels covered: 1 for a scalar, pixelCount * channelsPerPixel for a strip. */
+  span: number;
+  /** Absolute 1-based address of the first channel covered, or null when the
+   *  patch address is an expression and cannot be read from the text. */
+  address: number | null;
+  /** Set only on a strip channel. */
+  strip?: StripRow;
+}
+
 /** What to show for a declared light. */
 export interface LightInfo {
   /** The call that made it, normalised. */
   signature: string;
   /** One line: what it is and how many channels it holds. */
   summary: string;
+  /**
+   * Which channel sits where, in address order. Only a fixture has one: a
+   * strip declares its whole layout in the call that made it, so a map of it
+   * would repeat the summary word for word.
+   *
+   * Empty when the fixture id is not loaded, for the same reason `commands` is.
+   */
+  channels: ChannelRow[];
   /** What it answers to. Empty when the fixture id is not loaded. */
   commands: string[];
   /** Set when something could not be resolved, explaining what to do. */
@@ -172,6 +212,92 @@ function gridNote(cols: number | null, pixels: number | null): string {
   return ` · ${cols} across, ${Math.ceil(pixels / cols)} down`;
 }
 
+/** How many channels one pixel of a strip claims. Same mapping the fixture
+ *  module applies, including its default: a layout left out is rgb. */
+function channelsPerPixel(layout: StripRow['layout']): number {
+  return layout === 'rgbw' ? 4 : layout === 'mono' ? 1 : 3;
+}
+
+/**
+ * The channel map of a fixture definition, in address order.
+ *
+ * `start` is the patched address, or null when it was written as an expression;
+ * the rows then carry their offsets and no absolute addresses, because the
+ * layout is still readable even when the address it lands on is not.
+ */
+function channelMap(def: FixtureDef, start: number | null): ChannelRow[] {
+  const rows = def.channels.map((ch): ChannelRow => {
+    const address = start === null ? null : start + ch.offset;
+    if (ch.type !== 'strip') {
+      return { name: ch.name, type: ch.type, offset: ch.offset, span: 1, address };
+    }
+    const layout = ch.pixelLayout ?? 'rgb';
+    const pixels = ch.pixelCount ?? 0;
+    return {
+      name: ch.name,
+      type: ch.type,
+      offset: ch.offset,
+      span: pixels * channelsPerPixel(layout),
+      address,
+      strip: { pixels, layout, columns: ch.columns },
+    };
+  });
+  // A definition may list its channels in any order, and a hand-written one
+  // often does. The map is meant to read like the patch sheet, so it is sorted
+  // rather than trusted.
+  return rows.sort((a, b) => a.offset - b.offset);
+}
+
+/**
+ * Rows printed before the map is cut short.
+ *
+ * A tooltip taller than the window is unreadable and cannot be scrolled back
+ * into view. Strips already collapse to a row each, so the cut only bites on a
+ * fixture with dozens of scalar channels, where the library panel is the place
+ * to read the whole thing anyway. Sixteen clears every fixture that ships, the
+ * 14-channel moving head included.
+ */
+const MAX_CHANNEL_ROWS = 16;
+
+/** The address column: one channel, or the span a strip claims. */
+function rowAddress(row: ChannelRow): string {
+  // With no address in the text the position within the fixture is still
+  // known, and is marked so it cannot be read as a real DMX channel.
+  const mark = row.address === null ? '+' : '';
+  const first = row.address ?? row.offset + 1;
+  return row.span > 1 ? `${mark}${first}-${first + row.span - 1}` : `${mark}${first}`;
+}
+
+/** The type column, carrying what a strip holds. */
+function rowDetail(row: ChannelRow): string {
+  if (row.strip === undefined) return row.type;
+  const { pixels, layout, columns } = row.strip;
+  const cells = layout === 'mono' ? 'cells' : 'pixels';
+  return `${row.type} · ${pixels} ${layout} ${cells}${gridNote(columns ?? null, pixels)}`;
+}
+
+/**
+ * The channel map as lines for a monospaced block, columns padded to align.
+ *
+ * Kept here rather than in the tooltip because the alignment depends on the
+ * whole map, and because this way it can be tested without a browser.
+ */
+export function formatChannelMap(rows: ChannelRow[]): string[] {
+  if (rows.length === 0) return [];
+  const shown = rows.slice(0, MAX_CHANNEL_ROWS);
+  const addresses = shown.map(rowAddress);
+  const addrWidth = Math.max(...addresses.map((a) => a.length));
+  const nameWidth = Math.max(...shown.map((r) => r.name.length));
+  const lines = shown.map(
+    (r, i) => `${addresses[i].padStart(addrWidth)}  ${r.name.padEnd(nameWidth)}  ${rowDetail(r)}`,
+  );
+  const hidden = rows.length - shown.length;
+  if (hidden > 0) {
+    lines.push(`${' '.repeat(addrWidth)}  … ${hidden} more channel${hidden === 1 ? '' : 's'}`);
+  }
+  return lines;
+}
+
 function describeFixture(decl: LightDecl): LightInfo {
   const start = intArg(decl.args[0]);
   const id = unquote(decl.args[1]);
@@ -183,6 +309,7 @@ function describeFixture(decl: LightDecl): LightInfo {
     return {
       signature,
       summary: 'A patched fixture.',
+      channels: [],
       commands: [],
       note: 'The fixture id is not a plain string here, so its channels cannot be read from the text.',
     };
@@ -192,6 +319,7 @@ function describeFixture(decl: LightDecl): LightInfo {
     return {
       signature,
       summary: `Fixture "${id}".`,
+      channels: [],
       commands: [],
       note: `No fixture is loaded under that id. If it comes from defineFixture, run the scene once; otherwise check the library panel for the id.`,
     };
@@ -200,6 +328,7 @@ function describeFixture(decl: LightDecl): LightInfo {
   return {
     signature,
     summary: `${def.name} · ${channelSpan(start, def.channelCount)}${uni}`,
+    channels: channelMap(def, start),
     commands: fixtureCommands(def),
   };
 }
@@ -207,7 +336,7 @@ function describeFixture(decl: LightDecl): LightInfo {
 function describeStrip(decl: LightDecl, layout: 'rgb' | 'rgbw' | 'mono'): LightInfo {
   const start = intArg(decl.args[0]);
   const pixels = intArg(decl.args[1]);
-  const stride = layout === 'rgbw' ? 4 : layout === 'mono' ? 1 : 3;
+  const stride = channelsPerPixel(layout);
   const cols = columnsOf(decl.args.slice(2));
   const per = layout === 'mono' ? '1 channel each' : `${stride} channels each`;
   const cells = layout === 'mono' ? 'cells' : 'pixels';
@@ -218,6 +347,7 @@ function describeStrip(decl: LightDecl, layout: 'rgb' | 'rgbw' | 'mono'): LightI
   return {
     signature: `${decl.kind}(${decl.args.join(', ')})`,
     summary,
+    channels: [],
     commands: stripCommands(layout),
   };
 }
@@ -233,6 +363,7 @@ function describeScreen(decl: LightDecl): LightInfo {
   return {
     signature: `screen(${decl.args.join(', ')})`,
     summary,
+    channels: [],
     commands: stripCommands('rgb'),
   };
 }
@@ -244,6 +375,9 @@ function describeGroup(decl: LightDecl): LightInfo {
     summary: n === 0
       ? 'A group.'
       : `${n} member${n === 1 ? '' : 's'} under one name. Roles a member does not have are skipped.`,
+    // A group's channels are its members', each with a map of its own, and the
+    // members are names here rather than declarations.
+    channels: [],
     commands: groupCommands(),
   };
 }
