@@ -86,11 +86,26 @@ step; `--uninstall` undoes that.
 
 Then open the app and press `ctrl+enter`.
 
-Two quieter routes are prepared but not live yet, both of which skip the
-SmartScreen warning the downloaded file raises. `npx gobo-connector` needs the
+Three quieter routes are prepared but not live yet, each of them skipping the
+warning a downloaded file raises. On macOS and Linux that is Homebrew:
+
+```bash
+brew tap nicholaspjm/gobo https://github.com/nicholaspjm/gobo-dmx-live-code
+brew install gobo-connector
+```
+
+Nothing gobo ships is signed, and a browser marks what it downloads as
+quarantined, which is why Gatekeeper refuses the macOS connector and why
+allowing it under Privacy and Security is often not enough on Apple Silicon.
+Homebrew strips that attribute off what it installs, so the same unsigned
+binary simply runs. The formula is
+[Formula/gobo-connector.rb](Formula/gobo-connector.rb) in this repository, no
+separate tap repo, and it covers Apple Silicon macs and x86_64 Linux, which is
+what the release builds. It carries no checksums until a release publishes the
+connector archives, so brew refuses it today. `npx gobo-connector` needs the
 package published to npm, and `winget install nicholaspjm.gobo` needs the
-manifests accepted into `microsoft/winget-pkgs`. Neither works until then, so
-the download above is the route today.
+manifests accepted into `microsoft/winget-pkgs`. None of the three works yet,
+so the download above is the route.
 
 Using a USB DMX box, or sending through TouchDesigner? None of the above: those
 are the two the page drives on its own, back in section 1.

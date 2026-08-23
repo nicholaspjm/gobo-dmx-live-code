@@ -17,12 +17,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # tarball is the same binary packed for Homebrew, which installs from
+          # an archive rather than a loose file. Windows has no formula and no
+          # tarball, so the steps that make one skip that leg.
           - os: windows-latest
             artifact: gobo-connector-windows.exe
+            tarball: ''
           - os: macos-latest
             artifact: gobo-connector-macos
+            tarball: gobo-connector-macos-arm64.tar.gz
           - os: ubuntu-latest
             artifact: gobo-connector-linux
+            tarball: gobo-connector-linux-x86_64.tar.gz
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -47,10 +53,46 @@ jobs:
           sleep 5
           curl -sf --max-time 5 http://localhost:3001/ > /dev/null && echo "connector responded" || (echo "connector did not respond"; exit 1)
           kill $PID
+      - name: Pack the archive the formula installs
+        if: matrix.tarball != ''
+        shell: bash
+        env:
+          # bsdtar on macOS otherwise writes an AppleDouble "._" entry beside
+          # the binary to carry its extended attributes, and that ends up in
+          # the archive as a second file the formula never asked for.
+          COPYFILE_DISABLE: '1'
+        run: |
+          # Homebrew wants an archive, not a loose binary. A browser download of
+          # a bare file loses the execute bit, while a tar entry carries its own
+          # mode, so this is the copy that survives the trip. The bare binaries
+          # stay in the release for people who just want one file.
+          #
+          # The architecture is in the name and the formula pins to it, so check
+          # the runner is the machine we think it is. Shipping an arm64 build
+          # labelled x86_64 fails on a stranger's machine with "bad CPU type",
+          # which is exactly what the formula exists to avoid.
+          case "${{ matrix.tarball }}" in
+            *arm64*)  want=arm64 ;;
+            *x86_64*) want=x86_64 ;;
+            *)        echo "no architecture in ${{ matrix.tarball }}"; exit 1 ;;
+          esac
+          arch=$(uname -m)
+          [ "$arch" = "$want" ] || { echo "runner is $arch but the archive is named $want"; exit 1; }
+
+          cp release/${{ matrix.artifact }} release/gobo-connector
+          chmod +x release/gobo-connector
+          tar -czf release/${{ matrix.tarball }} -C release gobo-connector
+          rm release/gobo-connector
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: release/${{ matrix.artifact }}
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: matrix.tarball != ''
+        with:
+          name: ${{ matrix.tarball }}
+          path: release/${{ matrix.tarball }}
           if-no-files-found: error
 
   desktop:
@@ -127,5 +169,92 @@ jobs:
             `chmod +x gobo-connector-macos` and to allow it under Privacy and
             Security.
 
+            The two `.tar.gz` files are the same macOS and Linux binaries with
+            the execute bit intact, which is what the Homebrew formula in
+            `Formula/gobo-connector.rb` installs. A browser download of the
+            bare file is what loses that bit, hence the `chmod` above.
+
             Using a USB DMX interface instead? No download is needed: pick it
             with the `usb()` output straight from the browser.
+
+  formula:
+    # Point the Homebrew formula at the release that just went out.
+    #
+    # Two facts decide the shape of this job. A formula needs the sha256 of
+    # files that do not exist until the release is published, so it cannot run
+    # earlier. And brew reads a tap from its default branch, not from the tag,
+    # so the copy that matters is the one on main. That means this job commits
+    # to the default branch from CI, which has consequences worth saying
+    # plainly. The tag keeps whatever the formula said when it was cut, so the
+    # two differ by one commit on purpose. main gains a commit nobody wrote by
+    # hand. A branch protection rule that blocks pushes fails this job, and the
+    # formula then has to be updated by hand. A push made with this workflow's
+    # own token starts no further workflow run, so deploy.yml does not rebuild
+    # the site for it, which is fine because the formula is not part of the
+    # site. One file is touched and nothing else.
+    needs: [release]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # A tag push checks out a detached HEAD, which cannot be pushed. The
+          # formula belongs on the branch brew will read.
+          ref: ${{ github.event.repository.default_branch }}
+          # This job pushes, so it needs the token left in the remote.
+          persist-credentials: true
+      - name: Write this release into the formula
+        shell: bash
+        env:
+          BASE: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          formula=Formula/gobo-connector.rb
+          version="${GITHUB_REF_NAME#v}"
+          mac_url="$BASE/gobo-connector-macos-arm64.tar.gz"
+          lin_url="$BASE/gobo-connector-linux-x86_64.tar.gz"
+
+          # Hash the files as published rather than the ones the build job made.
+          # Same bytes either way, but downloading proves the URL the formula
+          # will hand to brew actually resolves, which hashing a local copy does
+          # not. The retry covers the seconds between a release appearing and
+          # its assets being fetchable.
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o mac.tar.gz "$mac_url"
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o lin.tar.gz "$lin_url"
+          mac_sha=$(sha256sum mac.tar.gz | cut -d' ' -f1)
+          lin_sha=$(sha256sum lin.tar.gz | cut -d' ' -f1)
+
+          # Every line this job owns ends in a "# gobo:" marker, so each edit is
+          # a line replacement rather than a guess at which hash belongs to
+          # which block. A missing marker means the formula was restructured and
+          # this job is about to write nothing, so it stops instead.
+          rewrite() {
+            local marker="# gobo:$1" body="$2"
+            grep -qF "$marker" "$formula" || { echo "no line marked '$marker' in $formula"; exit 1; }
+            sed -i "s|^\([[:space:]]*\).*$marker|\1$body $marker|" "$formula"
+          }
+
+          rewrite version "version \"$version\""
+          rewrite "url macos-arm64" "url \"$mac_url\""
+          rewrite "sha256 macos-arm64" "sha256 \"$mac_sha\""
+          rewrite "url linux-x86_64" "url \"$lin_url\""
+          rewrite "sha256 linux-x86_64" "sha256 \"$lin_sha\""
+
+          # Matched on the sha256 line rather than the whole file: the comment
+          # at the top of the formula explains the placeholder by name, and
+          # finding it there is not a reason to stop.
+          if grep -n 'sha256 "PENDING' "$formula"; then
+            echo "the formula still has a placeholder checksum, refusing to commit it"
+            exit 1
+          fi
+          grep -nE '# gobo:(version|url|sha256)' "$formula"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git diff --quiet -- "$formula"; then
+            echo "formula already matches this release"
+            exit 0
+          fi
+          git add "$formula"
+          git commit -m "Formula: gobo-connector $version"
+          git push

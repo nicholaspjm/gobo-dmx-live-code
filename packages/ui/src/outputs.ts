@@ -12,12 +12,15 @@
  */
 
 import {
+  connectorNotice,
+  getConnectorInfo,
   getDirectUrl,
   getOutputConfig,
   isConnected,
   isDirectConnected,
   isUsbConnected,
   isUsbDmxSupported,
+  type ConnectorNotice,
 } from '@gobo/core';
 
 // ─── The table ───────────────────────────────────────────────────────────────
@@ -300,6 +303,26 @@ export function needsConnectorUnlock(): boolean {
   return !isBridgeConnected();
 }
 
+/**
+ * What to say about the connector's version, or null when there is nothing to
+ * say.
+ *
+ * The case that matters is silence. No connector released so far announces
+ * itself, so a page that hears nothing is talking to one built before the
+ * handshake, and that is the build that cost a rig three rounds of debugging
+ * over a fix it did not have. A connector ahead of the page is not a fault and
+ * gets one quiet line.
+ *
+ * Nothing here blocks anything. A connector behind the page carries every frame
+ * it is given; it is only missing whatever has been fixed since.
+ */
+export function connectorVersionNotice(): ConnectorNotice | null {
+  // The desktop build has its sender inside it, built from the same checkout,
+  // so the two cannot disagree and there is no separate file to replace.
+  if (isDesktopBuild()) return null;
+  return connectorNotice(getConnectorInfo());
+}
+
 export interface ConnectionSummary {
   /**
    * 'idle' means no output has been chosen, which is not a failure.
@@ -321,8 +344,24 @@ export interface ConnectionSummary {
  * The bridge, direct output and a USB interface are independent, and a scene can
  * use two of them together. Reading only the bridge socket meant the label said
  * "disconnected" over a rig being driven happily over USB.
+ *
+ * A stale connector is folded into the tooltip rather than the label. The label
+ * has room for three words and this is not more urgent than the ones already in
+ * it: output is going out either way. Only the facts go here, on their own line
+ * so they do not run on from a sentence ending in "click for the full list".
+ * What to do about it is a paragraph, and belongs in the panel that click opens.
  */
 export function connectionSummary(): ConnectionSummary {
+  const summary = resolveConnection();
+  const notice = connectorVersionNotice();
+  if (notice?.level === 'stale') {
+    return { ...summary, title: `${summary.title}\n\n${notice.reason}` };
+  }
+  return summary;
+}
+
+/** The state of the three links, before anything is said about versions. */
+function resolveConnection(): ConnectionSummary {
   const direct = getDirectUrl();
   const config = getOutputConfig();
   const usb = isUsbConnected();
@@ -448,6 +487,8 @@ export function mountOutputsPanel(opts: {
     const up = isBridgeConnected();
     box.className = up ? 'connector-status up' : 'connector-status';
 
+    const notice = up ? connectorVersionNotice() : null;
+
     const head = document.createElement('div');
     head.className = 'connector-status-head';
     const dot = document.createElement('span');
@@ -457,9 +498,22 @@ export function mountOutputsPanel(opts: {
     name.textContent = up ? 'connector running' : 'connector not running';
     head.append(dot, name);
 
+    // Deliberately the plain badge and not the sage one: being out of date is
+    // not a state to congratulate, and it is not a failure either.
+    if (notice) {
+      const flag = document.createElement('span');
+      flag.className = 'output-badge';
+      flag.textContent = notice.badge;
+      head.appendChild(flag);
+    }
+
     const where = document.createElement('span');
     where.className = 'connector-status-where';
-    where.textContent = up ? 'localhost:3001' : '';
+    // The version reads as part of the address, since both answer "which one am
+    // I talking to". Left off when none was sent, which the line below explains
+    // rather than leaving as a blank to puzzle over.
+    const version = up ? getConnectorInfo()?.version : null;
+    where.textContent = up ? (version ? `${version} · localhost:3001` : 'localhost:3001') : '';
     head.appendChild(where);
 
     const what = document.createElement('p');
@@ -473,6 +527,19 @@ export function mountOutputsPanel(opts: {
         + 'page cannot put those packets on the network itself. Without it, usb() and td() '
         + 'still work from the browser alone.';
     box.append(head, what);
+
+    // Printed, not folded away: a connector missing fixes is the answer to a
+    // question nobody knew to ask, and someone who has to open something to
+    // find it never will. Two classes, for the spacing of one and the
+    // foreground colour of the other, so it reads as the answer rather than as
+    // more of the blurb above it.
+    if (notice) {
+      const line = document.createElement('p');
+      line.className = 'connector-status-what output-reason';
+      line.textContent = notice.fix ? `${notice.reason} ${notice.fix}` : notice.reason;
+      box.appendChild(line);
+    }
+
     // When it is not running, the next question is always "so how do I start
     // it", and the answer was nowhere on screen. Folded away rather than
     // printed, because it is three routes and only one of them is yours.

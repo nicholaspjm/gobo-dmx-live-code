@@ -5,7 +5,26 @@
  *
  * Wire format (JSON):
  *   { type: "dmx", universes: { "1": [0, 128, 255, ...], ... } }
+ *
+ * The bridge answers on the same socket, though only to say what it is. See
+ * connector-version.ts for what arrives and what the page does about it.
  */
+
+import { parseConnectorMessage, type ConnectorReport } from './connector-version.js';
+
+// The UI reaches this package through its index, which re-exports this file, so
+// the version helpers travel out with it. They are pure and hold no socket;
+// they pass through here because the package exposes one entry point and this
+// is the file that owns the connection they describe.
+export {
+  APP_VERSION,
+  HANDSHAKE_SINCE,
+  compareVersions,
+  connectorAge,
+  connectorNotice,
+  parseConnectorMessage,
+} from './connector-version.js';
+export type { ConnectorAge, ConnectorHello, ConnectorNotice, ConnectorReport } from './connector-version.js';
 
 /**
  * Pick the bridge host:
@@ -49,6 +68,12 @@ let _connected = false;
 // A Set rather than one slot: several parts of the UI care about the
 // connection (the status dot, the run status line, the connector prompt), and
 // a single slot silently drops every listener but the last one registered.
+//
+// Listeners are handed the current state whenever anything about the connection
+// changes, which includes the moment the connector's version settles a beat
+// after the socket opens. So a listener can be called twice with the same
+// boolean, and every one of these has to be a repaint from current state rather
+// than a reaction to an edge.
 const _onStatusChange = new Set<(connected: boolean) => void>();
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let _reconnectDelay = RECONNECT_MIN_MS;
@@ -57,6 +82,31 @@ let _url = BRIDGE_URL;
 /** Whether this run of disconnection has already been logged. One line per
  *  outage, not one per attempt. */
 let _loggedOutage = false;
+
+/**
+ * What the connector said it is, and when this connection opened.
+ *
+ * A connector built before the handshake existed sends nothing at all, so
+ * silence here is an answer rather than a gap: the version stays null and the
+ * clock is what turns that into "older than the build that started saying".
+ * Both reset on every connection, because the next process to accept us can be
+ * a different build from the last one.
+ */
+let _connectorVersion: string | null = null;
+let _connectedAt = 0;
+let _helloTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * How long to let a hello arrive before deciding none is coming.
+ *
+ * The connector sends it from its own connection handler, so over loopback it
+ * lands in the same millisecond the socket opens, and the LAN case this file
+ * allows is a couple of hops more. Two seconds is a wide margin over that, and
+ * most of it is there for a page whose main thread is busy evaluating a scene
+ * when the answer arrives. It is also short enough to have settled long before
+ * anyone can open the panel that reports it, which is where it is read.
+ */
+const HELLO_GRACE_MS = 2000;
 
 // The last output config the scene asked for, kept so it can be re-sent.
 // The bridge only knows what it has been told since it started, and it falls
@@ -75,14 +125,57 @@ export function isConnected(): boolean {
   return _connected;
 }
 
+/**
+ * What the connector announced about itself, or null when none is connected.
+ *
+ * `version` is null when nothing has been announced, which is the normal state
+ * for every connector released so far. `settled` is what separates "it has not
+ * arrived yet" from "it is never arriving", and only the second is worth
+ * reporting to anyone.
+ */
+export function getConnectorInfo(): ConnectorReport | null {
+  if (!_connected) return null;
+  return {
+    version: _connectorVersion,
+    settled: _connectorVersion !== null || Date.now() - _connectedAt >= HELLO_GRACE_MS,
+  };
+}
+
+/**
+ * The connector's identity has settled: a hello arrived, or the grace period
+ * passed without one.
+ *
+ * This runs the connection listeners again rather than keeping a second list of
+ * its own. Which connector is on the other end is part of what this connection
+ * is, and it lands a moment after the socket opens, so everything painted at
+ * connect was painted before there was an answer. One list means every surface
+ * that reports on the connection corrects itself, rather than the ones that
+ * remembered to subscribe twice.
+ */
+function announceConnector(): void {
+  for (const fn of _onStatusChange) fn(_connected);
+}
+
+function forgetConnector(): void {
+  _connectorVersion = null;
+  if (_helloTimer) {
+    clearTimeout(_helloTimer);
+    _helloTimer = null;
+  }
+}
+
 export function connectBridge(url = BRIDGE_URL): void {
   _url = url;
   if (_ws) {
     _ws.onopen = null;
     _ws.onclose = null;
     _ws.onerror = null;
+    _ws.onmessage = null;
     _ws.close();
     _ws = null;
+    // Its onclose was just removed, so nothing else will retire what it told
+    // us. What a connector said belongs to the one connection it said it on.
+    forgetConnector();
   }
   if (_reconnectTimer) {
     clearTimeout(_reconnectTimer);
@@ -100,6 +193,14 @@ export function connectBridge(url = BRIDGE_URL): void {
     _connected = true;
     _reconnectDelay = RECONNECT_MIN_MS;
     _loggedOutage = false;
+    _connectedAt = Date.now();
+    forgetConnector();
+    // Nothing will arrive to announce an old connector, so the deadline is the
+    // only thing that can settle the question for one.
+    _helloTimer = setTimeout(() => {
+      _helloTimer = null;
+      announceConnector();
+    }, HELLO_GRACE_MS);
     // Re-apply the scene's output config. A fresh bridge starts on whatever
     // bridge.config.json says, which is not where the scene asked to send.
     flushConfig();
@@ -107,10 +208,31 @@ export function connectBridge(url = BRIDGE_URL): void {
     console.log('[gobo] bridge connected');
   };
 
+  // The bridge's own socket, not `_direct` further down: that one goes to
+  // TouchDesigner or whatever else the scene named, is never a connector, and
+  // is given no handler on purpose.
+  _ws.onmessage = (ev: MessageEvent) => {
+    // Everything unrecognised is dropped without a word. This direction carries
+    // one message today and will carry more, and a page that objected to the
+    // ones it had not been taught would break against the first connector newer
+    // than itself.
+    const msg = parseConnectorMessage(ev.data);
+    if (!msg) return;
+    _connectorVersion = msg.version;
+    if (_helloTimer) {
+      clearTimeout(_helloTimer);
+      _helloTimer = null;
+    }
+    announceConnector();
+  };
+
   _ws.onclose = () => {
     _connected = false;
     // The next bridge to accept us is a fresh process that has not been told
-    // anything, so the config counts as undelivered until it is re-sent.
+    // anything, so the config counts as undelivered until it is re-sent, and
+    // nothing learned about this one describes it. No announcement: the status
+    // change below already repaints everything that reads either.
+    forgetConnector();
     _configDelivered = false;
     for (const fn of _onStatusChange) fn(false);
     if (!_loggedOutage) {

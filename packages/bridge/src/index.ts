@@ -20,6 +20,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { createSocket, Socket } from 'dgram';
 import { createFrameRouter } from './frames.js';
 import { oscPacketsFor } from './osc.js';
+import { connectorHello } from './version.js';
 import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { resolve, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
@@ -68,6 +69,22 @@ function unknownModeMessage(value: unknown): string {
  * as gobo-connector, not as node.
  */
 const PACKAGED = !/^node(\.exe)?$/i.test(basename(process.execPath));
+
+/**
+ * Whether a package manager owns this copy, and therefore owns where it lives.
+ *
+ * The login item records the path it is running from, and `process.execPath` is
+ * resolved through symlinks, so under Homebrew it records the versioned Cellar
+ * directory rather than the stable one. The next `brew upgrade` moves that out
+ * from under it and the login item points at a connector that is stale or gone.
+ * That is precisely the failure this project has already spent two
+ * investigations on, so the connector does not install one here.
+ *
+ * Homebrew has its own answer, and the formula ships it:
+ * `brew services start gobo-connector`, written against the opt path and
+ * rewritten on every upgrade.
+ */
+const UNDER_PACKAGE_MANAGER = /[\\/](?:Cellar|linuxbrew)[\\/]/i.test(process.execPath);
 
 function resolveConfigPath(): string {
   const flag = process.argv.indexOf('--config');
@@ -827,6 +844,18 @@ wss.on('connection', (ws: WebSocket) => {
     console.error(`[bridge] client socket error: ${err.message}`);
   });
 
+  // Say what this connector is, before anything else happens on the socket. A
+  // page talking to a connector built before this existed hears nothing at all,
+  // which is the answer it needs: silence means older than the build that
+  // started saying. Sent after the error handler above is installed, so a client
+  // that vanishes during the write cannot take the process with it.
+  ws.send(JSON.stringify(connectorHello()), (err) => {
+    // A callback rather than none, so a failed write lands here instead of on
+    // the socket's shared error path. Nothing to do about it: the only page
+    // this mattered to has gone.
+    if (err) console.log(`[bridge] client left before the version reached it: ${err.message}`);
+  });
+
   ws.on('message', (raw) => {
     try {
       const msg = JSON.parse(raw.toString()) as Record<string, unknown>;
@@ -975,8 +1004,16 @@ httpServer.listen(PORT, () => {
   // First run of a downloaded connector sets itself up, so this is the only
   // time the user has to do anything. --no-install skips it, and the login
   // item itself passes that flag so it never re-registers.
-  if (PACKAGED && !process.argv.includes('--no-install') && !existsSync(loginItemPath())) {
+  if (
+    PACKAGED &&
+    !process.argv.includes('--no-install') &&
+    !UNDER_PACKAGE_MANAGER &&
+    !existsSync(loginItemPath())
+  ) {
     installLoginItem();
+  } else if (PACKAGED && UNDER_PACKAGE_MANAGER && !process.argv.includes('--no-install')) {
+    console.log('[gobo] installed by a package manager, so no login item was added.');
+    console.log('[gobo] start it at login with: brew services start gobo-connector');
   }
 
   if (UI_DIR) {
