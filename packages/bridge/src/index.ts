@@ -19,6 +19,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createSocket, Socket } from 'dgram';
 import { createFrameRouter } from './frames.js';
+import { oscPacketsFor } from './osc.js';
 import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { resolve, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
@@ -508,26 +509,8 @@ function sendSACN(sceneUniverse: number, data: number[]): void {
 
 // ─── OSC output ──────────────────────────────────────────────────────────────
 
-/** Pad a buffer length to the next 4-byte boundary. */
-function oscPad(len: number): number {
-  return Math.ceil(len / 4) * 4;
-}
-
-/** Build a single OSC message: address + type tag + float arg. */
-function buildOscMessage(address: string, value: number): Buffer {
-  // Address string (null-terminated, padded to 4 bytes)
-  const addrBuf = Buffer.alloc(oscPad(address.length + 1), 0);
-  addrBuf.write(address, 'ascii');
-
-  // Type tag ",f\0" padded to 4 bytes
-  const tagBuf = Buffer.from([0x2c, 0x66, 0x00, 0x00]); // ",f\0\0"
-
-  // Float32 big-endian
-  const valBuf = Buffer.alloc(4);
-  valBuf.writeFloatBE(value, 0);
-
-  return Buffer.concat([addrBuf, tagBuf, valBuf]);
-}
+// Building the packets lives in osc.ts, which holds no sockets and so can be
+// tested. This file only decides where to send them.
 
 let _oscSendCount = 0;
 const _oscPrevData = new Map<number, number[]>();
@@ -538,15 +521,11 @@ function sendOSC(universe: number, data: number[]): void {
   const port = config.osc?.port ?? 9000;
   const prev = _oscPrevData.get(universe);
 
-  // Send any channel that is non-zero OR was non-zero last frame (so zeros get sent)
-  for (let i = 0; i < data.length; i++) {
-    const raw = data[i] ?? 0;
-    const prevRaw = prev?.[i] ?? 0;
-    if (raw === 0 && prevRaw === 0) continue;
-    const address = `/gobo/${universe}/${i + 1}`;
-    const msg = buildOscMessage(address, raw / 255);
-    // One packet per channel, so an error here can fire hundreds of times per
-    // frame; reportSendError collapses the repeats.
+  // Bundles, not a datagram per channel. A channel goes in when it is lit, or
+  // when it was lit last frame and has gone out: a receiver holds its last
+  // value, so a channel that merely stops being mentioned would stay put.
+  const packets = oscPacketsFor(universe, data, prev);
+  for (const msg of packets) {
     udp.send(msg, port, host, (err) => {
       if (err) reportSendError('OSC', `${host}:${port}`, err);
     });
@@ -557,7 +536,10 @@ function sendOSC(universe: number, data: number[]): void {
   _oscSendCount++;
   if (_oscSendCount === 1 || _oscSendCount % 100 === 0) {
     const active = data.filter(v => v > 0).length;
-    console.log(`[bridge] OSC → ${host}:${port} uni${universe} (${active} active ch, packet #${_oscSendCount})`);
+    console.log(
+      `[bridge] OSC → ${host}:${port} uni${universe} ` +
+      `(${active} active ch in ${packets.length} packet(s), frame #${_oscSendCount})`,
+    );
   }
 }
 

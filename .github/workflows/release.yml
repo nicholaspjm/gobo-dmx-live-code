@@ -36,7 +36,13 @@ jobs:
         shell: bash
         run: |
           # Proves the binary runs on a clean machine rather than only building.
-          ./release/${{ matrix.artifact }} &
+          #
+          # The flags are load-bearing. A packaged connector adds itself as a
+          # login item and opens the hosted app the first time it runs, and a CI
+          # runner is neither a machine anyone logs into nor one with a browser
+          # to open. Without them this step is testing the wrong thing on a
+          # machine that cannot do it.
+          ./release/${{ matrix.artifact }} --no-install --no-open &
           PID=$!
           sleep 5
           curl -sf --max-time 5 http://localhost:3001/ > /dev/null && echo "connector responded" || (echo "connector did not respond"; exit 1)
