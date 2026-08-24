@@ -236,8 +236,8 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'mix',
     signature: 'mix(a, b, t) => Color',
     description:
-      'Blend two colours, t of the way from the first to the second. The escape hatch for a curve the even '
-      + 'spread across a palette does not give. Both endpoints come back as themselves, so mix(red, blue, 0) is red.',
+      'Blend two colours, t of the way from the first to the second. Use it when the even spread across a '
+      + 'palette is not the curve you want. Both endpoints come back as themselves, so mix(red, blue, 0) is red.',
     example: 'bar.pixels.each(p => mix(red, blue, p * p))',
     context: 'command',
     kind: 'function',
@@ -771,7 +771,7 @@ spot.white(mini('1 - - -').punch())`,
     label: 'mask',
     signature: '.mask(pattern) => Pattern',
     description:
-      'Gate a pattern: audible where the mask is on, silent where it is off. The pattern keeps running underneath, so it returns mid-motion.',
+      'Gate a pattern: it plays where the mask is on and is silent where it is off. The pattern keeps running underneath, so it returns mid-motion.',
     example: "wash.red(sine().slow(2).mask(mini('1 1 - -')))",
     context: 'pattern-method',
     kind: 'method',

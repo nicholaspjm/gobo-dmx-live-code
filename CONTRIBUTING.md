@@ -36,7 +36,7 @@ the hosted app a few minutes later.
 
 ## Dev setup
 
-Clone, `npm install`, `npm run dev`. The [README quick start](README.md#with-hardware-local-dev)
+Clone, `npm install`, `npm run dev`. The [README quick start](README.md#two-ways-to-run)
 has the commands. `npm run dev` starts **both** workspaces: the UI on
 http://localhost:3000 (Vite) and the bridge on ws://localhost:3001 (`tsx watch`,
 restarts on save). CI builds on Node 20.

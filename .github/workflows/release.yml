@@ -174,8 +174,8 @@ jobs:
             `Formula/gobo-connector.rb` installs. A browser download of the
             bare file is what loses that bit, hence the `chmod` above.
 
-            Using a USB DMX interface instead? No download is needed: pick it
-            with the `usb()` output straight from the browser.
+            A USB DMX interface needs no download: pick it with the `usb()`
+            output from the browser.
 
   formula:
     # Point the Homebrew formula at the release that just went out.

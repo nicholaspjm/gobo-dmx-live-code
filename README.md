@@ -2,9 +2,9 @@
 
 **Live-code DMX lighting in your browser.**
 
-Write pattern code, see results instantly on a 512-channel visualizer, and send to real hardware over a USB DMX interface, TouchDesigner, Art-Net or sACN.
+Write pattern code, watch it on a 512-channel visualizer, and send it to real hardware over a USB DMX interface, TouchDesigner, Art-Net or sACN.
 
-Powered by [@strudel/core](https://strudel.cc): the same waveform and cycle syntax used for live-coding music, wired up to DMX universes instead of audio.
+The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and cycle syntax used for live-coding music, wired up to DMX universes instead of audio.
 
 [![Licence: AGPL v3](https://img.shields.io/badge/Licence-AGPL%20v3-blue.svg)](LICENSE)
 
@@ -12,7 +12,7 @@ Powered by [@strudel/core](https://strudel.cc): the same waveform and cycle synt
 
 ---
 
-## Try it now
+## The hosted build
 
 **[Open gobo in your browser](https://nicholaspjm.github.io/gobo-dmx-live-code/)**. No install required.
 
@@ -20,22 +20,22 @@ Powered by [@strudel/core](https://strudel.cc): the same waveform and cycle synt
 
 ---
 
-## Features
+## What it does
 
-- **Live eval**: `Ctrl+Enter` to run; code takes effect on the next tick
-- **Pattern engine**: `sine()`, `cosine()`, `square()`, `saw()`, `rand()` and full mini-notation via Strudel
-- **512 channels per universe**, multiple universes via `uni()`
-- **Real-time visualizer**: 512-bar channel strip + fixture simulation, 30 fps
-- **Fixture system**: built-in profiles for RGB, RGBW, moving heads, strobes, and custom definitions
-- **Pixel strips**: `rgbStrip()` / `rgbwStrip()` with per-pixel, grid and chase helpers
-- **Multiple outputs**: Art-Net 4, sACN (E1.31), OSC, a USB DMX interface over WebSerial with nothing installed, TouchDesigner directly, or mock
-- **One working scene**, autosaved to the browser as you type, saved as a plain `.js` file when you want a durable copy
-- **Share links**: a link that carries the whole scene, no server involved
-- **Examples**: three bundled demo scenes, loaded from the top bar
-- **Fixture library**: built-in, bundled public, saved and session fixtures in one panel, with JSON import/export
-- **Reference panel**: click `docs` in the top bar for inline function reference, plus hover help and autocomplete
-- **Thirteen themes**, named after the lights they look like. `tungsten` (warm charcoal / terracotta) by default, through `bastardAmber`, `cyclorama`, `blackout`, `glowtape` and `surprisePink`
-- **Semantic highlighting**: fixtures, patterns, colour channels, movement, pixel methods and output config each get their own colour
+- `Ctrl+Enter` runs the code, and it takes effect on the next tick
+- `sine()`, `cosine()`, `square()`, `saw()`, `rand()` and full mini-notation, via Strudel
+- 512 channels per universe, multiple universes via `uni()`
+- A 512-bar channel strip and a fixture simulation, drawn at 30 fps
+- Built-in fixture profiles for RGB, RGBW, moving heads and strobes, and custom definitions
+- Pixel strips, `rgbStrip()` / `rgbwStrip()`, with per-pixel, grid and chase helpers
+- Output to Art-Net 4, sACN (E1.31), OSC, a USB DMX interface over WebSerial with nothing installed, TouchDesigner directly, or mock
+- One working scene, autosaved to the browser as you type, saved as a plain `.js` file when you want a durable copy
+- A share link that carries the whole scene, no server involved
+- Three bundled demo scenes, on the examples tab of the docs panel
+- Built-in, bundled public, saved and session fixtures in one library panel, with JSON import/export
+- Click `docs` in the top bar for inline function reference, plus hover help and autocomplete
+- Thirteen themes, named after the lights they look like. `tungsten` (warm charcoal / terracotta) by default, through `bastardAmber`, `cyclorama`, `blackout`, `glowtape` and `surprisePink`
+- Semantic highlighting: fixtures, patterns, colour channels, movement, pixel methods and output config each get their own colour
 
 ---
 
@@ -321,7 +321,7 @@ Every channel write goes through one function ([dmx.ts](packages/core/src/dmx.ts
 
 ## DMX output configuration
 
-Set the output from your code, at the top of the editor. Switching modes while running reconfigures the bridge on the fly:
+Set the output from your code, at the top of the editor. Switching modes while running reconfigures the bridge:
 
 ```js
 usb()                      // USB DMX box on this computer, nothing installed

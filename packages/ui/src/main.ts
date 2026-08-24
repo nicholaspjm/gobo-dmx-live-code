@@ -104,7 +104,8 @@ const wsLabelEl = document.getElementById('ws-label')!;
 const wsLockEl = document.getElementById('ws-lock') as HTMLElement;
 const outputStatusEl = document.getElementById('output-status') as HTMLButtonElement;
 
-// Scene bar: name plus save / open / share / examples.
+// Scene bar: name plus save / open / share. The bundled examples moved to
+// the docs panel, so the bar carries no control for them.
 const sceneNameEl = document.getElementById('scene-name') as HTMLElement;
 const sceneDirtyEl = document.getElementById('scene-dirty') as HTMLElement;
 const sceneSaveEl = document.getElementById('scene-save') as HTMLButtonElement;
@@ -1158,7 +1159,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ─── Scene bar ───────────────────────────────────────────────────────────────
-// Name (click to rename), save to file, open file, share link, examples.
+// Name (click to rename), save to file, open file, share link. Bundled
+// examples are on the docs panel, beside the reference that explains them.
 // There is no scene list any more: the browser holds one working buffer and
 // everything durable is a file or a link.
 
