@@ -168,31 +168,21 @@ uni(2, 1, sine().slow(4))
 
 ---
 
-## Scenes, files and links
+## Scenes and links
 
 There is **one working scene**. It autosaves to the browser as you type, debounced at ~0.5 s;
 switch that off under **autosave** in settings. A refresh, a crash or a closed laptop costs
-you nothing. Click the name in the top bar to rename it; the dot next to the name means the
-scene has changes that are not in a file yet.
+you nothing. Click the name in the top bar to rename it.
 
-Everything durable is a file or a link:
-
-| Top bar | What it does |
-|---------|--------------|
-| **save** | Downloads the scene as `<name>.js`: the code itself, nothing wrapped around it. Same as `Ctrl+S` |
-| **open** | File picker for `.js`, `.txt` or `.gobo`. The scene is named after the file it came from |
-| **share** | Copies a link containing the entire scene (see below) |
+A share link is the durable copy. **share** in the top bar copies a link carrying the entire
+scene, described below.
 
 The bundled demos live under the **docs** panel, on its examples tab: *start here* (the two
 lines a new browser opens on), *language tour* (everything the language does), and *four-colour
-bar demo* (one custom fixture end to end). Loading one replaces the editor, and asks first if
-you have changes not yet saved to a file.
+bar demo* (one custom fixture end to end). Loading one replaces the editor, and asks first.
 
-A saved file holds exactly what was in the editor, byte for byte. A scene is JavaScript, so it
-stays JavaScript: it opens with syntax highlighting in any editor, pastes into a gist, and diffs
-line by line. The name lives in the filename and the save time in the file's own timestamp.
-`.gobo` files written by earlier builds still open; whether a file is code or an old envelope is
-decided by reading it, not by its extension.
+Saving a scene to a `.js` file, and opening one back, is not in this release. The code for it
+is still here and still tested, behind one switch in `packages/ui/src/main.ts`.
 
 Anything that replaces the whole buffer (open, share link, example) **arrives stopped** and
 waits for `Ctrl+Enter`. It asks first if the current scene has changes you have not saved to a
@@ -239,7 +229,6 @@ anything else in this version.
 | `Ctrl+Enter` | Evaluate code |
 | `Ctrl+.` | Stop. Blackout by default, `freeze` if set that way in settings |
 | `Ctrl+Space` | Stop, as an alias that also preempts the autocomplete popup |
-| `Ctrl+S` | Save the scene to a `.js` file (the browser copy saves itself) |
 | `Ctrl+Shift+F` | Format the buffer |
 | `T` | Tap tempo (ignored while typing in the editor or any input) |
 | `Alt+M` | Performance view: hide the top bar, sim panel and level strip |

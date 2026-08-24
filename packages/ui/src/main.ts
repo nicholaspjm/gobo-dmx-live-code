@@ -104,13 +104,36 @@ const wsLabelEl = document.getElementById('ws-label')!;
 const wsLockEl = document.getElementById('ws-lock') as HTMLElement;
 const outputStatusEl = document.getElementById('output-status') as HTMLButtonElement;
 
-// Scene bar: name plus save / open / share. The bundled examples moved to
-// the docs panel, so the bar carries no control for them.
+/**
+ * Whether saving a scene to a file, and opening one back, is offered.
+ *
+ * Off for the first release, and deliberately a switch rather than a deletion.
+ * Everything behind it still works: scene-file.ts, handleSaveToFile(),
+ * handleOpenFile(), the .gobo import path and the dirty tracking are all
+ * intact and still covered by their tests. Turning this back on restores the
+ * two buttons, the Ctrl+S binding and the unsaved-work warning as they were.
+ *
+ * While it is off, a share link is the only durable copy of a scene, so the
+ * places that talk about losing work say so instead of pointing at a Save
+ * button that is not there.
+ */
+const SCENE_FILES = false;
+
+// Scene bar: name plus share. Save and open are behind SCENE_FILES above, and
+// the bundled examples moved to the docs panel, so neither is on the bar.
 const sceneNameEl = document.getElementById('scene-name') as HTMLElement;
 const sceneDirtyEl = document.getElementById('scene-dirty') as HTMLElement;
-const sceneSaveEl = document.getElementById('scene-save') as HTMLButtonElement;
-const sceneOpenEl = document.getElementById('scene-open') as HTMLButtonElement;
+const sceneSaveEl = document.getElementById('scene-save') as HTMLButtonElement | null;
+const sceneOpenEl = document.getElementById('scene-open') as HTMLButtonElement | null;
 const sceneShareEl = document.getElementById('scene-share') as HTMLButtonElement;
+
+// Taken out of the document rather than hidden, so nothing ships a control
+// that cannot be reached by a pointer, a screen reader or a tab stop.
+if (!SCENE_FILES) {
+  sceneSaveEl?.remove();
+  sceneOpenEl?.remove();
+  sceneDirtyEl.remove();
+}
 
 
 
@@ -294,7 +317,7 @@ document.addEventListener('keydown', (e) => {
   // its own, so the only save worth a keystroke is the durable one. Shift is
   // excluded: Ctrl+Shift+S used to mean "save as a new scene", and with no
   // other scenes to save as, it is left to the browser.
-  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 's' || e.key === 'S')) {
+  if (SCENE_FILES && (e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 's' || e.key === 'S')) {
     e.preventDefault();
     handleSaveToFile();
     return;
@@ -1279,9 +1302,13 @@ function confirmReplace(headline: string): boolean {
   if (!_dirtySinceFileSave) return true;
   return confirm(
     `${headline}\n\n` +
-    `"${short(getBufferName())}" has changes you have not saved to a file. ` +
+    `"${short(getBufferName())}" has changes that exist nowhere else. ` +
     'Replacing it will lose them.\n\n' +
-    'OK to replace · Cancel to keep it (then use Save first).',
+    // With scene files off there is no Save to point at, and a share link is
+    // the only durable copy, so the remedy offered has to be the real one.
+    (SCENE_FILES
+      ? 'OK to replace · Cancel to keep it (then use Save first).'
+      : 'OK to replace · Cancel to keep it (then copy a share link first).'),
   );
 }
 
@@ -1330,7 +1357,7 @@ function handleSaveToFile(): void {
   setStatus('ok', `saved ${shortFilename(sceneFilename(name))} to your downloads`);
 }
 
-sceneSaveEl.addEventListener('click', handleSaveToFile);
+sceneSaveEl?.addEventListener('click', handleSaveToFile);
 
 // ─── Open a file ─────────────────────────────────────────────────────────────
 
@@ -1358,7 +1385,7 @@ async function handleOpenFile(): Promise<void> {
   setStatus('', `opened "${short(opened.name)}" · ctrl+enter to run`);
 }
 
-sceneOpenEl.addEventListener('click', () => { void handleOpenFile(); });
+sceneOpenEl?.addEventListener('click', () => { void handleOpenFile(); });
 
 // ─── Share link ──────────────────────────────────────────────────────────────
 

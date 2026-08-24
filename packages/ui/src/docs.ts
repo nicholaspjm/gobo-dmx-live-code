@@ -122,7 +122,7 @@ const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'scenes and files',
     blurb:
-      "You edit one scene at a time. It autosaves to the browser as you type, so a refresh costs nothing. Click its name in the top bar to rename it. save downloads the scene as a .js file, open reads one back, and share copies a link that carries the whole scene. Bundled demos are on the examples tab here. Anything that replaces the buffer arrives stopped, and asks first if you have changes not yet saved to a file.",
+      "You edit one scene at a time. It autosaves to the browser as you type, so a refresh costs nothing. Click its name in the top bar to rename it. share copies a link that carries the whole scene, which is the durable copy. Bundled demos are on the examples tab here. Anything that replaces the buffer arrives stopped, and asks first.",
     entries: [],
   },
   {
@@ -1598,11 +1598,6 @@ const DOCS: DocSection[] = [
         name: 'Alt+M',
         signature: 'Alt+M',
         description: 'The performance view: hides the top bar, the sim panel and the level strip, leaving the code. The same key brings them back, and the status bar says so while it is on. Not remembered across a reload.',
-      },
-      {
-        name: 'Ctrl+S',
-        signature: 'Ctrl+S',
-        description: 'Save the scene to a .js file. The browser copy saves itself.',
       },
       {
         name: 'Ctrl+Shift+F',
