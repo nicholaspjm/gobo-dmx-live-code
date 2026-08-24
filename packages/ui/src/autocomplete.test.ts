@@ -11,11 +11,18 @@
  * the longer, so a light's own verbs were buried. They are ranked above the
  * rest now, which is only worth doing if `.slow()` on a light is still there
  * to be typed, so that is pinned here too.
+ *
+ * The third part is the Tab accept key, tested as keymap data rather than as
+ * keystrokes: pressing a key needs a view, and a view needs a DOM.
  */
 
 import { describe, it, expect } from 'vitest';
+import { EditorState, Prec, type Extension } from '@codemirror/state';
+import { keymap, type KeyBinding, type EditorView } from '@codemirror/view';
+import { acceptCompletion } from '@codemirror/autocomplete';
+import { indentWithTab } from '@codemirror/commands';
 import { defineFixture } from '@gobo/core/fixtures';
-import { methodsAfter, rankFor } from './autocomplete.js';
+import { goboAutocomplete, methodsAfter, rankFor } from './autocomplete.js';
 
 /** Labels in the order they would be offered, best first. */
 function order(labels: string[], typed: string): string[] {
@@ -165,5 +172,82 @@ describe('methodsAfter', () => {
     const doc = "const bar = fixture(1, 'test-pixel-bar')";
     expect(before(offered(doc, 'bar.pixels', 'f'), 'fill', 'fast')).toBe(true);
     expect(before(offered(doc, 'bar', 'f'), 'fast', 'fill')).toBe(true);
+  });
+});
+
+// ─── Tab as an accept key ────────────────────────────────────────────────────
+
+/**
+ * Every binding the editor would offer a keystroke, in the order CodeMirror
+ * walks them.
+ *
+ * The keymap facet is already sorted by precedence, and buildKeymap flattens it
+ * in that order into one `run` list per key, which runHandlers then walks until
+ * a command returns true. So flattening the facet the same way gives the real
+ * running order without needing a view.
+ */
+function bindings(...extensions: Extension[]): KeyBinding[] {
+  const state = EditorState.create({ extensions });
+  return state.facet(keymap).flatMap((k) => [...k]);
+}
+
+/** The commands bound to `key`, best claim first. */
+function runsFor(bound: KeyBinding[], key: string) {
+  return bound.filter((b) => b.key === key).map((b) => b.run);
+}
+
+describe('Tab accepts the completion', () => {
+  it('binds Tab to acceptCompletion', () => {
+    expect(runsFor(bindings(goboAutocomplete), 'Tab')).toContain(acceptCompletion);
+  });
+
+  it('asks acceptCompletion before anything else that wants Tab', () => {
+    // indentWithTab is the binding most likely to be added here one day, and it
+    // stands in for any other. It goes in at default precedence, the way an
+    // ordinary keymap.of() would, and still has to wait its turn.
+    const runs = runsFor(bindings(goboAutocomplete, keymap.of([indentWithTab])), 'Tab');
+    expect(runs.indexOf(acceptCompletion)).toBe(0);
+    expect(runs).toContain(indentWithTab.run);
+  });
+
+  it('still wins when the competing binding is itself raised', () => {
+    // Prec.highest, so being outranked takes Prec.highest plus a later position
+    // in the extension array rather than a one-line precedence bump.
+    const runs = runsFor(
+      bindings(goboAutocomplete, Prec.high(keymap.of([indentWithTab]))),
+      'Tab',
+    );
+    expect(runs.indexOf(acceptCompletion)).toBe(0);
+  });
+
+  it('does not capture Shift-Tab', () => {
+    // Two ways to take it, and neither is used: naming it outright, or hanging
+    // a `shift` command off the Tab binding the way indentWithTab does.
+    const bound = bindings(goboAutocomplete);
+    expect(runsFor(bound, 'Shift-Tab')).toEqual([]);
+    expect(bound.filter((b) => b.key === 'Tab').every((b) => b.shift === undefined)).toBe(true);
+  });
+
+  it('declares no preventDefault, so a false return leaves the key alone', () => {
+    // This is what keeps Tab moving focus out of the editor when no popup is
+    // open. CodeMirror only calls preventDefault when a command returns true or
+    // a binding asks for it up front, so asking must stay off.
+    const tab = bindings(goboAutocomplete).filter((b) => b.key === 'Tab');
+    expect(tab).toHaveLength(1);
+    expect(tab[0].preventDefault).toBeUndefined();
+  });
+
+  it('leaves Enter accepting too', () => {
+    // The reason for the config check: setting defaultKeymap false would drop
+    // CodeMirror's completionKeymap and take Enter away with it, silently.
+    expect(runsFor(bindings(goboAutocomplete), 'Enter')).toContain(acceptCompletion);
+  });
+
+  it('returns false with no completion open', () => {
+    // The whole design rests on this. acceptCompletion reads nothing but
+    // view.state on the path that bails, so a state with no popup is enough to
+    // reach it; anything past the bail would want a real view.
+    const state = EditorState.create({ extensions: [goboAutocomplete] });
+    expect(acceptCompletion({ state } as unknown as EditorView)).toBe(false);
   });
 });

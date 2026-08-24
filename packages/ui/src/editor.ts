@@ -7,6 +7,13 @@
  *   Ctrl+Space  stop / clear all channels (preempts autocompletion;
  *               callers can still trigger completion by typing a
  *               trigger character like `.`).
+ *   Enter       accept the highlighted completion, while the popup is open
+ *   Tab         the same, as a second accept key
+ *
+ * Enter and Tab are bound by goboAutocomplete rather than here, since both
+ * commands only mean anything while that extension is installed. Neither is
+ * bound when the popup is closed: Enter inserts a newline and Tab moves focus
+ * out of the editor, which is how a keyboard user leaves it. See autocomplete.ts.
  */
 
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
@@ -95,10 +102,20 @@ export function createEditor(
       goboTheme,
       goboHighlight,
       goboCodeHighlight,
+      // Ahead of goboAutocomplete, and that ordering is load-bearing.
+      //
+      // Both are at Prec.highest, so the array decides which is asked first,
+      // and the answer decides what Ctrl+Space does. Autocomplete binds it to
+      // startCompletion, which returns true whenever the completion field
+      // exists, meaning always: it does not check whether there is anything to
+      // complete. So while it was asked first, it always won, and the stop
+      // below never ran. Ctrl+Space opened a popup instead of going dark,
+      // which is the opposite of what this file's own comment and the README
+      // both promise, and it is a panic key.
+      evalKeybinding,
       goboAutocomplete,
       goboHoverHelp,
       vizDecorationsField,
-      evalKeybinding,
       changeListener,
       keymap.of([...defaultKeymap, ...historyKeymap]),
     ],

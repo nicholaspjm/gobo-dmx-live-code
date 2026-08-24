@@ -22,11 +22,14 @@
  */
 
 import {
+  acceptCompletion,
   autocompletion,
   type Completion,
   type CompletionContext,
   type CompletionResult,
 } from '@codemirror/autocomplete';
+import { keymap } from '@codemirror/view';
+import { Prec } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import { HELP_ENTRIES, type HelpEntry } from './help-data.js';
 import { describeLight, findLight, findLights } from './declared-lights.js';
@@ -278,10 +281,50 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
   };
 }
 
-/** CodeMirror extension: our source over the default JavaScript completions. */
-export const goboAutocomplete = autocompletion({
-  override: [goboCompletions],
-  activateOnTyping: true,
-  closeOnBlur: true,
-  maxRenderedOptions: 15,
-});
+// ─── Tab accepts the highlighted completion ──────────────────────────────────
+
+/**
+ * Tab, as a second accept key alongside Enter.
+ *
+ * Prec.highest, for the reason CodeMirror puts its own completion keymap there.
+ * Every binding for a key is collected into one list ordered by precedence, and
+ * the first command in it that returns true takes the key. So anything that
+ * wants Tab for something else, `indentWithTab` being the obvious candidate,
+ * should get it only once there is no completion to accept, and that means
+ * acceptCompletion has to be asked first.
+ *
+ * Falling through is not a question of precedence. acceptCompletion returns
+ * false when no popup is open, and CodeMirror calls preventDefault only when a
+ * command returns true or a binding asks for it, so a false here leaves the
+ * keystroke to whatever would have had it if this binding did not exist.
+ *
+ * Which today is the browser, and it stays that way on purpose. Nothing binds
+ * Tab in this editor, so it moves focus out of the text area, and that is how a
+ * keyboard user leaves the editor at all. Taking it for indentation would buy
+ * an indent that indentOnInput() mostly performs already, at the price of the
+ * only exit. Not worth it.
+ *
+ * No `shift` here, also on purpose: a binding registers Shift-Tab as a separate
+ * key and only if it names one, so leaving it off keeps Shift-Tab moving focus
+ * backwards. This is the one line of difference from `indentWithTab`, which
+ * declares `shift` and does capture it.
+ *
+ * Enter is untouched. The config below leaves `defaultKeymap` on, so
+ * CodeMirror's completionKeymap still binds Enter to this same command.
+ */
+const acceptCompletionOnTab = Prec.highest(
+  keymap.of([{ key: 'Tab', run: acceptCompletion }]),
+);
+
+/** CodeMirror extension: our source over the default JavaScript completions,
+ *  plus Tab as an accept key. The two ship together because acceptCompletion
+ *  reads state that only autocompletion() installs. */
+export const goboAutocomplete = [
+  autocompletion({
+    override: [goboCompletions],
+    activateOnTyping: true,
+    closeOnBlur: true,
+    maxRenderedOptions: 15,
+  }),
+  acceptCompletionOnTab,
+];

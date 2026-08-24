@@ -14,14 +14,6 @@ unit tests, because that is exactly the shape `pick()` produces.
 Alt+M is off again after a reload. Persisting it needs a `minimalView` key on
 the `Settings` interface and in `DEFAULTS`, which is a closed type.
 
-### A colour name inside a string is painted as a colour
-The editor now paints bare colour names, and the scanner has always been blind
-to strings, so the `'red'` in `head.color('red')` is painted as the colour value
-when it is a wheel slot name. `stripNonCode()` in `packages/ui/src/source-scan.ts`
-already blanks strings and comments properly for the widget scan. Pointing the
-highlighter at the same helper would fix this and the same class of mistake in
-comments.
-
 ### Two copies of the fixture tier labels
 `TIER_LABEL` is declared in both `packages/ui/src/library.ts` and
 `packages/ui/src/docs.ts`, with the same four keys and the same four words. They
@@ -29,14 +21,6 @@ agree today. This is the shape of problem `colors.ts` already has an opinion
 about, several lists that did not agree, and the fix is to export one and import
 it. Left alone because the two panels are otherwise independent and coupling
 them needs a shared module that does not exist yet.
-
-### Sliders stop following the stored value after a re-run
-`_sliderWidgets` in `inline-viz.ts` is filled during `refreshViz`, so after a
-re-run where the decoration compares equal it holds instances that were never
-rendered, and every `sync()` on them does nothing. The picker had exactly this
-defect and was fixed by tracking from `toDOM`/`destroy` instead. Same shape of
-fix, deliberately not applied at the same time because changing how a control
-behaves mid-show was not what was asked for.
 
 ### `pick('warm')` repeats itself: decided, no fix
 `const warm = pick('warm')` says the name twice, and it stays that way. The
@@ -46,17 +30,16 @@ move, and the variable name is not visible to the sandbox. Every spelling that
 avoids the repetition either loses the colour on an edit or cannot be written.
 Closed as a decision rather than left open as work.
 
-### Blackout: connector rebuilt, needs swapping over
-**Checked, and this was never a code bug.** The fix shipped in `94b0175` on
-19 August. The connector holding port 3001 is
-`C:\Users\Admin\Downloads\gobo-connector-windows.exe`, built 14 August, five
-days earlier. The 19 August re-download is byte-identical to it, so the
-published release asset was never rebuilt either, and a startup script
-relaunches that same old binary at every login.
+### Blackout: swapped over, awaiting a test on the rig
+**Checked, and this was never a code bug.** The fix shipped on 19 August. The
+connector that was running was built 14 August, five days earlier, and a
+startup script relaunched that same file at every login. The re-download was
+byte-identical, because the published release predates the fix too.
 
-`release/gobo-connector-windows.exe` has been rebuilt and contains the fix,
-confirmed by byte search. Point the startup script at it and restart the
-process. If the lag survives that, then it is the fixture's own fade-time menu.
+The machine now runs a connector built from source, and the startup script
+points at it, so it survives a reboot. What is left is a test on the actual
+rig: if the lag survives this, it is the fixture own fade-time menu and not
+software.
 
 ## Already open elsewhere
 
@@ -70,6 +53,32 @@ process. If the lag survives that, then it is the fixture's own fade-time menu.
   reproducing it needs the EyeDropper API, which is Chromium only.
 
 ## Done
+
+### Ctrl+Space did not stop
+The README, the editor's own comment and the default scene all said it did.
+It did not: autocomplete binds that key to startCompletion, which returns true
+whenever the completion field exists rather than when there is anything to
+complete, and it was asked first. So the panic key opened a popup and the stop
+never ran. The keybinding now sits ahead of autocomplete in the extension array.
+
+### Tab accepts the highlighted completion
+Bound ahead of everything else, and it falls through when no popup is open, so
+Tab still moves focus out of the editor. That is the keyboard escape from a
+text area and taking it would be worse than the convenience is worth.
+
+### Widgets went dead after a re-run
+A slider stopped following its value, and wave sparklines and the roll,
+punchcard, spiral and spectrum canvases froze on their last frame, from the
+second run onward. When CodeMirror decides a decoration compares equal it keeps
+the DOM and never calls toDOM again, so anything enumerated during the refresh
+ended up holding instances that were never rendered. Tracked from toDOM and
+destroy instead, which is what the fixture viz widgets always did.
+
+### The highlighter painted inside strings and comments
+The quoted slot name in head.color('red') was painted as the colour value, and
+so was any name in a comment. It now classifies from the same stripped text the
+widget scan uses, which blanks strings and comments while preserving every
+offset.
 
 ### Gradients and colour palettes
 A palette is a plain array of colours. `const warm = [amber, orange, red]`

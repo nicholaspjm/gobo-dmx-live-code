@@ -88,25 +88,36 @@
  * `red` is the colour of that name, and the dot has already decided which
  * table is consulted before either is looked in.
  *
+ * ## Strings and comments are not code
+ *
+ * The walk runs over stripNonCode() output rather than the raw buffer, so a
+ * token written inside a string or a comment is not there to be found. What it
+ * costs is one more pass over the document per change; what it buys is that
+ * the buffer stops lying about its strings.
+ *
+ * The colour names are where that mattered most. `head.color('red')` names a
+ * colour WHEEL SLOT: a mechanical position with a manufacturer's label on it,
+ * which is why slot names stay strings rather than becoming values (the header
+ * of packages/core/src/colors.ts has the reasoning). Painting that label the
+ * colour red claims it is the colour red, and it is not one. The same
+ * blindness painted `rgb` inside `fixture(1, 'rgb')` as a raw DMX write, and
+ * painted every command name written in a comment.
+ *
+ * A `${…}` interpolation is code again in the stripped text, so a token inside
+ * one is still painted. The template's literal segments around it are not.
+ *
  * ## Known limitations
  *
- * The scan does not consult the syntax tree, so it does not skip strings or
- * comments: `fixture(1, 'rgb')` paints the `rgb` inside the string literal as
- * gobo-dmx, a wheel slot written `head.color('red')` paints the quoted name as
- * the colour red, and a command name written in a comment is coloured too. Full
- * tokenisation on every keystroke costs more than the mistake does. The wider
- * palette makes it more visible than it was with two colours, so it may be
- * worth revisiting.
- *
- * Two smaller accepted false positives: `m` is a one-letter pattern
- * constructor and will also paint a user variable called `m`; and a receiver
- * separated from its method by whitespace (`wash . red(…)`) is not recognised
- * as a method, because the dot must be the immediately preceding character.
+ * Two accepted false positives: `m` is a one-letter pattern constructor and
+ * will also paint a user variable called `m`; and a receiver separated from
+ * its method by whitespace (`wash . red(…)`) is not recognised as a method,
+ * because the dot must be the immediately preceding character.
  */
 
 import { ViewPlugin, EditorView, Decoration, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
 import { findLights } from './declared-lights.js';
+import { stripNonCode } from './source-scan.js';
 
 // One Decoration instance per class, created once. CodeMirror compares
 // decorations by identity when diffing sets, so reusing these keeps redraws
@@ -230,18 +241,48 @@ const IDENT_CHAR = /[\w$]/;
 // IDENT_RE is module-scope and stateful (`g` flag). Every use below resets
 // lastIndex first, so a throw mid-scan cannot poison the next call.
 
-function buildDecorations(view: EditorView): DecorationSet {
-  const doc = view.state.doc.toString();
+/** One classified token: where it is in the document, and the mark it earns. */
+export interface TokenSpan {
+  /** Document offset of the first character. */
+  from: number;
+  /** Document offset one past the last. */
+  to: number;
+  deco: Decoration;
+}
+
+/**
+ * Every gobo token in the document, in ascending order and never overlapping.
+ *
+ * Pure, and free of the editor, so the whole painting decision can be tested
+ * as "given this text, which ranges get which class" without a DOM.
+ */
+export function classifyTokens(source: string): TokenSpan[] {
+  // Comments and string contents blanked, so neither can be mistaken for code.
+  // Rejoined into one string because the offsets below are document-wide.
+  const stripped = stripNonCode(source).join('\n');
+
+  // The decorations are positional, so the strip is only usable while it is
+  // exactly as long as the source. One character shorter and every token after
+  // the first string is painted one column to the left, and a range past the
+  // end of the document throws inside CodeMirror. stripNonCode blanks
+  // character for character and is tested to, and the check costs one length
+  // comparison, so it is made rather than assumed. Falling back to the raw
+  // source paints strings and comments again, which is the bug this fixes, but
+  // a wrong colour is a better failure than a broken editor.
+  const code = stripped.length === source.length ? stripped : source;
 
   // Pass 1: fixture bindings. Collect the bound names, and the exact offset of
   // each declaration site so pass 2 can tell a declaration from a reference.
   // The scan is shared with hover and autocomplete. Each of the three used to
   // keep its own copy of it, and two had never learned about `monoStrip` or
   // `screen`, so a strip of white cells was painted as an ordinary variable.
+  // Handed the stripped text for the same reason as pass 2: a declaration that
+  // has been commented out binds nothing, so it must not turn every later use
+  // of that name into a fixture reference.
   const fixtureNames = new Set<string>();
   const declOffsets = new Set<number>();
   let m: RegExpExecArray | null;
-  for (const decl of findLights(doc)) {
+  for (const decl of findLights(code)) {
     fixtureNames.add(decl.name);
     declOffsets.add(decl.nameFrom);
   }
@@ -249,12 +290,12 @@ function buildDecorations(view: EditorView): DecorationSet {
   // Pass 2: one walk over every identifier, classified into at most one
   // category. Matches from a single regex are disjoint and ascending, so the
   // builder's ordering contract holds without any post-hoc overlap fixup.
-  const builder = new RangeSetBuilder<Decoration>();
+  const spans: TokenSpan[] = [];
   IDENT_RE.lastIndex = 0;
-  while ((m = IDENT_RE.exec(doc)) !== null) {
+  while ((m = IDENT_RE.exec(code)) !== null) {
     const from = m.index;
     const name = m[0];
-    const prev = from > 0 ? doc[from - 1] : '';
+    const prev = from > 0 ? code[from - 1] : '';
 
     // Mid-token start: only reachable inside a numeric literal such as `1e5`,
     // where the scan finds `e5` after the digit. Never a real identifier.
@@ -273,9 +314,17 @@ function buildDecorations(view: EditorView): DecorationSet {
       deco = BARE_TOKENS.get(name);
     }
 
-    if (deco !== undefined) builder.add(from, from + name.length, deco);
+    if (deco !== undefined) spans.push({ from, to: from + name.length, deco });
   }
 
+  return spans;
+}
+
+function buildDecorations(view: EditorView): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
+  for (const span of classifyTokens(view.state.doc.toString())) {
+    builder.add(span.from, span.to, span.deco);
+  }
   return builder.finish();
 }
 

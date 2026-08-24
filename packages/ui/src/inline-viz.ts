@@ -448,6 +448,7 @@ class SliderWidget extends WidgetType {
     this.input = input;
     this.readout = readout;
     paint();
+    _liveSliders.add(this);
     return span;
   }
 
@@ -469,11 +470,20 @@ class SliderWidget extends WidgetType {
   destroy(): void {
     this.input = null;
     this.readout = null;
+    _liveSliders.delete(this);
   }
 }
 
-/** Live slider widgets, so the tick can keep their handles in step. */
-let _sliderWidgets: SliderWidget[] = [];
+/**
+ * Slider widgets that currently have DOM, so the tick can keep their handles
+ * in step.
+ *
+ * Filled by toDOM and drained by destroy, for the reason spelled out at
+ * _livePickers below: CodeMirror keeps the earlier run's DOM whenever the
+ * replacement compares equal, so a list built during refreshViz reaches only
+ * the handles nobody is looking at, and none of the ones on screen.
+ */
+const _liveSliders = new Set<SliderWidget>();
 
 /**
  * A colour, with the wheel behind it.
@@ -641,12 +651,9 @@ interface PatternVizDecoEntry {
   /** Line number (1-based) the decoration was placed on. */
   line: number;
   /** Attached to Decoration.line or the WaveSparkline via data-attr so the
-   *  tick updater can find this entry's rendered DOM. */
+   *  tick updater can find this entry's rendered DOM. Also the key the live
+   *  canvas widgets register themselves under. */
   idx: number;
-  /** Sparkline widget reference (wave only). */
-  sparkline?: PatternWaveWidget;
-  /** Canvas widget reference (roll / punchcard / spiral / spectrum). */
-  shape?: PatternShapeWidget;
   /** Cached line element, so the tick avoids a querySelector. Stays null
    *  until the line is first rendered, and is re-queried if CM drops the
    *  reference (viewport scroll, line DOM recycle). */
@@ -689,6 +696,7 @@ class PatternWaveWidget extends WidgetType {
     span.appendChild(c);
     this.canvas = c;
     this.history = new Array(this.SAMPLES).fill(0);
+    _liveSparklines.set(this.idx, this);
     return span;
   }
 
@@ -715,8 +723,22 @@ class PatternWaveWidget extends WidgetType {
 
   destroy(): void {
     this.canvas = null;
+    if (_liveSparklines.get(this.idx) === this) _liveSparklines.delete(this.idx);
   }
 }
+
+/**
+ * Sparklines that currently have DOM, keyed by the entry they draw.
+ *
+ * Tracked from toDOM and destroy for the reason the sliders and pickers are,
+ * and keyed rather than a plain set because the tick reaches them by entry
+ * index. The identity check on the way out earns its keep: CodeMirror builds
+ * the replacement before it drops what the replacement displaced, so when an
+ * index is genuinely rebuilt the new widget registers first and the old one's
+ * destroy runs second. A blind delete there would take the live sparkline
+ * back out again.
+ */
+const _liveSparklines = new Map<number, PatternWaveWidget>();
 
 /**
  * The structural decorations: roll, punchcard, spiral and spectrum.
@@ -771,6 +793,7 @@ class PatternShapeWidget extends WidgetType {
     span.appendChild(c);
     this.canvas = c;
     this.cachedCycle = -1;
+    _liveShapes.set(this.idx, this);
     return span;
   }
 
@@ -911,8 +934,13 @@ class PatternShapeWidget extends WidgetType {
     this.canvas = null;
     this.spans = [];
     this.history = [];
+    if (_liveShapes.get(this.idx) === this) _liveShapes.delete(this.idx);
   }
 }
+
+/** Shape canvases that currently have DOM. Same tracking, and same reasoning,
+ *  as _liveSparklines above. */
+const _liveShapes = new Map<number, PatternShapeWidget>();
 
 /**
  * Tick subscription that drives the flash / glow / wave decorations from
@@ -939,7 +967,7 @@ onTick(() => {
   // Handles follow the stored value, so a control moved from anywhere else
   // cannot leave a stale position on screen. Skipped while one is being
   // dragged, which the widget checks by focus.
-  for (const w of _sliderWidgets) w.sync();
+  for (const w of _liveSliders) w.sync();
   for (const w of _livePickers) w.sync();
 
   if (_patternVizEntries.size === 0) return;
@@ -950,13 +978,15 @@ onTick(() => {
     const prev = _lastValue.get(deco.idx) ?? 0;
     _lastValue.set(deco.idx, value);
 
+    // Both canvas kinds are reached through the live-widget maps rather than
+    // off the entry, so a re-run that reused the rendered DOM keeps drawing.
     if (deco.core.kind === 'wave') {
-      deco.sparkline?.push(value);
+      _liveSparklines.get(deco.idx)?.push(value);
       continue;
     }
 
-    if (deco.shape) {
-      deco.shape.update(deco.core.pattern, cyclePos, value);
+    if (SHAPE_KINDS.has(deco.core.kind)) {
+      _liveShapes.get(deco.idx)?.update(deco.core.pattern, cyclePos, value);
       continue;
     }
 
@@ -1065,13 +1095,11 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   // ─── Live controls (slider) ─────────────────────────────────────────────
   // Same zip as everything else: walk the doc for slider( call sites and pair
   // them in order with what the scene declared.
-  _sliderWidgets = [];
   const controls = getControls();
   const sliderHits = findCalls(code, /\bslider\s*\(/g);
   const sliderPairs = Math.min(controls.length, sliderHits.length);
   for (let i = 0; i < sliderPairs; i++) {
     const widget = new SliderWidget(controls[i]);
-    _sliderWidgets.push(widget);
     const lineObj = doc.line(sliderHits[i].line);
     ranges.push({
       from: lineObj.to,
@@ -1116,7 +1144,6 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
     if (coreEntry.kind === 'wave') {
       // Widget at end-of-line. The tick loop pushes samples into its canvas.
       const widget = new PatternWaveWidget(i);
-      deco.sparkline = widget;
       ranges.push({
         from: lineObj.to,
         to: lineObj.to,
@@ -1126,7 +1153,6 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
       // Also end-of-line, and also fed by the tick. Several on one line
       // simply become several widgets, in the order they were written.
       const widget = new PatternShapeWidget(i, coreEntry.kind);
-      deco.shape = widget;
       ranges.push({
         from: lineObj.to,
         to: lineObj.to,
