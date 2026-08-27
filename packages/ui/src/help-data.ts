@@ -970,19 +970,24 @@ spot.white(mini('1 - - -').punch())`,
   // ─── Fixture / strip methods ───────────────────────────────────────────────
   {
     label: 'color',
-    signature: '.color(color) | .color(r, g, b [, w])',
+    signature: '.color(color) | .color(...stops) | .color(palette) | .color(r, g, b [, w])',
     description:
-      'Set R / G / B (and optionally W) in one call. Takes a colour by name without quotes, a pattern of colour '
-      + 'tokens, or the components. Channels absent on the fixture are skipped silently, so the same line works on '
-      + 'rgb / rgbw / dim-rgbw / moving heads. One light is one position, so a palette is refused there rather than '
-      + 'quietly painted with its first stop: take one stop with warm[0], or put the palette in time with '
-      + 'cat(...warm).slow(4). On a group it spreads across the members in order, first colour on the first light. '
-      + "A fixture with a colour wheel reads a single argument as a slot instead: head.color('red').",
+      'Set R / G / B (and optionally W) in one call, on a fixture, a group or a strip alike. Takes a colour by name '
+      + 'without quotes, a pattern of colour tokens, or the components. Channels absent on the fixture are skipped '
+      + 'silently, so the same line works on rgb / rgbw / dim-rgbw / moving heads. A channel counts as a colour when '
+      + 'it is named red / green / blue / white in any case and with any trailing number, or spelled r / g / b / w '
+      + "and declared type: 'color'. Several colours are a run: it spreads across whatever positions the light has, "
+      + 'endpoint to endpoint, so a wash with pixels or a group of members takes a gradient. A par is one position '
+      + 'and refuses the run rather than quietly painting its first stop: take one stop with warm[0], or put the '
+      + "palette in time with cat(...warm).slow(4). A fixture with a colour wheel reads a single argument as a slot "
+      + "instead: head.color('red').",
     example: `wash.color(red)             // a colour by name, no quotes
 wash.color(1, 0, 0)         // red on any colour fixture
 wash.color(1, 0, 0, 0.3)    // RGBW: red + a touch of white
 wash.color(sine(), 0, 0)    // animated red
 wash.color(mini('r - g - b'))  // colour tokens, changing in time
+wash.color(red, blue)       // a gradient, if the wash has pixels
+bar.pixels.color(warm)      // the same word on a strip, as .fill() does
 rig.color(warm)             // a palette across the members of a group`,
     context: 'fixture-method',
     kind: 'method',
@@ -1089,22 +1094,6 @@ strip.fill(red, blue)            // two stops, a gradient across the strip
 strip.fill(warm)                 // a palette, spread the same way
 strip.fill(mini('r - g - b'))    // colour tokens, changing in time
 strip.fill(0, 0, 0, 0)`,
-    context: 'fixture-method',
-    kind: 'method',
-  },
-  {
-    label: 'color',
-    signature: '.color(color) | .color(...stops) | .color(palette) | .color(r, g, b [, w])',
-    description:
-      'The same call as .fill(), under the word the rest of the lights answer to. A par takes .color(red), a group '
-      + 'takes .color(red), and a strip took only .fill(), so a scene had to remember which kind of light it was '
-      + 'talking to. Both spellings stay and both are the same function. On a fixture rather than a strip, .color() '
-      + 'spreads a run of stops across the pixels it has, and refuses one on a par, which is a single position with '
-      + 'nowhere to put a gradient. A single-channel strip has no colour and takes a level through .fill().',
-    example: `bar.pixels.color(red)            // one colour, every pixel
-bar.pixels.color(warm)           // a palette, spread across them
-bar.color(red, blue)             // the fixture spreads it over its pixels
-par.color(red)                   // a par: one colour, no run`,
     context: 'fixture-method',
     kind: 'method',
   },

@@ -88,6 +88,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   green or blue channels while naming those three in the message. The initials
   `r`, `g`, `b` and `w` are accepted too, but only on a channel declared
   `type: 'color'`, because `g` is as likely to be a gobo wheel as it is green.
+  `.off()` and `.full()` read that same rule, so whatever `.color()` can paint a
+  blackout can darken. Widening one reader and not the other is how this
+  asymmetry arrived; doing it again in the other direction would have left an
+  `r`/`g`/`b` fixture lit straight through a blackout.
 - **A run of colours spreads across a fixture that has pixels to spread it
   over.** `wash.color(warm)` and `wash.color(red, blue)` used to be refused on
   the reasoning that one light is one position, whether that light is a par or

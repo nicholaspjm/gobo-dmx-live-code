@@ -161,7 +161,13 @@ export function isEmitterChannel(ch: ChannelDef): boolean {
   if (ch.slots !== undefined && ch.slots.length > 0) return false;
   if (ch.type === 'strip') return true;
   if (ch.type === 'intensity') return true;
-  return EMITTER_NAMES.has(bareName(ch.name));
+  if (EMITTER_NAMES.has(bareName(ch.name))) return true;
+  // Whatever .color() will paint, .off() has to be able to darken. Widening
+  // one reader and not the other is how this asymmetry got here in the first
+  // place: a fixture spelled r/g/b lit under .color() and then survived a
+  // blackout, because .off() walked a list that had never heard of the
+  // initials. The two read a name through the same rules now.
+  return mixRole(ch) !== null;
 }
 
 /**
@@ -210,8 +216,12 @@ function mixRole(ch: ChannelDef): MixRole | null {
   const bare = bareName(ch.name);
   if (bare === 'red' || bare === 'green' || bare === 'blue' || bare === 'white') return bare;
   // An initial only counts when the definition declared the channel a colour,
-  // per MIX_ROLE_INITIALS.
-  if (ch.type === 'color') return MIX_ROLE_INITIALS[bare] ?? null;
+  // per MIX_ROLE_INITIALS. Read as an own property: a plain index would reach
+  // the prototype, so a channel named `constructor` or `toString` came back
+  // with a function where a role belongs.
+  if (ch.type === 'color' && Object.hasOwn(MIX_ROLE_INITIALS, bare)) {
+    return MIX_ROLE_INITIALS[bare];
+  }
   return null;
 }
 
@@ -797,7 +807,7 @@ export type FixtureInstance = {
    */
   color(
     ...args:
-      | ColorRunArgs
+      | ColorRunArgsW
       | [slot: PatternOrValue | string]
   ): void;
   /** Zero every light-emitting channel on the fixture (dim, RGB, RGBW,
@@ -1007,7 +1017,11 @@ export function fixtureCommands(def: FixtureDef): string[] {
     if (ch.type === 'strip') {
       const v = ch.pixelLayout === 'rgbw' ? 'r,g,b,w' : ch.pixelLayout === 'mono' ? 'v' : 'r,g,b';
       const chase = ch.pixelLayout === 'mono' ? 'chase()' : 'chase(red)';
-      out.push(`${ch.name}.fill(${v})`, `${ch.name}.${chase}`, `${ch.name}.each(fn)`);
+      out.push(`${ch.name}.fill(${v})`);
+      // The same call under the word the rest of the lights answer to. Listed
+      // because a call nothing advertises is a call nobody finds.
+      if (ch.pixelLayout !== 'mono') out.push(`${ch.name}.color(${v})`);
+      out.push(`${ch.name}.${chase}`, `${ch.name}.each(fn)`);
       continue;
     }
     if (ch.slots !== undefined && ch.slots.length > 0) {
@@ -1734,7 +1748,17 @@ export type ColorRunArgs =
   | [colors: readonly Color[]]
   | [pattern: PatternLike]
   | readonly Color[]
-  | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
+  | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue];
+
+/**
+ * The same, on something that has a white emitter to opt into.
+ *
+ * Kept separate so an RGB strip cannot be handed four values: it has three
+ * channels per pixel, and a fourth would be read as a colour count it does not
+ * have and dropped without a word.
+ */
+export type ColorRunArgsW =
+  | ColorRunArgs
   | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue];
 
 export interface StripInstance {
@@ -1891,6 +1915,7 @@ export interface StripInstance {
    *   strip.chase(white, { width: 0.2 })     // tight moving band
    *   strip.chase(1, 0.4, 0)                 // a mix, spelled as .color() spells it
    */
+  chase(colors: readonly Color[], opts?: ChaseOptions): ChaseHandle;
   chase(color: Color, opts?: ChaseOptions): ChaseHandle;
   chase(r: number, g: number, b: number, opts?: ChaseOptions): ChaseHandle;
   rainbowChase(opts?: RainbowChaseOptions): void;
@@ -2401,13 +2426,13 @@ export interface RgbwStripInstance {
    * follows here. Four set W as well. Omit all of them for full on every
    * channel.
    */
-  fill(...args: ColorRunArgs): void;
+  fill(...args: ColorRunArgsW): void;
 
   /**
    * The same call as `.fill()`, under the word a scene reaches for. See the
    * note on StripInstance.color().
    */
-  color(...args: ColorRunArgs): void;
+  color(...args: ColorRunArgsW): void;
 
   /**
    * Set a single pixel (0-indexed). Four shapes:
@@ -2474,6 +2499,7 @@ export interface RgbwStripInstance {
    *   strip.chase(white, { width: 0.2 })     // tight moving band
    *   strip.chase(1, 0.4, 0)                 // a mix, spelled as .color() spells it
    */
+  chase(colors: readonly Color[], opts?: ChaseOptions): ChaseHandle;
   chase(color: Color, opts?: ChaseOptions): ChaseHandle;
   chase(r: number, g: number, b: number, opts?: ChaseOptions): ChaseHandle;
   rainbowChase(opts?: RainbowChaseOptions): void;
@@ -2930,7 +2956,7 @@ export interface GroupInstance {
    * Set r/g/b (and optionally w) across the group, skipping roles a given
    * element does not have. Omit everything for full white.
    */
-  color(...args: ColorRunArgs): void;
+  color(...args: ColorRunArgsW): void;
 
   /** Zero every light-emitting role across the group. */
   off(): void;

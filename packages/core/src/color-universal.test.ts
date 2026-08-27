@@ -102,6 +102,36 @@ describe('.color() reads a channel name the way every other call does', () => {
     expect(chans(3)).toEqual([0, 0, 0]);
   });
 
+  it('darkens under .off() whatever it painted under .color()', () => {
+    // Widening one reader and not the other is how the original asymmetry got
+    // here. Doing it again in the opposite direction produced a blackout that
+    // did not black out: .color() lit an r/g/b fixture and .off() threw,
+    // saying nothing on it emitted light, leaving the rig on.
+    define('initials-off', [
+      { offset: 0, name: 'r', type: 'color' },
+      { offset: 1, name: 'g', type: 'color' },
+      { offset: 2, name: 'b', type: 'color' },
+    ]);
+    const par = fixture(1, 'initials-off');
+    par.color(1, 0, 0);
+    expect(chans(3)).toEqual([255, 0, 0]);
+    par.off();
+    expect(chans(3)).toEqual([0, 0, 0]);
+    par.full();
+    expect(chans(3)).toEqual([255, 255, 255]);
+  });
+
+  it('does not mistake a channel named for an Object member', () => {
+    // The initials are looked up in a plain object, so an unguarded index
+    // reached the prototype: a channel called `constructor` came back with a
+    // function where a role belongs.
+    define('proto', [
+      { offset: 0, name: 'constructor', type: 'color' },
+      { offset: 1, name: 'toString', type: 'color' },
+    ]);
+    expect(() => fixture(1, 'proto').color(1, 0, 0)).toThrow(/no red\/green\/blue channels/);
+  });
+
   it('says what a colour channel is when it cannot find one', () => {
     define('no-colour', [
       { offset: 0, name: 'pan', type: 'position' },
