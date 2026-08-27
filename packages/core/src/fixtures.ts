@@ -2891,7 +2891,22 @@ function fixtureCell(inst: FixtureInstance): GroupCell {
     .map((c) => inst[c.name] as StripInstance | RgbwStripInstance)
     .filter(isStrip);
 
+  // Which channel carries which mix role, for the fixtures that do not spell a
+  // role the way it is named. A group read these names literally while the
+  // fixture itself read them by role, so group(par).color(red) threw saying no
+  // member had a colour channel, on a par that answered par.color(red) on its
+  // own. Both sides resolve a role the same way now.
+  const byRole = new Map<string, string[]>();
+  for (const c of inst.def.channels) {
+    const role = mixRole(c);
+    if (role === null) continue;
+    const carried = byRole.get(role);
+    if (carried) carried.push(c.name);
+    else byRole.set(role, [c.name]);
+  }
+
   const roles = new Set(scalars);
+  for (const role of byRole.keys()) roles.add(role);
   for (const s of strips) {
     roles.add('red');
     roles.add('green');
@@ -2901,6 +2916,11 @@ function fixtureCell(inst: FixtureInstance): GroupCell {
 
   const setOn = (role: string, value: PatternOrValue): void => {
     if (scalars.has(role)) inst.set(role, value);
+    // A channel that carries the role under another spelling. Skipped when the
+    // two are the same word, which the line above has already written.
+    for (const name of byRole.get(role) ?? []) {
+      if (name !== role) inst.set(name, value);
+    }
     for (const s of strips) {
       const fn = (s as unknown as Record<string, (v: PatternOrValue) => void>)[role];
       if (typeof fn === 'function') fn.call(s, value);

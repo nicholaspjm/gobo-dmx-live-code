@@ -24,7 +24,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { tick, clearDefs, getUniverseBuffer } from './dmx.js';
-import { fixture, defineFixture, clearSimFixtures, type ChannelDef } from './fixtures.js';
+import { fixture, defineFixture, clearSimFixtures, group, type ChannelDef } from './fixtures.js';
 import { COLORS } from './colors.js';
 
 const red = COLORS.red;
@@ -153,6 +153,42 @@ describe('.color() reads a channel name the way every other call does', () => {
     expect(chans(4)).toEqual([255, 0, 0, 0]);
     par.color(1, 0, 0, 1);
     expect(chans(4)).toEqual([255, 0, 0, 255]);
+  });
+});
+
+// ─── a group resolves a role the same way the fixture does ────────────────────
+
+describe('a group reads a member the way the member reads itself', () => {
+  it('colours members whose channels are spelled r/g/b or Red_1', () => {
+    // A group built its roles from literal channel names while the fixture
+    // resolved them by role, so group(par).color(red) threw saying no member
+    // had a colour channel — on members that answered .color(red) alone.
+    define('ini', [
+      { offset: 0, name: 'r', type: 'color' },
+      { offset: 1, name: 'g', type: 'color' },
+      { offset: 2, name: 'b', type: 'color' },
+    ]);
+    define('num', [
+      { offset: 0, name: 'Red_1', type: 'color' },
+      { offset: 1, name: 'Green_1', type: 'color' },
+      { offset: 2, name: 'Blue_1', type: 'color' },
+    ]);
+    const a = fixture(1, 'ini');
+    const b = fixture(4, 'num');
+    group(a, b).color(blue);
+    expect(chans(6)).toEqual([0, 0, 255, 0, 0, 255]);
+  });
+
+  it('still spreads a run across those members in order', () => {
+    define('ini2', [
+      { offset: 0, name: 'r', type: 'color' },
+      { offset: 1, name: 'g', type: 'color' },
+      { offset: 2, name: 'b', type: 'color' },
+    ]);
+    const a = fixture(1, 'ini2');
+    const b = fixture(4, 'ini2');
+    group(a, b).color([red, blue]);
+    expect(chans(6)).toEqual([255, 0, 0, 0, 0, 255]);
   });
 });
 
