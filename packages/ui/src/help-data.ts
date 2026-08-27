@@ -1093,6 +1093,22 @@ strip.fill(0, 0, 0, 0)`,
     kind: 'method',
   },
   {
+    label: 'color',
+    signature: '.color(color) | .color(...stops) | .color(palette) | .color(r, g, b [, w])',
+    description:
+      'The same call as .fill(), under the word the rest of the lights answer to. A par takes .color(red), a group '
+      + 'takes .color(red), and a strip took only .fill(), so a scene had to remember which kind of light it was '
+      + 'talking to. Both spellings stay and both are the same function. On a fixture rather than a strip, .color() '
+      + 'spreads a run of stops across the pixels it has, and refuses one on a par, which is a single position with '
+      + 'nowhere to put a gradient. A single-channel strip has no colour and takes a level through .fill().',
+    example: `bar.pixels.color(red)            // one colour, every pixel
+bar.pixels.color(warm)           // a palette, spread across them
+bar.color(red, blue)             // the fixture spreads it over its pixels
+par.color(red)                   // a par: one colour, no run`,
+    context: 'fixture-method',
+    kind: 'method',
+  },
+  {
     label: 'pixelXY',
     signature: '.pixelXY(x, y, …)',
     description:

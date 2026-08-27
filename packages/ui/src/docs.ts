@@ -244,6 +244,14 @@ const DOCS: DocSection[] = [
           "// the same par, patched twice\nconst a = fixture(21, 'house-par')   // dim on 21, white on 25\nconst b = fixture(41, 'house-par')   // dim on 41, white on 45",
       },
       {
+        name: 'what makes a channel a colour',
+        signature: "name: 'red' · name: 'Red_1' · name: 'r', type: 'color'",
+        description:
+          "Name a colour channel red, green, blue or white and .color() finds it, whatever else the def says. Case, spaces, underscores, hyphens and a trailing number are all ignored, so Red_1 and RED and red are the same channel to it, which is the rule .off() and .full() have always read names by. The initials r, g, b and w work too, but only on a channel declared type: 'color', because g is as likely to be a gobo wheel as it is green and driving a gobo to full on a colour call is worse than asking. Anything else is left alone, and .color() says so rather than painting nothing: use the known words where they fit, and .set(name, v) reaches any channel by its own name regardless.",
+        example:
+          "// all three of these answer .color(red)\n{ offset: 1, name: 'red',   type: 'color' }\n{ offset: 1, name: 'Red_1', type: 'color' }\n{ offset: 1, name: 'r',     type: 'color' }   // initials need the type\n\n// this one does not: g here is a gobo wheel\n{ offset: 1, name: 'g', type: 'control' }",
+      },
+      {
         name: "type: 'strip'",
         signature: "{ offset, name, type: 'strip', pixelCount: N }",
         description:
@@ -895,6 +903,14 @@ const DOCS: DocSection[] = [
           "strip.fill(warm)                  // amber at one end, red at the other\nstrip.fill(red, blue)             // two stops\nstrip.fill(red)                   // every pixel\nstrip.fill(sine(), 0, cosine())   // per component, as before",
       },
       {
+        name: '.color on a strip',
+        signature: 'strip.color(warm)  ·  strip.color(red)',
+        description:
+          "The same call as .fill(), under the word every other light here answers to. A par takes .color(red) and a group takes .color(red), and a strip used to be the one thing that spelled it .fill(), so a scene had to remember which kind of light it was talking to. Both names stay, and they are the same function: .fill() is the older spelling and nothing that uses it needs changing. A mono strip has no colour to set and gains neither, which is why a cell takes a level instead.",
+        example:
+          "bar.pixels.color(red)             // every pixel\nbar.pixels.color(warm)            // a gradient across them\nbar.pixels.color(red, blue)       // the same, as two stops\nbar.pixels.fill(red)              // the older spelling, unchanged",
+      },
+      {
         name: 'a palette across a group',
         signature: 'rig.color(warm)',
         description:
@@ -911,12 +927,12 @@ const DOCS: DocSection[] = [
           "strip.chase(warm, { cycles: 2 })\nstrip.chase([blue, cyan]).down()   // stops across the rows\nstrip.chase(red)                   // unchanged",
       },
       {
-        name: 'one light is one position',
-        signature: 'wash.color(warm) is refused',
+        name: 'a run goes where there is room for it',
+        signature: 'wash.color(warm) spreads · par.color(warm) is refused',
         description:
-          "A call that paints a single position has nowhere to put a run of stops, so it refuses the palette rather than quietly painting the first one and dropping the rest. That covers a fixture's .color(), a strip's .pixel(), and handing several colours to anything that wanted one. The message names the two things you probably meant: warm[0] for one stop, or cat(...warm).slow(4) for the whole palette in time. A single-channel strip refuses a colour outright, because a cell that is one channel has nothing to mix, and points at a level or at .each().",
+          "How many positions a light has decides what a run of stops means on it. A fixture with pixels has as many positions as it has pixels, so .color(warm) spreads the palette across them, endpoint to endpoint, exactly as .fill(warm) does on the strip underneath. A par is one position and has nowhere to put a gradient, so it refuses the palette rather than quietly painting the first stop and dropping the rest, and the message names the two things you probably meant: warm[0] for one stop, or cat(...warm).slow(4) for the whole palette in time. The same refusal covers a strip's .pixel(), which is one position wherever it sits. A single-channel strip refuses a colour outright, because a cell that is one channel has nothing to mix, and points at a level or at .each().",
         example:
-          "wash.color(warm)                    // refused, and told what to write\nwash.color(warm[0])                 // one stop\nwash.color(cat(...warm).slow(4))    // the palette, in time\n\nseg.fill(0.5)                       // mono strip: a level, not a colour",
+          "wash.color(warm)                    // a wash with pixels: a gradient across them\nwash.color(red, blue)               // the same, written as two stops\npar.color(warm)                     // one position: refused, and told what to write\npar.color(warm[0])                  // one stop\npar.color(cat(...warm).slow(4))     // the palette, in time\n\nseg.fill(0.5)                       // mono strip: a level, not a colour",
       },
       {
         name: 'cat',

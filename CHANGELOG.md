@@ -19,6 +19,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Added
 
+- **`.color()` on a strip.** The same call as `.fill()`, under the word every
+  other light here answers to: a par takes `.color(red)`, a group takes
+  `.color(red)`, and a strip took only `.fill()`, so a scene had to remember
+  which kind of light it was addressing. Both spellings stay and both are the
+  same function. A mono strip gains neither, having no colour to set.
+- **The colour types admit what the code always accepted.** `.fill()` and
+  `.chase()` took a palette long before their declarations did, and
+  `group.color()` did not admit even a single colour though it spread whole
+  palettes, so a scene that ran correctly failed to typecheck. One shared
+  `ColorRunArgs` now describes every spelling, in one place.
 - **An omitted value means full.** `wash.red()`, `spot.dim()`, `ch(5)`,
   `bar.pixels.fill()`: the shortest way to bring something up is to name it.
   Works on every setter, on `.color()` and `.fill()` (full white), and on the
@@ -68,6 +78,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   step per bar. `head.slots('color')` lists them.
 
 ### Changed
+
+- **`.color()` reads a channel name the way `.off()` and `.full()` always did.**
+  It compared names to the literals `red`, `green`, `blue` and `white`, while
+  the emitter calls read a name through the same normaliser that lowercases it,
+  drops separators and drops a trailing number. So one definition answered one
+  call and refused the other: a fixture wired `Red_1` / `Green_1` / `Blue_1` lit
+  under `.full()` and threw under `.color()`, reporting that it had no red,
+  green or blue channels while naming those three in the message. The initials
+  `r`, `g`, `b` and `w` are accepted too, but only on a channel declared
+  `type: 'color'`, because `g` is as likely to be a gobo wheel as it is green.
+- **A run of colours spreads across a fixture that has pixels to spread it
+  over.** `wash.color(warm)` and `wash.color(red, blue)` used to be refused on
+  the reasoning that one light is one position, whether that light is a par or
+  48 pixels behaving as one. The pixels won the argument: `.fill()` on the strip
+  underneath had spread a run across them all along, so the fixture answered one
+  word and not the other. A par is still one position and still refuses, naming
+  `warm[0]` and `cat(...warm).slow(4)` as before.
 
 - **Layered patterns merge highest-takes-precedence**, the same as a lighting
   desk. `tick()` read the first value on a channel and dropped the rest, so
