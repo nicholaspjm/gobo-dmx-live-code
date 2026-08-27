@@ -161,8 +161,79 @@ export function isEmitterChannel(ch: ChannelDef): boolean {
   if (ch.slots !== undefined && ch.slots.length > 0) return false;
   if (ch.type === 'strip') return true;
   if (ch.type === 'intensity') return true;
-  const bare = ch.name.toLowerCase().replace(/[\s_-]/g, '').replace(/\d+$/, '');
-  return EMITTER_NAMES.has(bare);
+  return EMITTER_NAMES.has(bareName(ch.name));
+}
+
+/**
+ * A channel name reduced to the role it spells.
+ *
+ * Case, separators and a trailing number are all noise: `Red_1` and `red` are
+ * the same emitter on a blinder, and a definition that capitalises its channels
+ * is not a different fixture.
+ */
+function bareName(name: string): string {
+  return name.toLowerCase().replace(/[\s_-]/g, '').replace(/\d+$/, '');
+}
+
+/** The three components a mix is made of, plus the white it may opt into. */
+type MixRole = 'red' | 'green' | 'blue' | 'white';
+
+/**
+ * The short spellings of a mix role.
+ *
+ * Kept apart from the long words because they are ambiguous in a way the words
+ * are not: `g` is as likely to be a gobo wheel as it is green, on a fixture
+ * type this project is named after. A definition that means the colour says so
+ * with `type: 'color'`, and that is the whole gate.
+ */
+const MIX_ROLE_INITIALS: Readonly<Record<string, MixRole>> = Object.freeze({
+  r: 'red', g: 'green', b: 'blue', w: 'white',
+});
+
+/**
+ * Which component of a mix this channel drives, or null if it drives none.
+ *
+ * `.color()` used to compare channel names to the literals 'red', 'green',
+ * 'blue' and 'white', while `.off()` and `.full()` went through
+ * isEmitterChannel(), which reads a name through bareName() first. So a single
+ * definition answered one call and refused the other: a fixture whose channels
+ * are Red_1, Green_1 and Blue_1 lit under `.full()` and threw under `.color()`,
+ * reporting that it had no red, green or blue channels while naming those three
+ * in the same breath. Both calls read a name the same way now.
+ *
+ * A strip is excluded because its colour is per-pixel and reached through the
+ * strip object, not through a scalar write.
+ */
+function mixRole(ch: ChannelDef): MixRole | null {
+  if (ch.type === 'strip') return null;
+  if (ch.slots !== undefined && ch.slots.length > 0) return null;
+  const bare = bareName(ch.name);
+  if (bare === 'red' || bare === 'green' || bare === 'blue' || bare === 'white') return bare;
+  // An initial only counts when the definition declared the channel a colour,
+  // per MIX_ROLE_INITIALS.
+  if (ch.type === 'color') return MIX_ROLE_INITIALS[bare] ?? null;
+  return null;
+}
+
+/** A strip as the colour paths use it: something that fills every pixel. */
+interface FillableStrip {
+  fill(...vs: PatternOrValue[]): void;
+}
+
+/**
+ * The colour-carrying strips of a fixture, in declaration order.
+ *
+ * A mono strip is one level per cell with no colour to mix, so it is not one of
+ * these, and `.color()` leaves it exactly where the named setters leave it.
+ */
+function colourStrips(inst: FixtureInstance, def: FixtureDef): FillableStrip[] {
+  const out: FillableStrip[] = [];
+  for (const ch of def.channels) {
+    if (ch.type !== 'strip' || ch.pixelLayout === 'mono') continue;
+    const strip = inst[ch.name] as Partial<FillableStrip> | undefined;
+    if (typeof strip?.fill === 'function') out.push(strip as FillableStrip);
+  }
+  return out;
 }
 
 // ─── Built-in fixture library ─────────────────────────────────────────────────
@@ -720,15 +791,14 @@ export type FixtureInstance = {
    *   wash.color(sine(), 0, 0)    // animated red
    *   wash.color()                // full white
    *   wash.color(red)             // every pixel, on a wash whose colour is its strip
+   *   wash.color(red, blue)       // a gradient, on a fixture with pixels to spread it over
+   *   wash.color([red, blue])     // the same run, written as one array
    *   head.color('open')          // a wheel slot, on a fixture that has one
    */
   color(
     ...args:
-      | []
-      | [color: Color]
+      | ColorRunArgs
       | [slot: PatternOrValue | string]
-      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
-      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
   ): void;
   /** Zero every light-emitting channel on the fixture (dim, RGB, RGBW,
    *  embedded strip pixels). Safe on every fixture type. */
@@ -1019,6 +1089,8 @@ export function stripCommands(layout: 'rgb' | 'rgbw' | 'mono'): string[] {
     `fill(${v})`, `pixel(i,${v})`, `pixelXY(x,y,${v})`, `row(y,${v})`, `column(x,${v})`,
     'each(fn)', 'eachXY(fn)',
   ];
+  // A mono strip is levels, with no colour to name, so it gains no .color().
+  if (layout !== 'mono') out.push(`color(${v})`);
   // Mono cells have one channel, so there is no colour to name and no rainbow
   // to chase across them.
   out.push(layout === 'mono' ? 'chase()' : 'chase(red)');
@@ -1189,15 +1261,48 @@ export function fixture(
       // as `wash.color(1, 0, 0)`. Checked before the wheel branch below, which
       // also takes a single argument.
       args = unwrapSingleStop(args) as typeof args;
-      // One light is one position, so a run of stops has nowhere to go.
-      // Refused rather than quietly painted with the first one, and refused
-      // BEFORE the single-colour branch below, which would otherwise take the
-      // first argument and drop the rest without saying so.
-      if (isPalette(args[0])) {
-        throw oneColourOnly(`Fixture "${def.name}".color()`, (args[0] as unknown[]).length);
-      }
-      if (args.length > 1 && everyArgIsColour(args)) {
-        throw oneColourOnly(`Fixture "${def.name}".color()`, args.length);
+      // A run of stops needs somewhere to go, and how many places this fixture
+      // has depends on what it is made of. A par is one position and a run has
+      // nowhere to land on it; a pixel bar is as many positions as it has
+      // pixels, and .fill() on its strip already spread a run across them,
+      // endpoint to endpoint. So the same call means "this colour" on the par
+      // and "this gradient" on the bar, which is the rule the rest of the
+      // colour paths already follow and the one .color() was missing: the
+      // 154-channel wash refused `.color(warm)` while `.pixels.fill(warm)`
+      // painted it.
+      //
+      // Refused rather than quietly painted with the first stop where there is
+      // nowhere to spread it, and decided BEFORE the single-colour branch
+      // below, which would otherwise take the first argument and drop the rest
+      // without saying so.
+      const stops = isPalette(args[0])
+        ? (args[0] as unknown[]).length
+        : (args.length > 1 && everyArgIsColour(args) ? args.length : 1);
+      if (stops > 1) {
+        const spread = colourStrips(inst, def);
+        if (spread.length === 0) {
+          throw oneColourOnly(`Fixture "${def.name}".color()`, stops);
+        }
+        // Handed on whole rather than decomposed, so the spacing of a gradient
+        // is decided by the one readColorRun ladder inside .fill() instead of
+        // being worked out a second time here and left to drift.
+        for (const strip of spread) strip.fill(...(args as PatternOrValue[]));
+        // A scalar emitter on the same fixture is one position, and leaving it
+        // where it was would light a gradient across the pixels beside a colour
+        // nothing in the scene asked for: the 154-channel wash has a scalar red
+        // that `.red(0.5)` and the run would then disagree about. It takes the
+        // run sampled at a single position, which is the first stop, read
+        // through the same ladder rather than by reaching into args again.
+        const single = readColorRun(args, 1, `Fixture "${def.name}".color()`)[0];
+        for (const c of def.channels) {
+          const role = mixRole(c);
+          // White stays opt-in here exactly as it is in the mixer below: a run
+          // of colours is a mix, and a dedicated white would wash it out.
+          if (role === 'red') inst.set(c.name, single.r as PatternOrValue);
+          else if (role === 'green') inst.set(c.name, single.g as PatternOrValue);
+          else if (role === 'blue') inst.set(c.name, single.b as PatternOrValue);
+        }
+        return;
       }
       // A colour, whether branded or spelled as three numbers in an array. The
       // array form is what .each() hands back, and it used to reach
@@ -1237,13 +1342,16 @@ export function fixture(
       // channel is set independently; patterns and constants both flow
       // through inst.set() the same way as a named-channel setter would.
       const [r, g, b] = channelValues(args.slice(0, 3), ['r', 'g', 'b'], '.color()');
-      const has = (name: string): boolean =>
-        def.channels.some((c) => c.name === name && c.type !== 'strip');
       let painted = 0;
-      const paint = (name: string, v: PatternOrValue): void => {
-        if (!has(name)) return;
-        inst.set(name, v);
-        painted++;
+      const paint = (role: MixRole, v: PatternOrValue): void => {
+        // Resolved by role rather than by literal channel name, so a definition
+        // spelling its channels Red_1, or r with type: 'color', reaches the
+        // same mix as one spelling them red. mixRole() carries that rule.
+        for (const c of def.channels) {
+          if (mixRole(c) !== role) continue;
+          inst.set(c.name, v);
+          painted++;
+        }
       };
       // White stays opt-in: a three-argument call is a colour mix that the
       // fixture's own white channel would wash out. Read once, because the
@@ -1278,7 +1386,9 @@ export function fixture(
       if (painted === 0) {
         throw new Error(
           `Fixture "${def.name}".color(): this fixture has no red/green/blue channels. ` +
-          `Channels: ${def.channels.map((c) => c.name).join(', ')}.`,
+          `Channels: ${def.channels.map((c) => c.name).join(', ')}. ` +
+          `A colour channel is one named red, green, blue or white, in any case and ` +
+          `with any trailing number, or one spelled r/g/b/w and declared type: 'color'.`,
         );
       }
     },
@@ -1605,6 +1715,28 @@ export interface PixelGridFill {
   mirror(): void;
 }
 
+/**
+ * Every spelling of a colour, or of a run of them, that a colour call accepts.
+ *
+ * Written once and shared, because the implementations already read all of
+ * these through the one ladder in readColorStops() while the declarations had
+ * drifted behind it: `.fill()` and `.chase()` took a palette long before their
+ * types admitted one, so a scene that ran correctly failed to typecheck, and
+ * the type was the thing that was wrong.
+ *
+ * `readonly Color[]` covers both ways to write a run — `color(red, blue)` as
+ * separate arguments and `color([red, blue])` as one array — because a rest
+ * parameter of colours and an array of colours are the same list.
+ */
+export type ColorRunArgs =
+  | []
+  | [color: Color]
+  | [colors: readonly Color[]]
+  | [pattern: PatternLike]
+  | readonly Color[]
+  | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
+  | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue];
+
 export interface StripInstance {
   readonly universe: number;
   readonly startChannel: number;
@@ -1668,11 +1800,21 @@ export interface StripInstance {
   /**
    * Set every pixel to the same r/g/b. Each arg may be a pattern or number.
    * Omit all three for full white.
+   *
+   * Several colours are a gradient, spread endpoint to endpoint across the
+   * strip. One colour repeats, so `.fill(red)` is every pixel red.
    */
-  fill(...args:
-    | []
-    | [color: Color]
-    | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]): void;
+  fill(...args: ColorRunArgs): void;
+
+  /**
+   * The same call as `.fill()`, under the word a scene reaches for.
+   *
+   * A light has a colour, whatever it is made of, and `.color()` is how every
+   * other kind of light here is told what colour to be. A strip answered
+   * `.fill()` and nothing else, so a scene that had learned `par.color(red)`
+   * had to know that this one thing spelled it differently.
+   */
+  color(...args: ColorRunArgs): void;
 
   /**
    * Set a single pixel (0-indexed). Three shapes:
@@ -1872,6 +2014,10 @@ export function rgbStrip(
         uni(universe, base + 1, g);
         uni(universe, base + 2, b);
       }
+    },
+
+    color(...args) {
+      inst.fill(...(args as []));
     },
 
     pixel(index, ...args) {
@@ -2255,13 +2401,13 @@ export interface RgbwStripInstance {
    * follows here. Four set W as well. Omit all of them for full on every
    * channel.
    */
-  fill(
-    ...args:
-      | []
-      | [color: Color]
-      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
-      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
-  ): void;
+  fill(...args: ColorRunArgs): void;
+
+  /**
+   * The same call as `.fill()`, under the word a scene reaches for. See the
+   * note on StripInstance.color().
+   */
+  color(...args: ColorRunArgs): void;
 
   /**
    * Set a single pixel (0-indexed). Four shapes:
@@ -2474,6 +2620,10 @@ export function rgbwStrip(
         uni(universe, base + 2, b);
         if (w !== undefined) uni(universe, base + 3, w);
       }
+    },
+
+    color(...args) {
+      inst.fill(...(args as []));
     },
 
     pixel(index, ...args) {
@@ -2780,12 +2930,7 @@ export interface GroupInstance {
    * Set r/g/b (and optionally w) across the group, skipping roles a given
    * element does not have. Omit everything for full white.
    */
-  color(
-    ...args:
-      | []
-      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue]
-      | [r: PatternOrValue, g: PatternOrValue, b: PatternOrValue, w: PatternOrValue]
-  ): void;
+  color(...args: ColorRunArgs): void;
 
   /** Zero every light-emitting role across the group. */
   off(): void;

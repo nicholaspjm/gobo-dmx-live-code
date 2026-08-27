@@ -46,6 +46,16 @@ defineFixture('scalar-and-strip', {
   ],
 });
 
+// A plain RGB par: one position, and so nowhere to spread a run of stops.
+defineFixture('scalar-only', {
+  name: 'Scalar only', manufacturer: 'test', type: 'generic', channelCount: 3,
+  channels: [
+    { offset: 0, name: 'red', type: 'color' },
+    { offset: 1, name: 'green', type: 'color' },
+    { offset: 2, name: 'blue', type: 'color' },
+  ],
+});
+
 // Four single-channel cells: a level each, and no colour anywhere.
 defineFixture('cell-bar', {
   name: 'Cell bar', manufacturer: 'test', type: 'generic', channelCount: 4,
@@ -230,11 +240,26 @@ describe('.color() on a fixture whose colour lives in a strip', () => {
     expect(channels(9)).toEqual([255, 255, 0, 0, 51, 255, 0, 0, 51]);
   });
 
-  it('still refuses a palette on one light', () => {
-    // A run of stops spread across the pixels is .fill()'s job. One light is
-    // one position, whether that light is a par or 48 pixels behaving as one.
+  it('spreads a palette across a light that has pixels to spread it over', () => {
+    // This used to refuse, on the reasoning that one light is one position
+    // whether it is a par or 48 pixels behaving as one. The pixels won the
+    // argument: a wash with 48 of them has 48 positions, .fill() on its strip
+    // spread a run across them all along, and refusing the same run under
+    // .color() meant the fixture answered one word and not the other. A run
+    // still has nowhere to go on a par, which the test below pins.
     const wash = fixture(1, 'atomic-154');
-    expect(() => (wash.color as (...a: unknown[]) => void)([COLORS.red, COLORS.blue]))
+    (wash.color as (...a: unknown[]) => void)([COLORS.red, COLORS.blue]);
+    const out = channels(154);
+    // The strip starts after the two scalar channels; its first pixel takes
+    // the first stop and its last takes the last.
+    expect(out.slice(2, 5)).toEqual([255, 0, 0]);
+  });
+
+  it('still refuses a palette on a light that is only one position', () => {
+    // A par has nowhere to put a gradient, and painting it with the first stop
+    // and dropping the rest is the silent wrong this refusal exists to stop.
+    const par = fixture(1, 'scalar-only');
+    expect(() => (par.color as (...a: unknown[]) => void)([COLORS.red, COLORS.blue]))
       .toThrow('takes one colour, not 2');
   });
 
