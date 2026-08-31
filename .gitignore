@@ -11,3 +11,7 @@ analysis.json
 .package-work/
 release/
 packages/desktop/dist/
+CLAUDE.md
+.claude/
+AGENTS.md
+.cursor/
