@@ -2030,6 +2030,16 @@
          declaration is the brightest thing on its line; refs are the same
          hue one step dimmer, still weighted so chain roots like
          `wash.red(…)` stay findable. */
+      /* The mini-notation token driving light right now. An outline rather
+         than a background, so it does not fight the syntax colour underneath,
+         and it is the accent rather than a new colour because the editor
+         already has enough of those. */
+      .cm-content .gobo-live-token {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+        border-radius: 2px;
+      }
+
       .cm-content .gobo-fixture-decl {
         color: var(--syn-fixture-decl);
         font-weight: 700;

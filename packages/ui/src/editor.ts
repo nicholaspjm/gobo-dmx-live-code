@@ -17,6 +17,7 @@
  */
 
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import { liveTokens } from './live-tokens.js';
 import { EditorState, Prec } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { defaultKeymap, historyKeymap, history } from '@codemirror/commands';
@@ -96,6 +97,9 @@ export function createEditor(
       history(),
       lineNumbers(),
       highlightActiveLine(),
+      // Outlines the mini-notation token currently driving light. Inert until
+      // the engine is asked to collect locations, which main.ts does once.
+      liveTokens(),
       bracketMatching(),
       indentOnInput(),
       javascript(),

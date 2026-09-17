@@ -20,6 +20,7 @@ import {
   tick,
   getAllUniverses,
   getUniverseSnapshot,
+  setLocationCollection,
   getActiveUniverses,
   SCREEN_UNIVERSE,
   getUniverseBuffer,
@@ -71,6 +72,7 @@ import { registerPublicFixtures } from './public-fixtures.js';
 import { formatGoboCode } from './formatter.js';
 import { getSettings, mountSettingsPanel, onSettingsChange } from './settings.js';
 import { captureConsole, mountConsolePanel } from './console-log.js';
+import { tagMiniLocations } from './mini-locations.js';
 import { applyTheme } from './themes.js';
 import {
   mountOutputsPanel,
@@ -89,6 +91,10 @@ import {
 // Before anything else runs, so a failure during start-up is already in the
 // panel by the time someone opens it.
 captureConsole();
+
+// The engine only notes which source ranges are live when something is going
+// to draw them, and the editor is that something.
+setLocationCollection(true);
 
 applyTheme(getSettings().theme);
 
@@ -180,7 +186,28 @@ async function runEval(code: string): Promise<void> {
     const formatted = await formatBuffer({ silent: true });
     if (formatted !== null) toRun = formatted;
   }
-  const result = evalCode(toRun);
+  // Give the mini-notation strings their document offsets, so the editor can
+  // outline whichever token is driving light. Timid by design: anything it is
+  // unsure of it leaves alone, and the untouched source is what runs. See
+  // mini-locations.ts.
+  const tagged = tagMiniLocations(toRun);
+
+  let result = evalCode(tagged.code);
+  // If the tagged copy failed but the original would not have, the tagging is
+  // at fault and the scene is worth more than the outlines. Retried once, on
+  // the untouched source, and only when something was actually rewritten — so
+  // a scene with a real error in it still reports that error and is not run
+  // twice for nothing.
+  if (!result.success && tagged.tagged > 0) {
+    const plain = evalCode(toRun);
+    if (plain.success) {
+      console.warn(
+        '[gobo] the token outlines were dropped for this scene: tagging its mini() calls '
+        + `produced code that would not run (${result.error ?? 'unknown error'}). The scene itself ran.`,
+      );
+      result = plain;
+    }
+  }
   if (result.success) {
     // This scene ran, so it is worth being able to get back to. See
     // rememberSceneInAddressBar.

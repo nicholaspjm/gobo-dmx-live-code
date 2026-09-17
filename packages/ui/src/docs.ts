@@ -351,6 +351,37 @@ const DOCS: DocSection[] = [
 
   {
     category: 'viz',
+    title: 'the token that is lighting something',
+    blurb:
+      "The one decoration that is always on. Everything else in this tab you ask for; this outlines, on every tick, the mini-notation tokens that actually reached a channel. Nothing is changed about the output and nothing needs to be chained: run a scene with a mini() in it and watch the outline walk the string.",
+    entries: [
+      {
+        name: 'why it exists',
+        signature: 'the code becomes its own playhead',
+        description:
+          "With sound you hear which step is playing. With light your eyes are on the rig, so when something looks wrong you are left counting tokens in a long string to work out which one fired. The outline says which one, while it is firing.",
+        example:
+          "const bar = rgbStrip(1, 8)\nbar.red(mini('1 - 1 - 0 0 1 -'))",
+      },
+      {
+        name: 'what gets outlined',
+        signature: "tokens inside mini('…')",
+        description:
+          "A token is outlined when a value it produced was written to a channel above zero on that tick. A rest, a zero, and a token inside a pattern nothing is listening to stay plain — so a string that lights nothing looks like one, which is usually the answer you were after. Two channels driven by one token outline it once; several patterns running at once each outline their own step.",
+        example:
+          "const bar = rgbStrip(1, 8)\nbar.red(mini('1 - 1 -'))\nbar.blue(mini('0 1 0 1'))",
+      },
+      {
+        name: 'only plain mini() calls',
+        signature: "mini('1 0 1 0'), not mini(someString)",
+        description:
+          "The offsets are found by reading the source, and it is deliberately timid about what it will read: a single quoted literal written straight into the call. A string built from a variable, one carrying a backslash escape, or a call already given a second argument is left alone. Those scenes run exactly as before and simply get no outline — the scene is worth more than the decoration.",
+      },
+    ],
+  },
+
+  {
+    category: 'viz',
     title: 'pattern viz',
     blurb:
       "Opt-in per-pattern editor decorations. Chain one onto any pattern and the line shows what it is doing. Every method returns the pattern unchanged, so nothing about the output changes and you can chain as many as you like: two calls put two views on the line, side by side. Never on by default.",

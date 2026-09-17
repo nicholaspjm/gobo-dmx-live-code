@@ -405,6 +405,53 @@ export function levelOf(v: unknown): number | null {
   return typeof gain === 'number' ? inner * gain : inner;
 }
 
+// ─── Which bit of the source is live ─────────────────────────────────────────
+
+/**
+ * The character ranges of the mini-notation tokens driving light right now.
+ *
+ * @strudel/mini can tag every leaf of a pattern with where it came from in the
+ * document — that is what `m(str, offset)` is for, as against `mini(str)`,
+ * which throws the offsets away. When a scene is compiled with the tagging
+ * version, each hap carries the range of the token that produced it, and this
+ * collects the ones that are actually reaching a channel on this tick.
+ *
+ * Flat pairs rather than objects: this fills sixty times a second and the
+ * editor reads it just as often, so it is one array that is emptied and
+ * refilled rather than a fresh allocation per frame.
+ *
+ * Off unless the editor asks for it. A headless run, a test, or a build with
+ * no decorations has no use for this and should not pay for it.
+ */
+let _collectLocations = false;
+const _activeLocations: number[] = [];
+
+export function setLocationCollection(on: boolean): void {
+  _collectLocations = on;
+  if (!on) _activeLocations.length = 0;
+}
+
+/** Flat [start, end, start, end, …] for the tokens live on the last tick. */
+export function getActiveLocations(): readonly number[] {
+  return _activeLocations;
+}
+
+/** Shape of what withLoc() hangs off a hap. Read defensively: it comes from
+ *  a dependency and only exists on patterns built the tagging way. */
+interface LocatedHap {
+  context?: { locations?: Array<{ start?: number; end?: number }> };
+}
+
+function collectLocations(hap: unknown): void {
+  const locs = (hap as LocatedHap).context?.locations;
+  if (!locs) return;
+  for (let i = 0; i < locs.length; i++) {
+    const s = locs[i].start;
+    const e = locs[i].end;
+    if (typeof s === 'number' && typeof e === 'number') _activeLocations.push(s, e);
+  }
+}
+
 // ─── Internal ─────────────────────────────────────────────────────────────────
 
 /**
@@ -511,6 +558,8 @@ export function clearDefs(): void {
 export function tick(cyclePos: number): void {
   // Zero all universe buffers
   for (const buf of _universes.values()) buf.fill(0);
+  // Which tokens are live is a fact about this tick and no other.
+  if (_collectLocations) _activeLocations.length = 0;
 
   for (const def of _defs.values()) {
     const chIdx = def.channel - 1; // 1-indexed → 0-indexed
@@ -544,6 +593,11 @@ export function tick(cyclePos: number): void {
           for (let i = 0; i < haps.length; i++) {
             const v = levelOf(haps[i].value);
             if (v !== null && v > floatVal) floatVal = v;
+            // Only a hap that is actually lighting something. A token
+            // sitting at zero is in the pattern but is not what anyone
+            // means by the live one, and outlining it would light the whole
+            // string up at once.
+            if (_collectLocations && v !== null && v > 0) collectLocations(haps[i]);
           }
         }
       } catch (err) {

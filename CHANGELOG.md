@@ -19,6 +19,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Added
 
+- **The token that is lighting something is outlined while it fires.** With
+  sound you hear which step is playing; with light your eyes are on the rig, so
+  a string that looked wrong left you counting tokens to work out which one
+  fired. Every mini-notation token that actually reached a channel above zero is
+  now outlined in the editor, on every tick, with no call to opt in. A rest and a
+  zero stay plain, so a string that lights nothing looks like one. Only plain
+  quoted literals written straight into `mini(…)` are read — a string built from
+  a variable or carrying an escape is left alone and simply gets no outline,
+  because the scene is worth more than the decoration.
+
 - **`.mono(v)`, `.temp(k)` and `.solo()`, on every kind of light.** `.mono()` is
   brightness that works anywhere: `.dim()` is a channel setter and exists only
   where the definition has a dimmer, so a bare RGB par — whose brightness lives
