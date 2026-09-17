@@ -22,7 +22,7 @@ import { defineFixture, fixture, clearSimFixtures } from './fixtures.js';
 const good = {
   name: 'My Par',
   manufacturer: 'Acme',
-  type: 'rgbw',
+  type: 'rgbw' as const,
   channelCount: 4,
   channels: [
     { offset: 0, name: 'red', type: 'color' as const },

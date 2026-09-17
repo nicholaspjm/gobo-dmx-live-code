@@ -992,12 +992,17 @@ function isPatternLike(v: unknown): v is PatternLike {
  * A fixture with nothing to drive throws. It used to return quietly, which is
  * how a blinder's .off() could leave both bulbs lit and report success.
  */
-function driveEmitters(
-  inst: FixtureInstance,
-  def: FixtureDef,
-  level: 0 | 1,
-  what: string,
-): void {
+/**
+ * Drive every light-emitting channel of a fixture, and say how many there were.
+ *
+ * Split out of driveEmitters() so a group can use the same rule. A group used
+ * to decide what "off" meant by filtering role names against dim plus red,
+ * green, blue and white, which left amber, UV, lime, the warm and cold halves
+ * of a blinder and every mono strip cell burning through a blackout — on the
+ * same fixture whose own .off() darkened all of them. group() is what a rig is
+ * built from, so that was the blackout most likely to be the one anybody used.
+ */
+function driveEveryEmitter(inst: FixtureInstance, def: FixtureDef, level: 0 | 1): number {
   let driven = 0;
   for (const ch of def.channels) {
     if (!isEmitterChannel(ch)) continue;
@@ -1016,6 +1021,16 @@ function driveEmitters(
     inst.set(ch.name, level);
     driven++;
   }
+  return driven;
+}
+
+function driveEmitters(
+  inst: FixtureInstance,
+  def: FixtureDef,
+  level: 0 | 1,
+  what: string,
+): void {
+  const driven = driveEveryEmitter(inst, def, level);
 
   if (driven === 0) {
     throw new Error(
@@ -2941,6 +2956,14 @@ interface GroupCell {
    * callback drives.
    */
   level(value: PatternOrValue): void;
+  /**
+   * Every emitter this element has, at 0 or 1. What off() and full() drive.
+   *
+   * Separate from level(), which is brightness and deliberately leaves colour
+   * alone on a fixture with a dimmer. Blackout cannot afford that distinction:
+   * it has to reach everything that makes light, under whatever name.
+   */
+  all(level: 0 | 1): void;
 }
 
 /** Colour roles, in the order the array form of `each()` uses. */
@@ -3002,6 +3025,9 @@ function pixelCell(
       level(value) {
         uni(universe, base, value);
       },
+      all(level) {
+        uni(universe, base, level);
+      },
     };
   }
   const roles = new Set(COLOUR_ROLES.slice(0, stride === 4 ? 4 : 3));
@@ -3011,6 +3037,11 @@ function pixelCell(
       const offset = COLOUR_ROLES.indexOf(role as (typeof COLOUR_ROLES)[number]);
       if (offset < 0 || offset >= stride) return;
       uni(universe, base + offset, value);
+    },
+    all(level) {
+      // Every channel in the stride, the dedicated white included: this is
+      // blackout, not a colour mix, so nothing is held back.
+      for (let i = 0; i < stride; i++) uni(universe, base + i, level);
     },
     level(value) {
       // Matches what strip.each() already does with a single value: R = G = B,
@@ -3085,6 +3116,13 @@ function fixtureCell(inst: FixtureInstance): GroupCell {
   return {
     roles,
     set: setOn,
+    all(level) {
+      // The fixture's own rule, so a group blackout and a fixture blackout
+      // cannot disagree. A member with nothing that emits contributes nothing
+      // and does not throw: a group skips what it cannot do, which is what
+      // makes one line work across a mixed rig.
+      driveEveryEmitter(inst, inst.def, level);
+    },
     level(value) {
       // A dimmer is what "brightness" means on a fixture that has one, and
       // leaving the colour alone is the whole reason to prefer it: the look
@@ -3293,23 +3331,11 @@ export function group(...members: GroupMember[]): GroupInstance {
     },
 
     off() {
-      for (const cell of cells) {
-        for (const role of cell.roles) {
-          if (role === 'dim' || (COLOUR_ROLES as readonly string[]).includes(role)) {
-            cell.set(role, 0);
-          }
-        }
-      }
+      for (const cell of cells) cell.all(0);
     },
 
     full() {
-      for (const cell of cells) {
-        for (const role of cell.roles) {
-          if (role === 'dim' || (COLOUR_ROLES as readonly string[]).includes(role)) {
-            cell.set(role, 1);
-          }
-        }
-      }
+      for (const cell of cells) cell.all(1);
     },
 
     each(fn) {

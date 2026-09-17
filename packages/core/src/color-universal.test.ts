@@ -361,3 +361,62 @@ describe('group blackout reaches the same channels the fixture does', () => {
     expect(chans(2)).toEqual([255, 255]);
   });
 });
+
+// ─── a group blackout reaches every emitter, not four names ──────────────────
+
+describe('group.off() darkens whatever the fixture darkens', () => {
+  it('takes amber and uv down with the rest', () => {
+    // off() filtered roles against dim plus red/green/blue/white, so every
+    // other emitter burned through a blackout: amber and uv here, and lime,
+    // cyan, magenta and the warm/cold halves of a blinder elsewhere. On the
+    // same fixture whose own .off() darkened all of them.
+    define('rgbau', [
+      { offset: 0, name: 'red', type: 'color' },
+      { offset: 1, name: 'green', type: 'color' },
+      { offset: 2, name: 'blue', type: 'color' },
+      { offset: 3, name: 'amber', type: 'color' },
+      { offset: 4, name: 'uv', type: 'color' },
+    ]);
+    const par = fixture(1, 'rgbau');
+    par.full();
+    expect(chans(5)).toEqual([255, 255, 255, 255, 255]);
+    group(par).off();
+    expect(chans(5)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('darkens a blinder whose halves are warm and cold', () => {
+    define('blinder', [
+      { offset: 0, name: 'warm', type: 'generic' },
+      { offset: 1, name: 'cold', type: 'generic' },
+    ]);
+    const b = fixture(1, 'blinder');
+    b.full();
+    group(b).off();
+    expect(chans(2)).toEqual([0, 0]);
+  });
+
+  it('darkens the mono cells of a fixture with a white segment bar', () => {
+    // The shape the public atomic-strobe-154ch ships: a mono strip alongside a
+    // colour one. A group added red/green/blue for every strip, and a mono
+    // strip answers to none of them, so its cells were never written at all.
+    define('seg-bar', [
+      { offset: 0, name: 'dim', type: 'intensity' },
+      { offset: 1, name: 'segments', type: 'strip', pixelCount: 4, pixelLayout: 'mono' },
+    ], 5);
+    const bar = fixture(1, 'seg-bar');
+    bar.full();
+    expect(chans(5)).toEqual([255, 255, 255, 255, 255]);
+    group(bar).off();
+    expect(chans(5)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('still brings the whole group up under full()', () => {
+    define('rgbau2', [
+      { offset: 0, name: 'red', type: 'color' },
+      { offset: 1, name: 'amber', type: 'color' },
+      { offset: 2, name: 'uv', type: 'color' },
+    ]);
+    group(fixture(1, 'rgbau2')).full();
+    expect(chans(3)).toEqual([255, 255, 255]);
+  });
+});
