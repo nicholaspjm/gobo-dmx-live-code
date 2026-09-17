@@ -756,6 +756,14 @@ function rebuildSimPanel(): void {
 
   const fixtures = getSimFixtures();
   simEmptyEl.classList.toggle('hidden', fixtures.length > 0);
+  // Nothing is registered until the scene has been evaluated, so a scene that
+  // plainly declares a fixture still has none here until it runs. Saying "no
+  // fixtures in this scene" over `const wash = fixture(1, 'rgb')` reads as a
+  // fault in the scene, which is exactly the wrong first impression: it is the
+  // state the app opens in, above the example it ships with.
+  simEmptyEl.textContent = isRunning()
+    ? 'no fixtures in this scene'
+    : 'nothing running · ctrl+enter to run';
 
   for (const fix of fixtures) {
     const unit = document.createElement('div');
