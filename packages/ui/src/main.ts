@@ -70,6 +70,7 @@ import { mountLibraryPanel } from './library.js';
 import { registerPublicFixtures } from './public-fixtures.js';
 import { formatGoboCode } from './formatter.js';
 import { getSettings, mountSettingsPanel, onSettingsChange } from './settings.js';
+import { captureConsole, mountConsolePanel } from './console-log.js';
 import { applyTheme } from './themes.js';
 import {
   mountOutputsPanel,
@@ -85,7 +86,23 @@ import {
 // Apply the persisted theme before the editor mounts and before any
 // CSS-variable-dependent code runs. Otherwise the page flashes the default
 // ember palette while the editor constructs.
+// Before anything else runs, so a failure during start-up is already in the
+// panel by the time someone opens it.
+captureConsole();
+
 applyTheme(getSettings().theme);
+
+/**
+ * Editor type size, as a variable the stylesheet reads.
+ *
+ * Set on the document rather than on the editor, so the gutter, the inline
+ * widgets and the tooltips all scale with the code rather than staying at
+ * whatever size they were authored against.
+ */
+function applyFontSize(px: number): void {
+  document.documentElement.style.setProperty('--editor-font-size', `${px}px`);
+}
+applyFontSize(getSettings().fontSize);
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 
@@ -1755,6 +1772,17 @@ const libraryPanel = mountLibraryPanel({
 });
 _panelClosers.set('library', libraryPanel.setOpen);
 
+// The log panel. Recording starts before anything else runs, so a failure
+// during start-up is in the panel by the time anyone opens it.
+const logPanel = mountConsolePanel({
+  panelEl:  document.getElementById('log-panel')  as HTMLElement,
+  bodyEl:   document.getElementById('log-body')   as HTMLElement,
+  toggleEl: document.getElementById('log-toggle') as HTMLButtonElement,
+  closeEl:  document.getElementById('log-close')  as HTMLButtonElement,
+  onOpen:   () => closeOtherPanels('log'),
+});
+_panelClosers.set('log', logPanel.setOpen);
+
 // Settings panel. Closes docs and library when it opens.
 const settingsPanel = mountSettingsPanel({
   panelEl:  document.getElementById('settings-panel')  as HTMLElement,
@@ -1784,7 +1812,7 @@ _panelClosers.set('outputs', _outputsPanel.setOpen);
 // Re-apply the theme whenever the setting changes. Other settings are read at
 // the point of use and need no subscription; themes need one because they
 // write CSS variables onto :root to take effect.
-onSettingsChange((s) => applyTheme(s.theme));
+onSettingsChange((s) => { applyTheme(s.theme); applyFontSize(s.fontSize); });
 
 // After every successful eval, any new defineFixture() calls land in the
 // runtime registry. Refresh the library panel so those show up in the

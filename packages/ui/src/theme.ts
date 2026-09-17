@@ -35,7 +35,11 @@ export const goboTheme = EditorView.theme(
       backgroundColor: v('bg'),
       color: v('text'),
       height: '100%',
-      fontSize: '13px',
+      // Follows the text-size setting, falling back to what it has always
+      // been. The tooltips below keep their own sizes: those are chrome, and
+      // scaling a 440px-wide help panel with the code makes it unreadable at
+      // the sizes this setting exists for.
+      fontSize: 'var(--editor-font-size, 13px)',
     },
     '.cm-scroller': {
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",

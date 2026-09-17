@@ -570,6 +570,56 @@
         color: var(--text-muted);
         letter-spacing: 0.06em;
       }
+      /* ── the log panel ───────────────────────────────────────────────── */
+      .log-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        padding: 0 0 8px;
+      }
+
+      .log-clear {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        font: inherit;
+        font-size: 11px;
+        padding: 2px 8px;
+        cursor: pointer;
+      }
+
+      .log-clear:hover { color: var(--text); border-color: var(--text-muted); }
+
+      .log-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+        font-size: 11.5px;
+        line-height: 1.5;
+      }
+
+      .log-empty { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+
+      .log-row {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        padding: 2px 0;
+        border-bottom: 1px solid var(--border);
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+      }
+
+      .log-time { color: var(--text-muted); flex: none; font-size: 10.5px; }
+      .log-text { white-space: pre-wrap; word-break: break-word; flex: 1; }
+      .log-count { color: var(--text-muted); flex: none; font-size: 10.5px; }
+
+      /* Warnings and errors are marked by their own word as well as by colour,
+         which is the same reason the status bar carries a ×. */
+      .log-warn .log-text::before { content: 'warn '; color: var(--accent2); }
+      .log-error .log-text::before { content: 'error '; color: var(--error); }
+      .log-error .log-text { color: var(--error); }
+
       .fixture-empty {
         font-size: 10px;
         color: var(--text-muted);
@@ -2363,6 +2413,7 @@
                other five outputs, rather than as a button of its own up here.
                Reached by clicking the connection light. -->
           <button type="button" class="docs-toggle" id="library-toggle" title="custom fixture library">library</button>
+          <button type="button" class="docs-toggle" id="log-toggle" title="what the scene has printed, and what went wrong">log</button>
           <button type="button" class="docs-toggle" id="docs-toggle" title="function reference">docs</button>
           <button type="button" class="docs-toggle settings-toggle-btn" id="settings-toggle" title="settings" aria-label="settings">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2415,6 +2466,14 @@
           <button type="button" class="docs-close" id="outputs-close" title="close">×</button>
         </div>
         <div class="docs-body" id="outputs-body"></div>
+      </aside>
+
+      <aside class="docs-panel" id="log-panel" aria-hidden="true">
+        <div class="docs-header">
+          <span class="docs-title">log</span>
+          <button type="button" class="docs-close" id="log-close" title="close">×</button>
+        </div>
+        <div class="docs-body" id="log-body"></div>
       </aside>
 
       <aside class="docs-panel" id="settings-panel" aria-hidden="true">

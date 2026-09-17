@@ -36,6 +36,16 @@ export type StopAction = 'blackout' | 'freeze';
 export type SendRate = 25 | 30 | 40 | 44;
 
 /**
+ * Editor type size, in pixels.
+ *
+ * Bigger than a text editor's usual range at the top end on purpose: this is
+ * read in a dark room, over someone's shoulder, and sometimes off a projector
+ * at the back of a venue. 13 is for working on a laptop, 24 is for being able
+ * to see it from the desk.
+ */
+export type FontSize = 11 | 13 | 15 | 18 | 21 | 24;
+
+/**
  * Rates that used to be offered. A setting saved as 60 or 120 is migrated to
  * the nearest useful value rather than left as a number the select cannot
  * show, which would silently reset it to the default on the next write.
@@ -63,6 +73,8 @@ export interface Settings {
   /** Active colour theme. Default 'tungsten' (the original warm-brown,
    *  formerly stored as 'ember'; see resolveThemeId()). */
   theme: ThemeId;
+  /** Editor type size in pixels. Default 13. */
+  fontSize: FontSize;
   /** Format the editor buffer with prettier every time the code runs
    *  (Ctrl+Enter). Off by default, because rewriting the doc
    *  mid-performance moves the cursor anchor. */
@@ -76,6 +88,7 @@ const DEFAULTS: Settings = {
   simTooltips: true,
   sendRate: 40,
   theme: 'tungsten',
+  fontSize: 13,
   formatOnRun: false,
 };
 
@@ -204,6 +217,19 @@ export function mountSettingsPanel(opts: {
           control: select('theme', s.theme, THEME_LIST.map((t) => ({ value: t.id, label: t.label }))),
         })}
         ${row({
+          key: 'fontSize',
+          label: 'text size',
+          hint: 'how big the code is. the large sizes are for reading it in a dark room, or off a projector.',
+          control: select('fontSize', String(s.fontSize), [
+            { value: '11', label: '11 px' },
+            { value: '13', label: '13 px (default)' },
+            { value: '15', label: '15 px' },
+            { value: '18', label: '18 px' },
+            { value: '21', label: '21 px' },
+            { value: '24', label: '24 px' },
+          ]),
+        })}
+        ${row({
           key: 'stopAction',
           label: 'stop action',
           hint: 'what ctrl+. / ctrl+space does. blackout zeroes all channels; freeze leaves the last frame on outputs.',
@@ -265,7 +291,7 @@ export function mountSettingsPanel(opts: {
       // because TS can't narrow the union from a runtime string key.
       (setSetting as (k: keyof Settings, v: unknown) => void)(key, t.checked);
     } else if (t instanceof HTMLSelectElement) {
-      const v: unknown = key === 'sendRate' ? Number(t.value) : t.value;
+      const v: unknown = key === 'sendRate' || key === 'fontSize' ? Number(t.value) : t.value;
       (setSetting as (k: keyof Settings, v: unknown) => void)(key, v);
     }
   });
