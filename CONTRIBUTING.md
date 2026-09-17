@@ -1,7 +1,11 @@
 # Contributing
 
-gobo is MIT-licensed and open to contributions. Fixtures are the easiest and most
-useful place to start. For anything else, open an issue first.
+gobo is open to contributions. Fixtures are the easiest and most useful place to
+start. For anything else, open an issue first.
+
+The app is **AGPL-3.0-or-later**, and a contribution to it is too. The connector
+under `packages/bridge` is **MIT**, so it stays reusable by other lighting
+projects. [GOVERNANCE.md](GOVERNANCE.md#why-agpl) says why it is split that way.
 
 ---
 
