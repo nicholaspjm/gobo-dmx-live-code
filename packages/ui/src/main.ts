@@ -385,6 +385,38 @@ function onEditorChange(code: string): void {
 
 const editorView = createEditor(editorEl, runEval, runStop, onEditorChange, boot.code);
 
+// ── Run and stop belong to the app, not to the editor ────────────────────────
+//
+// These three keys were bound only in the editor's keymap, so they fired only
+// while the editor held focus. The status bar promises them unconditionally and
+// the app opens with focus on the body, so ctrl+enter did nothing at all on a
+// fresh load: the one action every surface instructs, dead until the user
+// happened to click the code first.
+//
+// Stop is the serious half. Open the docs or the library — which is exactly
+// what someone does when they are looking something up mid-show — and focus
+// leaves the editor, so ctrl+. and ctrl+space stopped reaching the panic stop
+// and the rig stayed lit. editor.ts says in its own comment that performers
+// asked for a stop that does not depend on the easy-to-miss period key; a stop
+// that depends on where the caret is, is worse than that.
+//
+// Bound in the capture phase so the editor's keymap never sees a second copy
+// and nothing runs twice.
+document.addEventListener('keydown', (e) => {
+  // Literal Ctrl, matching the editor's 'Ctrl-' bindings rather than 'Mod-':
+  // on a Mac these are ctrl, not cmd, and cmd+enter must stay free.
+  if (!e.ctrlKey || e.metaKey || e.altKey) return;
+  const run = e.key === 'Enter';
+  // Space is read off `code` as well, because a keyboard layout can put a
+  // different character on that key.
+  const stop = e.key === '.' || e.key === ' ' || e.code === 'Space';
+  if (!run && !stop) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (run) void runEval(editorView.state.doc.toString());
+  else runStop();
+}, true);
+
 /** Write the buffer now rather than at the end of the debounce. Used before
  *  anything that could end the session or that reads the persisted copy. */
 function flushBuffer(): void {
