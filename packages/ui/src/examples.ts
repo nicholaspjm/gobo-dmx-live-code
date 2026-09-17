@@ -58,7 +58,8 @@ wash.color(sine().slow(2), 0, cosine().slow(2))
     code: `// gobo · ctrl+enter run · ctrl+space stop · 'docs' for the full reference
 // commented lines are alternates: swap one in and run again
 
-artnet('2.0.0.100')   // or usb() · td() · sacn(1) · osc() · mock()
+// pick an output when you have one · the sim below needs none
+// artnet('2.0.0.100')   // or usb() · td() · sacn(1) · osc() · mock()
 setBPM(120)           // one cycle = one bar = 4 beats
 
 // ── patch · fixture(startCh, id, universe = 0) · .viz adds a widget ─
@@ -166,7 +167,8 @@ bar.direction(sine().slow(8)); bar.speed(0.6)     // sweep
     code: `// four-colour bar · live demo
 // every line at the bottom runs on ctrl+enter; comment one out to silence it.
 
-artnet('2.0.0.100')
+// pick an output when you have one · the sim below needs none
+// artnet('2.0.0.100')   // or usb() · td() · sacn(1) · osc() · mock()
 setBPM(120)
 
 // ── define a custom fixture ───────────────────
