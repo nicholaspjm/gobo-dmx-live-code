@@ -111,8 +111,10 @@ describe('fixture() start-channel validity', () => {
 
 describe('fixture() universe argument', () => {
   it('accepts universe 0 (the Art-Net default) and any positive integer', () => {
+    // Distinct addresses on universe 0, because two lights on one channel are
+    // refused now. Universe 7 may reuse channel 1: the check is per universe.
     expect(() => fixture(1, 'rgb')).not.toThrow();
-    expect(() => fixture(1, 'rgb', 0)).not.toThrow();
+    expect(() => fixture(4, 'rgb', 0)).not.toThrow();
     expect(() => fixture(1, 'rgb', 7)).not.toThrow();
   });
 

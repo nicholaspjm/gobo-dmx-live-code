@@ -24,6 +24,7 @@ import {
   levelOf,
   isChannelDriven,
   type PatternOrValue,
+  claimChannels,
   type PatternLike,
 } from './dmx.js';
 import {
@@ -547,6 +548,7 @@ const _fixtureActivity: FixtureActivity[] = [];
 export function clearFixtureActivity(): void {
   _fixtureActivity.length = 0;
 }
+
 
 function channelsPerPixelOf(ch: ChannelDef): number {
   return ch.pixelLayout === 'rgbw' ? 4 : ch.pixelLayout === 'mono' ? 1 : 3;
@@ -1201,6 +1203,8 @@ export function fixture(
       `fixture: "${fixtureId}" (${def.channelCount} channels) starting at ${startChannel} would run to channel ${lastChannel}, which exceeds 512 by ${lastChannel - 512}. Move it to a lower address or split across universes.`,
     );
   }
+
+  claimChannels(universe, startChannel, def.channelCount, `fixture "${fixtureId}"`);
 
   // Note what could imply its own brightness, once at patch time, so the check
   // at the end of the run is a lookup rather than a walk of every definition.
@@ -1959,6 +1963,12 @@ export function rgbStrip(
     throw new Error(`rgbStrip: pixelCount must be >= 1 (got ${pixelCount})`);
   }
   checkOptions(opts as Record<string, unknown>, STRIP_OPTION_KEYS, 'rgbStrip()', STRIP_INTERNAL_KEYS);
+  // A strip a fixture built is inside that fixture's own claim, made when it
+  // was patched, so claiming it again would collide with it. simFixtureId is
+  // set only on that path.
+  if (opts.simFixtureId === undefined) {
+    claimChannels(universe, startChannel, pixelCount * 3, 'rgbStrip()');
+  }
   const geo = resolveGeometry(pixelCount, opts, 'rgbStrip');
   const channelCount = pixelCount * 3;
   const lastChannel = startChannel + channelCount - 1;
@@ -2249,6 +2259,12 @@ export function monoStrip(
     );
   }
   checkOptions(opts as Record<string, unknown>, STRIP_OPTION_KEYS, 'monoStrip()', STRIP_INTERNAL_KEYS);
+  // A strip a fixture built is inside that fixture's own claim, made when it
+  // was patched, so claiming it again would collide with it. simFixtureId is
+  // set only on that path.
+  if (opts.simFixtureId === undefined) {
+    claimChannels(universe, startChannel, pixelCount * 1, 'monoStrip()');
+  }
   const geo = resolveGeometry(pixelCount, opts, 'monoStrip');
 
   const set = (i: number, v: PatternOrValue): void => uni(universe, startChannel + i, v);
@@ -2555,6 +2571,12 @@ export function rgbwStrip(
     throw new Error(`rgbwStrip: pixelCount must be >= 1 (got ${pixelCount})`);
   }
   checkOptions(opts as Record<string, unknown>, STRIP_OPTION_KEYS, 'rgbwStrip()', STRIP_INTERNAL_KEYS);
+  // A strip a fixture built is inside that fixture's own claim, made when it
+  // was patched, so claiming it again would collide with it. simFixtureId is
+  // set only on that path.
+  if (opts.simFixtureId === undefined) {
+    claimChannels(universe, startChannel, pixelCount * 4, 'rgbwStrip()');
+  }
   const geo = resolveGeometry(pixelCount, opts, 'rgbwStrip');
   const STRIDE = 4;
   const channelCount = pixelCount * STRIDE;

@@ -428,11 +428,53 @@ export function levelOf(v: unknown): number | null {
 export function hushDefs(): void {
   if (_staging !== null) _staging.clear();
   else _defs.clear();
+  _patched.length = 0;
   resetQueryFailures();
+}
+
+/** What each patch call claimed, so the next one can be checked against it. */
+interface PatchClaim {
+  universe: number;
+  start: number;
+  end: number;
+  label: string;
+}
+const _patched: PatchClaim[] = [];
+
+/**
+ * Claim a run of channels for one patched light, or say who already holds them.
+ *
+ * Two lights at overlapping addresses used to patch quietly and then fight over
+ * the channels they shared, every frame, with the second one's dimmer sitting
+ * on the first one's green. The rig then does something that reads as a broken
+ * fixture rather than as a mistyped number, which is the expensive way to find
+ * out. Overlapping patches are the commonest addressing error there is, and the
+ * other one is already refused: a fixture that would run past channel 512
+ * throws and names the overrun.
+ *
+ * Lives here rather than in fixtures.ts because this is channel ownership, and
+ * because clearDefs() is the signal that a new scene is starting.
+ */
+export function claimChannels(universe: number, start: number, count: number, label: string): void {
+  const end = start + count - 1;
+  for (const held of _patched) {
+    if (held.universe !== universe) continue;
+    if (start > held.end || end < held.start) continue;
+    const from = Math.max(start, held.start);
+    const to = Math.min(end, held.end);
+    const span = from === to ? `channel ${from}` : `channels ${from} to ${to}`;
+    throw new Error(
+      `${label} at ${start} overlaps ${held.label} at ${held.start}, which already has ${span} `
+      + `on universe ${universe}. Two lights on one channel fight over it every frame. `
+      + `Move this one to ${held.end + 1} or later, or patch it on another universe.`,
+    );
+  }
+  _patched.push({ universe, start, end, label });
 }
 
 export function clearDefs(): void {
   _defs.clear();
+  _patched.length = 0;
   resetQueryFailures();
 }
 

@@ -327,8 +327,10 @@ describe('the atomic strobe, end to end', () => {
   });
 
   it('fits three to a universe and refuses a fourth', () => {
+    // atomic() patches the first one at channel 1 itself, so this adds the
+    // other two rather than a second copy on top of it: overlapping patches
+    // are refused now, and that refusal is pinned in fixtures.test.ts.
     atomic();
-    expect(() => fixture(1, 'atomic-154')).not.toThrow();
     expect(() => fixture(155, 'atomic-154')).not.toThrow();
     expect(() => fixture(309, 'atomic-154')).not.toThrow();
     // 463 + 154 - 1 = 616, past the end of the universe.
@@ -481,8 +483,11 @@ describe('channels that select rather than dim', () => {
   });
 
   it('lists the slots on a channel', () => {
-    expect(head().slots('color')).toEqual(['open', 'red', 'blue', 'red/blue']);
-    expect(head().slots('focus')).toEqual([]);
+    // One head, asked twice. head() patches at channel 1 on every call, and a
+    // second patch there now collides with the first.
+    const h = head();
+    expect(h.slots('color')).toEqual(['open', 'red', 'blue', 'red/blue']);
+    expect(h.slots('focus')).toEqual([]);
   });
 
   it('leaves the wheels where they are through a blackout', () => {
