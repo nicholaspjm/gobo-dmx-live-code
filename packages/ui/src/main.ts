@@ -754,8 +754,29 @@ function refreshOutputIndicator(): void {
   _outputsPanel?.refresh();
 }
 
-onStatusChange(refreshOutputIndicator);
-onUsbStatusChange(refreshOutputIndicator);
+/**
+ * Say on the bar what the indicator already knows.
+ *
+ * The status line is written once, when the eval finishes, and then left
+ * alone. Delivery is not a fact settled at that moment: the connector can go
+ * away mid-show, and the interface can be unplugged. Only the small indicator
+ * followed, so the bar went on reading "✓ running · art-net → 2.0.0.100" in
+ * green with nothing on the wire and the rig frozen on its last frame. That is
+ * the failure this project keeps finding in itself — the light is wrong and the
+ * tool says it is fine — and the correction already existed for direct output
+ * a few lines below. This is the same correction for the other two.
+ */
+function refreshOutputStatus(): void {
+  refreshOutputIndicator();
+  if (!isRunning()) return;
+  const out = describeOutput();
+  if (!out) return;
+  if (out.delivered) setStatus('ok', `✓ running · ${out.text}`);
+  else setStatus('error', `running, but ${out.text} was never reached. ${undeliveredHint()}`);
+}
+
+onStatusChange(refreshOutputStatus);
+onUsbStatusChange(refreshOutputStatus);
 
 /**
  * Direct output opens its socket asynchronously, so the status written the
