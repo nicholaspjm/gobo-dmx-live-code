@@ -14,8 +14,17 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { clearDefs } from './dmx.js';
-import { fixture, defineFixture, clearSimFixtures, clearFixtureActivity, rgbStrip } from './fixtures.js';
+import { clearDefs, tick, getUniverseBuffer } from './dmx.js';
+
+/** Read back the first `n` channels of universe 0 after a tick. */
+function chans(n: number): number[] {
+  tick(0);
+  return Array.from(getUniverseBuffer(0).slice(0, n));
+}
+import {
+  fixture, defineFixture, clearSimFixtures, clearFixtureActivity,
+  rgbStrip, rgbwStrip, monoStrip,
+} from './fixtures.js';
 
 beforeEach(() => {
   clearDefs();
@@ -105,5 +114,35 @@ describe('overlapping patches', () => {
     clearFixtureActivity();
     fixture(1, 'par4');
     expect(() => fixture(3, 'par4')).toThrow(/overlaps/);
+  });
+});
+
+// ─── one word for dark, on every kind of light ────────────────────────────────
+
+describe('off() and full() reach a strip', () => {
+  it('darkens an rgb strip', () => {
+    const bar = rgbStrip(1, 4);
+    bar.full();
+    expect(chans(12).every((v) => v === 255)).toBe(true);
+    bar.off();
+    expect(chans(12).every((v) => v === 0)).toBe(true);
+  });
+
+  it('darkens the dedicated white of an rgbw strip too', () => {
+    // .off() means dark. The white is left alone by a colour call, which is a
+    // different rule for a different question.
+    const bar = rgbwStrip(1, 2);
+    bar.full();
+    expect(chans(8).every((v) => v === 255)).toBe(true);
+    bar.off();
+    expect(chans(8).every((v) => v === 0)).toBe(true);
+  });
+
+  it('works on a mono strip, which has a level and no colour', () => {
+    const cells = monoStrip(1, 4);
+    cells.full();
+    expect(chans(4)).toEqual([255, 255, 255, 255]);
+    cells.off();
+    expect(chans(4)).toEqual([0, 0, 0, 0]);
   });
 });

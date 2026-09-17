@@ -126,11 +126,15 @@ describe('describeLight', () => {
     expect(info.note).toContain('not a plain string');
   });
 
-  it('does not offer a strip an off() it does not have', () => {
-    // Fixtures have one, strips do not. A tooltip that lists a method the
-    // object lacks is worse than one that lists none.
+  it('offers every kind of light the same off()', () => {
+    // This used to assert the opposite, because strips had no off(). The
+    // reason given for leaving it out was that fill(0) was the way instead,
+    // and fill(0) throws on a colour strip — so the only way to darken one
+    // was three zeros, and the blackout verb a scene had learned on a fixture
+    // came back as "not a function". The tooltip still only lists what the
+    // object really answers to; the object answers to more now.
     expect(describeLight(findLights('const s = rgbStrip(1, 4)')[0]).commands)
-      .not.toContain('off()');
+      .toContain('off()');
     expect(describeLight(findLights("const a = fixture(1, 'rgb')")[0]).commands)
       .toContain('off()');
   });

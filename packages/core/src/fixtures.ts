@@ -1119,9 +1119,11 @@ export function stripCommands(layout: 'rgb' | 'rgbw' | 'mono'): string[] {
     if (layout === 'rgbw') out.push('white(v)');
     out.push('rainbowChase()');
   }
-  // No off(): strips do not have one, unlike fixtures. `fill(0)` is the way,
-  // and listing a method that is not there would be worse than listing none.
-  out.push('viz(kind)');
+  // off() and full() are on every kind of light now, strips included. They
+  // were left off here on the grounds that fill(0) was the way instead, which
+  // it never was: fill(0) throws on a colour strip, there is no black to name,
+  // and so the only way to darken one was three zeros.
+  out.push('off()', 'full()', 'viz(kind)');
   return out;
 }
 
@@ -1849,6 +1851,16 @@ export interface StripInstance {
   color(...args: ColorRunArgs): void;
 
   /**
+   * Every pixel dark. The same word a fixture and a group answer to, so a
+   * blackout line does not have to know which kind of light it is addressing.
+   */
+  off(): void;
+
+  /** Every emitter on this strip at full, the dedicated white included. */
+  full(): void;
+
+
+  /**
    * Set a single pixel (0-indexed). Three shapes:
    *   pixel(i)                     → monochrome at full
    *   pixel(i, brightness)         → monochrome (R = G = B = brightness)
@@ -2055,6 +2067,22 @@ export function rgbStrip(
       }
     },
 
+    off() {
+      // Every fixture and every group answers .off(). A strip did not, so a
+      // scene that had learned par.off() got "bar.off is not a function" from
+      // the blackout verb. The note that used to justify leaving it out said
+      // fill(0) was the way instead, and fill(0) throws on a colour strip:
+      // there was no discoverable way to darken one at all, short of three
+      // zeros, and there is no black to name.
+      inst.fill(0, 0, 0);
+    },
+
+    full() {
+      // The same rule .full() follows on a fixture: every emitter up, the
+      // dedicated white included.
+      inst.fill(1, 1, 1);
+    },
+
     color(...args) {
       inst.fill(...(args as []));
     },
@@ -2211,6 +2239,16 @@ export interface MonoStripInstance {
 
   /** Set every cell to the same level. Omit the value for full. */
   fill(...v: [PatternOrValue?]): void;
+
+  /**
+   * Every pixel dark. The same word a fixture and a group answer to, so a
+   * blackout line does not have to know which kind of light it is addressing.
+   */
+  off(): void;
+
+  /** Every emitter on this strip at full, the dedicated white included. */
+  full(): void;
+
   /** Set one cell by index. Omit the value for full. */
   pixel(index: number, ...v: [PatternOrValue?]): void;
   /** Set one cell by grid position. Omit the value for full. */
@@ -2280,6 +2318,22 @@ export function monoStrip(
     channelCount,
     width: geo.width,
     height: geo.height,
+
+    off() {
+      // Every fixture and every group answers .off(). A strip did not, so a
+      // scene that had learned par.off() got "bar.off is not a function" from
+      // the blackout verb. The note that used to justify leaving it out said
+      // fill(0) was the way instead, and fill(0) throws on a colour strip:
+      // there was no discoverable way to darken one at all, short of three
+      // zeros, and there is no black to name.
+      inst.fill(0);
+    },
+
+    full() {
+      // The same rule .full() follows on a fixture: every emitter up, the
+      // dedicated white included.
+      inst.fill(1);
+    },
 
     fill(...v) {
       // A single-channel strip has one level per pixel and no colour to put
@@ -2453,6 +2507,16 @@ export interface RgbwStripInstance {
    * note on StripInstance.color().
    */
   color(...args: ColorRunArgsW): void;
+
+  /**
+   * Every pixel dark. The same word a fixture and a group answer to, so a
+   * blackout line does not have to know which kind of light it is addressing.
+   */
+  off(): void;
+
+  /** Every emitter on this strip at full, the dedicated white included. */
+  full(): void;
+
 
   /**
    * Set a single pixel (0-indexed). Four shapes:
@@ -2672,6 +2736,22 @@ export function rgbwStrip(
         uni(universe, base + 2, b);
         if (w !== undefined) uni(universe, base + 3, w);
       }
+    },
+
+    off() {
+      // Every fixture and every group answers .off(). A strip did not, so a
+      // scene that had learned par.off() got "bar.off is not a function" from
+      // the blackout verb. The note that used to justify leaving it out said
+      // fill(0) was the way instead, and fill(0) throws on a colour strip:
+      // there was no discoverable way to darken one at all, short of three
+      // zeros, and there is no black to name.
+      inst.fill(0, 0, 0, 0);
+    },
+
+    full() {
+      // The same rule .full() follows on a fixture: every emitter up, the
+      // dedicated white included.
+      inst.fill(1, 1, 1, 1);
     },
 
     color(...args) {
