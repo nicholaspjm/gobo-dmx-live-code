@@ -999,6 +999,30 @@ rig.color(warm)             // a palette across the members of a group`,
     kind: 'method',
   },
   {
+    label: 'dim',
+    signature: '.dim(value | pattern)',
+    description:
+      'Brightness on a fixture that has a dimmer, which most real pars and every moving head do. It is a channel setter like '
+      + '.red(), so it exists only when the definition has a channel for it: a bare rgb par has no dimmer and its brightness '
+      + 'lives in the colour, so scale the colour or use .full(). Not to be confused with the bare dim(channel, value), which '
+      + 'writes a raw DMX channel by number.',
+    example: 'wash.dim(0.8)\nwash.dim(sine().slow(4))\nrig.dim(0.5)      // every member that has one',
+    context: 'fixture-method',
+    kind: 'method',
+  },
+  {
+    label: 'pixels',
+    signature: 'fixture.pixels',
+    description:
+      'The pixel strip inside a fixture, under whatever name its definition gave that channel — pixels is the usual one. '
+      + 'Everything a bare rgbStrip answers to, it answers to: .color(), .fill(), .pixel(i, …), .pixelXY(x, y, …), .each(fn), '
+      + '.chase(), .rainbowChase(), .off(), .full(). The fixture itself also answers .color() and .off() and passes them down, '
+      + 'so reach for this when you want the pixels individually rather than the light as one thing.',
+    example: "const bar = fixture(1, 'pixel-bar-rgbw-8')\nbar.pixels.color(red)\nbar.pixels.each(p => sine().early(p))\nbar.color(red)   // the same light, as one",
+    context: 'property',
+    kind: 'property',
+  },
+  {
     label: 'full',
     signature: '.full()',
     description:

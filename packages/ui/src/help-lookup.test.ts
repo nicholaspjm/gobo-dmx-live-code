@@ -26,7 +26,7 @@ describe('findHelp', () => {
   });
 
   it('separates every label that is deliberately two things', () => {
-    for (const label of ['red', 'green', 'blue', 'white', 'strobe', 'flash']) {
+    for (const label of ['red', 'green', 'blue', 'white', 'strobe', 'flash', 'dim']) {
       const bare = findHelp(label, false);
       const dotted = findHelp(label, true);
       expect(bare, `bare ${label}`).toBeDefined();
@@ -47,7 +47,9 @@ describe('findHelp', () => {
     // The six above are deliberate and are told apart by context. Any other
     // repeat is one entry silently shadowing another, which is how `linger`
     // came to be documented twice and offered twice by autocomplete.
-    const DELIBERATE = new Set(['red', 'green', 'blue', 'white', 'strobe', 'flash']);
+    // dim joined these: the bare dim(channel, value) writes a raw DMX channel
+    // by number, and .dim(v) is the brightness of a fixture that has a dimmer.
+    const DELIBERATE = new Set(['red', 'green', 'blue', 'white', 'strobe', 'flash', 'dim']);
     const seen = new Map<string, number>();
     for (const e of HELP_ENTRIES) seen.set(e.label, (seen.get(e.label) ?? 0) + 1);
     const unexpected = [...seen].filter(([label, n]) => n > 1 && !DELIBERATE.has(label));
