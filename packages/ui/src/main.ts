@@ -431,7 +431,36 @@ function flushBuffer(): void {
 // back/forward cache.
 window.addEventListener('pagehide', () => {
   if (getSettings().autosave) flushBuffer();
+  blackoutOnTheWayOut();
 });
+
+/**
+ * Darken the outputs the connector cannot darken for us.
+ *
+ * When the page goes away while driving artnet, sacn or osc, the connector
+ * notices its last client leave and blacks out by itself — bridge/index.ts
+ * calls blackoutAll('app disconnected'). usb() and td() never go through it:
+ * one writes the serial port straight from the page and the other holds its own
+ * socket to TouchDesigner. Nothing was covering those, and a DMX interface does
+ * not stop when its host does — an Enttec Pro keeps re-transmitting the last
+ * frame it was handed, forever. So closing the tab mid-show left the rig lit on
+ * whatever was up, with nothing left running that could change it.
+ *
+ * Done whatever the stop-action setting says. 'freeze' is a choice about what
+ * `stop` means, made by someone who is still at the keyboard; this is the case
+ * where nobody is. It is also what the connector already does on the other
+ * three outputs, so the paths now agree.
+ *
+ * Best effort by nature: pagehide gives no guarantee an async serial write
+ * lands. It is strictly better than the nothing that was here, and the frame it
+ * sends is the same one .off() sends.
+ */
+function blackoutOnTheWayOut(): void {
+  if (!isUsbConnected() && !isDirectConnected()) return;
+  for (const buf of getAllUniverses().values()) buf.fill(0);
+  sendUniverseState(getAllUniverses());
+  if (isUsbConnected()) sendUsbDmx(getUniverseBuffer(usbUniverse()));
+}
 
 // ─── Visualizer ──────────────────────────────────────────────────────────────
 
