@@ -2821,6 +2821,27 @@ interface GroupCell {
 /** Colour roles, in the order the array form of `each()` uses. */
 const COLOUR_ROLES = ['red', 'green', 'blue', 'white'] as const;
 
+/**
+ * Names that mean brightness, for a group reading a member's channels.
+ *
+ * A group kept its roles as literal channel names and then zeroed only the one
+ * spelled exactly 'dim', so a fixture whose master is called `intensity` or
+ * `dimmer` went dark under fixture.off() and stayed lit under group.off() —
+ * which is the call someone builds a group for in the first place. The fixture
+ * side has always read this through isEmitterChannel(), which takes the type as
+ * well as the name.
+ */
+const DIM_NAMES = new Set(['dim', 'dimmer', 'intensity']);
+
+/** The scalar channels of a fixture that mean brightness, under any name. */
+function dimChannelsOf(def: FixtureDef): string[] {
+  return def.channels
+    .filter((c) => c.type !== 'strip'
+      && (c.slots === undefined || c.slots.length === 0)
+      && (c.type === 'intensity' || DIM_NAMES.has(bareName(c.name))))
+    .map((c) => c.name);
+}
+
 function isStrip(v: unknown): v is StripInstance | RgbwStripInstance {
   const s = v as StripInstance;
   return typeof s?.pixelCount === 'number' && typeof s?.fill === 'function';
@@ -2905,8 +2926,12 @@ function fixtureCell(inst: FixtureInstance): GroupCell {
     else byRole.set(role, [c.name]);
   }
 
+  const dims = dimChannelsOf(inst.def);
+
   const roles = new Set(scalars);
   for (const role of byRole.keys()) roles.add(role);
+  // Under the canonical name as well as its own, so group.off() finds it.
+  if (dims.length > 0) roles.add('dim');
   for (const s of strips) {
     roles.add('red');
     roles.add('green');
@@ -2916,6 +2941,11 @@ function fixtureCell(inst: FixtureInstance): GroupCell {
 
   const setOn = (role: string, value: PatternOrValue): void => {
     if (scalars.has(role)) inst.set(role, value);
+    // 'dim' reaches a master called intensity or dimmer too, skipping the
+    // channel already written by the line above.
+    if (role === 'dim') {
+      for (const name of dims) if (name !== role) inst.set(name, value);
+    }
     // A channel that carries the role under another spelling. Skipped when the
     // two are the same word, which the line above has already written.
     for (const name of byRole.get(role) ?? []) {
@@ -2935,8 +2965,8 @@ function fixtureCell(inst: FixtureInstance): GroupCell {
       // leaving the colour alone is the whole reason to prefer it: the look
       // survives the fade. Only a fixture with no dimmer falls back to
       // driving its colour channels together.
-      if (scalars.has('dim')) {
-        inst.set('dim', value);
+      if (dims.length > 0) {
+        for (const name of dims) inst.set(name, value);
         return;
       }
       let lit = false;

@@ -321,3 +321,43 @@ describe('a strip answers to .color()', () => {
     expect(typeof bar.cells.fill).toBe('function');
   });
 });
+
+// ─── a group darkens what the fixture darkens ─────────────────────────────────
+
+describe('group blackout reaches the same channels the fixture does', () => {
+  it('zeroes a master called intensity, not only one called dim', () => {
+    // group.off() walked the member's literal channel names and zeroed only the
+    // one spelled exactly 'dim', so a fixture whose master is 'intensity' went
+    // dark under fixture.off() and stayed at full under group.off() — the call
+    // a group exists to make.
+    define('master', [
+      { offset: 0, name: 'intensity', type: 'intensity' },
+      { offset: 1, name: 'red', type: 'color' },
+    ]);
+    const a = fixture(1, 'master');
+    a.full();
+    expect(chans(2)).toEqual([255, 255]);
+    group(a).off();
+    expect(chans(2)).toEqual([0, 0]);
+  });
+
+  it('agrees with fixture.off() on a master called dimmer', () => {
+    define('dimmer-named', [
+      { offset: 0, name: 'Dimmer', type: 'generic' },
+      { offset: 1, name: 'red', type: 'color' },
+    ]);
+    const a = fixture(1, 'dimmer-named');
+    a.full();
+    group(a).off();
+    expect(chans(2)).toEqual([0, 0]);
+  });
+
+  it('still drives the group to full through that same channel', () => {
+    define('master2', [
+      { offset: 0, name: 'intensity', type: 'intensity' },
+      { offset: 1, name: 'red', type: 'color' },
+    ]);
+    group(fixture(1, 'master2')).full();
+    expect(chans(2)).toEqual([255, 255]);
+  });
+});
