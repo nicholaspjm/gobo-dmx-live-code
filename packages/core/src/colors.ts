@@ -44,6 +44,50 @@ export function makeColor(r: number, g: number, b: number): Color {
   return Object.freeze({ [COLOR_BRAND]: true, r, g, b } as unknown as Color);
 }
 
+/**
+ * The colour of white at a temperature, in Kelvin.
+ *
+ * Lighting talks in Kelvin and always has: 3200 is a tungsten lamp, 5600 is
+ * daylight, 2000 is candlelight, and a designer asking for "a warmer white"
+ * means a smaller number. Mixing that by eye out of r, g and b is the kind of
+ * fiddling that belongs in the tool rather than in every scene.
+ *
+ * Daniel Neumann's fit of the black-body curve, which is the one everybody
+ * uses: accurate enough to look right between about 1000K and 40000K, and
+ * cheap enough to sit in a pattern that re-evaluates every frame. Clamped to
+ * that range rather than extrapolated, because the fit goes visibly wrong
+ * outside it and a silently strange white is worse than a bounded one.
+ *
+ * Normalised so the brightest component is 1: this says what colour the white
+ * is, not how bright. Brightness is .mono()'s or the dimmer's business.
+ */
+export function kelvinToColor(kelvin: number): Color {
+  const k = Math.min(40000, Math.max(1000, kelvin)) / 100;
+
+  let r: number;
+  let g: number;
+  let b: number;
+
+  if (k <= 66) {
+    r = 255;
+    g = 99.4708025861 * Math.log(k) - 161.1195681661;
+  } else {
+    r = 329.698727446 * Math.pow(k - 60, -0.1332047592);
+    g = 288.1221695283 * Math.pow(k - 60, -0.0755148492);
+  }
+
+  if (k >= 66) b = 255;
+  else if (k <= 19) b = 0;
+  else b = 138.5177312231 * Math.log(k - 10) - 305.0447927307;
+
+  const c = [r, g, b].map((v) => Math.min(255, Math.max(0, v)));
+  // Normalised on the brightest component, so a warm white is a full-strength
+  // warm white rather than a dim one. Guarded against a zero peak, which the
+  // clamp above makes impossible and which would otherwise divide by nothing.
+  const peak = Math.max(c[0], c[1], c[2]) || 255;
+  return makeColor(c[0] / peak, c[1] / peak, c[2] / peak);
+}
+
 /** Build a colour whose components are read live, for `pick()`. Not frozen
  *  values but frozen references: the patterns answer differently each tick. */
 export function livingColor(r: ColorComponent, g: ColorComponent, b: ColorComponent): Color {

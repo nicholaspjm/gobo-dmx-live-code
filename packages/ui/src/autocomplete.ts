@@ -202,6 +202,25 @@ function verbsOn(doc: string, receiver: string): ReadonlyMap<string, string> {
 const BAND = 50;
 
 /**
+ * Combine "this light answers to it" with "it answers what has been typed".
+ *
+ * The band used to be added on top of the match tier, which made belonging to
+ * the light worth more than matching the query: typing `slo` on a light put
+ * .solo() above .slow(), because solo is one of that light's verbs and slow
+ * merely matched every letter. The band is meant to break ties, not to
+ * overrule the query.
+ *
+ * So a name the query actually reaches is ranked on the query, with a nudge
+ * for belonging to this light, and only a name the query says nothing about
+ * falls back to the band. With nothing typed at all, every tier is zero and
+ * the band decides the whole list, which is the original behaviour.
+ */
+function rankWith(tier: number, mine: boolean): number {
+  if (tier > 0) return tier + (mine ? 10 : 0);
+  return mine ? 5 : -BAND;
+}
+
+/**
  * The method pool as it would be offered after `receiver.` in this document.
  *
  * A light's own verbs were lost in the merge. The pool after a dot is every
@@ -223,7 +242,7 @@ export function methodsAfter(doc: string, receiver: string, typed: string): Comp
   const q = typed.toLowerCase();
   const ranked = allMethods.map((o) => {
     const tier = Math.floor(matchBoost(o.label, q) / 2);
-    return { ...o, boost: own.has(o.label) ? BAND + tier : tier - BAND };
+    return { ...o, boost: rankWith(tier, own.has(o.label)) };
   });
 
   // Channels this light really has that the shared pool has never heard of.
@@ -243,7 +262,7 @@ export function methodsAfter(doc: string, receiver: string, typed: string): Comp
       type: 'method',
       detail: command,
       info: 'A channel this light declares. Hover the light itself for its full map.',
-      boost: BAND + Math.floor(matchBoost(verb, q) / 2),
+      boost: rankWith(Math.floor(matchBoost(verb, q) / 2), true),
     });
   }
   return [...ranked, ...own_only];

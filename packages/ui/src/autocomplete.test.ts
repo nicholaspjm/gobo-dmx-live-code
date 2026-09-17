@@ -297,3 +297,22 @@ describe('methodsAfter offers what the light actually has', () => {
     expect(opts.some((o) => o.label === 'slow')).toBe(true);
   });
 });
+
+describe('what has been typed outranks what the light happens to have', () => {
+  it('reaches .slow() over .solo() on a light that answers to both', () => {
+    // .solo() is one of the light's own verbs and .slow() is not, so the band
+    // used to put solo first for a query that spells slow and not solo. The
+    // band breaks ties; it does not overrule the query.
+    expect(offered(WASH, 'wash', 'slo')[0]).toBe('slow');
+  });
+
+  it('still puts the light\'s own verb first when the query fits both', () => {
+    // "so" fits solo and nothing else here, so the light's verb is the answer.
+    expect(offered(WASH, 'wash', 'so')[0]).toBe('solo');
+  });
+
+  it('still leads with the light\'s verbs when nothing has been typed', () => {
+    const first = offered(WASH, 'wash', '').slice(0, 6);
+    expect(first).toContain('color');
+  });
+});

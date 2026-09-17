@@ -30,6 +30,7 @@ import {
 } from './dmx.js';
 import { validateFixture } from './fixture-validator.js';
 import {
+  kelvinToColor,
   readColor,
   readColorStops,
   readColorRun,
@@ -547,8 +548,45 @@ interface FixtureActivity {
 
 const _fixtureActivity: FixtureActivity[] = [];
 
+/**
+ * Every light this run patched, in the order it patched them.
+ *
+ * Kept so .solo() knows what "everything else" is. Holding the darkening call
+ * rather than the instance keeps a fixture, a strip and a screen light all the
+ * same shape here, and keeps this list from being a way to reach into them.
+ */
+interface PatchedLight {
+  /** Identity, so a light can leave itself alone. */
+  readonly token: object;
+  off(): void;
+}
+const _patchedLights: PatchedLight[] = [];
+
+function registerPatchedLight(token: object, off: () => void): void {
+  _patchedLights.push({ token, off });
+}
+
+/**
+ * Darken every patched light except this one.
+ *
+ * The button every desk has. A scene builds a look, then one line answers
+ * "just this one, now" without unpicking the rest of it — and because the
+ * others are darkened rather than deleted, running the scene again brings the
+ * whole look back.
+ *
+ * Only lights patched in this run are known, which is the same window
+ * everything else here works in: a run re-patches what it uses.
+ */
+function soloExcept(token: object): void {
+  for (const light of _patchedLights) {
+    if (light.token === token) continue;
+    light.off();
+  }
+}
+
 export function clearFixtureActivity(): void {
   _fixtureActivity.length = 0;
+  _patchedLights.length = 0;
   // A run re-patches everything it patches, so the claims from the last one go
   // with it. This is the reset eval.ts actually calls between runs.
   clearPatchClaims();
@@ -865,6 +903,42 @@ export type FixtureInstance = {
       | ColorRunArgsW
       | [slot: PatternOrValue | string]
   ): void;
+  /**
+   * Every emitter on this light at one level, whatever it is made of.
+   *
+   * The brightness that works on any fixture. `.dim()` is a channel setter and
+   * exists only where the definition has that channel, so a bare rgb par —
+   * whose brightness lives in its colour — has none. This drives a master, or
+   * three colours, or four, or a strip of pixels, to the same value, and takes
+   * a pattern like anything else.
+   *
+   * @example
+   *   par.mono(0.5)          // half, in white
+   *   par.mono(pulse(4))     // breathing
+   */
+  mono(...v: [PatternOrValue?]): void;
+
+  /**
+   * White at a colour temperature, in Kelvin.
+   *
+   * 2000 is candlelight, 3200 tungsten, 5600 daylight, 6500 neutral; above
+   * that it goes blue. Says what colour the white is, not how bright — pair it
+   * with .mono() or a dimmer for that.
+   *
+   * @example
+   *   wash.temp(3200)              // tungsten
+   *   wash.temp(5600); wash.mono(0.4)
+   */
+  temp(kelvin: number): void;
+
+  /**
+   * Darken every other light this scene patched, and leave this one alone.
+   *
+   * The button every desk has. Because the others are darkened rather than
+   * forgotten, running the scene again brings the whole look back.
+   */
+  solo(): void;
+
   /** Zero every light-emitting channel on the fixture (dim, RGB, RGBW,
    *  embedded strip pixels). Safe on every fixture type. */
   off(): void;
@@ -1032,14 +1106,14 @@ function isPatternLike(v: unknown): v is PatternLike {
  * same fixture whose own .off() darkened all of them. group() is what a rig is
  * built from, so that was the blackout most likely to be the one anybody used.
  */
-function driveEveryEmitter(inst: FixtureInstance, def: FixtureDef, level: 0 | 1): number {
+function driveEveryEmitter(inst: FixtureInstance, def: FixtureDef, level: PatternOrValue): number {
   let driven = 0;
   for (const ch of def.channels) {
     if (!isEmitterChannel(ch)) continue;
     if (ch.type === 'strip') {
       // A strip channel is a nested strip instance; fill() covers every pixel
       // in one call, with as many values as that layout takes.
-      const strip = inst[ch.name] as unknown as { fill: (...vs: number[]) => void } | undefined;
+      const strip = inst[ch.name] as unknown as { fill: (...vs: PatternOrValue[]) => void } | undefined;
       if (strip && typeof strip.fill === 'function') {
         if (ch.pixelLayout === 'rgbw') strip.fill(level, level, level, level);
         else if (ch.pixelLayout === 'mono') strip.fill(level);
@@ -1112,7 +1186,7 @@ export function fixtureCommands(def: FixtureDef): string[] {
   for (const role of stripEmitterRoles(def)) {
     if (!out.includes(`${role}(v)`)) out.push(`${role}(v)`);
   }
-  out.push('color(r,g,b)', 'full()', 'off()', 'set(name, v)', 'viz(kind)');
+  out.push('color(r,g,b)', 'mono(v)', 'temp(k)', 'full()', 'off()', 'solo()', 'set(name, v)', 'viz(kind)');
   return out;
 }
 
@@ -1148,7 +1222,7 @@ function stripEmitterRoles(def: FixtureDef): string[] {
  * behaviour reachable through .set(name, v) rather than taking the method.
  */
 const RESERVED_METHODS = new Set([
-  'set', 'color', 'off', 'full', 'viz',
+  'set', 'color', 'off', 'full', 'viz', 'mono', 'temp', 'solo',
   'channels', 'def', 'universe', 'startChannel', 'channelCount',
 ]);
 
@@ -1174,7 +1248,8 @@ export function stripCommands(layout: 'rgb' | 'rgbw' | 'mono'): string[] {
     'each(fn)', 'eachXY(fn)',
   ];
   // A mono strip is levels, with no colour to name, so it gains no .color().
-  if (layout !== 'mono') out.push(`color(${v})`);
+  if (layout !== 'mono') out.push(`color(${v})`, 'temp(k)');
+  out.push('mono(v)');
   // Mono cells have one channel, so there is no colour to name and no rainbow
   // to chase across them.
   out.push(layout === 'mono' ? 'chase()' : 'chase(red)');
@@ -1187,7 +1262,7 @@ export function stripCommands(layout: 'rgb' | 'rgbw' | 'mono'): string[] {
   // were left off here on the grounds that fill(0) was the way instead, which
   // it never was: fill(0) throws on a colour strip, there is no black to name,
   // and so the only way to darken one was three zeros.
-  out.push('off()', 'full()', 'viz(kind)');
+  out.push('off()', 'full()', 'solo()', 'viz(kind)');
   return out;
 }
 
@@ -1488,7 +1563,44 @@ export function fixture(
     full() {
       driveEmitters(inst, def, 1, '.full()');
     },
+
+    mono(...v) {
+      // Brightness, on a light of any shape. .dim() is a channel setter and so
+      // exists only where the definition has that channel: a bare rgb par has
+      // no dimmer and its brightness lives in the colour, which is why
+      // par.dim(0.5) came back as "not a function". This drives whatever the
+      // light uses to make light — a master, three colours, four, a strip of
+      // pixels — to one level, and takes a pattern like any other value, so
+      // par.mono(pulse(4)) breathes without needing a word of its own.
+      const level = channelValue(v, `Fixture "${def.name}".mono()`);
+      if (driveEveryEmitter(inst, def, level) === 0) {
+        throw new Error(
+          `Fixture "${def.name}".mono(): no channel on this fixture emits light. ` +
+          `Channels: ${def.channels.map((c) => `${c.name} (${c.type})`).join(', ')}.`,
+        );
+      }
+    },
+
+    temp(kelvin) {
+      // Lighting has always talked in Kelvin: 3200 is tungsten, 5600 daylight,
+      // 2000 candlelight, and "warmer" means a smaller number. Mixing that out
+      // of r, g and b by eye is the arithmetic this call exists to stop.
+      if (typeof kelvin !== 'number' || !Number.isFinite(kelvin)) {
+        throw new Error(
+          `Fixture "${def.name}".temp(): a colour temperature is a number in Kelvin, as in temp(3200). ` +
+          `Tungsten is about 3200, daylight about 5600.`,
+        );
+      }
+      inst.color(kelvinToColor(kelvin));
+    },
+
+    solo() {
+      soloExcept(inst);
+    },
   } as FixtureInstance;
+
+  // Known to .solo(), which needs to darken everything that is not this.
+  registerPatchedLight(inst, () => { driveEveryEmitter(inst, def, 0); });
 
   // Resolve movement channels once so both the embedded strip (if any)
   // and the globe registration (if any) can share the same SimMovement.
@@ -1923,6 +2035,25 @@ export interface StripInstance {
   /** Every emitter on this strip at full, the dedicated white included. */
   full(): void;
 
+  /**
+   * Every pixel at one level: white, as bright as asked for. The same word a
+   * fixture and a group answer to.
+   *
+   * @example
+   *   bar.mono(0.4)
+   *   bar.mono(pulse(4))
+   */
+  mono(...v: [PatternOrValue?]): void;
+
+  /**
+   * Every pixel white at a colour temperature, in Kelvin. 3200 is tungsten,
+   * 5600 daylight. Says what colour the white is, not how bright.
+   */
+  temp(kelvin: number): void;
+
+  /** Darken every other light this scene patched, and leave this one alone. */
+  solo(): void;
+
 
   /**
    * Set a single pixel (0-indexed). Three shapes:
@@ -2049,6 +2180,7 @@ export function rgbStrip(
   if (opts.simFixtureId === undefined) {
     claimChannels(universe, startChannel, pixelCount * 3, 'rgbStrip()');
   }
+  // Registered after the instance exists, at the end of this builder.
   const geo = resolveGeometry(pixelCount, opts, 'rgbStrip');
   const channelCount = pixelCount * 3;
   const lastChannel = startChannel + channelCount - 1;
@@ -2145,6 +2277,27 @@ export function rgbStrip(
       // The same rule .full() follows on a fixture: every emitter up, the
       // dedicated white included.
       inst.fill(1, 1, 1);
+    },
+
+    mono(...v) {
+      // Every emitter at one level: white, at whatever brightness was asked
+      // for, the dedicated white included where there is one.
+      const level = channelValue(v, '.mono()');
+      inst.fill(level, level, level);
+    },
+
+    temp(kelvin) {
+      if (typeof kelvin !== 'number' || !Number.isFinite(kelvin)) {
+        throw new Error(
+          '.temp(): a colour temperature is a number in Kelvin, as in temp(3200). '
+          + 'Tungsten is about 3200, daylight about 5600.',
+        );
+      }
+      inst.fill(kelvinToColor(kelvin));
+    },
+
+    solo() {
+      soloExcept(inst);
     },
 
     color(...args) {
@@ -2277,6 +2430,10 @@ export function rgbStrip(
     movement: opts.movement,
     render: { kind: 'strip-rgb', pixelCount, grid: simGrid(geo) },
   });
+  // A bare strip is a light in its own right, so .solo() has to know it.
+  // One inside a fixture is reached through that fixture, which registers
+  // itself, so it is not added twice.
+  if (opts.simFixtureId === undefined) registerPatchedLight(inst, () => { inst.off(); });
   return inst;
 }
 
@@ -2312,6 +2469,15 @@ export interface MonoStripInstance {
 
   /** Every emitter on this strip at full, the dedicated white included. */
   full(): void;
+
+  /**
+   * Every cell at one level. A single-channel strip has no colour, so this is
+   * .fill() under the word every other light answers to.
+   */
+  mono(...v: [PatternOrValue?]): void;
+
+  /** Darken every other light this scene patched, and leave this one alone. */
+  solo(): void;
 
   /** Set one cell by index. Omit the value for full. */
   pixel(index: number, ...v: [PatternOrValue?]): void;
@@ -2371,6 +2537,7 @@ export function monoStrip(
   if (opts.simFixtureId === undefined) {
     claimChannels(universe, startChannel, pixelCount * 1, 'monoStrip()');
   }
+  // Registered after the instance exists, at the end of this builder.
   const geo = resolveGeometry(pixelCount, opts, 'monoStrip');
 
   const set = (i: number, v: PatternOrValue): void => uni(universe, startChannel + i, v);
@@ -2397,6 +2564,16 @@ export function monoStrip(
       // The same rule .full() follows on a fixture: every emitter up, the
       // dedicated white included.
       inst.fill(1);
+    },
+
+    mono(...v) {
+      // A mono strip is already one level per cell, so this is just fill()
+      // under the word every other light answers to.
+      inst.fill(...(v as [PatternOrValue?]));
+    },
+
+    solo() {
+      soloExcept(inst);
     },
 
     fill(...v) {
@@ -2503,6 +2680,10 @@ export function monoStrip(
     movement: opts.movement,
     render: { kind: 'strip-mono', pixelCount, grid: simGrid(geo) },
   });
+  // A bare strip is a light in its own right, so .solo() has to know it.
+  // One inside a fixture is reached through that fixture, which registers
+  // itself, so it is not added twice.
+  if (opts.simFixtureId === undefined) registerPatchedLight(inst, () => { inst.off(); });
   return inst;
 }
 
@@ -2585,6 +2766,25 @@ export interface RgbwStripInstance {
 
   /** Every emitter on this strip at full, the dedicated white included. */
   full(): void;
+
+  /**
+   * Every pixel at one level: white, as bright as asked for. The same word a
+   * fixture and a group answer to.
+   *
+   * @example
+   *   bar.mono(0.4)
+   *   bar.mono(pulse(4))
+   */
+  mono(...v: [PatternOrValue?]): void;
+
+  /**
+   * Every pixel white at a colour temperature, in Kelvin. 3200 is tungsten,
+   * 5600 daylight. Says what colour the white is, not how bright.
+   */
+  temp(kelvin: number): void;
+
+  /** Darken every other light this scene patched, and leave this one alone. */
+  solo(): void;
 
 
   /**
@@ -2714,6 +2914,7 @@ export function rgbwStrip(
   if (opts.simFixtureId === undefined) {
     claimChannels(universe, startChannel, pixelCount * 4, 'rgbwStrip()');
   }
+  // Registered after the instance exists, at the end of this builder.
   const geo = resolveGeometry(pixelCount, opts, 'rgbwStrip');
   const STRIDE = 4;
   const channelCount = pixelCount * STRIDE;
@@ -2821,6 +3022,27 @@ export function rgbwStrip(
       // The same rule .full() follows on a fixture: every emitter up, the
       // dedicated white included.
       inst.fill(1, 1, 1, 1);
+    },
+
+    mono(...v) {
+      // Every emitter at one level: white, at whatever brightness was asked
+      // for, the dedicated white included where there is one.
+      const level = channelValue(v, '.mono()');
+      inst.fill(level, level, level, level);
+    },
+
+    temp(kelvin) {
+      if (typeof kelvin !== 'number' || !Number.isFinite(kelvin)) {
+        throw new Error(
+          '.temp(): a colour temperature is a number in Kelvin, as in temp(3200). '
+          + 'Tungsten is about 3200, daylight about 5600.',
+        );
+      }
+      inst.fill(kelvinToColor(kelvin));
+    },
+
+    solo() {
+      soloExcept(inst);
     },
 
     color(...args) {
@@ -2945,6 +3167,10 @@ export function rgbwStrip(
     movement: opts.movement,
     render: { kind: 'strip-rgbw', pixelCount, grid: simGrid(geo) },
   });
+  // A bare strip is a light in its own right, so .solo() has to know it.
+  // One inside a fixture is reached through that fixture, which registers
+  // itself, so it is not added twice.
+  if (opts.simFixtureId === undefined) registerPatchedLight(inst, () => { inst.off(); });
   return inst;
 }
 
@@ -2998,7 +3224,7 @@ interface GroupCell {
    * alone on a fixture with a dimmer. Blackout cannot afford that distinction:
    * it has to reach everything that makes light, under whatever name.
    */
-  all(level: 0 | 1): void;
+  all(level: PatternOrValue): void;
 }
 
 /** Colour roles, in the order the array form of `each()` uses. */
@@ -3075,7 +3301,7 @@ function pixelCell(
     },
     all(level) {
       // Every channel in the stride, the dedicated white included: this is
-      // blackout, not a colour mix, so nothing is held back.
+      // blackout or a flat level, not a colour mix, so nothing is held back.
       for (let i = 0; i < stride; i++) uni(universe, base + i, level);
     },
     level(value) {
@@ -3206,6 +3432,22 @@ export interface GroupInstance {
    */
   color(...args: ColorRunArgsW): void;
 
+  /**
+   * Every emitter of every member at one level. The brightness that works
+   * across a mixed rig, whatever each light is made of.
+   *
+   * @example
+   *   rig.mono(0.4)
+   *   rig.mono(pulse(4))
+   */
+  mono(...v: [PatternOrValue?]): void;
+
+  /**
+   * Every member white at a colour temperature, in Kelvin. 3200 is tungsten,
+   * 5600 daylight. Says what colour the white is, not how bright.
+   */
+  temp(kelvin: number): void;
+
   /** Zero every light-emitting role across the group. */
   off(): void;
   /** Drive every light-emitting role across the group to full. */
@@ -3234,7 +3476,7 @@ export interface GroupInstance {
 export function groupCommands(): string[] {
   return [
     'red(v)', 'green(v)', 'blue(v)', 'white(v)', 'dim(v)',
-    'color(r,g,b)', 'set(role, v)', 'each(fn)', 'full()', 'off()', 'size',
+    'color(r,g,b)', 'mono(v)', 'temp(k)', 'set(role, v)', 'each(fn)', 'full()', 'off()', 'size',
   ];
 }
 
@@ -3367,6 +3609,23 @@ export function group(...members: GroupMember[]): GroupInstance {
 
     off() {
       for (const cell of cells) cell.all(0);
+    },
+
+    mono(...v) {
+      // Every emitter of every member at one level, so a mixed rig comes up
+      // as one white wash whatever each light is made of.
+      const level = channelValue(v, 'group.mono()');
+      for (const cell of cells) cell.all(level);
+    },
+
+    temp(kelvin) {
+      if (typeof kelvin !== 'number' || !Number.isFinite(kelvin)) {
+        throw new Error(
+          'group.temp(): a colour temperature is a number in Kelvin, as in temp(3200). '
+          + 'Tungsten is about 3200, daylight about 5600.',
+        );
+      }
+      inst.color(kelvinToColor(kelvin));
     },
 
     full() {

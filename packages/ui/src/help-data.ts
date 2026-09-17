@@ -1023,6 +1023,42 @@ rig.color(warm)             // a palette across the members of a group`,
     kind: 'property',
   },
   {
+    label: 'mono',
+    signature: '.mono(value | pattern)',
+    description:
+      'Every emitter on this light at one level: white, as bright as you ask for. The brightness that works on any '
+      + 'fixture, because .dim() is a channel setter and only exists where the definition has that channel — a bare rgb '
+      + 'par keeps its brightness in its colour and has no dimmer at all. Drives a master, or three colours, or four, or '
+      + 'a strip of pixels, and takes a pattern like any other value. On a fixture, a group and a strip alike.',
+    example: 'par.mono(0.5)        // half, in white\npar.mono(pulse(4))   // breathing\nrig.mono(0.3)        // a whole rig, evenly',
+    context: 'fixture-method',
+    kind: 'method',
+  },
+  {
+    label: 'temp',
+    signature: '.temp(kelvin)',
+    description:
+      'White at a colour temperature, the way lighting has always said it. 2000 is candlelight, 3200 tungsten, 5600 '
+      + 'daylight, 6500 neutral, and above that it goes blue — warmer means a smaller number. It says what colour the '
+      + 'white is, not how bright, so pair it with .mono() or a dimmer. On a fixture, a group and a colour strip alike; '
+      + 'a single-channel strip has no colour to set.',
+    example: 'wash.temp(3200)      // tungsten\nwash.temp(5600)      // daylight\nwash.temp(2700); wash.mono(0.4)',
+    context: 'fixture-method',
+    kind: 'method',
+  },
+  {
+    label: 'solo',
+    signature: '.solo()',
+    description:
+      'Darken every other light this scene patched, and leave this one alone. The button every desk has, for answering '
+      + '"just that one, now" without unpicking the look around it. The others are darkened rather than forgotten, so '
+      + 'running the scene again brings the whole thing back. Only lights this run patched are known, which is the same '
+      + 'window everything else works in.',
+    example: 'spot.solo()          // just the spot\nbar.pixels.solo()    // just the bar',
+    context: 'fixture-method',
+    kind: 'method',
+  },
+  {
     label: 'full',
     signature: '.full()',
     description:
