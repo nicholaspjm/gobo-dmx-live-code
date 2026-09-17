@@ -65,6 +65,21 @@ function renderLoop(now: number): void {
   if (now - _lastFrameTime < _FRAME_INTERVAL) return;
   _lastFrameTime = now;
 
+  // Nothing on screen to update. The performance view hides the strip with
+  // display:none, which the resize observer sees as a zero-sized canvas, and
+  // resize() floors the backing store at one pixel. Smoothing 512 values and
+  // drawing 512 bars into that, thirty times a second, on a machine that is
+  // also driving a show, buys nothing. A backgrounded tab needs no handling
+  // here: the browser stops calling rAF by itself.
+  //
+  // The values are carried across rather than frozen, so the strip shows the
+  // rig as it is the instant it comes back instead of sliding up from wherever
+  // it was when it went away.
+  if (_canvas.width <= 1) {
+    _displayValues.set(_targetValues);
+    return;
+  }
+
   // Smooth toward targets
   for (let i = 0; i < CHANNEL_COUNT; i++) {
     _displayValues[i] += (_targetValues[i] - _displayValues[i]) * (1 - SMOOTHING);
