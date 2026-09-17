@@ -473,6 +473,14 @@ const DOCS: DocSection[] = [
         description:
           'A control you have moved keeps its position when the scene is run again, so editing a line further down does not throw away a level you set by hand. The number in the source is the STARTING position: used the first time that name is seen, ignored after that.',
       },
+      {
+        name: 'midi',
+        signature: 'midi(cc, { channel = 1, start = 0 })',
+        description:
+          "The same thing with a real fader under it. midi(74) is continuous controller 74 on channel 1, read live at query time the way a slider is, so the hardware moves the light on the next tick rather than on the next run. Values arrive 0..127 and are handed on as 0..1, the domain every other value in a scene is in. Continuous controllers only: a note is a different question. Turn it on under inputs in the outputs panel first, which is where the browser's one-time permission prompt happens; that panel then names each controller as you move it, which is how you find out what your box sends without its manual.",
+        example:
+          "const level = midi(74)\nspot.dim(level)\n\nconst hue = midi(1, { channel: 2, start: 0.5 })\nwash.red(hue)",
+      },
     ],
   },
 

@@ -29,6 +29,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   a variable or carrying an escape is left alone and simply gets no outline,
   because the scene is worth more than the decoration.
 
+- **`midi(cc)`: a fader box driving the rig.** The one input gobo had none of.
+  Everything a scene could react to came from the clock or from a control drawn
+  in the editor, so riding a level during a show meant dragging a slider on the
+  same screen the code is on. `midi(74)` is continuous controller 74 on channel
+  1, read live at query time the way `slider()` is, so the fader moves the light
+  on the next tick rather than on the next run. Values arrive 0..127 and are
+  handed on as 0..1. Kept per channel as well as per number, because two boxes
+  commonly send the same CC; and an untouched controller reads as its `start`
+  rather than zero, so a scene does not come up black waiting for every fader to
+  be wiggled. Turned on under inputs in the outputs panel, which then names each
+  controller as you move it — how you find out what your box sends without its
+  manual.
+
+- **A log you can read without devtools, and a text size.** `console.log()` from
+  a scene, and anything that went wrong while a pattern ran, went only to
+  devtools — half the screen you are working in, at a gig, in the dark. The log
+  panel keeps the last few hundred lines with timestamps, collapsing an identical
+  repeat into a count rather than a thousand rows. It wraps the console rather
+  than replacing it, so devtools is exactly as useful as it was. Editor text size
+  is adjustable in settings, for a laptop on a road case.
+
+- **The address bar carries the scene that ran.** A permalink is updated in place
+  as you run, so the tab can be bookmarked or sent mid-session without stopping
+  to press share.
+
 - **`.mono(v)`, `.temp(k)` and `.solo()`, on every kind of light.** `.mono()` is
   brightness that works anywhere: `.dim()` is a channel setter and exists only
   where the definition has a dimmer, so a bare RGB par — whose brightness lives

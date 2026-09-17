@@ -948,6 +948,15 @@ spot.white(mini('1 - - -').punch())`,
     kind: 'function',
   },
   {
+    label: 'midi',
+    signature: 'midi(cc, opts?) => Pattern',
+    description:
+      'A hardware fader as a value. Continuous controller cc, read live at query time, handed on as 0..1. opts: { channel = 1, start = 0 }. Turn on midi in under inputs in the outputs panel first.',
+    example: "const level = midi(74)\nspot.dim(level)",
+    context: 'command',
+    kind: 'function',
+  },
+  {
     label: 'glow',
     signature: '.glow() => Pattern',
     description: 'Inline viz: editor line background tracks the pattern value. No effect on DMX output.',
