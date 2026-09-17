@@ -19,6 +19,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Added
 
+- **`.mono(v)`, `.temp(k)` and `.solo()`, on every kind of light.** `.mono()` is
+  brightness that works anywhere: `.dim()` is a channel setter and exists only
+  where the definition has a dimmer, so a bare RGB par — whose brightness lives
+  in its colour — answered `par.dim is not a function`. `.mono()` drives
+  whatever the light uses to make light to one level, and takes a pattern, so
+  `par.mono(pulse(4))` breathes. `.temp()` is white in Kelvin, the way lighting
+  says it: 3200 tungsten, 5600 daylight. `.solo()` darkens every other light the
+  run patched and leaves this one alone; running the scene again restores the
+  look.
+
 - **`.color()` on a strip.** The same call as `.fill()`, under the word every
   other light here answers to: a par takes `.color(red)`, a group takes
   `.color(red)`, and a strip took only `.fill()`, so a scene had to remember

@@ -903,6 +903,27 @@ const DOCS: DocSection[] = [
           "strip.fill(warm)                  // amber at one end, red at the other\nstrip.fill(red, blue)             // two stops\nstrip.fill(red)                   // every pixel\nstrip.fill(sine(), 0, cosine())   // per component, as before",
       },
       {
+        name: '.mono · brightness on any light',
+        signature: 'light.mono(v)  ·  light.mono(pulse(4))',
+        description:
+          "Every emitter at one level: white, as bright as you ask for. This is the brightness that works on anything, because .dim() cannot: .dim() is a channel setter, so it is there only when the fixture's definition has a dimmer, and a bare rgb par keeps its brightness in its colour and has none. .mono() drives whatever the light uses to make light — a master, three colours, four, a whole strip of pixels — to the same value. It takes a pattern like any other value, so the breathing you would write as .dim(pulse(4)) on one fixture works on all of them.",
+        example: 'par.mono(0.5)          // half, in white\npar.mono(pulse(4))     // breathing, on a par with no dimmer\nbar.mono(0.2)          // a whole strip, evenly\nrig.mono(flicker())    // a mixed rig, together',
+      },
+      {
+        name: '.temp · white in Kelvin',
+        signature: 'wash.temp(3200)',
+        description:
+          "White at a colour temperature, the way lighting has always said it. 2000 is candlelight, 2700 a domestic lamp, 3200 tungsten, 5600 daylight, 6500 neutral, and past that it goes blue — warmer is a smaller number, which is backwards from how it feels until you have said it a few times. It sets what colour the white is and not how bright, so pair it with .mono() or a dimmer. Works on a fixture, a group and a colour strip; a single-channel strip has no colour to set.",
+        example: 'wash.temp(3200)              // tungsten\nwash.temp(5600)              // daylight\nwash.temp(2700); wash.mono(0.4)   // a warm lamp, low\nrig.temp(4000)               // the whole rig matched',
+      },
+      {
+        name: '.solo · just this one',
+        signature: 'spot.solo()',
+        description:
+          'Darkens every other light this scene patched and leaves this one alone — the button every desk has, for answering "just that one, now" without unpicking the look around it. The others are darkened rather than forgotten, so running the scene again brings the whole thing back. Only lights this run patched are known, which is the same window the rest of the engine works in: a run re-patches what it uses.',
+        example: 'spot.solo()            // just the spot\nbar.pixels.solo()      // just the bar\n// ctrl+enter again puts the look back',
+      },
+      {
         name: '.color on a strip',
         signature: 'strip.color(warm)  ·  strip.color(red)',
         description:
