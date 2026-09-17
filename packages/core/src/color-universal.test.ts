@@ -473,3 +473,45 @@ describe('the sim resolves a fixture the way .color() does', () => {
     expect(drawn[0].render.kind).toBe('globe-dim');
   });
 });
+
+// ─── a quoted colour says the same thing everywhere ──────────────────────────
+
+describe('a quoted colour name', () => {
+  it('tells a fixture what a strip has always been told', () => {
+    // .fill() goes through the colour reader, which has said the useful thing
+    // since it was written. A fixture fell past it to the component path and
+    // complained about arity — "needs all 3 of r, g, b (got 1)" — which is
+    // true and no help to someone who has just typed a colour.
+    define('quoted', [
+      { offset: 0, name: 'red', type: 'color' },
+      { offset: 1, name: 'green', type: 'color' },
+      { offset: 2, name: 'blue', type: 'color' },
+    ]);
+    expect(() => (fixture(1, 'quoted') as unknown as { color(s: string): void }).color('red'))
+      .toThrow(/colours are written without quotes\. Use red rather than 'red'/);
+  });
+
+  it('names the colours it knows when the word is not one', () => {
+    define('quoted2', [
+      { offset: 0, name: 'red', type: 'color' },
+      { offset: 1, name: 'green', type: 'color' },
+      { offset: 2, name: 'blue', type: 'color' },
+    ]);
+    expect(() => (fixture(1, 'quoted2') as unknown as { color(s: string): void }).color('puce'))
+      .toThrow(/"puce" is not a colour/);
+  });
+
+  it('still sends a slot name to a colour wheel that has one', () => {
+    // The branch above this must not swallow the documented wheel call.
+    define('wheel', [
+      { offset: 0, name: 'dim', type: 'intensity' },
+      {
+        offset: 1, name: 'color', type: 'color',
+        slots: [{ name: 'open', value: 0 }, { name: 'red', from: 10, to: 19 }],
+      },
+    ]);
+    const head = fixture(1, 'wheel') as unknown as { color(s: string): void };
+    expect(() => head.color('red')).not.toThrow();
+    expect(chans(2)[1]).toBeGreaterThan(0);
+  });
+});

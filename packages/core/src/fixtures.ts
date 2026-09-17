@@ -1493,6 +1493,16 @@ export function fixture(
         inst.set(slotChannel, args[0] as PatternOrValue | string);
         return;
       }
+      // A quoted colour on a fixture with no wheel to send it to. Handed on to
+      // the colour reader, which has said the useful thing about this since it
+      // was written — "colours are written without quotes. Use red rather than
+      // 'red'." A strip has always answered that way, because .fill() goes
+      // through it. A fixture fell past this to the component path instead and
+      // complained about arity: "needs all 3 of r, g, b (got 1)", which is
+      // true, and no help at all to someone who has just typed a colour.
+      if (args.length === 1 && typeof args[0] === 'string') {
+        readColor(args, `Fixture "${def.name}".color()`);
+      }
       // A pattern of colour names on a fixture with no wheel: one colour that
       // changes with the pattern, so `wash.color(mini('r - g - b'))` works.
       if (args.length === 1 && isPatternLike(args[0])) {
