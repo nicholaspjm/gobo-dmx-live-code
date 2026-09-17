@@ -19,10 +19,11 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createSocket, Socket } from 'dgram';
 import { createFrameRouter } from './frames.js';
+import { isInsideRoot } from './serve-ui.js';
 import { oscPacketsFor } from './osc.js';
 import { connectorHello } from './version.js';
 import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
-import { resolve, dirname, basename } from 'path';
+import { resolve, dirname, basename, sep } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
 import { networkInterfaces, homedir } from 'os';
@@ -792,11 +793,23 @@ const CONTENT_TYPES: Record<string, string> = {
 
 function serveUi(req: IncomingMessage, res: ServerResponse): void {
   const root = UI_DIR as string;
-  const urlPath = decodeURIComponent((req.url ?? '/').split('?')[0]);
+  // decodeURIComponent throws URIError on a malformed escape, and this ran
+  // outside the try below, in a request handler with nothing above it. A single
+  // `GET /%` from anything that could reach this port therefore killed the
+  // connector — and killed it without blacking out, so every receiver held its
+  // last frame and the rig froze lit while the app went on showing a scene.
+  let urlPath: string;
+  try {
+    urlPath = decodeURIComponent((req.url ?? '/').split('?')[0]);
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    res.end('bad request');
+    return;
+  }
   // Resolve inside the root and verify it stayed there. Local-only is not a
   // reason to serve arbitrary files off the disk.
   const candidate = resolve(root, '.' + (urlPath === '/' ? '/index.html' : urlPath));
-  const target = candidate.startsWith(root) && existsSync(candidate) && statSync(candidate).isFile()
+  const target = isInsideRoot(root, candidate) && existsSync(candidate) && statSync(candidate).isFile()
     ? candidate
     : resolve(root, 'index.html'); // single page app, unknown paths get the shell
 
