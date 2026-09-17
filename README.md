@@ -49,7 +49,7 @@ real fixtures from the page as it stands:
 
 | Call | What it drives | Conditions |
 |------|----------------|------------|
-| `usb()` | A USB DMX box plugged into this computer, the Enttec DMX USB Pro type. Click **usb** in the top bar to choose it, then call `usb()` | Chrome or Edge, one universe. A serial port is something a browser is allowed to open |
+| `usb()` | A USB DMX box plugged into this computer, the Enttec DMX USB Pro type. Open the outputs panel from the connection light and pick **usb** to choose the box, then call `usb()` | Chrome or Edge, one universe. A serial port is something a browser is allowed to open |
 | `td()` | TouchDesigner, over a WebSocket. TD receives every frame and puts Art-Net on the network for you | TouchDesigner already open on the same machine: an https page may only open `ws://` to localhost |
 
 ### 2. With the connector, for Art-Net, sACN and OSC

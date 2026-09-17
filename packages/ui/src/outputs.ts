@@ -386,8 +386,14 @@ function resolveConnection(): ConnectionSummary {
 
   const live: string[] = [];
   if (usb) live.push('usb');
-  if (direct && isDirectConnected()) live.push('direct');
-  if (config && isBridgeConnected()) live.push('bridge');
+  // Named for the call a scene writes, not for the mechanism underneath. The
+  // top bar said 'direct' and 'bridge' — the first a word no panel or document
+  // shows the reader, the second a third name for the program this file calls
+  // the connector a few lines above and the docs, the package and the download
+  // all call the connector too. One program, three names, and the one on the
+  // most-read control in the app matched none of the others.
+  if (direct && isDirectConnected()) live.push('td');
+  if (config && isBridgeConnected()) live.push('connector');
 
   if (live.length > 0) {
     return {
@@ -423,8 +429,8 @@ export const DESKTOP_PITCH =
 /** Message for a scene whose output the page cannot carry on its own. */
 export function blockedOutputMessage(output: string): string {
   return `${output} sends network packets, which this page cannot do on its own. Run the `
-    + 'connector, then press ctrl+enter again. Using a USB DMX box instead? Click usb in the top '
-    + 'bar, nothing to install.';
+    + 'connector, then press ctrl+enter again. Using a USB DMX box instead? Open the outputs panel '
+    + 'from the connection light and pick usb, nothing to install.';
 }
 
 // ─── Panel ───────────────────────────────────────────────────────────────────
