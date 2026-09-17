@@ -1469,6 +1469,13 @@ const DOCS: DocSection[] = [
       'Ways to pick, reorder or vary, all with strudel\'s own names so a pattern copied from its docs runs here.',
     entries: [
       {
+        name: 'what a pattern about sound does here',
+        signature: "sine().gain(0.5)  ·  .room(…)  ·  .s('bd')",
+        description:
+          "Patterns copied from strudel keep working, because gobo runs strudel's own engine: every chain method is there, under strudel's names. Some of them describe sound, and a lamp has no equivalent for most of it. What happens is decided once, where a pattern's value reaches a channel. A plain number is the level. A value that arrives wrapped — which is what every sound method produces, .s('bd') giving { value: 1, s: 'bd' } — is unwrapped, so the level underneath still drives the light rather than reading as nothing and going dark. gain is the exception that is kept, because gain is amplitude and amplitude is level: it multiplies, which is what makes .stut() and .echo() come out as repeats that decay instead of repeats at full. Everything that describes sound and not level — speed, pan, room, crush, note, the sample name — is ignored on purpose. Nothing errors, so a pasted pattern runs; it simply drives the light with the part of itself that means brightness.",
+        example: "wash.dim(flash().stut(4, 0.6, 0.125))   // gain folds in: the repeats decay\nwash.red(sine().gain(0.5))              // half level\nwash.red(sine().room(0.8))              // room ignored, sine drives it",
+      },
+      {
         name: 'choose · wchoose',
         signature: 'choose(a, b, c)  ·  wchoose([a, w], [b, w])',
         description:
