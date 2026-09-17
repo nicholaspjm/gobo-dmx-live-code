@@ -173,10 +173,10 @@ const DOCS: DocSection[] = [
       },
       {
         name: 'usb',
-        signature: 'usb()',
+        signature: 'usb()  ·  usb(universe)',
         description:
-          "Works in a plain browser, with a USB DMX box plugged into this computer and Chrome or Edge. Drive a USB DMX interface straight from the browser, with nothing installed at all. Open the outputs panel from the connection light and choose usb first, to pick the device (browsers require a click for that, so a scene cannot do it), then call usb() to select it as the output. Speaks the Enttec DMX USB Pro protocol, which most interfaces use; raw FTDI dongles that expect the host to time the DMX break are not supported. One universe, the primary one.",
-        example: 'usb()',
+          "Works in a plain browser, with a USB DMX box plugged into this computer and Chrome or Edge. Drive a USB DMX interface straight from the browser, with nothing installed at all. Open the outputs panel from the connection light and choose usb first, to pick the device (browsers require a click for that, so a scene cannot do it), then call usb() to select it as the output. Speaks the Enttec DMX USB Pro protocol, which most interfaces use; raw FTDI dongles that expect the host to time the DMX break are not supported. A DMX line carries one universe: by default it is whichever universe the scene actually drives, the same one the level strip shows, so a scene of fixture() calls sends universe 0 and one built from ch() sends universe 1 without either having to say so. Pass a number to fix it, as in usb(1), when the rig expects a particular one.",
+        example: "usb()      // the universe the scene drives\nusb(1)     // that one, whatever the scene does",
       },
       {
         name: 'mock',

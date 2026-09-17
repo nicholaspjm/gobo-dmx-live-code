@@ -52,7 +52,7 @@ import {
   setStripEffectWaveforms,
 } from './fixtures.js';
 import { sendConfig, connectDirect, isBlockedAsMixedContent, isConnected } from './websocket.js';
-import { isUsbConnected, isUsbDmxSupported } from './usb-dmx.js';
+import { isUsbConnected, isUsbDmxSupported, setUsbUniverse } from './usb-dmx.js';
 import { clearPatternVizRegistry, registerPatternViz } from './pattern-viz.js';
 import { screen, clearScreens } from './screen.js';
 import { slider, pick, clearControls, clearPickers } from './controls.js';
@@ -505,7 +505,7 @@ const sandboxOutputBindings: Record<string, unknown> = {
   osc: (host?: string, port?: number): void => stageConfig(oscConfig(host, port)),
   mock: (): void => stageConfig(mockConfig()),
   td: (host?: string, port?: number): void => stageDirect(host, port),
-  usb: (): void => requireUsb(),
+  usb: (universe?: number): void => requireUsb(universe),
   setBPM: (value: number): void => stageBPM(value),
 };
 
@@ -541,7 +541,19 @@ function stageDirect(host = 'localhost', port = 9980): void {
  * owns connecting and this call only asserts that it happened. Saying so here
  * beats a scene that looks like it runs while nothing is driven.
  */
-function requireUsb(): void {
+function requireUsb(universe?: number): void {
+  // Checked before the connection, so a scene naming an impossible universe is
+  // told which mistake it made rather than being sent to plug something in.
+  if (universe !== undefined) {
+    if (!Number.isInteger(universe) || universe < 0) {
+      throw new Error(`usb(${String(universe)}): a universe is a whole number from 0 up. Leave it out to send whichever universe the scene drives.`);
+    }
+    setUsbUniverse(universe);
+  } else {
+    // Every run re-states the output, so clearing here is what lets a scene
+    // drop the argument again and go back to following itself.
+    setUsbUniverse(null);
+  }
   if (isUsbConnected()) return;
   if (!isUsbDmxSupported()) {
     throw new Error('usb() needs WebSerial, which Chrome and Edge have but Firefox and Safari do not.');

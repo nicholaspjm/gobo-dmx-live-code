@@ -35,6 +35,7 @@ import {
   onDirectStatusChange,
   sendUniverseState,
   sendUsbDmx,
+  getUsbUniverse,
   isUsbConnected,
   getUsbDroppedFrames,
   connectUsbDmx,
@@ -214,7 +215,7 @@ function runStop(): void {
     clearDefs();
     for (const buf of getAllUniverses().values()) buf.fill(0);
     sendUniverseState(getAllUniverses());
-    if (isUsbConnected()) sendUsbDmx(getUniverseBuffer(0));
+    if (isUsbConnected()) sendUsbDmx(getUniverseBuffer(usbUniverse()));
     updateVisualizer(getUniverseSnapshot(visualizedUniverse()));
   }
   setStatus('', 'stopped · ctrl+enter to run');
@@ -450,6 +451,21 @@ function visualizedUniverse(): number {
   return active.length > 0 ? active[0] : 0;
 }
 
+/**
+ * Which universe the USB interface is fed.
+ *
+ * A DMX line carries one universe. Both send sites used to name 0, which is
+ * where `fixture()` patches — but `ch()`, `dim()` and `rgb()` write universe 1,
+ * so a scene written the way the README writes them handed the box 512 zeros.
+ * Nothing said so: the level strip follows visualizedUniverse(), so it animated
+ * the universe the scene really was driving while the wire carried the other
+ * one. Following the same rule the strip already shows means the picture and
+ * the light agree, and usb(n) overrides it for a rig that needs a fixed one.
+ */
+function usbUniverse(): number {
+  return getUsbUniverse() ?? visualizedUniverse();
+}
+
 /** Keep the strip's label honest about which universe is on screen. */
 function refreshVisualizerLabel(): void {
   const u = visualizedUniverse();
@@ -551,7 +567,7 @@ onTick((cyclePos, _delta) => {
     // A USB DMX interface carries one universe, so it gets the primary one.
     // Anything on another universe is a network output's job. Sent on the same
     // throttle: the interface tops out near 40Hz and drops what it cannot take.
-    if (isUsbConnected()) sendUsbDmx(getUniverseBuffer(0));
+    if (isUsbConnected()) sendUsbDmx(getUniverseBuffer(usbUniverse()));
   }
 });
 

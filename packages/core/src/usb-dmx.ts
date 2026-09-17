@@ -46,6 +46,29 @@ function serialApi(): SerialLike | null {
   return nav?.serial ?? null;
 }
 
+/**
+ * Which universe goes out the box, when the scene said.
+ *
+ * A DMX line carries one universe, so something has to choose which one, and
+ * the send sites used to answer 0 unconditionally. That is the universe
+ * `fixture()` patches into, but `ch()`, `dim()` and `rgb()` all write universe
+ * 1, so every scene written the way the README writes them fed the interface a
+ * buffer of zeros while the on-screen strip — which follows the lowest active
+ * universe, not this one — animated as though it were working.
+ *
+ * null means "whichever universe the scene is actually driving", resolved by
+ * the caller, so a scene that never mentions a universe keeps working.
+ */
+let _universe: number | null = null;
+
+export function setUsbUniverse(universe: number | null): void {
+  _universe = universe;
+}
+
+export function getUsbUniverse(): number | null {
+  return _universe;
+}
+
 /** Whether this browser exposes WebSerial at all. Chrome and Edge do; Firefox and Safari do not. */
 export function isUsbDmxSupported(): boolean {
   return serialApi() !== null;
