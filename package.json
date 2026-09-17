@@ -32,7 +32,7 @@
     "electron": "43.4.0",
     "electron-builder": "^26.15.3",
     "postject": "^1.0.0-alpha.6",
-    "vitest": "^2.1.0"
+    "vitest": "^3.2.6"
   },
   "license": "AGPL-3.0-or-later"
 }
