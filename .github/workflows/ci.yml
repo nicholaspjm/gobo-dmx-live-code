@@ -1,0 +1,32 @@
+name: CI
+
+# The same command a contributor runs locally, on every pull request. Pushes to
+# main are covered by the test step in deploy.yml, which gates the live site, so
+# this does not repeat that work.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # check-names, then typecheck, then vitest. The name check is the reason
+      # this matters most: scripts/check-names.mjs says in its own header that a
+      # pre-commit hook and CI both need it, and until now only the hook ran it.
+      - run: npm test
+
+      # The site has to survive the change as well as the tests.
+      - run: npm run build
