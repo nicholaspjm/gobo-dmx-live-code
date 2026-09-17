@@ -593,6 +593,36 @@ export function raiseImpliedDimmers(): string[] {
   return raised;
 }
 
+/**
+ * Raise the emitters of every fixture this run dimmed but never coloured.
+ *
+ * The mirror of raiseImpliedDimmers(), and the same argument. That one covers
+ * a scene that sets a colour on a fixture whose brightness lives on a master:
+ * the colour is the evidence the light was meant to be on, so the dimmer comes
+ * up. This covers the other way round — a scene that drives the master and
+ * nothing under it.
+ *
+ * The case that made it necessary: `group(par).each(p => sine().early(p))` on
+ * a dim-rgb par, which is what most real pars are. A cell with a dimmer takes
+ * the single value as brightness and deliberately leaves the colour alone,
+ * because on a lit rig that is exactly right — the look survives the fade. On
+ * a fixture nothing has coloured yet it fades black against black, so the
+ * identical line that lights an rgb par leaves a dim-rgb par dark and says
+ * nothing. Both halves of the rule now agree: drive either end and the other
+ * follows.
+ */
+export function raiseImpliedEmitters(): string[] {
+  const raised: string[] = [];
+  for (const a of _fixtureActivity) {
+    // Only when the master was driven and nothing under it was.
+    if (!isChannelDriven(a.universe, a.dimmer)) continue;
+    if (a.emitters.some((c) => isChannelDriven(a.universe, c))) continue;
+    for (const channel of a.emitters) uni(a.universe, channel, 1);
+    raised.push(`${a.name} at ${a.universe}:${a.dimmer}`);
+  }
+  return raised;
+}
+
 /** The dimmers this run drove light through but never set. */
 export function impliedDimmers(): Array<{ universe: number; channel: number; name: string }> {
   const out: Array<{ universe: number; channel: number; name: string }> = [];

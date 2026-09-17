@@ -13,7 +13,10 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { fixture, defineFixture, clearFixtureActivity, raiseImpliedDimmers } from './fixtures.js';
+import {
+  fixture, defineFixture, clearFixtureActivity, group,
+  raiseImpliedDimmers, raiseImpliedEmitters,
+} from './fixtures.js';
 import { beginStaging, commitStaging, abortStaging, clearDefs, tick, getUniverseBuffer } from './dmx.js';
 
 /**
@@ -176,5 +179,66 @@ describe('implied brightness', () => {
     });
     expect(raised).toEqual([]);
     expect(ch(1)).toBe(0);
+  });
+});
+
+// ─── the same rule from the other end ────────────────────────────────────────
+
+/**
+ * One run with both halves of the inference, in the order evalCode() makes
+ * them. The dimmer rule first, then the colour rule, inside one transaction.
+ */
+function runBoth(scene: () => void): { raised: string[]; ch: (n: number) => number } {
+  clearDefs();
+  beginStaging();
+  clearFixtureActivity();
+  scene();
+  raiseImpliedDimmers();
+  const raised = raiseImpliedEmitters();
+  commitStaging();
+  tick(0);
+  const buf = getUniverseBuffer(0);
+  return { raised, ch: (n: number) => buf[n - 1] };
+}
+
+describe('a master driven with nothing under it implies its own colour', () => {
+  it('lights a dim-rgb par that a group ramp only dimmed', () => {
+    // The line that found this: group(par).each(p => …) on a dim-rgb par,
+    // which is what most real pars are. A cell with a dimmer takes a single
+    // value as brightness and leaves the colour alone — right on a lit rig,
+    // where the look survives the fade, and a fade of black against black on
+    // a fixture nothing has coloured. The identical line lit an rgb par.
+    const out = runBoth(() => { group(fixture(1, 'dim-rgb')).each(() => 1); });
+    expect([out.ch(1), out.ch(2), out.ch(3), out.ch(4)]).toEqual([255, 255, 255, 255]);
+    expect(out.raised).toHaveLength(1);
+  });
+
+  it('leaves a fixture alone when the scene did colour it', () => {
+    const out = runBoth(() => {
+      const par = fixture(1, 'dim-rgb') as unknown as Dimmable;
+      par.color(1, 0, 0);
+      par.dim(1);
+    });
+    expect(out.raised).toEqual([]);
+    expect([out.ch(1), out.ch(2), out.ch(3), out.ch(4)]).toEqual([255, 255, 0, 0]);
+  });
+
+  it('leaves a fixture alone when the scene never touched its master', () => {
+    // Nothing driven, nothing inferred: the guard that keeps a rig from coming
+    // up hot the moment a fixture is patched.
+    const out = runBoth(() => { fixture(1, 'dim-rgb'); });
+    expect(out.raised).toEqual([]);
+    expect([out.ch(1), out.ch(2), out.ch(3), out.ch(4)]).toEqual([0, 0, 0, 0]);
+  });
+
+  it('does not undo a deliberate blackout', () => {
+    // .off() drives the master AND the emitters, so there is nothing to infer.
+    const out = runBoth(() => {
+      const par = fixture(1, 'dim-rgb') as unknown as Dimmable;
+      par.color(1, 0, 0);
+      par.off();
+    });
+    expect(out.raised).toEqual([]);
+    expect([out.ch(1), out.ch(2), out.ch(3), out.ch(4)]).toEqual([0, 0, 0, 0]);
   });
 });

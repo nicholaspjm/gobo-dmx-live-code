@@ -49,6 +49,7 @@ import {
   clearSimFixtures,
   clearFixtureActivity,
   raiseImpliedDimmers,
+  raiseImpliedEmitters,
   setStripEffectWaveforms,
 } from './fixtures.js';
 import { sendConfig, connectDirect, isBlockedAsMixedContent, isConnected } from './websocket.js';
@@ -770,6 +771,8 @@ export function evalCode(code: string): EvalResult {
   let result: EvalResult = { success: false, error: 'evaluation did not complete' };
   /** Dimmers this run raised because a colour implied it. Reported, never silent. */
   let implied: string[] = [];
+  /** Emitters raised because a master was driven and nothing under it was. */
+  let impliedColour: string[] = [];
   beginStaging();
   try {
     // Claim ownership of the output-changing calls. From here until the finally
@@ -790,6 +793,7 @@ export function evalCode(code: string): EvalResult {
     // same transaction: a scene that throws after this rolls them back with
     // everything else rather than leaving a rig lit by a run that failed.
     implied = raiseImpliedDimmers();
+    impliedColour = raiseImpliedEmitters();
     result = { success: true };
   } catch (err) {
     result = { success: false, error: errorMessage(err) };
@@ -822,7 +826,12 @@ export function evalCode(code: string): EvalResult {
         ? null
         : `brightness inferred: ${implied.join(', ')}. ` +
           `Write dim(…) on the fixture to say otherwise.`;
-      const warning = [outputWarning, impliedNote].filter((w) => w !== null).join(' ') || null;
+      // The same rule from the other end, and said just as loudly.
+      const impliedColourNote = impliedColour.length === 0
+        ? null
+        : `colour inferred: ${impliedColour.join(', ')} was dimmed but never coloured, ` +
+          `so its emitters are at full. Write a colour on the fixture to say otherwise.`;
+      const warning = [outputWarning, impliedNote, impliedColourNote].filter((w) => w !== null).join(' ') || null;
       if (warning !== null) {
         // The status line is the UI's to write, and it may be showing something
         // else by the time anyone looks. The console keeps the reason where it
