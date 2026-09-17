@@ -85,6 +85,8 @@ const _onStatusChange = new Set<(connected: boolean) => void>();
 // and the rig would lag further behind by the second.
 let _writing = false;
 let _dropped = 0;
+/** The newest frame that arrived while a write was in flight, or null. */
+let _pending: Uint8Array | null = null;
 
 export function onUsbStatusChange(fn: (connected: boolean) => void): void {
   _onStatusChange.add(fn);
@@ -156,6 +158,8 @@ export async function disconnectUsbDmx(): Promise<void> {
   // went away never settles, so without this the next connection is wedged:
   // every send takes the "already writing" branch and the rig stays dark.
   _writing = false;
+  // Nothing queued survives the port going away.
+  _pending = null;
   if (_connected) {
     _connected = false;
     for (const fn of _onStatusChange) fn(false);
@@ -185,13 +189,41 @@ export function buildEnttecFrame(channels: Uint8Array): Uint8Array {
  */
 export function sendUsbDmx(channels: Uint8Array): void {
   if (!_connected || !_writer) return;
-  if (_writing) { _dropped++; return; }
+  // Built now rather than when it goes out, because the argument is the live
+  // universe buffer and keeps changing. buildEnttecFrame copies, so this is a
+  // snapshot of what the caller meant to send.
+  const frame = buildEnttecFrame(channels);
+  if (_writing) {
+    // Held, not discarded. DMX is state rather than events, so only the newest
+    // frame is worth sending — but it does have to be sent, and this used to
+    // throw it away outright. That is survivable for an ordinary frame, which
+    // the next tick corrects 25 ms later, and not survivable for the last one:
+    // .off() sends a single blackout and then the scheduler stops, so nothing
+    // comes after it to correct. Lose that one to a write already in flight and
+    // the interface goes on repeating the last lit frame while the status bar
+    // reads stopped. packages/bridge/src/frames.ts hardened the connector
+    // against exactly this; the USB path never was.
+    if (_pending) _dropped++;
+    _pending = frame;
+    return;
+  }
+  writeFrame(frame);
+}
+
+/** Write one built frame, then whatever arrived while it was in flight. */
+function writeFrame(frame: Uint8Array): void {
+  if (!_writer) return;
   _writing = true;
-  _writer.write(buildEnttecFrame(channels))
+  _writer.write(frame)
     .catch(() => {
       // The interface was unplugged, or the port errored. Drop the connection
       // rather than throwing on every tick from here on.
       void disconnectUsbDmx();
     })
-    .finally(() => { _writing = false; });
+    .finally(() => {
+      _writing = false;
+      const next = _pending;
+      _pending = null;
+      if (next && _connected && _writer) writeFrame(next);
+    });
 }

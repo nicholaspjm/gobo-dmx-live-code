@@ -132,25 +132,51 @@ describe('sending', () => {
     expect(writer.written).toHaveLength(2);
   });
 
-  it('drops frames instead of queueing them when the interface stalls', async () => {
+  it('holds the newest frame when the interface stalls, rather than losing it', async () => {
+    // This used to discard every frame that arrived mid-write. Fine for an
+    // ordinary frame, which the next tick corrects — and wrong for the last
+    // one, which is why the blackout test below exists.
     const writer = new FakeWriter('manual');
     stubSerial(writer);
     await connectUsbDmx();
     const before = getUsbDroppedFrames();
 
     sendUsbDmx(new Uint8Array([1]));   // in flight, never resolves yet
-    sendUsbDmx(new Uint8Array([2]));   // dropped
-    sendUsbDmx(new Uint8Array([3]));   // dropped
+    sendUsbDmx(new Uint8Array([2]));   // held
+    sendUsbDmx(new Uint8Array([3]));   // displaces 2, which never reaches the wire
 
+    // Still one write in flight: holding a frame is not queueing them up.
     expect(writer.written).toHaveLength(1);
-    expect(getUsbDroppedFrames()).toBe(before + 2);
+    // Only the displaced frame counts as dropped. DMX is state, so superseding
+    // an unsent frame with a newer one loses nothing that mattered.
+    expect(getUsbDroppedFrames()).toBe(before + 1);
 
-    // Once the port drains, sending resumes rather than staying wedged.
+    // Draining sends the held frame by itself, with no further call.
     writer.flush();
     await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
-    sendUsbDmx(new Uint8Array([4]));
-    await Promise.resolve();
     expect(writer.written).toHaveLength(2);
+    expect([...writer.written[1].slice(5, 6)]).toEqual([3]);
+  });
+
+  it('still delivers a blackout that lands while a write is in flight', async () => {
+    // The one frame that cannot be dropped. .off() sends a single zero frame
+    // and the scheduler then stops, so nothing follows to correct it: losing it
+    // leaves the interface repeating the last lit frame with the app reading
+    // "stopped". packages/bridge/src/frames.ts hardened the connector against
+    // this; the USB path had no equivalent.
+    const writer = new FakeWriter('manual');
+    stubSerial(writer);
+    await connectUsbDmx();
+
+    sendUsbDmx(new Uint8Array([255, 255, 255]));   // lit, in flight
+    sendUsbDmx(new Uint8Array([0, 0, 0]));         // the blackout, mid-write
+
+    writer.flush();
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+
+    expect(writer.written).toHaveLength(2);
+    const last = writer.written[writer.written.length - 1];
+    expect([...last.slice(5, 8)]).toEqual([0, 0, 0]);
   });
 
   it('disconnects when the interface is unplugged mid-show', async () => {
