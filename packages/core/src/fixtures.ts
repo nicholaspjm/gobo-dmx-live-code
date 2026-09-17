@@ -25,6 +25,7 @@ import {
   isChannelDriven,
   type PatternOrValue,
   claimChannels,
+  clearPatchClaims,
   type PatternLike,
 } from './dmx.js';
 import {
@@ -547,6 +548,9 @@ const _fixtureActivity: FixtureActivity[] = [];
 
 export function clearFixtureActivity(): void {
   _fixtureActivity.length = 0;
+  // A run re-patches everything it patches, so the claims from the last one go
+  // with it. This is the reset eval.ts actually calls between runs.
+  clearPatchClaims();
 }
 
 

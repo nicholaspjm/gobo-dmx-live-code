@@ -472,9 +472,24 @@ export function claimChannels(universe: number, start: number, count: number, la
   _patched.push({ universe, start, end, label });
 }
 
+/**
+ * Forget every patch claim.
+ *
+ * Separate from clearDefs() because the two resets are not the same event. A
+ * scene run does not go through clearDefs(): eval.ts clears the sim, the
+ * screens, the controls, the pickers and the fixture activity, and leaves the
+ * channel defs to be replaced by the run itself. Hanging the claims off
+ * clearDefs() alone meant they survived from one run to the next, so the second
+ * ctrl+enter on any scene with a fixture in it reported that fixture
+ * overlapping itself.
+ */
+export function clearPatchClaims(): void {
+  _patched.length = 0;
+}
+
 export function clearDefs(): void {
   _defs.clear();
-  _patched.length = 0;
+  clearPatchClaims();
   resetQueryFailures();
 }
 

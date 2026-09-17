@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { clearDefs } from './dmx.js';
-import { fixture, defineFixture, clearSimFixtures, rgbStrip } from './fixtures.js';
+import { fixture, defineFixture, clearSimFixtures, clearFixtureActivity, rgbStrip } from './fixtures.js';
 
 beforeEach(() => {
   clearDefs();
@@ -79,5 +79,31 @@ describe('overlapping patches', () => {
     fixture(1, 'par4');
     clearDefs();
     expect(() => fixture(1, 'par4')).not.toThrow();
+  });
+
+  it('survives the same scene being run again', () => {
+    // The reset that matters. A run does not go through clearDefs(): eval.ts
+    // clears the sim, the screens, the controls and the fixture activity, and
+    // lets the run replace the channel defs itself. Hanging the claims off
+    // clearDefs() alone meant they outlived the run that made them, so the
+    // second ctrl+enter on any scene with a fixture reported it overlapping
+    // itself — which is every scene, on every re-run, in a live-coding tool
+    // whose whole loop is re-running.
+    const scene = (): void => {
+      clearFixtureActivity();      // what eval.ts does before each run
+      fixture(1, 'par4');
+      fixture(5, 'par4');
+    };
+    scene();
+    expect(scene).not.toThrow();
+    expect(scene).not.toThrow();
+  });
+
+  it('still catches a real overlap on a later run', () => {
+    clearFixtureActivity();
+    fixture(1, 'par4');
+    clearFixtureActivity();
+    fixture(1, 'par4');
+    expect(() => fixture(3, 'par4')).toThrow(/overlaps/);
   });
 });
