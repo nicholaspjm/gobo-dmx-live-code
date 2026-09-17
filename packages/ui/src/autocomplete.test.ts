@@ -251,3 +251,49 @@ describe('Tab accepts the completion', () => {
     expect(acceptCompletion({ state } as unknown as EditorView)).toBe(false);
   });
 });
+
+// ─── a light's own channels ───────────────────────────────────────────────────
+
+describe('methodsAfter offers what the light actually has', () => {
+  it("offers a spot head's zoom, gobo, prism and focus", () => {
+    // The shared pool is written by hand and covers the words most fixtures
+    // have in common. These were never in it, so ranking could not surface
+    // them: a name that is not in the list cannot be moved up it.
+    const opts = methodsAfter("const spot = fixture(1, 'moving-head-spot')", 'spot', '');
+    const labels = opts.map((o) => o.label);
+    for (const verb of ['zoom', 'gobo', 'prism', 'focus', 'speed']) {
+      expect(labels, verb).toContain(verb);
+    }
+  });
+
+  it('offers a custom fixture the channels it invented', () => {
+    // The case the pool can never cover, because the names do not exist until
+    // someone writes the definition.
+    defineFixture('ac-bar', {
+      name: 'AC Bar', manufacturer: 'Acme', type: 'generic', channelCount: 2,
+      channels: [
+        { offset: 0, name: 'strobeSpeed', type: 'control' },
+        { offset: 1, name: 'uv', type: 'color' },
+      ],
+    });
+    const opts = methodsAfter("const bar = fixture(1, 'ac-bar')", 'bar', '');
+    const labels = opts.map((o) => o.label);
+    expect(labels).toContain('strobeSpeed');
+    expect(labels).toContain('uv');
+  });
+
+  it('shows the call the way it is written', () => {
+    const opts = methodsAfter("const spot = fixture(1, 'moving-head-spot')", 'spot', '');
+    expect(opts.find((o) => o.label === 'zoom')?.detail).toBe('zoom(v)');
+  });
+
+  it('does not duplicate a channel the pool already describes', () => {
+    const opts = methodsAfter("const par = fixture(1, 'rgb')", 'par', '');
+    expect(opts.filter((o) => o.label === 'red')).toHaveLength(1);
+  });
+
+  it('leaves a non-light receiver on the shared pool', () => {
+    const opts = methodsAfter('const p = sine()', 'p', '');
+    expect(opts.some((o) => o.label === 'slow')).toBe(true);
+  });
+});

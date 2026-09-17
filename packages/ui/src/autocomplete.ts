@@ -155,8 +155,11 @@ export function rankFor(options: Completion[], typed: string): Completion[] {
 
 // ─── Ranking a method pool for the thing it is called on ─────────────────────
 
-const NO_VERBS: ReadonlySet<string> = new Set();
-const ALL_FIXTURE_VERBS: ReadonlySet<string> = new Set(fixtureMethods.map((o) => o.label));
+// Verb name → the way describeLight writes the call, or '' when the verb is
+// known only as a name. The signature is what lets a channel nothing in the
+// shared pool describes still be offered with something useful beside it.
+const NO_VERBS: ReadonlyMap<string, string> = new Map();
+const ALL_FIXTURE_VERBS: ReadonlyMap<string, string> = new Map(fixtureMethods.map((o) => [o.label, '']));
 
 /**
  * The verbs a light answers to, empty for a receiver that is not one.
@@ -168,7 +171,7 @@ const ALL_FIXTURE_VERBS: ReadonlySet<string> = new Set(fixtureMethods.map((o) =>
  * the ones written under `pixels`, which is why the receiver passed in is the
  * whole chain before the last dot rather than the last name in it.
  */
-function verbsOn(doc: string, receiver: string): ReadonlySet<string> {
+function verbsOn(doc: string, receiver: string): ReadonlyMap<string, string> {
   const dot = receiver.indexOf('.');
   const decl = findLight(doc, dot === -1 ? receiver : receiver.slice(0, dot));
   if (decl === undefined) return NO_VERBS;
@@ -181,13 +184,13 @@ function verbsOn(doc: string, receiver: string): ReadonlySet<string> {
   if (commands.length === 0) return ALL_FIXTURE_VERBS;
 
   const path = dot === -1 ? '' : `${receiver.slice(dot + 1)}.`;
-  const out = new Set<string>();
+  const out = new Map<string, string>();
   for (const command of commands) {
     const paren = command.indexOf('(');
     const name = paren === -1 ? command : command.slice(0, paren);
     if (!name.startsWith(path)) continue;
     const verb = name.slice(path.length);
-    if (!verb.includes('.')) out.add(verb);
+    if (!verb.includes('.')) out.set(verb, command.slice(path.length));
   }
   return out;
 }
@@ -218,10 +221,32 @@ export function methodsAfter(doc: string, receiver: string, typed: string): Comp
   const own = verbsOn(doc, receiver);
   if (own.size === 0) return rankFor(allMethods, typed);
   const q = typed.toLowerCase();
-  return allMethods.map((o) => {
+  const ranked = allMethods.map((o) => {
     const tier = Math.floor(matchBoost(o.label, q) / 2);
     return { ...o, boost: own.has(o.label) ? BAND + tier : tier - BAND };
   });
+
+  // Channels this light really has that the shared pool has never heard of.
+  // The pool is written by hand, so it covers the words most fixtures share
+  // and nothing else: a spot head's zoom, gobo, prism and focus were never in
+  // it, and a custom fixture's channels cannot be, because they are invented
+  // after the pool is written. Ranking alone could not help there — a name
+  // that is not in the list cannot be moved up it — so the one surface that
+  // knows what this light answers to could not offer the half of it that
+  // makes the light worth owning.
+  const pooled = new Set(allMethods.map((o) => o.label));
+  const own_only: Completion[] = [];
+  for (const [verb, command] of own) {
+    if (pooled.has(verb) || command === '') continue;
+    own_only.push({
+      label: verb,
+      type: 'method',
+      detail: command,
+      info: 'A channel this light declares. Hover the light itself for its full map.',
+      boost: BAND + Math.floor(matchBoost(verb, q) / 2),
+    });
+  }
+  return [...ranked, ...own_only];
 }
 
 // ─── Completion source ───────────────────────────────────────────────────────
