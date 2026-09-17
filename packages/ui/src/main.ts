@@ -182,6 +182,9 @@ async function runEval(code: string): Promise<void> {
   }
   const result = evalCode(toRun);
   if (result.success) {
+    // This scene ran, so it is worth being able to get back to. See
+    // rememberSceneInAddressBar.
+    rememberSceneInAddressBar(toRun);
     // The scene may have picked a different output, so the connection light,
     // the lock badge and the outputs panel are resolved again before anything
     // is reported about this run.
@@ -751,6 +754,54 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
   tap();
 });
+
+// ─── The address bar is the durable copy ─────────────────────────────────────
+//
+// The scene model here is one working buffer, autosaved, with a share link as
+// the copy that outlives this browser — that is what the reference says, and
+// it is a good model. The gap was that the link only existed if you remembered
+// to press share. Nobody remembers to press share before the thing they did
+// not expect happens: a closed tab, a cleared site, a laptop swapped at the
+// venue, a second window overwriting the first.
+//
+// So the hash is kept current instead. After a run that worked, the URL in the
+// address bar carries that scene, which means a bookmark, a browser-restored
+// tab and a copied address are all the durable copy the model promised, with
+// nothing to remember.
+//
+// Written with replaceState, so it never adds a history entry: back must keep
+// meaning what it meant, and a scene run forty times in a set would otherwise
+// bury every other page behind forty of itself.
+//
+// Only after a successful eval, not on every keystroke. A half-typed scene is
+// not worth carrying, the encode is a compression pass, and the address bar
+// flickering while someone types would be its own small horror.
+
+/** How long a hash can get before it is left alone. */
+const MAX_LIVE_HASH_CHARS = 60_000;
+
+let _hashWriteId = 0;
+
+function rememberSceneInAddressBar(code: string): void {
+  // Sequenced: the encode is async, and two fast runs must not land out of
+  // order and leave the older scene in the bar.
+  const id = ++_hashWriteId;
+  void encodeShareLink(code, getBufferName())
+    .then((url) => {
+      if (id !== _hashWriteId) return;
+      const hash = new URL(url).hash;
+      // A scene big enough to make the URL unusable is not carried: some
+      // browsers and most chat apps truncate a very long one, and a truncated
+      // scene that looks like a link is worse than no link.
+      if (hash.length > MAX_LIVE_HASH_CHARS) return;
+      if (globalThis.location.hash === hash) return;
+      globalThis.history.replaceState(null, '', hash);
+    })
+    .catch(() => {
+      // Losing the address-bar copy is not worth a word on the status bar,
+      // which is carrying whether the rig is lit.
+    });
+}
 
 // ─── Resync ──────────────────────────────────────────────────────────────────
 // Tapping a tempo fixes the speed and says nothing about where the downbeat is,
