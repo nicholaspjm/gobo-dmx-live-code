@@ -24,7 +24,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { tick, clearDefs, getUniverseBuffer } from './dmx.js';
-import { fixture, defineFixture, clearSimFixtures, group, type ChannelDef } from './fixtures.js';
+import {
+  fixture, defineFixture, clearSimFixtures, getSimFixtures, group, type ChannelDef,
+} from './fixtures.js';
 import { COLORS } from './colors.js';
 
 const red = COLORS.red;
@@ -418,5 +420,56 @@ describe('group.off() darkens whatever the fixture darkens', () => {
     ]);
     group(fixture(1, 'rgbau2')).full();
     expect(chans(3)).toEqual([255, 255, 255]);
+  });
+});
+
+// ─── the panel draws what the colour call can paint ──────────────────────────
+
+describe('the sim resolves a fixture the way .color() does', () => {
+  it('draws a fixture whose channels are Red_1 / Green_1 / Blue_1', () => {
+    // The panel looked its channels up as the exact words red, green and blue,
+    // which stopped matching the moment .color() learned to read Red_1 and
+    // r/g/b. Such a fixture drove correctly on the rig and drew nothing — and
+    // with no channel named 'dim' either it registered no element at all, so a
+    // working light was invisible in the one place you check before doors.
+    define('numbered-sim', [
+      { offset: 0, name: 'Red_1', type: 'color' },
+      { offset: 1, name: 'Green_1', type: 'color' },
+      { offset: 2, name: 'Blue_1', type: 'color' },
+    ]);
+    fixture(1, 'numbered-sim');
+    const drawn = getSimFixtures();
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0].render.kind).toBe('globe-rgbw');
+  });
+
+  it('draws one whose channels are r / g / b declared as colour', () => {
+    define('initial-sim', [
+      { offset: 0, name: 'r', type: 'color' },
+      { offset: 1, name: 'g', type: 'color' },
+      { offset: 2, name: 'b', type: 'color' },
+    ]);
+    fixture(1, 'initial-sim');
+    expect(getSimFixtures()[0].render.kind).toBe('globe-rgbw');
+  });
+
+  it('points at the right channels, not merely at some channel', () => {
+    define('offset-sim', [
+      { offset: 0, name: 'strobe', type: 'strobe' },
+      { offset: 1, name: 'Red_1', type: 'color' },
+      { offset: 2, name: 'Green_1', type: 'color' },
+      { offset: 3, name: 'Blue_1', type: 'color' },
+    ]);
+    fixture(1, 'offset-sim');
+    const r = getSimFixtures()[0].render as { kind: string; r?: number; g?: number; b?: number };
+    expect([r.r, r.g, r.b]).toEqual([1, 2, 3]);
+  });
+
+  it('still finds a master called intensity for a dimmer-only fixture', () => {
+    define('master-sim', [{ offset: 0, name: 'intensity', type: 'intensity' }]);
+    fixture(1, 'master-sim');
+    const drawn = getSimFixtures();
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0].render.kind).toBe('globe-dim');
   });
 });

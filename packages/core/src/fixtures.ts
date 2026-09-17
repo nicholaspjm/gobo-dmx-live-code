@@ -1703,13 +1703,23 @@ export function fixture(
   // def exposes (rgb/w preferred; fall back to just a dimmer).
   const hasStrip = def.channels.some((c) => c.type === 'strip');
   if (!hasStrip) {
-    const byName = (n: string): number | undefined =>
-      def.channels.find((c) => c.name === n)?.offset;
-    const r = byName('red');
-    const g = byName('green');
-    const b = byName('blue');
-    const w = byName('white');
-    const dimOffset = byName('dim');
+    // Resolved by role, not by literal name, so the panel draws whatever
+    // .color() can paint. These used to be looked up as the exact words 'red',
+    // 'green', 'blue', 'white' and 'dim', which stopped matching the moment
+    // .color() learned to read Red_1 and r/g/b: such a fixture drove correctly
+    // on the rig and drew nothing on screen — and with no channel named 'dim'
+    // either, it registered no sim element at all, so a light that worked was
+    // invisible in the one place you check before the doors open.
+    const byRole = (role: MixRole): number | undefined =>
+      def.channels.find((c) => mixRole(c) === role)?.offset;
+    const r = byRole('red');
+    const g = byRole('green');
+    const b = byRole('blue');
+    const w = byRole('white');
+    const dimNames = dimChannelsOf(def);
+    const dimOffset = dimNames.length > 0
+      ? def.channels.find((c) => c.name === dimNames[0])?.offset
+      : undefined;
     const hasColor =
       r !== undefined || g !== undefined || b !== undefined || w !== undefined;
 
