@@ -19,7 +19,7 @@
 
 import { hoverTooltip, type Tooltip } from '@codemirror/view';
 import type { EditorView } from '@codemirror/view';
-import { HELP_INDEX, type HelpEntry } from './help-data.js';
+import { findHelp, type HelpEntry } from './help-data.js';
 import {
   describeLight,
   findLight,
@@ -57,7 +57,7 @@ function identifierAt(
 
   const word = text.slice(lo, hi);
   // Reject pure-numeric tokens. `120` in `setBPM(120)` would otherwise
-  // fall through and fail to match HELP_INDEX anyway; short-circuiting
+  // fall through and fail to match anyway; short-circuiting
   // saves the lookup.
   if (/^\d+$/.test(word)) return null;
 
@@ -190,7 +190,10 @@ export const goboHoverHelp = hoverTooltip(
       };
     }
 
-    const entry = HELP_INDEX.get(hit.word);
+    // A dot before the word means a member, which is what separates the
+    // colour `red` from the channel setter `.red()`.
+    const dotted = hit.from > 0 && view.state.doc.sliceString(hit.from - 1, hit.from) === '.';
+    const entry = findHelp(hit.word, dotted);
     if (!entry) return null;
     return {
       pos: hit.from,

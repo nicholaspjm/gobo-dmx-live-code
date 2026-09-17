@@ -12,8 +12,13 @@
  *   - 'fixture-method': calls on a fixture / strip (.red, .pixel, …)
  *   - 'property':       non-callable members (.pixelCount, etc.)
  *
- * The hover lookup is context-blind (it matches on label only). Context
- * is used only by autocomplete, to narrow suggestions after a dot.
+ * Six labels appear twice on purpose, because the name really is two things:
+ * `red` is a colour value and a channel setter, and so are green, blue, white,
+ * strobe and flash. Both surfaces use `context` to tell them apart — findHelp()
+ * at the bottom of this file picks by whether a dot precedes the word, and
+ * autocomplete narrows its suggestions the same way. Any other repeated label
+ * is a mistake: a plain Map keyed by label keeps whichever comes last, so a
+ * second entry silently replaces the first.
  */
 
 export type HelpContext =
@@ -833,14 +838,6 @@ spot.white(mini('1 - - -').punch())`,
     kind: 'method',
   },
   {
-    label: 'linger',
-    signature: '.linger(n) => Pattern',
-    description: 'Play only the first n of the cycle and repeat it for the rest. A stutter, or a hold.',
-    example: "wash.red(mini('1 0.6 0.3 0').linger(0.25))",
-    context: 'pattern-method',
-    kind: 'method',
-  },
-  {
     label: 'superimpose',
     signature: '.superimpose(fn) => Pattern',
     description: 'Layer a transformed copy on top of the original. Merged brightest-wins, so nothing is lost.',
@@ -1269,8 +1266,30 @@ bar.pixels.chase(warm, { cycles: 2 }).down()     // stops onto the rows`,
 
 ];
 
-/** Fast lookup by label. Hover-help uses this; autocomplete builds its
- *  Completion[] from HELP_ENTRIES directly. */
-export const HELP_INDEX: Map<string, HelpEntry> = new Map(
-  HELP_ENTRIES.map((e) => [e.label, e]),
-);
+/**
+ * Lookup by label, split by whether the name follows a dot.
+ *
+ * Six labels are deliberately two different things: `red` is a colour value and
+ * also a channel setter, `strobe` a named move and also a channel, and the same
+ * for green, blue, white and flash. One Map keyed by label kept whichever came
+ * last in this file, which was the setter every time, so hovering the `red` in
+ * `wash.color(red)` — a bare value, the most common way the word is written —
+ * explained `.red(value | pattern)` instead of the colour.
+ *
+ * The file header already says the hover lookup is context-blind. It does not
+ * have to be: a name preceded by a dot is a member and a name that is not is
+ * not, which separates every one of these pairs. The fallback keeps a miss
+ * working, so a member with only a bare entry still resolves.
+ */
+const indexOf = (keep: (c: HelpContext) => boolean): Map<string, HelpEntry> =>
+  new Map(HELP_ENTRIES.filter((e) => keep(e.context)).map((e) => [e.label, e]));
+
+const BARE_INDEX = indexOf((c) => c === 'command');
+const MEMBER_INDEX = indexOf((c) => c !== 'command');
+
+/** The entry for a hovered word. `dotted` is true when a `.` precedes it. */
+export function findHelp(label: string, dotted: boolean): HelpEntry | undefined {
+  const first = dotted ? MEMBER_INDEX : BARE_INDEX;
+  const second = dotted ? BARE_INDEX : MEMBER_INDEX;
+  return first.get(label) ?? second.get(label);
+}
