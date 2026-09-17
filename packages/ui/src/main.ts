@@ -37,7 +37,6 @@ import {
   sendUsbDmx,
   getUsbUniverse,
   isUsbConnected,
-  getUsbDroppedFrames,
   connectUsbDmx,
   disconnectUsbDmx,
   isUsbDmxSupported,

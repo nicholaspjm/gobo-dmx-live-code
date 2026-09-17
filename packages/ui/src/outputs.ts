@@ -13,6 +13,7 @@
 
 import {
   connectorNotice,
+  getUsbDroppedFrames,
   getConnectorInfo,
   getDirectUrl,
   getOutputConfig,
@@ -208,10 +209,21 @@ export interface OutputVerdict {
 export function outputVerdict(id: OutputId): OutputVerdict {
   if (id === 'usb') {
     if (isUsbConnected()) {
+      // A dropped frame means the interface could not keep up: sendUsbDmx holds
+      // the newest frame and only counts one when a newer frame displaces it
+      // before it reached the wire. So a number here is worth reading — it says
+      // the rig is running behind what the scene is asking for — and a zero is
+      // worth staying quiet about, which is the normal case.
+      const dropped = getUsbDroppedFrames();
       return {
         ready: true,
         badge: 'works here',
-        reason: 'An interface is connected, so usb() drives it on the next run.',
+        reason: dropped === 0
+          ? 'An interface is connected, so usb() drives it on the next run.'
+          : `An interface is connected, so usb() drives it on the next run. ${dropped} frame`
+            + `${dropped === 1 ? '' : 's'} could not be sent in time, which means the box is not `
+            + 'keeping up: the rig is running a little behind the scene. Lower the send rate in '
+            + 'settings if it climbs.',
       };
     }
     if (!isWebSerialAvailable()) {
