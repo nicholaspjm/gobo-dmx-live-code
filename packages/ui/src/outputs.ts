@@ -13,6 +13,11 @@
 
 import {
   connectorNotice,
+  enableMidi,
+  getMidiInputNames,
+  getSeenControllers,
+  isMidiEnabled,
+  isMidiSupported,
   getUsbDroppedFrames,
   getConnectorInfo,
   getDirectUrl,
@@ -700,6 +705,76 @@ export function mountOutputsPanel(opts: {
       list.appendChild(row);
     }
     bodyEl.appendChild(list);
+
+    // ── Inputs ───────────────────────────────────────────────────────────
+    // Everything above is where light goes. This is the one place something
+    // comes back, and it belongs here because this panel is where a person
+    // looks for hardware, whichever direction it points.
+    const inHead = document.createElement('h3');
+    inHead.className = 'outputs-subhead';
+    inHead.textContent = 'inputs';
+    bodyEl.appendChild(inHead);
+
+    const midiRow = document.createElement('div');
+    midiRow.className = 'output-row';
+
+    const midiTitle = document.createElement('div');
+    midiTitle.className = 'output-head';
+    const midiName = document.createElement('span');
+    midiName.className = 'output-label';
+    midiName.textContent = 'midi(cc)';
+    midiTitle.appendChild(midiName);
+
+    const midiTag = document.createElement('span');
+    midiTag.className = 'output-badge';
+    midiTag.textContent = !isMidiSupported()
+      ? 'needs chrome or edge'
+      : isMidiEnabled() ? 'listening' : 'not connected';
+    if (isMidiEnabled()) midiTag.classList.add('ok');
+    midiTitle.appendChild(midiTag);
+
+    const midiPlain = document.createElement('p');
+    midiPlain.className = 'output-plain';
+    midiPlain.textContent =
+      'A fader or knob on a MIDI controller, as a value a scene can use: midi(74) is controller 74, '
+      + '0 to 1, read live. Nothing to install, and the browser asks for permission once.';
+
+    const midiReason = document.createElement('p');
+    midiReason.className = 'output-reason';
+    if (!isMidiSupported()) {
+      midiReason.textContent =
+        'This browser has no Web MIDI, so the page cannot see a controller at all. Chrome and Edge '
+        + 'have it, Firefox and Safari do not.';
+    } else if (!isMidiEnabled()) {
+      midiReason.textContent = 'Turn it on here and the browser will ask once. Then midi(74) works in a scene.';
+    } else {
+      const names = getMidiInputNames();
+      const seen = getSeenControllers();
+      const heard = seen.length === 0
+        ? ' Move a fader and the controller number appears here.'
+        : ' Heard so far: ' + seen.slice(0, 8).map((s) => `cc ${s.cc}${s.channel === 1 ? '' : ` ch ${s.channel}`}`).join(', ') + '.';
+      midiReason.textContent = (names.length === 0
+        ? 'Listening, but nothing is plugged in.'
+        : `Listening to ${names.join(', ')}.`) + heard;
+    }
+
+    midiRow.append(midiTitle, midiPlain, midiReason);
+
+    if (isMidiSupported() && !isMidiEnabled()) {
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.className = 'scene-action';
+      action.textContent = 'turn on midi in';
+      // The permission prompt needs a gesture, and this click is one.
+      action.addEventListener('click', () => {
+        void enableMidi().then(refresh).catch((err: unknown) => {
+          midiReason.textContent = (err as Error).message;
+        });
+      });
+      midiRow.appendChild(action);
+    }
+
+    bodyEl.appendChild(midiRow);
 
     const foot = document.createElement('div');
     foot.className = 'outputs-foot';

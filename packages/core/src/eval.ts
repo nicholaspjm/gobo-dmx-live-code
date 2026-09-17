@@ -54,6 +54,7 @@ import {
 } from './fixtures.js';
 import { sendConfig, connectDirect, isBlockedAsMixedContent, isConnected } from './websocket.js';
 import { isUsbConnected, isUsbDmxSupported, setUsbUniverse } from './usb-dmx.js';
+import { midiCC } from './midi-in.js';
 import { clearPatternVizRegistry, registerPatternViz } from './pattern-viz.js';
 import { screen, clearScreens } from './screen.js';
 import { slider, pick, clearControls, clearPickers } from './controls.js';
@@ -716,6 +717,15 @@ export function evalCode(code: string): EvalResult {
     screen,
     slider,
     pick,
+    /**
+     * A MIDI controller, as a value a channel can take.
+     *
+     * midi(74) is CC 74 on channel 1, 0..1, read live — so the fader moves the
+     * light on the next tick rather than on the next run, the way slider()
+     * does. A controller nobody has touched reads as `start` rather than zero,
+     * so a scene does not come up black waiting to be wiggled.
+     */
+    midi: midiCC,
     /** Blend two colours, for a curve the built-in spread does not give:
      *  `bar.each(p => mix(red, blue, p * p))`. */
     mix,
