@@ -261,7 +261,16 @@ function describeOutput(): { text: string; delivered: boolean } | null {
 }
 
 function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
-  evalStatusEl.textContent = msg;
+  // Marked in the text, not only in the colour. The two status colours are
+  // --sage #7a8c6e and --error #c45a5a, which sit at 1.17:1 against each other
+  // for normal vision and 1.05:1 simulated for deuteranopia — indistinguishable
+  // either way, and this is a tool people read in a dark room at a glance. The
+  // ok messages have carried a ✓ for a while; the errors carried nothing.
+  //
+  // _statusMsg keeps the unmarked text, because the tick loop compares it
+  // against the pattern-failure warning to know whether that warning is still
+  // the thing on the bar.
+  evalStatusEl.textContent = kind === 'error' && !msg.startsWith('×') ? `× ${msg}` : msg;
   evalStatusEl.className = kind;
   _statusKind = kind;
   _statusMsg = msg;

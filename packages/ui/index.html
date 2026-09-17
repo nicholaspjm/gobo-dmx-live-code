@@ -2455,7 +2455,9 @@
       </div>
 
       <div class="statusbar">
-        <span id="eval-status">ctrl+enter to run  ·  ctrl+. to stop</span>
+        <!-- The app's only error channel. role="status" makes it a live region, so a
+           screen reader hears an eval error instead of it appearing silently. -->
+        <span id="eval-status" role="status" aria-live="polite">ctrl+enter to run  ·  ctrl+. to stop</span>
         <!-- On screen only in the performance view, where the top bar is gone.
              It names the mode and the key, and clicking it is the way back, so
              forgetting the key cannot strand anyone in there. -->
