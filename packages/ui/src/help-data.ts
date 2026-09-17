@@ -342,7 +342,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'sine',
     signature: 'sine() => Pattern',
-    description: 'Sine waveform 0..1. One full cycle per beat by default.',
+    description: 'Sine waveform 0..1. One full cycle per pattern cycle, which is one bar of four beats, so .fast(4) gives one per beat.',
     example: 'wash.red(sine().slow(4).range(0.2, 1))',
     context: 'command',
     kind: 'function',

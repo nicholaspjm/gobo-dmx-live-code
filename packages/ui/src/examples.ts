@@ -214,7 +214,7 @@ bar.pixels.fill(0, 0, 0, 1)                                          // solid wh
 //   bar.pixels.pixel(i, fade)
 // }
 
-// bar.pixels.rainbowChase({ speed: 2, narrow: 6 })                  // rainbow
+// bar.pixels.rainbowChase({ cycles: 2, width: 0.14 })               // rainbow
 
 // split: half red / half blue
 // for (let i = 0; i < bar.pixels.pixelCount; i++) {

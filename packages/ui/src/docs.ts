@@ -851,7 +851,7 @@ const DOCS: DocSection[] = [
         description:
           "A single bright pixel sweeps across the strip while its colour walks the hue wheel. Each pixel gets a cosine brightness envelope offset by its position (.early(i/N) shifts pixel i's peak later in the cycle), thresholded via .range(-narrow, 1) so most of the cycle sits below zero. The DMX pipeline clamps negatives to 0, leaving the tip above zero as the lit window. Bigger `narrow` gives a narrower window and fewer pixels lit at once. The hue comes from three sines 120° apart on R/G/B, so only one primary peaks at a time. Options are spelled as .chase() spells them: cycles for the lap time (2), width for how much is lit at once (0.11), waves for crests at a time (1), plus hue for cycles per turn of the hue wheel (12). They used to be speed, narrow and packets here, with narrow inverted against width, which made reaching for the neighbour's word the likeliest mistake. Works on RGB (rgbStrip) and RGBW (rgbwStrip, bar.pixels) instances. It writes r, g and b only, so a dedicated white stays where the scene put it; use .white(0) first if you want the hues on their own.",
         example:
-          "strip.rainbowChase()\nstrip.rainbowChase({ speed: 0.5, narrow: 16 })\nbar.pixels.rainbowChase({ packets: 2, rainbowSpeed: 4 })",
+          "strip.rainbowChase()\nstrip.rainbowChase({ cycles: 0.5, width: 0.06 })   // fast, tight band\nbar.pixels.rainbowChase({ waves: 2, hue: 4 })          // two crests, quicker hue",
       },
       {
         name: 'manual chase',
@@ -1010,7 +1010,7 @@ const DOCS: DocSection[] = [
       {
         name: 'sine',
         signature: 'sine()',
-        description: 'Sine wave, one full cycle per beat, output 0-1. Smooth breathing motion.',
+        description: 'Sine wave, one full cycle per cycle — which is one bar, or four beats — output 0-1. Smooth breathing motion. At 120 BPM that is one breath every two seconds; .fast(4) makes it one per beat.',
         example: 'washA.red(sine())',
       },
       {
