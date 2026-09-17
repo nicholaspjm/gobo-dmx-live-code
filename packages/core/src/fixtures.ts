@@ -2404,7 +2404,11 @@ export function monoStrip(
       // anywhere. Refused by name, because a palette left to fall through
       // lands in the options bag and comes back as "no options named 0, 1, 2",
       // which teaches the wrong thing entirely.
-      if (isColor(v[0]) || isPalette(v[0])) {
+      // The three-number spelling is the same mistake in different clothes:
+      // .fill(1, 0, 0) means red everywhere else in this API, and here the
+      // extra arguments were simply dropped, so asking for red got full white
+      // on every cell and nothing said so.
+      if (isColor(v[0]) || isPalette(v[0]) || v.length > 1) {
         throw new Error(
           `.fill(): a single-channel strip has no colour. Write a level with .fill(0.5), ` +
           `or drive the pixels one at a time with .each().`,
@@ -2422,7 +2426,8 @@ export function monoStrip(
       // anywhere. Refused by name, because a palette left to fall through
       // lands in the options bag and comes back as "no options named 0, 1, 2",
       // which teaches the wrong thing entirely.
-      if (isColor(v[0]) || isPalette(v[0])) {
+      // As above: .pixel(i, 1, 0, 0) read as a level and threw the colour away.
+      if (isColor(v[0]) || isPalette(v[0]) || v.length > 1) {
         throw new Error(
           `.pixel(): a single-channel strip has no colour. Write a level with .pixel(i, 0.5), ` +
           `or drive the pixels one at a time with .each().`,
