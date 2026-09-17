@@ -28,6 +28,7 @@ import {
   clearPatchClaims,
   type PatternLike,
 } from './dmx.js';
+import { validateFixture } from './fixture-validator.js';
 import {
   readColor,
   readColorStops,
@@ -699,7 +700,25 @@ const _customFixtures: Record<string, FixtureDef> = {};
 
 /** Register a custom fixture definition under a given id. */
 export function defineFixture(id: string, def: FixtureDef): void {
-  _customFixtures[id] = def;
+  // Checked, rather than stored and hoped for. fixture-validator.ts has always
+  // held the rules and the messages — every channel type, every offset, the
+  // pixelCount a strip needs, the ids the built-ins already own — and nothing
+  // in the editor ever reached it: it ran in CI, over the JSON in fixtures/,
+  // and a def written in a scene went straight into the registry unexamined.
+  //
+  // Two mistakes in particular were silent. A channelCount smaller than the
+  // real span patched happily and then showed up as the NEXT light
+  // misbehaving, several addresses away. And defineFixture('rgbw', …) — the
+  // most natural first move from "my par is not the built-in one" — was
+  // accepted and then ignored, because resolveFixture() takes built-ins first;
+  // the scene went on using the four-channel built-in, and the first call to a
+  // channel the real fixture has came back as "par.dim is not a function",
+  // which names the variable and says nothing about the definition.
+  const result = validateFixture(id, def);
+  if (!result.ok) {
+    throw new Error(`defineFixture(${JSON.stringify(id)}): ${result.error}`);
+  }
+  _customFixtures[result.id] = result.def;
 }
 
 /**
