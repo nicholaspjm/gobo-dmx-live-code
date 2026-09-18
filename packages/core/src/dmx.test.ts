@@ -745,7 +745,9 @@ describe('transactional eval', () => {
   it('reports the error message rather than throwing out of evalCode', () => {
     expect(() => evalCode('this is not javascript at all {{{')).not.toThrow();
     expect(() => evalCode('throw new Error("scene exploded")')).not.toThrow();
-    expect(evalCode('throw new Error("scene exploded")').error).toBe('scene exploded');
+    // Carries the line it came from as well as the message; see
+    // error-location.test.ts for what is and is not reported.
+    expect(evalCode('throw new Error("scene exploded")').error).toBe('line 1: scene exploded');
   });
 });
 

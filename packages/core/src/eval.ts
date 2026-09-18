@@ -640,7 +640,7 @@ export interface EvalResult {
  * and `white` are plausible names for a scene's own variables in a way that
  * `sine` and `fixture` never were.
  */
-function reservedNameHint(message: string, reserved: Iterable<string>): string {
+export function reservedNameHint(message: string, reserved: Iterable<string>): string {
   const m = /Identifier '([^']+)' has already been declared/.exec(message);
   if (!m) return message;
   const name = m[1];
@@ -648,14 +648,114 @@ function reservedNameHint(message: string, reserved: Iterable<string>): string {
   if (!names.has(name)) return message;
   // JavaScript's message has no full stop, so one is added rather than running
   // the two sentences together.
+  //
+  // The rename is suggested rather than the name simply refused, and it leads
+  // with what the name already is. "strobe" reads as a clash out of nowhere
+  // until you know gobo hands you a strobe() of its own; once you do, the
+  // message explains itself and you keep the shorter name for the thing that
+  // deserves it.
+  //
+  // Two suffixes, because the names that collide are the good ones and a scene
+  // uses them for two different things: a light called strobe, and a look
+  // called strobe. Neither suggestion fits both, so both are offered.
+  const Title = `${name[0].toUpperCase()}${name.slice(1)}`;
   return (
-    `${message.replace(/\s*$/, '')}. "${name}" is one of gobo's own names, so a scene cannot reuse it. ` +
-    `Rename your variable, for example ${name}Wash or my${name[0].toUpperCase()}${name.slice(1)}.`
+    `${message.replace(/\s*$/, '')}. "${name}" is already one of gobo's own — you can call `
+    + `${name}(…) in any scene — so this scene cannot declare it as well. Pick another name: `
+    + `my${Title} for a light, or ${name}Look for a look you call. `
+    + `Note that const and let clash where function ${name}(…) {…} does not.`
   );
 }
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Where user code starts inside the function the sandbox compiles.
+ *
+ * A stack frame from a scene reports its position in the compiled function,
+ * not in the document: the parameter list and the "use strict" prologue sit
+ * above line 1 of the scene. The size of that preamble is an engine detail
+ * and not something to hardcode, so it is measured once by compiling a probe
+ * that throws from a line we already know.
+ *
+ * null means the measurement did not work, in which case no line is reported
+ * at all. A wrong line number in a thousand-line performance file is worse
+ * than none: it sends you to the wrong look.
+ */
+let _lineOffset: number | null | undefined;
+
+/**
+ * The 1-based line a stack frame points at, or null if none can be read.
+ *
+ * Both patterns are anchored on the marker an engine uses for code that came
+ * from new Function, and nothing looser. A general "url:line:col" would also
+ * match the URL of the module that did the compiling — under Vite that is a
+ * path containing "@fs/", which read as a Firefox frame and returned the line
+ * number of this file instead of the scene's. The answer was wrong rather
+ * than missing, which is the failure mode this whole path exists to avoid.
+ */
+function frameLine(stack: string | undefined): number | null {
+  if (!stack) return null;
+  // V8 (Chrome, Edge, Node): "at eval (…, <anonymous>:LINE:COL)".
+  const v8 = /<anonymous>:(\d+):(\d+)/.exec(stack);
+  if (v8) return Number(v8[1]);
+  // Firefox: "anonymous@http://host/ line 12 > Function:LINE:COL".
+  const gecko = /> Function:(\d+):(\d+)/.exec(stack);
+  if (gecko) return Number(gecko[1]);
+  // Anything else reports no line rather than a guessed one.
+  return null;
+}
+
+function lineOffset(): number | null {
+  if (_lineOffset !== undefined) return _lineOffset;
+  _lineOffset = null;
+  try {
+    // Compiled exactly the way a scene is — the same "use strict" prologue in
+    // front of the same kind of body — so the probe measures the mechanism
+    // rather than a model of it. The throw stands where line 1 of a scene
+    // stands, so the frame it reports minus 1 is everything above line 1.
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    (new Function('"use strict";\nthrow new Error("probe");'))();
+  } catch (err) {
+    const at = frameLine(err instanceof Error ? err.stack : undefined);
+    if (at !== null && at >= 1) _lineOffset = at - 1;
+  }
+  return _lineOffset;
+}
+
+/**
+ * The scene line a thrown error came from, or null.
+ *
+ * Only the first frame is read, and only when it falls inside the document.
+ * An error thrown from inside the engine, or from a callback the engine calls
+ * later, has a first frame that is not the scene at all, and pointing at a
+ * line the user did not write is the failure this is guarding against.
+ */
+function sceneLine(err: unknown, code: string): number | null {
+  if (!(err instanceof Error)) return null;
+  const off = lineOffset();
+  if (off === null) return null;
+  const at = frameLine(err.stack);
+  if (at === null) return null;
+  const line = at - off;
+  const lines = code.split('\n').length;
+  return line >= 1 && line <= lines ? line : null;
+}
+
+/**
+ * The error as the operator should read it: what went wrong, and where.
+ *
+ * The line matters more here than it looks. A scene used to be a handful of
+ * lines, where "wash.dim is not a function" was the whole answer. A file that
+ * holds a whole performance is long enough that the same message leaves you
+ * scrolling, and the editor has no search to help.
+ */
+export function locatedError(err: unknown, code: string): string {
+  const message = errorMessage(err);
+  const line = sceneLine(err, code);
+  return line === null ? message : `line ${line}: ${message}`;
 }
 
 /**
@@ -806,7 +906,7 @@ export function evalCode(code: string): EvalResult {
     impliedColour = raiseImpliedEmitters();
     result = { success: true };
   } catch (err) {
-    result = { success: false, error: errorMessage(err) };
+    result = { success: false, error: locatedError(err, code) };
   } finally {
     // Release ownership before anything else in this block, on both paths. A
     // stranded _activeBuffer would buffer every later artnet()/setBPM(), from

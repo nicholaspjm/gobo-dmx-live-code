@@ -84,6 +84,38 @@ function present(value: unknown): string {
   }
 }
 
+/**
+ * Apply console format directives, the way devtools would.
+ *
+ * Without this the panel shows a library's styled banner as the raw thing:
+ * "%c🌀 @strudel/core loaded 🌀 background-color: black;color:white", CSS and
+ * all. The real console reads %c as "style what follows with the next
+ * argument"; there is no styling to do here, so the directive and its CSS are
+ * dropped and the text is left.
+ *
+ * Only run when the first argument is a string that actually carries a
+ * directive, so ordinary calls keep going through untouched.
+ */
+export function formatArgs(args: unknown[]): string {
+  const first = args[0];
+  if (typeof first !== 'string' || !/%[sdifoOcj%]/.test(first)) {
+    return args.map(present).join(' ');
+  }
+  let i = 1;
+  const text = first.replace(/%([sdifoOcj%])/g, (_whole, kind: string) => {
+    if (kind === '%') return '%';
+    if (i >= args.length) return `%${kind}`;   // nothing left to consume
+    const value = args[i++];
+    if (kind === 'c') return '';               // a style, and nothing to style
+    if (kind === 'd' || kind === 'i') return String(Math.trunc(Number(value)));
+    if (kind === 'f') return String(Number(value));
+    return present(value);
+  });
+  // Anything the directives did not consume still belongs in the line.
+  const rest = args.slice(i).map(present);
+  return [text, ...rest].join(' ').trim();
+}
+
 let _captured = false;
 
 /**
@@ -101,7 +133,7 @@ export function captureConsole(): void {
     console[kind] = (...args: unknown[]): void => {
       original(...args);
       try {
-        addLog(kind, args.map(present).join(' '));
+        addLog(kind, formatArgs(args));
       } catch {
         // Recording a line must never be the reason a scene fails. The real
         // console already has it.

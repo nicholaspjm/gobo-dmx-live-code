@@ -2034,6 +2034,15 @@
          than a background, so it does not fight the syntax colour underneath,
          and it is the accent rather than a new colour because the editor
          already has enough of those. */
+      /* An error on the status bar is a way into the log, which holds the
+         whole message. Marked with a pointer and an underline so it reads as
+         something to press rather than as text that happens to react. */
+      #eval-status.clickable {
+        cursor: pointer;
+        text-decoration: underline dotted;
+        text-underline-offset: 3px;
+      }
+
       .cm-content .gobo-live-token {
         outline: 2px solid var(--accent);
         outline-offset: 1px;

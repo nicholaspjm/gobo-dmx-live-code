@@ -242,7 +242,13 @@ async function runEval(code: string): Promise<void> {
     // replaced a custom fixture that the user can now save.
     _refreshLibraryAfterEval();
   } else {
-    setStatus('error', result.error ?? 'unknown error');
+    const message = result.error ?? 'unknown error';
+    // The bar is one line and clips, and the useful half of an error is
+    // usually the end of it: the line number, the suggested rename, the name
+    // of the channel. Sent to the console as well, which the log panel keeps
+    // in full and timestamped, so nothing said here is only half-said.
+    console.error(`[gobo] ${message}`);
+    setStatus('error', message);
   }
 }
 
@@ -318,6 +324,14 @@ function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
   // the thing on the bar.
   evalStatusEl.textContent = kind === 'error' && !msg.startsWith('×') ? `× ${msg}` : msg;
   evalStatusEl.className = kind;
+  // The bar is one line and clips, and the useful half of an error is usually
+  // its end: the line number, the suggested rename, the channel that was
+  // named. Appending "see the log" does not help, because that would be
+  // clipped with everything else. So the whole text is on the element itself,
+  // where hovering shows it, and an error makes the bar a way into the log,
+  // which keeps it in full and timestamped.
+  evalStatusEl.title = kind === 'error' ? `${msg}\n\n(click to open the log)` : '';
+  evalStatusEl.classList.toggle('clickable', kind === 'error');
   _statusKind = kind;
   _statusMsg = msg;
   _statusAtMs = performance.now();
@@ -1860,6 +1874,14 @@ const logPanel = mountConsolePanel({
   onOpen:   () => closeOtherPanels('log'),
 });
 _panelClosers.set('log', logPanel.setOpen);
+
+// An error on the bar is usually longer than the bar. Clicking it opens the
+// log, which has the whole thing; the hover title has it too, for anyone who
+// would rather not lose the editor width. Wired here rather than in
+// setStatus so the handler is installed once instead of per message.
+evalStatusEl.addEventListener('click', () => {
+  if (evalStatusEl.classList.contains('clickable')) logPanel.setOpen(true);
+});
 
 // Settings panel. Closes docs and library when it opens.
 const settingsPanel = mountSettingsPanel({
