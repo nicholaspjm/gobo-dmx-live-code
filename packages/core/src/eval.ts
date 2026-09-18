@@ -291,8 +291,13 @@ export async function initStrudel(): Promise<void> {
         // what reaches the wire and any number of them can be chained: two
         // calls put two widgets on the line.
         for (const kind of ['flash', 'glow', 'wave', 'roll', 'punchcard', 'spiral', 'spectrum'] as const) {
-          proto[kind] = function (this: PatternLike) {
-            registerPatternViz(this, kind);
+          // The optional argument is a source offset the editor writes in on
+          // the way to eval, so a widget can be placed on the line the call
+          // was written on rather than by counting call sites. Nothing else
+          // passes it, and an absent one is not an error: the UI falls back to
+          // counting. See pattern-viz.ts.
+          proto[kind] = function (this: PatternLike, at?: number) {
+            registerPatternViz(this, kind, typeof at === 'number' ? at : undefined);
             return this;
           };
         }

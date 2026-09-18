@@ -82,7 +82,7 @@ import { registerPublicFixtures } from './public-fixtures.js';
 import { formatGoboCode } from './formatter.js';
 import { getSettings, mountSettingsPanel, onSettingsChange } from './settings.js';
 import { captureConsole, mountConsolePanel } from './console-log.js';
-import { tagMiniLocations } from './mini-locations.js';
+import { tagLocations } from './mini-locations.js';
 import { applyTheme } from './themes.js';
 import {
   mountOutputsPanel,
@@ -200,7 +200,7 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
   // outline whichever token is driving light. Timid by design: anything it is
   // unsure of it leaves alone, and the untouched source is what runs. See
   // mini-locations.ts.
-  const tagged = tagMiniLocations(toRun);
+  const tagged = tagLocations(toRun);
 
   let result = evalCode(tagged.code);
   // If the tagged copy failed but the original would not have, the tagging is
@@ -212,8 +212,9 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
     const plain = evalCode(toRun);
     if (plain.success) {
       console.warn(
-        '[gobo] the token outlines were dropped for this scene: tagging its mini() calls '
-        + `produced code that would not run (${result.error ?? 'unknown error'}). The scene itself ran.`,
+        '[gobo] the inline decorations were dropped for this scene: tagging its mini() and '
+        + `viz calls produced code that would not run (${result.error ?? 'unknown error'}). `
+        + 'The scene itself ran.',
       );
       result = plain;
     }

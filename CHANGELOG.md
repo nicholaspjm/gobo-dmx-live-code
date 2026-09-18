@@ -201,6 +201,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   said, the earlier look silently gone, under a green status bar. A run now
   names those channels, by the light patched over them and its address.
 
+- **`.flash()` and `.glow()` decorate the line they were written on.** They were
+  placed by counting — the nth `.glow(` in the text got the nth registration —
+  which holds only while every call site in the buffer ran. In a file where looks
+  are functions and one of them is called it never does: a `.glow()` inside a look
+  that did not run is a call site the scan sees and the run never made, so with
+  `chorus` live its decoration was drawn on `verse`'s line. Each call now carries
+  the offset it was written at, the same way the live-token outlines do, and both
+  tags are applied in one pass so every offset still refers to the original
+  document. A call that cannot be tagged falls back to counting, which is what a
+  scene evaluated outside the editor wants.
+
 - **The panic key now always has a way to black out.** With the stop action set
   to `freeze last frame` — a real thing to want, since stopping the code at a gig
   should not black the stage — `Ctrl+.` left **no key at all** that could darken a

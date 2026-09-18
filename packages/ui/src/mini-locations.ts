@@ -122,21 +122,96 @@ function findMiniCalls(source: string): Call[] {
  * it untouched.
  */
 export function tagMiniLocations(source: string): Rewritten {
+  return applyEdits(source, miniEdits(source));
+}
+
+/** One rewrite: replace [from, to) with `text`. Offsets are into the ORIGINAL. */
+interface Edit {
+  from: number;
+  to: number;
+  text: string;
+}
+
+/**
+ * Apply rewrites back to front.
+ *
+ * Back to front so each splice leaves the offsets of the ones before it
+ * untouched, which is what lets every offset written into the code refer to
+ * the original document. Both kinds of tag depend on that, and it is why they
+ * are applied together in one pass rather than one after the other: a second
+ * pass over already-rewritten text would measure the wrong positions.
+ */
+function applyEdits(source: string, edits: Edit[]): Rewritten {
+  if (edits.length === 0) return { code: source, tagged: 0 };
+  const ordered = [...edits].sort((a, b) => a.from - b.from);
+  let out = source;
+  for (let i = ordered.length - 1; i >= 0; i--) {
+    const e = ordered[i];
+    out = out.slice(0, e.from) + e.text + out.slice(e.to);
+  }
+  return { code: out, tagged: ordered.length };
+}
+
+/** `mini('…')` becomes `m('…', offsetOfTheQuote)`. */
+function miniEdits(source: string): Edit[] {
   let calls: Call[];
   try {
     calls = findMiniCalls(source);
   } catch {
     // The stripper walks user text. If it ever throws, the scene is worth more
     // than the outlines.
-    return { code: source, tagged: 0 };
+    return [];
   }
-  if (calls.length === 0) return { code: source, tagged: 0 };
+  return calls.map((c) => ({
+    from: c.nameStart,
+    to: c.end,
+    text: `m(${source.slice(c.quote, c.close + 1)}, ${c.quote})`,
+  }));
+}
 
-  let out = source;
-  for (let i = calls.length - 1; i >= 0; i--) {
-    const c = calls[i];
-    const literal = source.slice(c.quote, c.close + 1);
-    out = out.slice(0, c.nameStart) + `m(${literal}, ${c.quote})` + out.slice(c.end);
+/** The pattern-level viz methods, which take no arguments of their own. */
+const VIZ_METHODS = /\.(flash|glow|wave|roll|punchcard|spiral|spectrum)\s*\(\s*\)/g;
+
+/**
+ * `.glow()` becomes `.glow(offsetOfTheDot)`.
+ *
+ * These have no name to be matched on the way slider() and pick() do, and no
+ * argument either, so the offset is the only thing that can tie a registration
+ * to the line it was written on. Without it the UI pairs them by counting, and
+ * a `.flash()` inside a look that did not run shifts every later widget onto
+ * the wrong line.
+ *
+ * Only an EMPTY argument list is rewritten. The methods take nothing today, so
+ * anything inside the parens is something this does not understand, and a call
+ * left alone simply falls back to counting.
+ */
+function vizEdits(source: string): Edit[] {
+  let stripped: string;
+  try {
+    stripped = stripNonCode(source).join('\n');
+  } catch {
+    return [];
   }
-  return { code: out, tagged: calls.length };
+  const edits: Edit[] = [];
+  for (const match of stripped.matchAll(VIZ_METHODS)) {
+    const dot = match.index ?? 0;
+    edits.push({
+      from: dot,
+      to: dot + match[0].length,
+      text: `.${match[1]}(${dot})`,
+    });
+  }
+  return edits;
+}
+
+/**
+ * Give a scene every location tag the editor can use, in one pass.
+ *
+ * One pass because both kinds of offset are into the original document, and a
+ * rewrite moves everything after it: tagging mini calls and then scanning the
+ * result for viz calls would measure the viz offsets against text that has
+ * already shifted.
+ */
+export function tagLocations(source: string): Rewritten {
+  return applyEdits(source, [...miniEdits(source), ...vizEdits(source)]);
 }

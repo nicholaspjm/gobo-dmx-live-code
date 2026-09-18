@@ -1138,21 +1138,39 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   }
 
   // ─── Pattern-level viz (.flash / .glow / .wave on pattern calls) ────────
-  // One regex over the stripped source, so the order of matches within a
-  // line is the order the entries were pushed in and the 1:1 zip holds.
+  //
+  // Placed by the source offset the call carries, when it has one. The editor
+  // writes that offset in on the way to eval (mini-locations.ts), so a
+  // registration knows the line it came from and nothing has to be counted.
+  //
+  // Counting is the fallback, and it is wrong in exactly the file this tool is
+  // for: with looks written as functions and one of them called, a `.flash()`
+  // inside a look that did not run is a call site the scan sees and the run
+  // never made, so every widget after it slides onto the wrong line. The
+  // fallback survives for a scene evaluated by something other than the
+  // editor, which has no offsets and wants none.
   _patternVizEntries.clear();
   const patEntries = getPatternVizEntries();
   const patHits = findCalls(code, /\.(flash|glow|wave|roll|punchcard|spiral|spectrum)\s*\(/g);
 
-  const patPairs = Math.min(patEntries.length, patHits.length);
-  for (let i = 0; i < patPairs; i++) {
+  // Untagged entries fall back to the zip, and must not consume a hit that a
+  // tagged one would have wanted, so they walk the hits separately.
+  let nextHit = 0;
+  for (let i = 0; i < patEntries.length; i++) {
     const coreEntry = patEntries[i];
-    const hit = patHits[i];
-    // Skip if the source kind and the registered kind disagree; that is
-    // usually an identifier collision, not a real chain call.
-    if ((hit.match[1] as PatternVizKind) !== coreEntry.kind) continue;
-    const lineObj = doc.line(hit.line);
-    const deco: PatternVizDecoEntry = { core: coreEntry, line: hit.line, idx: i };
+    let line: number;
+    if (typeof coreEntry.at === 'number' && coreEntry.at >= 0 && coreEntry.at <= doc.length) {
+      line = doc.lineAt(coreEntry.at).number;
+    } else {
+      const hit = patHits[nextHit++];
+      if (hit === undefined) continue;
+      // Skip if the source kind and the registered kind disagree; that is
+      // usually an identifier collision, not a real chain call.
+      if ((hit.match[1] as PatternVizKind) !== coreEntry.kind) continue;
+      line = hit.line;
+    }
+    const lineObj = doc.line(line);
+    const deco: PatternVizDecoEntry = { core: coreEntry, line, idx: i };
     _patternVizEntries.set(i, deco);
 
     if (coreEntry.kind === 'wave') {

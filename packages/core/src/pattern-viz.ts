@@ -44,12 +44,27 @@ export interface PatternVizEntry {
   /** The pattern whose current value drives the decoration. */
   pattern: PatternLike;
   kind: PatternVizKind;
+  /**
+   * Where the call was written, as a character offset into the document.
+   *
+   * The UI used to pair these with call sites found in the source by counting:
+   * the nth `.glow(` in the text got the nth registration. That holds only
+   * while every call site in the buffer ran, and in a file where looks are
+   * functions and one of them is called it never does — a `.flash()` inside an
+   * uncalled look is a call site with no registration behind it, so the widget
+   * for the look that IS running is drawn on the look that is not.
+   *
+   * Undefined when the call could not be tagged, in which case the UI falls
+   * back to counting. A scene evaluated by something other than the editor
+   * has no offsets and wants none.
+   */
+  at?: number;
 }
 
 const _registry: PatternVizEntry[] = [];
 
-export function registerPatternViz(pattern: PatternLike, kind: PatternVizKind): void {
-  _registry.push({ pattern, kind });
+export function registerPatternViz(pattern: PatternLike, kind: PatternVizKind, at?: number): void {
+  _registry.push({ pattern, kind, at });
 }
 
 /** Cleared by evalCode before each run. */
