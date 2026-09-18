@@ -32,6 +32,7 @@ import { keymap } from '@codemirror/view';
 import { Prec } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import { HELP_ENTRIES, type HelpEntry } from './help-data.js';
+import { findFunctions, functionSignature } from './declared-functions.js';
 import { describeLight, findLight, findLights } from './declared-lights.js';
 
 // ─── Completion pools ────────────────────────────────────────────────────────
@@ -319,9 +320,26 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
     };
   });
 
+  // Looks the user wrote. In a performance file these are the names you type
+  // to change what the rig is doing, and they are different in every document,
+  // so they are the ones least worth having to remember. Offered after the
+  // lights and marked as this scene's, so a name from the file is never
+  // mistaken for something gobo ships.
+  const declaredHere = new Set([...byName.keys()]);
+  const functionOptions: Completion[] = findFunctions(doc)
+    // A light declared with a function-looking initialiser is already
+    // described above, and described better.
+    .filter((decl) => !declaredHere.has(decl.name))
+    .map((decl) => ({
+      label: decl.name,
+      type: 'function',
+      detail: functionSignature(decl),
+      info: 'A function this scene declares.',
+    }));
+
   return {
     from: wordMatch.from,
-    options: rankFor([...commandCompletions, ...lightOptions], wordMatch.text),
+    options: rankFor([...commandCompletions, ...lightOptions, ...functionOptions], wordMatch.text),
   };
 }
 

@@ -21,7 +21,8 @@ import { liveTokens } from './live-tokens.js';
 import { EditorState, Prec } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { defaultKeymap, historyKeymap, history } from '@codemirror/commands';
-import { bracketMatching, indentOnInput } from '@codemirror/language';
+import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import { bracketMatching, indentOnInput, foldGutter, foldKeymap, codeFolding } from '@codemirror/language';
 import { goboTheme, goboHighlight } from './theme.js';
 import { vizDecorationsField } from './inline-viz.js';
 import { goboCodeHighlight } from './code-highlight.js';
@@ -96,7 +97,18 @@ export function createEditor(
     extensions: [
       history(),
       lineNumbers(),
+      // Folding a look you are not working on. The gutter has been styled
+      // since the theme was written; what was missing was the extension that
+      // draws it, so a long document had no way to collapse anything.
+      codeFolding(),
+      foldGutter(),
       highlightActiveLine(),
+      // Find, which the editor simply did not have. The browser's own find is
+      // no substitute: CodeMirror only renders the lines near the viewport, so
+      // Cmd+F in the browser searches the part of the document you can already
+      // see. In a file holding a whole performance that is the wrong half.
+      search({ top: true }),
+      highlightSelectionMatches(),
       // Outlines the mini-notation token currently driving light. Inert until
       // the engine is asked to collect locations, which main.ts does once.
       liveTokens(),
@@ -121,7 +133,7 @@ export function createEditor(
       goboHoverHelp,
       vizDecorationsField,
       changeListener,
-      keymap.of([...defaultKeymap, ...historyKeymap]),
+      keymap.of([...searchKeymap, ...foldKeymap, ...defaultKeymap, ...historyKeymap]),
     ],
   });
 

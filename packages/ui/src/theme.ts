@@ -75,6 +75,49 @@ export const goboTheme = EditorView.theme(
     '.cm-foldGutter .cm-gutterElement': {
       color: v('text-muted'),
     },
+    // The find panel. CodeMirror ships it unstyled, which on a dark editor
+    // means a strip of system-grey with a white input across the top of the
+    // document — so it is dressed to match the panels the app already has.
+    '.cm-panels': {
+      backgroundColor: v('surface'),
+      color: v('text'),
+      border: 'none',
+    },
+    '.cm-panels.cm-panels-top': {
+      borderBottom: `1px solid ${v('border')}`,
+    },
+    '.cm-panel.cm-search': {
+      padding: '6px 10px',
+      fontFamily: 'inherit',
+      fontSize: '12px',
+    },
+    '.cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label': {
+      fontFamily: 'inherit',
+      fontSize: '12px',
+      color: v('text'),
+    },
+    '.cm-panel.cm-search input[type=text]': {
+      backgroundColor: v('bg'),
+      border: `1px solid ${v('border')}`,
+      borderRadius: '3px',
+      padding: '3px 6px',
+      outline: 'none',
+    },
+    '.cm-panel.cm-search input[type=text]:focus': {
+      borderColor: v('accent'),
+    },
+    '.cm-panel.cm-search button[name=close]': {
+      color: v('text-muted'),
+      cursor: 'pointer',
+    },
+    // Every other hit while you type, so a search reads as a shape down the
+    // document rather than one jump at a time. The .cm-searchMatch rules this
+    // pairs with were written further down long before search was installed.
+    '.cm-selectionMatch': {
+      backgroundColor: v('selection-bg'),
+      outline: `1px solid ${v('border')}`,
+    },
+
     '.cm-line': {
       padding: '0 16px',
     },
