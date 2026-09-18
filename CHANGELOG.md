@@ -19,6 +19,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Added
 
+- **`cue({ verse, chorus })`: change which look is live without typing.** One
+  file is one performance and a look inside it is a function you wrote, and the
+  only way to call a different one was to edit the call line — not something to
+  be doing one-handed mid-show. `cue()` offers a set of looks and runs whichever
+  is selected; each gets a numbered chip under the editor, `alt+1..9` picks one,
+  and a MIDI **program change** picks one from hardware, that being the message
+  desks and pad controllers already send for "recall". Notes are still not
+  handled, because a note asks whether it latches and for how long and program
+  change asks nothing.
+
+  The mechanism is worth stating: which function runs is decided when the file
+  is evaluated, so a fader can ride a level *inside* the live look but can never
+  select the look. Picking a cue therefore **runs the file again** with that one
+  selected — which is not a seam, because a run stages the whole scene and swaps
+  it in at a tick boundary, so the rig holds the previous look until the new one
+  is complete. A look that throws changes nothing: the rig stays as it was and
+  the selection returns to what is actually lit, so the bar, the rig and the next
+  run agree. The selection outlives a run the way a slider's position does.
+
 - **The token that is lighting something is outlined while it fires.** With
   sound you hear which step is playing; with light your eyes are on the rig, so
   a string that looked wrong left you counting tokens to work out which one
@@ -121,6 +140,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   A range aims at its middle, because hardware often treats a boundary as
   belonging to the neighbouring slot. Patterns of names work too, so a wheel can
   step per bar. `head.slots('color')` lists them.
+
+- **A run says which line it failed on, and stops losing half its message.** An
+  error reported what went wrong and never where, which is the whole answer in a
+  twenty-line scene and the start of a search in a file holding a show. Runtime
+  errors now carry the line; a line that cannot be trusted is not reported at
+  all. The status bar is one line and clips, so a failed run also writes the
+  full text to the log, carries it on hover, and can be clicked to open the log.
+  A successful run's warnings reach the bar too — they previously went to the
+  console and nowhere anyone was looking.
+
+- **A name gobo already uses explains itself.** `const strobe = () => {}` failed
+  with a bare redeclaration error. It now says that `strobe(…)` is callable in
+  any scene, suggests a rename for both things a scene wants that word for (a
+  light and a look), and notes that `const` and `let` clash where a `function`
+  declaration does not.
+
+- **The editor can find, fold and complete a performance file.** There was no
+  find at all — `Ctrl+F` fell through to the browser's, which only searches the
+  lines currently rendered. There was no folding either, though the theme had
+  styled the fold gutter since it was written. And the completion list knew
+  every name gobo ships and every light declared, but nothing about the
+  functions the scene itself declares, which in a performance file are the
+  looks.
+
+- **A channel set more than once says so.** Last write wins and still does —
+  two calls to one channel are two assignments, and a silent max would be
+  stranger in JavaScript than a silent overwrite. But calling `verse()` then
+  `chorus()` meant every channel they shared came out as whatever the later one
+  said, the earlier look silently gone, under a green status bar. A run now
+  names those channels, by the light patched over them and its address.
 
 ### Changed
 

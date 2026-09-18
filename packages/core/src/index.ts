@@ -1,6 +1,7 @@
 export * from './scheduler.js';
 export * from './dmx.js';
 export * from './eval.js';
+export * from './cues.js';
 export * from './websocket.js';
 export * from './usb-dmx.js';
 export * from './midi-in.js';

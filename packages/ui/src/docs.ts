@@ -350,6 +350,47 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'patterns',
+    title: 'looks you can switch between',
+    blurb:
+      "One file is one performance, and a look inside it is a function you wrote. cue() is how you change which one is live without editing the file — with a chip under the editor, a key, or a button on a controller.",
+    entries: [
+      {
+        name: 'cue',
+        signature: 'cue({ verse, chorus, breakdown })',
+        description:
+          "Offers those looks and runs whichever one is selected. The shorthand names each look after the function itself, so the label on the chip and the name in the code cannot drift apart; pass an explicit name — cue({ 'big hit': chorus }) — when the look reads better as something else. Returns the name it ran.",
+        example:
+          "const wash = rgbStrip(1, 8)\n\nconst verse     = () => { wash.color(blue) }\nconst chorus    = () => { wash.color(red) }\nconst breakdown = () => { wash.mono(pulse(4)) }\n\ncue({ verse, chorus, breakdown })",
+      },
+      {
+        name: 'picking one',
+        signature: 'a chip, alt+1..9, or a program change',
+        description:
+          "Every look gets a chip on the cue bar under the editor, numbered. Click it, or press alt and its number — alt rather than a bare digit, because a bare digit is a number you are typing into a scene. A MIDI controller sends program change N for cue N+1, which is the message desks and pad controllers already send for 'recall', so a hardware button works with no mapping. The bar is hidden entirely in a file that does not call cue().",
+      },
+      {
+        name: 'what happens when you pick',
+        signature: 'the file runs again',
+        description:
+          "Which function runs is decided when the file is evaluated, not while it plays — so a fader can ride a level inside the live look but cannot select the look. Picking a cue therefore runs the file again with that one selected. That is not a seam: a run stages the whole scene and swaps it in at a tick boundary, so the rig holds the old look right up to the moment the new one is complete. Your document is not touched and not reformatted.",
+      },
+      {
+        name: 'a look that fails changes nothing',
+        signature: 'the rig holds, the selection goes back',
+        description:
+          "If the look you picked throws, the run is discarded and the rig stays exactly as it was — and the selection returns to the look that is actually lit, so the cue bar, the rig and the next run all agree. The error names the line.",
+      },
+      {
+        name: 'the selection outlives a run',
+        signature: 'like a slider position',
+        description:
+          "Re-running the file does not reset which look is up, so you can keep editing during a show. Rename the selected look and it falls back to the first rather than going dark; rename it back and the selection returns.",
+      },
+    ],
+  },
+
+  {
     category: 'viz',
     title: 'the token that is lighting something',
     blurb:

@@ -58,6 +58,7 @@ import { sendConfig, connectDirect, isBlockedAsMixedContent, isConnected } from 
 import { isUsbConnected, isUsbDmxSupported, setUsbUniverse } from './usb-dmx.js';
 import { midiCC } from './midi-in.js';
 import { clearPatternVizRegistry, registerPatternViz } from './pattern-viz.js';
+import { registerCues, getSelectedCue } from './cues.js';
 import { screen, clearScreens } from './screen.js';
 import { slider, pick, clearControls, clearPickers } from './controls.js';
 
@@ -754,6 +755,53 @@ function sceneLine(err: unknown, code: string): number | null {
  * holds a whole performance is long enough that the same message leaves you
  * scrolling, and the editor has no search to help.
  */
+/**
+ * Offer a set of looks and run whichever one is selected.
+ *
+ *   const verse  = () => { wash.color(blue) }
+ *   const chorus = () => { wash.color(red); bar.chase(white) }
+ *   cue({ verse, chorus })
+ *
+ * The shorthand is the point: `{ verse, chorus }` names the looks after the
+ * functions themselves, so the label on the button and the name in the code
+ * cannot drift apart. Passing an explicit name is allowed for the same reason
+ * a fixture can be called something other than its type — `cue({ 'big hit':
+ * chorus })` when the look is called one thing and reads better as another.
+ *
+ * It calls the selected look rather than returning it. A scene ends up with
+ * one line that means "run whichever look is up", which is what the operator
+ * is choosing between; handing back a function to be invoked separately would
+ * be the same thing with a way to forget the second half.
+ *
+ * Returns the name it ran, which is worth having for a console.log during a
+ * rehearsal and costs nothing.
+ */
+function cue(looks: Record<string, unknown>): string | null {
+  if (looks === null || typeof looks !== 'object' || Array.isArray(looks)) {
+    throw new Error(
+      'cue(): give it a set of looks, as in cue({ verse, chorus }). '
+      + 'Each one is a function you wrote.',
+    );
+  }
+  const names = Object.keys(looks);
+  if (names.length === 0) {
+    throw new Error('cue(): needs at least one look, as in cue({ verse, chorus }).');
+  }
+  for (const name of names) {
+    if (typeof looks[name] !== 'function') {
+      throw new Error(
+        `cue(): "${name}" is not a function. A look is something you can call, as in `
+        + `const ${name} = () => { wash.color(blue) }.`,
+      );
+    }
+  }
+  registerCues(names);
+  const selected = getSelectedCue();
+  if (selected === null) return null;
+  (looks[selected] as () => void)();
+  return selected;
+}
+
 /** How many collided channels to name before saying "and N more". */
 const OVERWRITE_NAMES = 4;
 
@@ -853,6 +901,7 @@ export function evalCode(code: string): EvalResult {
     group,
     screen,
     slider,
+    cue,
     pick,
     /**
      * A MIDI controller, as a value a channel can take.

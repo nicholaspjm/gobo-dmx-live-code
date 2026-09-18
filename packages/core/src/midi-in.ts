@@ -7,11 +7,16 @@
  * same screen the code is on. Every lighting desk ever built solves this with
  * a row of faders, and every cheap MIDI controller is a row of faders.
  *
- * Reads continuous controllers only. Notes, program change and clock are not
- * handled: a CC is a knob, a knob is a level, and a level is what a channel
- * wants. Note input is a different feature with different questions (does a
- * note latch? for how long?) and guessing at them here would be worse than
- * leaving it out.
+ * Reads continuous controllers, and program change. A CC is a knob, a knob is
+ * a level, and a level is what a channel wants. Program change is the message
+ * every desk and pad controller sends for "recall number N", so it selects a
+ * cue — see cues.ts — which is the one way a hardware button can change which
+ * look is live.
+ *
+ * Notes and clock are still not handled. A note asks whether it latches and
+ * for how long, and guessing at that here would be worse than leaving it out;
+ * program change asks nothing, which is why it could be added and a note
+ * could not.
  *
  * Values arrive 0..127 and are handed on as 0..1, because that is the domain
  * every other value in a scene is in. Nothing here needs to know what a
@@ -23,6 +28,7 @@
  */
 
 import type { PatternLike } from './dmx.js';
+import { selectCueIndex } from './cues.js';
 
 /** Minimal shape of the Web MIDI API, so this file builds without DOM MIDI types. */
 interface MidiMessage {
@@ -93,9 +99,23 @@ export function getMidiInputNames(): string[] {
 
 function handleMessage(e: MidiMessage): void {
   const d = e.data;
-  if (!d || d.length < 3) return;
-  // 0xB0 is the control-change status; the low nibble is the channel.
+  if (!d || d.length < 2) return;
   const status = d[0] & 0xf0;
+
+  // 0xC0 is program change: one byte, meaning "recall number N". It is the
+  // message every desk and every pad controller sends for exactly that, and
+  // it is the one place a hardware button can pick a look — so it selects a
+  // cue. Notes are still not handled: a note asks whether it latches and for
+  // how long, and program change asks nothing, which is why this is the one
+  // that could be added without guessing at an answer.
+  if (status === 0xc0) {
+    // 1-based, the way cue numbers are on the buttons it comes from.
+    selectCueIndex(d[1] + 1);
+    return;
+  }
+
+  if (d.length < 3) return;
+  // 0xB0 is the control-change status; the low nibble is the channel.
   if (status !== 0xb0) return;
   const channel = (d[0] & 0x0f) + 1;
   const cc = d[1];

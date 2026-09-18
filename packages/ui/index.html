@@ -377,6 +377,53 @@
         align-items: center;
       }
 
+      /* The cue bar: one chip per look the scene offered, the live one lit.
+         It sits directly above the sim so the look you picked and what it is
+         doing to the rig read as one thing. */
+      .cue-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 12px;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+      }
+
+      .cue-bar[hidden] { display: none; }
+
+      .cue-list {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .cue-chip {
+        font: inherit;
+        font-size: 11px;
+        color: var(--text-muted);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 2px 8px;
+        cursor: pointer;
+      }
+
+      .cue-chip:hover { color: var(--text); }
+
+      /* Marked by more than the colour: this is read at a glance in a dark
+         room, and which look is live is the thing it exists to say. */
+      .cue-chip.live {
+        color: var(--bg);
+        background: var(--accent);
+        border-color: var(--accent);
+        font-weight: 700;
+      }
+
+      .cue-key {
+        opacity: 0.55;
+        margin-right: 5px;
+      }
+
       .fixture-unit {
         display: flex;
         flex-direction: column;
@@ -2527,6 +2574,14 @@
            declares none, so it costs nothing to anyone not using it. -->
       <div class="screen-wrap" id="screen-wrap" hidden>
         <div class="screen-lights" id="screen-lights"></div>
+      </div>
+
+      <!-- The looks the running scene offered through cue(). Rebuilt after
+           every eval; hidden entirely when a scene offers none, so a file that
+           does not use cue() sees no new furniture. -->
+      <div class="cue-bar" id="cue-bar" hidden>
+        <span class="fixture-label">cue</span>
+        <div class="cue-list" id="cue-list"></div>
       </div>
 
       <div class="viz-wrap">

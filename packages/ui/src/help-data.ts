@@ -948,6 +948,15 @@ spot.white(mini('1 - - -').punch())`,
     kind: 'function',
   },
   {
+    label: 'cue',
+    signature: 'cue({ verse, chorus }) => string | null',
+    description:
+      'Offer a set of looks and run whichever one is selected. A look is a function you wrote. Pick one with its chip under the editor, alt+1..9, or a MIDI program change; the file runs again with that look, which is a clean swap.',
+    example: "const verse = () => { wash.color(blue) }\nconst chorus = () => { wash.color(red) }\ncue({ verse, chorus })",
+    context: 'command',
+    kind: 'function',
+  },
+  {
     label: 'midi',
     signature: 'midi(cc, opts?) => Pattern',
     description:

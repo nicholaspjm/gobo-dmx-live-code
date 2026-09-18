@@ -21,6 +21,12 @@ import {
   getAllUniverses,
   getUniverseSnapshot,
   setLocationCollection,
+  getCues,
+  getSelectedCue,
+  selectCue,
+  restoreCue,
+  selectCueIndex,
+  onCueChange,
   getActiveUniverses,
   SCREEN_UNIVERSE,
   getUniverseBuffer,
@@ -176,7 +182,7 @@ const connectorBannerMoreEl = document.getElementById('connector-banner-more') a
 
 // ─── Eval ────────────────────────────────────────────────────────────────────
 
-async function runEval(code: string): Promise<void> {
+async function runEval(code: string): Promise<boolean> {
   // Format-on-run: if the setting is on, reformat the buffer before
   // evaluation. A failure (a syntax error mid-edit, say) falls through to
   // eval, which surfaces a clearer message than prettier's parse trace.
@@ -243,11 +249,13 @@ async function runEval(code: string): Promise<void> {
     // Rebuild the sim panel: one fixture-unit per SimFixture registered by
     // the new code.
     rebuildSimPanel();
+    rebuildCueBar();
     rebuildScreens();
     refreshVisualizerLabel();
     // Refresh the library panel: a new defineFixture call may have added or
     // replaced a custom fixture that the user can now save.
     _refreshLibraryAfterEval();
+    return true;
   } else {
     const message = result.error ?? 'unknown error';
     // The bar is one line and clips, and the useful half of an error is
@@ -256,6 +264,7 @@ async function runEval(code: string): Promise<void> {
     // in full and timestamped, so nothing said here is only half-said.
     console.error(`[gobo] ${message}`);
     setStatus('error', message);
+    return false;
   }
 }
 
@@ -410,6 +419,16 @@ document.addEventListener('keydown', (e) => {
     handleSaveToFile();
     return;
   }
+  // Alt+1..9 picks a cue, which is the one thing a performer needs to do
+  // without looking at the keyboard. Alt rather than a bare digit because a
+  // bare digit is a number you are typing into a scene, and alt+digit is not
+  // bound to anything in the editor. preventDefault matters on macOS, where
+  // alt+1 would otherwise insert a character.
+  if (e.altKey && !e.ctrlKey && !e.metaKey && /^[1-9]$/.test(e.key)) {
+    e.preventDefault();
+    selectCueIndex(Number(e.key));
+    return;
+  }
   // Ctrl+Shift+F formats the current buffer via prettier (lazy-loaded).
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
     e.preventDefault();
@@ -472,6 +491,31 @@ function onEditorChange(code: string): void {
 }
 
 const editorView = createEditor(editorEl, runEval, runStop, onEditorChange, boot.code);
+
+// Picking a look runs the file again with that one selected.
+//
+// This is the whole mechanism. Which function runs is decided at eval time, so
+// selection cannot be a live value the way a fader is — but evaluating is
+// already atomic, so running again IS the clean swap. The rig holds the
+// previous look right up to the commit, and a scene that throws leaves it
+// exactly where it was.
+//
+// The document is not touched and not formatted: the operator asked for a
+// different look, not for their file to be rewritten mid-show.
+onCueChange((_name, previous) => {
+  void (async (): Promise<void> => {
+    const ok = await runEval(editorView.state.doc.toString());
+    // A look that threw is not on the rig — the staged scene was discarded and
+    // the previous one is still live — so the selection goes back to match.
+    // Otherwise the bar shows what is lit, the selection holds something that
+    // never ran, and the next run jumps somewhere nobody asked to go.
+    if (!ok) {
+      restoreCue(previous);
+      rebuildCueBar();
+    }
+  })();
+});
+
 
 // ── Run and stop belong to the app, not to the editor ────────────────────────
 //
@@ -965,6 +1009,47 @@ connectBridge();
 // hardcoded here; the panel follows whatever the scene creates.
 
 const simContainerEl = document.getElementById('fixture-lights') as HTMLElement;
+const cueBarEl = document.getElementById('cue-bar') as HTMLElement;
+const cueListEl = document.getElementById('cue-list') as HTMLElement;
+
+/**
+ * The cue bar: one chip per look the scene offered, the live one lit.
+ *
+ * Rebuilt after every eval, and hidden entirely when a scene offers none, so a
+ * file that does not use cue() sees no new furniture. The chips carry their
+ * number because that number is also the key that picks them and the program
+ * change a controller sends.
+ */
+function rebuildCueBar(): void {
+  const names = getCues();
+  cueBarEl.hidden = names.length === 0;
+  if (names.length === 0) {
+    cueListEl.replaceChildren();
+    return;
+  }
+  const live = getSelectedCue();
+  cueListEl.replaceChildren(...names.map((name, i) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = name === live ? 'cue-chip live' : 'cue-chip';
+    chip.setAttribute('aria-pressed', String(name === live));
+    // The number only claims a key for the first nine, because only the first
+    // nine have one.
+    if (i < 9) {
+      const key = document.createElement('span');
+      key.className = 'cue-key';
+      key.textContent = String(i + 1);
+      chip.append(key);
+    }
+    chip.append(document.createTextNode(name));
+    chip.title = i < 9
+      ? `run "${name}" · alt+${i + 1} · program change ${i}`
+      : `run "${name}" · program change ${i}`;
+    chip.addEventListener('click', () => selectCue(name));
+    return chip;
+  }));
+}
+
 const simEmptyEl     = document.getElementById('fixture-empty')  as HTMLElement;
 
 interface RenderedSimFixture {
