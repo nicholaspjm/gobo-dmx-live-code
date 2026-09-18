@@ -217,14 +217,21 @@ async function runEval(code: string): Promise<void> {
     // is reported about this run.
     refreshOutputIndicator();
     const out = describeOutput();
+    // A run can succeed and still have something to say — a dimmer it raised,
+    // a channel two looks both set. That went to the console and nowhere the
+    // operator was looking, so the bar carries a mark for it: short enough not
+    // to push the output name off the line, and a way into the log, which has
+    // the whole of it.
+    const note = result.warning ?? null;
+    const mark = note === null ? '' : ' · ⚠ one note, in the log';
     if (out && !out.delivered) {
       setStatus('error', `running, but ${out.text} was never reached. ${undeliveredHint()}`);
       if (!out.text.startsWith('direct')) showConnectorBanner(out.text);
     } else if (out) {
       setConnectorBannerOpen(false);
-      setStatus('ok', `✓ running · ${out.text}`);
+      setStatus('ok', `✓ running · ${out.text}${mark}`, note ?? undefined);
     } else {
-      setStatus('ok', '✓ running');
+      setStatus('ok', `✓ running${mark}`, note ?? undefined);
     }
     if (!isRunning()) start();
     // Rebuild inline editor visualizations to reflect any .viz() calls
@@ -312,7 +319,7 @@ function describeOutput(): { text: string; delivered: boolean } | null {
   return { text, delivered: out.delivered };
 }
 
-function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
+function setStatus(kind: '' | 'ok' | 'error', msg: string, full?: string): void {
   // Marked in the text, not only in the colour. The two status colours are
   // --sage #7a8c6e and --error #c45a5a, which sit at 1.17:1 against each other
   // for normal vision and 1.05:1 simulated for deuteranopia — indistinguishable
@@ -330,8 +337,19 @@ function setStatus(kind: '' | 'ok' | 'error', msg: string): void {
   // clipped with everything else. So the whole text is on the element itself,
   // where hovering shows it, and an error makes the bar a way into the log,
   // which keeps it in full and timestamped.
-  evalStatusEl.title = kind === 'error' ? `${msg}\n\n(click to open the log)` : '';
-  evalStatusEl.classList.toggle('clickable', kind === 'error');
+  // `full` is the whole of what this run had to say, when that is more than
+  // fits. An error always has one, because the bar is one line and clips and
+  // the useful half of an error is usually its end: the line number, the
+  // suggested rename, the channel that was named. A successful run has one
+  // when it produced a warning, which used to reach the console and nowhere
+  // the operator was looking.
+  //
+  // Appending the text to the message would not help — it would be clipped
+  // with everything else — so it goes on the element, where hovering shows it,
+  // and the bar becomes a way into the log, which keeps it in full.
+  const detail = full ?? (kind === 'error' ? msg : '');
+  evalStatusEl.title = detail === '' ? '' : `${detail}\n\n(click to open the log)`;
+  evalStatusEl.classList.toggle('clickable', detail !== '');
   _statusKind = kind;
   _statusMsg = msg;
   _statusAtMs = performance.now();

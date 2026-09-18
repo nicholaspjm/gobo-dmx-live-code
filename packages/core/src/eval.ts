@@ -26,6 +26,8 @@
 
 import {
   beginStaging,
+  getOverwrittenChannels,
+  patchAt,
   commitStaging,
   abortStaging,
   ch,
@@ -752,6 +754,41 @@ function sceneLine(err: unknown, code: string): number | null {
  * holds a whole performance is long enough that the same message leaves you
  * scrolling, and the editor has no search to help.
  */
+/** How many collided channels to name before saying "and N more". */
+const OVERWRITE_NAMES = 4;
+
+/**
+ * What to say about channels the run set more than once, or null.
+ *
+ * Named by the light patched over them where there is one, because "wash" is
+ * what the operator is looking at and "universe 1 channel 3" is what they
+ * would have to work out. A light appears once however many of its channels
+ * collided: the answer is the same for all of them and a list of eight
+ * channels from one fixture buries it.
+ */
+function overwrittenNote(): string | null {
+  const hits = getOverwrittenChannels();
+  if (hits.length === 0) return null;
+  const seen: string[] = [];
+  for (const hit of hits) {
+    const patch = patchAt(hit.universe, hit.channel);
+    // The address goes in either way: the label is the constructor as written,
+    // so two strips are both "rgbStrip()", and the address is both what tells
+    // them apart and what the operator can find on the rig.
+    const named = patch === null
+      ? `universe ${hit.universe} channel ${hit.channel}`
+      : `${patch.label} at ${patch.start}`;
+    if (!seen.includes(named)) seen.push(named);
+  }
+  const shown = seen.slice(0, OVERWRITE_NAMES).join(', ');
+  const rest = seen.length > OVERWRITE_NAMES ? ` and ${seen.length - OVERWRITE_NAMES} more` : '';
+  return (
+    `set more than once: ${shown}${rest}. The last call wins — two values on one channel `
+    + 'are not mixed, so an earlier look is replaced rather than added to. '
+    + 'Combine them in one call if you meant both.'
+  );
+}
+
 export function locatedError(err: unknown, code: string): string {
   const message = errorMessage(err);
   const line = sceneLine(err, code);
@@ -941,7 +978,14 @@ export function evalCode(code: string): EvalResult {
         ? null
         : `colour inferred: ${impliedColour.join(', ')} was dimmed but never coloured, ` +
           `so its emitters are at full. Write a colour on the fixture to say otherwise.`;
-      const warning = [outputWarning, impliedNote, impliedColourNote].filter((w) => w !== null).join(' ') || null;
+      // Two calls to one channel are an assignment and then another
+      // assignment: the later wins and nothing is mixed. That is intended, and
+      // invisible, and the shape that makes it bite is two looks over one rig
+      // — verse(); chorus() — where the shared channels come out as whatever
+      // the later one said and the earlier look is silently gone.
+      const overwriteNote = overwrittenNote();
+      const warning = [outputWarning, impliedNote, impliedColourNote, overwriteNote]
+        .filter((w) => w !== null).join(' ') || null;
       if (warning !== null) {
         // The status line is the UI's to write, and it may be showing something
         // else by the time anyone looks. The console keeps the reason where it

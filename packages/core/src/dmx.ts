@@ -186,7 +186,59 @@ export function ch(channel: number, ...args: [PatternOrValue?]): void {
 export function uni(universe: number, channel: number, ...args: [PatternOrValue?]): void {
   const value = channelValue(args, `uni(${universe}, ${channel})`);
   const target = _staging ?? _defs;
-  target.set(key(universe, channel), { universe, channel, value });
+  const k = key(universe, channel);
+  // Last write wins, and always has. Noted on the way past so the run can say
+  // so afterwards: see noteOverwrite.
+  const held = target.get(k);
+  if (held !== undefined && !Object.is(held.value, value)) noteOverwrite(universe, channel);
+  target.set(k, { universe, channel, value });
+}
+
+// ─── Channels set more than once ─────────────────────────────────────────────
+//
+// A scene is imperative, so two calls to one channel are an assignment
+// followed by another assignment: the second replaces the first and nothing
+// is mixed. That is the intended behaviour and not something to change — a
+// lighting desk would take the highest of the two, but a desk is not running
+// somebody's JavaScript, where a silent max would be far stranger than a
+// silent overwrite.
+//
+// What it should not be is invisible. The shape that makes it bite is two
+// looks over one rig — verse(); chorus() — where the channels they share come
+// out as whatever the later one said and the earlier look is simply gone, with
+// a green status bar over the top. So the run counts them and says so.
+//
+// Only a write that changes the value counts. Setting a channel to what it
+// already holds is not something anyone needs told about.
+
+const _overwritten = new Map<string, { universe: number; channel: number; times: number }>();
+
+function noteOverwrite(universe: number, channel: number): void {
+  const k = key(universe, channel);
+  const held = _overwritten.get(k);
+  if (held) held.times++;
+  else _overwritten.set(k, { universe, channel, times: 1 });
+}
+
+/** Channels this run set more than once, in the order they first collided. */
+export function getOverwrittenChannels(): ReadonlyArray<{ universe: number; channel: number; times: number }> {
+  return [..._overwritten.values()];
+}
+
+/**
+ * The patched light covering a channel, and where it starts.
+ *
+ * The label alone does not identify a light: it is the constructor as written,
+ * so two strips are both "rgbStrip()". The address is what tells them apart,
+ * and it is also the thing the operator can look up on the rig.
+ */
+export function patchAt(universe: number, channel: number): { label: string; start: number } | null {
+  for (const held of _patched) {
+    if (held.universe === universe && channel >= held.start && channel <= held.end) {
+      return { label: held.label, start: held.start };
+    }
+  }
+  return null;
 }
 
 /**
@@ -235,6 +287,8 @@ export function rgb(startChannel: number, ...args: [PatternOrValue?, PatternOrVa
 /** Buffer subsequent uni() writes into a scratch scene instead of the live one. */
 export function beginStaging(): void {
   _staging = new Map();
+  // Collisions belong to the run being built, not to the one before it.
+  _overwritten.clear();
 }
 
 /** Publish the staged scene as the live one. No-op when nothing is staged. */
