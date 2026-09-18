@@ -350,6 +350,39 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'output',
+    title: 'stopping, and getting dark for certain',
+    blurb:
+      "Ctrl+. and Ctrl+Space stop the clock. What happens to the rig after that is the stop action in settings — and whichever it is set to, pressing the key again always blacks out.",
+    entries: [
+      {
+        name: 'blackout',
+        signature: 'the default stop action',
+        description:
+          'Stops the clock, zeroes every channel and sends that frame. The rig goes dark on the first press.',
+      },
+      {
+        name: 'freeze last frame',
+        signature: 'for a stage you do not want dark',
+        description:
+          "Stops the clock and leaves the rig on whatever it was doing, so fixing something in the code does not black the stage out. Nothing is being driven any more — the look is simply the last frame, held.",
+      },
+      {
+        name: 'press it again to black out',
+        signature: 'ctrl+. · ctrl+. ',
+        description:
+          "Under freeze the second press clears everything, and the status line offers it while there is still something lit. This matters because freeze used to leave no key that could darken a rig at all: the clock is stopped so nothing rewrites the channels, and hush() needs a scene to run before it can be reached. A panic key you cannot rely on is not a panic key.",
+      },
+      {
+        name: 'a usb interface carries one universe',
+        signature: 'and the run says which are missing',
+        description:
+          "A DMX line is one universe, so a USB box can only be handed one of them. It is easy to drive two by accident: fixture() patches universe 0 while ch(), dim() and rgb() write universe 1, so a scene using both has two without ever naming one. A run over USB now says which universes are not reaching the box. Give the scene one universe with uni(0, …) or a universe argument on the fixture. The connector sends every universe, so this only affects USB.",
+      },
+    ],
+  },
+
+  {
     category: 'welcome',
     title: 'running part of a file',
     blurb:

@@ -201,6 +201,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   said, the earlier look silently gone, under a green status bar. A run now
   names those channels, by the light patched over them and its address.
 
+- **The panic key now always has a way to black out.** With the stop action set
+  to `freeze last frame` — a real thing to want, since stopping the code at a gig
+  should not black the stage — `Ctrl+.` left **no key at all** that could darken a
+  rig: the clock is stopped so nothing rewrites the channels, and `hush()` needs a
+  scene to run before it can be reached. Pressing the key again now clears
+  everything whatever the setting says, and the status line offers it while there
+  is still something lit.
+
+- **Autosave off no longer means your work is never saved.** It skipped the
+  debounced write, skipped the write on the way out, and pointed at a `Ctrl+S`
+  that is compiled out with scene files — so the one moment work could be lost for
+  good was the one moment it cost nothing to write it. The buffer is now written
+  when the tab closes whatever the setting, and the setting's own description says
+  what it actually does.
+
+- **A USB run says which universes are not reaching the box.** A DMX line carries
+  one universe, and it is easy to drive two by accident because `fixture()` patches
+  universe 0 while `ch()`, `dim()` and `rgb()` write universe 1 — so a scene using
+  both has two without ever naming one, and half of it silently never leaves the
+  machine. The run now names what is being dropped and why. The README row about
+  this was wrong in both halves and has been corrected.
+
 ### Changed
 
 - **`.color()` reads a channel name the way `.off()` and `.full()` always did.**

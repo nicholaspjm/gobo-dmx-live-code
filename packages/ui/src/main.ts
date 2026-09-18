@@ -224,6 +224,8 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
     rememberSceneInAddressBar(toRun);
     // What is on the rig now. Ctrl+Shift+Enter splices onto this.
     _lastGoodSource = toRun;
+    // Live again, so the next stop is a first stop and honours the setting.
+    _stoppedAlready = false;
     // Everything in the buffer is now on the rig. A splice run puts back what
     // it deliberately left behind, straight after this returns.
     _editsSinceGoodRun = [];
@@ -238,7 +240,14 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
     // operator was looking, so the bar carries a mark for it: short enough not
     // to push the output name off the line, and a way into the log, which has
     // the whole of it.
-    const note = result.warning ?? null;
+    // A DMX line carries one universe, so a USB box can only be handed one of
+    // them. The scene splitting across two is easy to do by accident, because
+    // fixture() patches universe 0 while ch(), dim() and rgb() write universe
+    // 1 — so a file using both drives two universes without ever naming one,
+    // and half of it silently never leaves the machine. Said out loud rather
+    // than left to be discovered by a light that does not come up.
+    const note = [result.warning ?? null, undeliveredUniverseNote()]
+      .filter((n) => n !== null).join(' ') || null;
     const mark = note === null ? '' : ' · ⚠ one note, in the log';
     if (out && !out.delivered) {
       setStatus('error', `running, but ${out.text} was never reached. ${undeliveredHint()}`);
@@ -278,7 +287,21 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
   }
 }
 
+/**
+ * Whether the rig was already stopped when the last stop arrived.
+ *
+ * The second press of the panic key always blacks out, whatever the stop
+ * action is set to. "freeze last frame" is a real thing to want — stopping the
+ * code at a gig should not black the stage — but it left no key at all that
+ * clears the rig: the scheduler is stopped, so nothing rewrites the buffers,
+ * and hush() needs a scene to run to reach it. A panic key that cannot be
+ * relied on to black out is not a panic key.
+ */
+let _stoppedAlready = false;
+
 function runStop(): void {
+  // Under 'freeze', pressing stop again is the blackout. Read before stop().
+  const panic = _stoppedAlready || getSettings().stopAction === 'blackout';
   stop();
   // Stop-action setting decides whether to also zero the universe buffers.
   // 'blackout' wipes; 'freeze' leaves the last frame on outputs so the rig
@@ -289,14 +312,17 @@ function runStop(): void {
   // anything from being redriven, fill(0) darkens the buffers now (the
   // scheduler tick that would rewrite them is stopped), and sendUniverseState
   // pushes that frame to hardware.
-  if (getSettings().stopAction === 'blackout') {
+  if (panic) {
     clearDefs();
     for (const buf of getAllUniverses().values()) buf.fill(0);
     sendUniverseState(getAllUniverses());
     if (isUsbConnected()) sendUsbDmx(getUniverseBuffer(usbUniverse()));
     updateVisualizer(getUniverseSnapshot(visualizedUniverse()));
   }
-  setStatus('', 'stopped · ctrl+enter to run');
+  _stoppedAlready = true;
+  // The offer is made only while there is something left to black out, so it
+  // is never advice to press a key that would do nothing.
+  setStatus('', panic ? 'stopped · ctrl+enter to run' : 'stopped, rig holding · ctrl+. again to black out');
 }
 
 // What is currently on the status bar. setStatus() is the only writer of
@@ -683,7 +709,12 @@ function flushBuffer(): void {
 // app-switching, where beforeunload is unreliable and blocks the
 // back/forward cache.
 window.addEventListener('pagehide', () => {
-  if (getSettings().autosave) flushBuffer();
+  // Unconditionally, including with autosave off. Autosave off means "do not
+  // write on every keystroke", and it used to mean "lose everything": the
+  // debounce never ran, this line was skipped, and the manual save it pointed
+  // at is compiled out with SCENE_FILES. So the one moment work could be lost
+  // for good was the one moment it cost nothing to write it.
+  flushBuffer();
   blackoutOnTheWayOut();
 });
 
@@ -746,6 +777,27 @@ function visualizedUniverse(): number {
  */
 function usbUniverse(): number {
   return getUsbUniverse() ?? visualizedUniverse();
+}
+
+/**
+ * What a single-universe output cannot carry, or null.
+ *
+ * Only USB today: the connector paths send every universe, so nothing is lost
+ * on them. Named by number, and with the cause, because "universe" is not a
+ * word anyone reaches for while a light is failing to come up.
+ */
+function undeliveredUniverseNote(): string | null {
+  if (!isUsbConnected()) return null;
+  const sent = usbUniverse();
+  const dropped = getActiveUniverses().filter((u) => u !== SCREEN_UNIVERSE && u !== sent);
+  if (dropped.length === 0) return null;
+  return (
+    `the usb interface carries one universe and is sending ${sent}, so universe `
+    + `${dropped.join(' and ')} ${dropped.length === 1 ? 'is' : 'are'} not reaching it. `
+    + 'fixture() patches universe 0 and ch()/dim()/rgb() write universe 1, so a scene '
+    + 'using both drives two. Give them one universe, with uni(0, …) or a universe '
+    + 'argument on the fixture.'
+  );
 }
 
 /** Keep the strip's label honest about which universe is on screen. */
