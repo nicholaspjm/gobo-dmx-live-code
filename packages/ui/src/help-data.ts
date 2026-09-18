@@ -993,6 +993,15 @@ spot.white(mini('1 - - -').punch())`,
     kind: 'method',
   },
   {
+    label: 'ctrl+shift+enter',
+    signature: 'run only the edits in the selection',
+    description:
+      "Commits just the edits inside your selection, or the block around the cursor, on top of what is already running. The half-written look elsewhere in the file stays out of the rig — and stays out even when it is broken.",
+    example: "// edit one look, put the cursor in it, ctrl+shift+enter",
+    context: 'command',
+    kind: 'variable',
+  },
+  {
     label: 'cue',
     signature: 'cue({ verse, chorus }) => string | null',
     description:

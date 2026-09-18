@@ -9,6 +9,52 @@ projects. [GOVERNANCE.md](GOVERNANCE.md#why-agpl) says why it is split that way.
 
 ---
 
+## What gobo is, and what that rules out
+
+**gobo is a live-coding instrument that happens to drive DMX.** Not a lighting desk
+with a scripting tab. Every feature, name and affordance is judged against
+live-coding practice first, and a change that reads as desk-thinking needs a much
+better argument than one that reads as code-thinking.
+
+The distinction is not decoration. In live coding **the code is the interface** — the
+performance is writing and evaluating it. A bar of pre-written looks you select
+between is pre-composed playback with a selector, which is the thing live coding
+defines itself against. Reach for the pattern before reaching for the button.
+
+Seven invariants. A change that breaks one is wrong, however useful it looks:
+
+1. **A failed evaluation is a no-op on the wire.** Compile before touching live
+   state. A mistyped paren is a status-bar message, never a blackout.
+2. **The panic verbs are absolute.** `Ctrl+.`, `Ctrl+Space` and `hush()` clear
+   everything. No ownership scheme, layer or merge may spare a channel from them.
+   This alone rules out every additive or union commit.
+3. **The rig equals text you can point at.** Nothing may light a channel that no
+   line on screen explains, and nothing may be turnable on that cannot be turned
+   off by deleting a line.
+4. **An evaluation is atomic and phase-preserving.** The swap happens at a tick
+   boundary and the clock is never reset by a run, so re-running unchanged code is
+   invisible on the rig. Much of the design rests on this — check it still holds
+   before changing the eval path.
+5. **What the performer set by hand survives a re-run; what the document declares
+   does not.** Slider and picker positions, the cue selection, MIDI values and
+   tempo persist. Channel definitions are rebuilt from scratch every time.
+6. **Prefer a value read at query time over a reason to re-evaluate.** `slider()`,
+   `midi()` and `pick()` are the model: the rig follows the hand without the
+   document being run again.
+7. **A guard that fires on the common case is a guard that gets ignored.** No
+   feature may make the overwrite note, or any other warning, routine.
+
+Keep strudel's vocabulary. gobo builds on `@strudel/core` and `@strudel/mini`, and a
+pattern copied out of the strudel docs should run here. Renaming one of their verbs
+makes this a dialect; the passthrough list in `packages/core/src/eval.ts` says so and
+means it.
+
+Desk affordances are not banned — the person using this is often a lighting operator
+at a gig who cannot stop the song — but they belong **beside** the code-first path,
+never as the only way to do something, and they should be honest about what they are.
+
+---
+
 ## Fixture contributions
 
 The public library is one JSON file per fixture in `fixtures/`, bundled into the app

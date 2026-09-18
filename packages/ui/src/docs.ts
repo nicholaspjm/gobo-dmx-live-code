@@ -350,6 +350,45 @@ const DOCS: DocSection[] = [
   },
 
   {
+    category: 'welcome',
+    title: 'running part of a file',
+    blurb:
+      "Ctrl+Enter runs the whole document, and that is usually right. Ctrl+Shift+Enter runs only the edits you pointed at — for when the rest of the file is not ready to go on stage.",
+    entries: [
+      {
+        name: 'ctrl+shift+enter',
+        signature: 'run only the edits in this block',
+        description:
+          "Takes the document that is currently running and applies just the edits inside your selection — or, with nothing selected, inside the run of non-blank lines around the cursor, which in a performance file is one look. Everything else on the rig carries on exactly as it was.",
+      },
+      {
+        name: 'why it exists',
+        signature: 'ctrl+enter commits everything',
+        description:
+          "Not for keeping other looks alive: a whole-document run already does that, invisibly — the clock is never reset by a run and every control keeps its position, so re-running unchanged code cannot be seen on the rig. It is about what a keypress COMMITS. Nudge a level in the look that is lit and the half-written look you were drafting for the next song goes live with it, as long as it happens to parse.",
+      },
+      {
+        name: 'a broken line elsewhere stops blocking you',
+        signature: 'the useful half',
+        description:
+          "The whole document is compiled as one unit, so a half-typed line anywhere refuses the entire run — you cannot change the level in the look that is up until the one you are drafting parses. Running the block you pointed at gets past that, because the line you are drafting is simply not in what gets compiled.",
+      },
+      {
+        name: 'lines that are not on the rig are marked',
+        signature: 'a rule down the inside edge',
+        description:
+          "Once the buffer and the rig can differ, you need to be able to see where. Every line edited since the run that is currently live carries a quiet rule on its inside edge, and the status bar says how many edits are not running. Debugging a light against source that is not running is worse than having no feature at all.",
+      },
+      {
+        name: 'what actually runs',
+        signature: 'always a whole document',
+        description:
+          "The engine is never handed a fragment. What gets compiled is a complete document — the last one that ran, plus your edits — so the channel map is still replaced whole, patching still happens once, brightness is still inferred across the whole rig, and hush() still means blackout. Nothing about the output path changes.",
+      },
+    ],
+  },
+
+  {
     category: 'patterns',
     title: 'choosing between looks, in the pattern',
     blurb:

@@ -2,7 +2,8 @@
  * CodeMirror 6 editor setup.
  *
  * Keybindings:
- *   Ctrl+Enter  evaluate code
+ *   Ctrl+Enter        evaluate the whole document
+ *   Ctrl+Shift+Enter  evaluate only the edits inside the selection (splice.ts)
  *   Ctrl+.      stop / clear all channels
  *   Ctrl+Space  stop / clear all channels (preempts autocompletion;
  *               callers can still trigger completion by typing a
@@ -18,7 +19,9 @@
 
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { liveTokens } from './live-tokens.js';
+import { pendingMarks } from './pending-marks.js';
 import { EditorState, Prec } from '@codemirror/state';
+import type { ChangeSet } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { defaultKeymap, historyKeymap, history } from '@codemirror/commands';
 import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
@@ -44,7 +47,9 @@ const DEFAULT_DOC = EXAMPLES[0].code;
 
 export type EvalHandler = (code: string) => void;
 export type StopHandler = () => void;
-export type ChangeHandler = (code: string) => void;
+export type ChangeHandler = (code: string, changes: ChangeSet) => void;
+/** Run only the edits inside the current selection. See splice.ts. */
+export type EvalBlockHandler = (view: EditorView) => void;
 
 export function createEditor(
   parent: HTMLElement,
@@ -52,9 +57,20 @@ export function createEditor(
   onStop: StopHandler,
   onChange?: ChangeHandler,
   initialDoc: string = DEFAULT_DOC,
+  onEvalBlock?: EvalBlockHandler,
 ): EditorView {
   const evalKeybinding = Prec.highest(
     keymap.of([
+      {
+        // Commit only the edits inside the selection. Bound ahead of
+        // Ctrl-Enter so the more specific chord is offered first.
+        key: 'Ctrl-Shift-Enter',
+        run(view) {
+          if (!onEvalBlock) return false;
+          onEvalBlock(view);
+          return true;
+        },
+      },
       {
         key: 'Ctrl-Enter',
         run(view) {
@@ -88,7 +104,7 @@ export function createEditor(
   // Consumers typically debounce this before hitting the network.
   const changeListener = EditorView.updateListener.of((update) => {
     if (update.docChanged && onChange) {
-      onChange(update.state.doc.toString());
+      onChange(update.state.doc.toString(), update.changes);
     }
   });
 
@@ -112,6 +128,9 @@ export function createEditor(
       // Outlines the mini-notation token currently driving light. Inert until
       // the engine is asked to collect locations, which main.ts does once.
       liveTokens(),
+      // Marks lines edited since the run that is currently live. See
+      // pending-marks.ts; fed by main.ts after every edit and every run.
+      pendingMarks(),
       bracketMatching(),
       indentOnInput(),
       javascript(),

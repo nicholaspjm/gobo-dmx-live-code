@@ -19,6 +19,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Added
 
+- **`Ctrl+Shift+Enter` runs only the edits you pointed at.** `Ctrl+Enter` commits
+  the whole buffer, which is usually right and occasionally the worst thing the
+  tool can do: nudge a level in the look that is lit and the half-written look you
+  were drafting for the next song goes live with it, silently, as long as it
+  parses. The new gesture takes the document that is currently running and applies
+  only the edits inside your selection — or, with nothing selected, inside the run
+  of non-blank lines around the cursor, which in a performance file is one look.
+
+  The useful half is that a broken line elsewhere stops blocking you. The document
+  is compiled as one unit, so a half-typed line anywhere refuses the whole run and
+  you cannot touch the look that is up until the one you are drafting parses.
+
+  Explicitly **not** a seamlessness feature, whatever `d1..d9` suggests: a
+  whole-document run is already invisible on the rig, because an evaluation never
+  resets the clock and every control keeps its position. And the engine is never
+  handed a fragment — what gets compiled is always a complete document, so the
+  channel map is still replaced whole, patching still happens once, brightness is
+  still inferred across the whole rig, and `hush()` still means blackout. Lines
+  edited since the running version carry a quiet rule on their inside edge, because
+  once the buffer and the rig can differ you have to be able to see where.
+
+- **Strudel's `pick` family, which mostly worked and nobody could have known.**
+  `.pick()`, `.pickmod()`, `.pickSqueeze()` and the rest choose between whole
+  patterns using a pattern of indices — the live-coding way to move between looks,
+  where the switch is written into the pattern rather than performed on a button.
+  The methods were already on the prototype and simply undocumented; the standalone
+  forms are now passed through too, under strudel's own names. `pick` itself could
+  not come through: gobo took it for the colour wheel first, so the bare function is
+  gobo's picker and the method is strudel's chooser.
+
 - **`cue({ verse, chorus })`: change which look is live without typing.** One
   file is one performance and a look inside it is a function you wrote, and the
   only way to call a different one was to edit the call line — not something to

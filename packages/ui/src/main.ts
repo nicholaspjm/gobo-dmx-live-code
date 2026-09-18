@@ -62,6 +62,10 @@ import {
 } from '@gobo/core';
 
 import { createEditor } from './editor.js';
+import { spliceEdits, paragraphAt, type Hunk } from './splice.js';
+import { showPending } from './pending-marks.js';
+import type { EditorView } from '@codemirror/view';
+import type { ChangeSet } from '@codemirror/state';
 import {
   loadBuffer, saveBuffer, getBufferName, setBufferName,
   isUnsavedSinceFileSave, markSavedToFile,
@@ -182,13 +186,13 @@ const connectorBannerMoreEl = document.getElementById('connector-banner-more') a
 
 // ─── Eval ────────────────────────────────────────────────────────────────────
 
-async function runEval(code: string): Promise<boolean> {
+async function runEval(code: string, opts: { format?: boolean } = {}): Promise<boolean> {
   // Format-on-run: if the setting is on, reformat the buffer before
   // evaluation. A failure (a syntax error mid-edit, say) falls through to
   // eval, which surfaces a clearer message than prettier's parse trace.
   // Same behaviour as Ctrl+Shift+F.
   let toRun = code;
-  if (getSettings().formatOnRun) {
+  if (getSettings().formatOnRun && opts.format !== false) {
     const formatted = await formatBuffer({ silent: true });
     if (formatted !== null) toRun = formatted;
   }
@@ -218,6 +222,12 @@ async function runEval(code: string): Promise<boolean> {
     // This scene ran, so it is worth being able to get back to. See
     // rememberSceneInAddressBar.
     rememberSceneInAddressBar(toRun);
+    // What is on the rig now. Ctrl+Shift+Enter splices onto this.
+    _lastGoodSource = toRun;
+    // Everything in the buffer is now on the rig. A splice run puts back what
+    // it deliberately left behind, straight after this returns.
+    _editsSinceGoodRun = [];
+    refreshPendingMarks();
     // The scene may have picked a different output, so the connection light,
     // the lock badge and the outputs panel are resolved again before anything
     // is reported about this run.
@@ -472,7 +482,56 @@ function refreshDirtyDot(): void {
 // Debounced autosave: every edit rewrites the working buffer. localStorage
 // writes take microseconds, and 500ms avoids one per keystroke of a long paste.
 let _saveTimer: ReturnType<typeof setTimeout> | null = null;
-function onEditorChange(code: string): void {
+/**
+ * The source of the last run that succeeded, and the edits made since.
+ *
+ * Together they are what Ctrl+Shift+Enter splices: the document that is
+ * actually on the rig, plus only the edits inside the region you pointed at.
+ * See splice.ts for why the unit is the edit rather than the syntactic block.
+ *
+ * Null until something has run. There is nothing to splice onto before that,
+ * so the gesture falls back to a full run and says so.
+ */
+let _lastGoodSource: string | null = null;
+let _editsSinceGoodRun: Hunk[] = [];
+
+/**
+ * Show which lines are not in the source that is running.
+ *
+ * Called after every edit and every run, so the marks track the difference
+ * between the buffer and the rig rather than a snapshot of it.
+ */
+function refreshPendingMarks(): void {
+  showPending(editorView, _editsSinceGoodRun.map((h) => [h.fromB, h.toB] as [number, number]));
+}
+
+/** Fold one CodeMirror change set into the edits pending since the last run. */
+function recordEdits(changes: ChangeSet): void {
+  if (_lastGoodSource === null) return;          // nothing to be pending against
+  const next: Hunk[] = [];
+  // Rebase what was already pending through this new change, then add it.
+  // Composing the ChangeSets and re-reading them would be tidier, but the
+  // pending list is also rebased by a splice, which has no ChangeSet to
+  // compose with — so both paths keep the same plain representation.
+  for (const held of _editsSinceGoodRun) {
+    next.push({
+      ...held,
+      fromB: changes.mapPos(held.fromB, -1),
+      toB: changes.mapPos(held.toB, 1),
+    });
+  }
+  changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+    next.push({ fromA, toA, fromB, toB, insert: inserted.toString() });
+  });
+  // Ascending A order is what spliceEdits expects; new edits land wherever
+  // the typing happened, not necessarily after the ones already held.
+  next.sort((a, b) => a.fromA - b.fromA);
+  _editsSinceGoodRun = next;
+}
+
+function onEditorChange(code: string, changes: ChangeSet): void {
+  recordEdits(changes);
+  refreshPendingMarks();
   // Any edit differs from the last file, so the marker flips immediately
   // rather than waiting out the debounce.
   if (!_dirtySinceFileSave) {
@@ -490,7 +549,51 @@ function onEditorChange(code: string): void {
   }, 500);
 }
 
-const editorView = createEditor(editorEl, runEval, runStop, onEditorChange, boot.code);
+/**
+ * Run only the edits inside the selection, on top of what is already running.
+ *
+ * The gesture exists because Ctrl+Enter commits the WHOLE buffer: nudge a
+ * level in the look that is lit and the half-written look you were drafting
+ * for the next song goes live with it, as long as it happens to parse. It is
+ * not about keeping other looks alive — a whole-document re-run already does
+ * that, invisibly. See splice.ts.
+ *
+ * What is compiled is always a complete document, so nothing downstream sees a
+ * fragment. The engine is untouched by this feature.
+ */
+async function runBlock(view: EditorView): Promise<void> {
+  if (_lastGoodSource === null) {
+    setStatus('', 'nothing is running yet · ctrl+enter runs the whole file first');
+    return;
+  }
+  const { state } = view;
+  const sel = state.selection.main;
+  // A selection if there is one, otherwise the run of non-blank lines around
+  // the cursor — which is how a performance file is already laid out, one
+  // blank line between looks.
+  const region = sel.empty
+    ? paragraphAt(state.doc.toString().split('\n'), state.doc.lineAt(sel.head).number - 1)
+    : { from: sel.from, to: sel.to };
+
+  const spliced = spliceEdits(_lastGoodSource, _editsSinceGoodRun, region.from, region.to);
+  if (spliced === null) {
+    setStatus('', 'nothing edited there · ctrl+enter runs the whole file');
+    return;
+  }
+
+  // Formatting is skipped: it rewrites the whole document, which would both
+  // mark every line as edited and defeat the point of committing one region.
+  const ok = await runEval(spliced.source, { format: false });
+  if (!ok) return;                                  // the rig is untouched; keep the edits pending
+  _editsSinceGoodRun = spliced.remaining;
+  refreshPendingMarks();
+  const left = spliced.remaining.length;
+  setStatus('ok', left === 0
+    ? `✓ ran that block · ${describeOutput()?.text ?? 'no output chosen'}`
+    : `✓ ran that block · ${left} edit${left === 1 ? '' : 's'} elsewhere not running`);
+}
+
+const editorView = createEditor(editorEl, runEval, runStop, onEditorChange, boot.code, (v) => { void runBlock(v); });
 
 // Picking a look runs the file again with that one selected.
 //
@@ -538,6 +641,19 @@ document.addEventListener('keydown', (e) => {
   // Literal Ctrl, matching the editor's 'Ctrl-' bindings rather than 'Mod-':
   // on a Mac these are ctrl, not cmd, and cmd+enter must stay free.
   if (!e.ctrlKey || e.metaKey || e.altKey) return;
+  // Shift makes it the block gesture, which the editor's own keymap handles.
+  // Without this test that binding is dead code: this listener is on the
+  // capture phase and calls stopPropagation, so Ctrl+Shift+Enter would be
+  // swallowed here and run the WHOLE buffer — the exact opposite of what it
+  // is for, and silently. Outside the editor there is no selection and no
+  // cursor to take a block from, so it falls through to a full run.
+  if (e.shiftKey && e.key === 'Enter') {
+    if (editorEl.contains(document.activeElement)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    void runBlock(editorView);
+    return;
+  }
   const run = e.key === 'Enter';
   // Space is read off `code` as well, because a keyboard layout can put a
   // different character on that key.

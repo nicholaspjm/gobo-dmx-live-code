@@ -2090,6 +2090,14 @@
         text-underline-offset: 3px;
       }
 
+      /* A line edited since the run that is currently live. Quiet on purpose:
+         a rule down the inside edge, no background and no colour of its own,
+         because it is on screen most of the time while somebody is working and
+         must not compete with the syntax under it or the live-token outline. */
+      .cm-content .gobo-pending {
+        box-shadow: inset 2px 0 0 -1px var(--text-muted);
+      }
+
       .cm-content .gobo-live-token {
         outline: 2px solid var(--accent);
         outline-offset: 1px;
