@@ -603,11 +603,17 @@ const editorView = createEditor(editorEl, runEval, runStop, onEditorChange, boot
 // previous look right up to the commit, and a scene that throws leaves it
 // exactly where it was.
 //
-// The document is not touched and not formatted: the operator asked for a
-// different look, not for their file to be rewritten mid-show.
+// It runs the source that is ALREADY on the rig, not the buffer. The operator
+// asked for a different look, not to commit whatever they had half-typed —
+// and this fires from a chip, a key and a MIDI button, none of which is a
+// moment anyone has decided their edits are ready. Handing it the buffer made
+// a cue press the one gesture that could put an unfinished look on stage
+// without anyone choosing to, and reformat the document on the way past.
+// Falls back to the buffer only before anything has ever run.
 onCueChange((_name, previous) => {
   void (async (): Promise<void> => {
-    const ok = await runEval(editorView.state.doc.toString());
+    const source = _lastGoodSource ?? editorView.state.doc.toString();
+    const ok = await runEval(source, { format: false });
     // A look that threw is not on the rig — the staged scene was discarded and
     // the previous one is still live — so the selection goes back to match.
     // Otherwise the bar shows what is lit, the selection holds something that
