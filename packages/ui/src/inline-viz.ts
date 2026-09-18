@@ -65,6 +65,7 @@ import {
   type PatternVizKind,
 } from '@gobo/core';
 import { stripNonCode, findCalls } from './source-scan.js';
+import { declaredLines } from './control-placement.js';
 import { openColorWheel, type ColorWheel } from './color-wheel.js';
 
 // ─── Widget base class ───────────────────────────────────────────────────────
@@ -1056,6 +1057,20 @@ export const vizDecorationsField = StateField.define<DecorationSet>({
  * scan sees but the run never made pushes every later widget onto the wrong
  * line, and a widget lands on the very line that was supposed to have gone
  * quiet. Both lists have to be counted the same way for that not to happen.
+ *
+ * Which is exactly what a performance file breaks. When looks are written as
+ * functions and only the live one is called, every control inside an uncalled
+ * look is a call site the scan sees and the run never made, so the zip is
+ * wrong by construction — and defining a look above the one that runs inverts
+ * the two orders even when the counts agree.
+ *
+ * So the zip is not used for the controls. slider() and pick() are declared
+ * with a name, that name is unique within a run (declaring it twice throws),
+ * and it is written at the call site in the source. Matching on it is exact,
+ * order-independent, and immune to a look that did not run. Where the name
+ * cannot be read the widget is dropped rather than guessed at, on the same
+ * principle as everything else here: no widget beats a widget on the wrong
+ * line, because that one is read as the truth about a light.
  */
 export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}): void {
   // Settings can disable inline viz entirely. Dispatch an empty decoration
@@ -1093,33 +1108,32 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   }
 
   // ─── Live controls (slider) ─────────────────────────────────────────────
-  // Same zip as everything else: walk the doc for slider( call sites and pair
-  // them in order with what the scene declared.
+  // Matched by name, not by position. See the note on refreshViz.
   const controls = getControls();
-  const sliderHits = findCalls(code, /\bslider\s*\(/g);
-  const sliderPairs = Math.min(controls.length, sliderHits.length);
-  for (let i = 0; i < sliderPairs; i++) {
-    const widget = new SliderWidget(controls[i]);
-    const lineObj = doc.line(sliderHits[i].line);
+  const sliderLines = declaredLines(doc, code, /\bslider\s*\(/g);
+  for (const control of controls) {
+    const line = sliderLines.get(control.name);
+    if (line === undefined) continue;   // not written as a plain literal here
+    const lineObj = doc.line(line);
     ranges.push({
       from: lineObj.to,
       to: lineObj.to,
-      value: Decoration.widget({ widget, side: 1 }),
+      value: Decoration.widget({ widget: new SliderWidget(control), side: 1 }),
     });
   }
 
 
   // ─── Colour pickers (pick) ──────────────────────────────────────────────
   const pickers = getPickers();
-  const pickHits = findCalls(code, /\bpick\s*\(/g);
-  const pickPairs = Math.min(pickers.length, pickHits.length);
-  for (let i = 0; i < pickPairs; i++) {
-    const widget = new PickerWidget(pickers[i]);
-    const lineObj = doc.line(pickHits[i].line);
+  const pickLines = declaredLines(doc, code, /\bpick\s*\(/g);
+  for (const picker of pickers) {
+    const line = pickLines.get(picker.name);
+    if (line === undefined) continue;
+    const lineObj = doc.line(line);
     ranges.push({
       from: lineObj.to,
       to: lineObj.to,
-      value: Decoration.widget({ widget, side: 1 }),
+      value: Decoration.widget({ widget: new PickerWidget(picker), side: 1 }),
     });
   }
 
