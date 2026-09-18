@@ -351,6 +351,50 @@ const DOCS: DocSection[] = [
 
   {
     category: 'patterns',
+    title: 'choosing between looks, in the pattern',
+    blurb:
+      "The live-coding way to move between looks: the switch is written into the pattern, so the document still says everything about what the rig will do and nobody has to press anything. A look here is just a pattern you named.",
+    entries: [
+      {
+        name: '.pick',
+        signature: '.pick([verse, chorus])',
+        description:
+          "Chooses between whole patterns using a pattern of indices. The indices are a pattern like any other, so <0 1 1 2> alternates per cycle, '0 1' switches twice a bar, and rand.range(0, 3).floor() picks at random. An index past the end clamps to the last look.",
+        example:
+          "const verse  = mini('1 0 1 0')\nconst chorus = mini('1 1 1 1')\nwash.red(mini('<0 1 1 2>').pick([verse, chorus]))",
+      },
+      {
+        name: '.pickmod',
+        signature: '.pickmod([verse, chorus])',
+        description:
+          'The same, except the index wraps instead of clamping, so counting past the end comes back round to the start. Useful when the index comes from a counter rather than from a written list.',
+        example: "wash.red(run(5).pickmod([verse, chorus]))",
+      },
+      {
+        name: '.pickSqueeze · .squeeze',
+        signature: '.pickSqueeze([verse, chorus])',
+        description:
+          'Fits the whole chosen pattern into the step that chose it, so a look plays out inside one step rather than being sampled by it. Two names for one join, both strudel\'s.',
+        example: "wash.red(mini('<0 1>').pickSqueeze([verse, chorus]))",
+      },
+      {
+        name: '.pickRestart · .pickReset',
+        signature: '.pickRestart([verse, chorus])',
+        description:
+          'Starts the chosen pattern from its beginning each time it is picked, rather than letting it carry on from where it would have been. Restart moves the whole timeline; reset moves only this pattern.',
+        example: "wash.red(mini('<0 1>').pickRestart([verse, chorus]))",
+      },
+      {
+        name: 'pick is two things here',
+        signature: 'pick(name) vs .pick(list)',
+        description:
+          "Worth knowing because it is a collision rather than a coincidence. Bare pick('warm') is gobo's colour wheel, a control with a swatch beside it. Chained .pick([…]) is strudel's chooser, described above. The dot tells them apart, and the chained form is the one strudel's own documentation uses.",
+      },
+    ],
+  },
+
+  {
+    category: 'patterns',
     title: 'looks you can switch between',
     blurb:
       "One file is one performance, and a look inside it is a function you wrote. cue() is how you change which one is live without editing the file — with a chip under the editor, a key, or a button on a controller.",

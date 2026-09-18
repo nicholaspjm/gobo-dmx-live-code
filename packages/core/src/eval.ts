@@ -208,6 +208,23 @@ export async function initStrudel(): Promise<void> {
       // structure
       'polymeter', 'polyrhythm', 'pm', 'pr',
       'slowcat', 'fastcat', 'timeCat', 'stepcat', 'run', 'pure', 'silence',
+      // choosing between whole patterns with a pattern of indices. This is
+      // how a live coder switches between looks: the change is written into
+      // the pattern rather than performed on a button, so the document still
+      // says everything about what the rig will do.
+      //
+      // The METHOD forms — mini('<0 1>').pick([verse, chorus]) — already
+      // worked, because strudel's register() puts them on the Pattern
+      // prototype and gobo shares that prototype. They were simply never
+      // documented, which made them missing in every way that matters to
+      // somebody trying to find them.
+      //
+      // 'pick' itself is NOT here, and that is a dialect collision worth
+      // naming: gobo took pick() for the colour wheel before this was
+      // looked at. So the bare function is gobo's picker and the method is
+      // strudel's chooser. The method is the form strudel's own docs use.
+      'pickmod', 'pickF', 'pickmodF', 'pickOut', 'pickRestart', 'pickReset',
+      'pickSqueeze', 'inhabit', 'squeeze',
     ] as const;
     // Signals are exported as Pattern instances; wrap() makes them callable so
     // scene code says tri() the way it says sine(). Everything else is already

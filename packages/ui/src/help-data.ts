@@ -948,6 +948,51 @@ spot.white(mini('1 - - -').punch())`,
     kind: 'function',
   },
   {
+    label: 'pick',
+    signature: '.pick(looks: Pattern[]) => Pattern',
+    description:
+      "Choose between whole patterns with a pattern of indices. The switch is written into the pattern, so the document still says everything about what the rig will do.",
+    example: "const verse  = mini('1 0 1 0')\nconst chorus = mini('1 1 1 1')\nwash.red(mini('<0 1 1 2>').pick([verse, chorus]))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'pickmod',
+    signature: '.pickmod(looks: Pattern[]) => Pattern',
+    description:
+      'Like .pick(), but the index wraps instead of clamping, so an index past the end comes back round to the start.',
+    example: "wash.red(mini('<0 1 2 3 4>').pickmod([verse, chorus]))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'pickSqueeze',
+    signature: '.pickSqueeze(looks: Pattern[]) => Pattern',
+    description:
+      'Like .pick(), but each chosen pattern is squeezed into the step that chose it, so a whole look plays inside one step.',
+    example: "wash.red(mini('<0 1>').pickSqueeze([verse, chorus]))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'pickRestart',
+    signature: '.pickRestart(looks: Pattern[]) => Pattern',
+    description:
+      'Like .pick(), but the chosen pattern starts from its beginning each time it is picked rather than carrying on where it was.',
+    example: "wash.red(mini('<0 1>').pickRestart([verse, chorus]))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'squeeze',
+    signature: '.squeeze(looks: Pattern[]) => Pattern',
+    description:
+      'Fit a whole chosen pattern into each step of this one. The same join .pickSqueeze() uses, under its shorter strudel name.',
+    example: "wash.red(mini('<0 1>').squeeze([verse, chorus]))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
     label: 'cue',
     signature: 'cue({ verse, chorus }) => string | null',
     description:
