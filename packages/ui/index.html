@@ -130,14 +130,21 @@
         white-space: nowrap;
       }
 
-      /* Below this the wordmark is the first thing to go: it is the one item
-         that is decoration rather than a control, and dropping it buys back
-         the width the save and open buttons need. The number is measured, not
-         guessed — with every control shown the row wants about 1100px, so the
-         breakpoint sits just above that. */
+      /* The wordmark gives way before any control does, because it is the one
+         item in the row that is decoration rather than something you press.
+         It goes in two steps rather than one, since the word costs about fifty
+         pixels and the ramp costs thirty.
+ 
+         Both numbers are measured, not guessed. With every control shown the
+         row wants 1098px for the ramp and the word, 1047px for the ramp on its
+         own, and 1016px for neither. The breakpoints sit just above each. */
       @media (max-width: 1150px) {
-        .wordmark { display: none; }
+        .wordmark-word { display: none; }
         .topbar-right { gap: 14px; }
+      }
+
+      @media (max-width: 1050px) {
+        .wordmark { display: none; }
       }
 
       .bpm-display {
@@ -2514,7 +2521,7 @@
   <body>
     <div id="app">
       <header class="topbar">
-        <span class="wordmark"><span class="wordmark-ramp" aria-hidden="true">█▓▒░</span>gobo</span>
+        <span class="wordmark"><span class="wordmark-ramp" aria-hidden="true">█▓▒░</span><span class="wordmark-word">gobo</span></span>
         <div class="topbar-right">
           <span class="bpm-display">
             bpm
