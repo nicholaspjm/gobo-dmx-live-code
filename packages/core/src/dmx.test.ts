@@ -385,22 +385,31 @@ describe('channel addressing (1-based)', () => {
     expect(nonZeroIndices(buf)).toEqual([511]);
   });
 
-  it('silently ignores channel 0, 513 and negative channels', () => {
-    uni(1, 0, 1);
-    uni(1, 513, 1);
-    uni(1, 9999, 1);
-    uni(1, -5, 1);
-    expect(() => tick(0)).not.toThrow();
+  it('refuses a channel that cannot exist, rather than dropping it quietly', () => {
+    // These used to be accepted and then discarded when the frame was built,
+    // so ch(5100, 1) — a typo for 510 — reported a running scene and lit
+    // nothing. Every fixture and strip constructor already refused an address
+    // it could not fit; the bare channel calls took anything.
+    expect(() => uni(1, 0, 1)).toThrow('channels 1 to 512');
+    expect(() => uni(1, 513, 1)).toThrow('channels 1 to 512');
+    expect(() => uni(1, 9999, 1)).toThrow('channels 1 to 512');
+    expect(() => uni(1, -5, 1)).toThrow('channels 1 to 512');
+    expect(() => ch(5100, 1)).toThrow('channels 1 to 512');
+    expect(() => dim(0, 1)).toThrow('channels 1 to 512');
+    expect(() => uni(1, 1.5, 1)).toThrow('whole number');
+    expect(() => uni(-1, 1, 1)).toThrow('universe is a whole number');
 
-    // Out-of-range defs are dropped at tick time: no wrap to index 511,
-    // no write into a neighbouring channel, no exception.
+    // Nothing was written by any of them, and the tick-time guard that used
+    // to be the only protection is still there behind this: no wrap to index
+    // 511, no write into a neighbouring channel, no exception.
+    expect(() => tick(0)).not.toThrow();
     expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([]);
   });
 
-  it('does not even allocate a universe for an out-of-range-only def', () => {
-    // The range check happens before getUniverse(), so universe 88 is never
-    // created by this def alone.
-    uni(88, 0, 1);
+  it('does not allocate a universe for a def it refused', () => {
+    // The address is checked before anything is stored, so universe 88 is
+    // never created by a call that could not have worked.
+    expect(() => uni(88, 0, 1)).toThrow();
     tick(0);
     expect(getAllUniverses().has(88)).toBe(false);
   });
@@ -1009,14 +1018,18 @@ describe('ch / dim / rgb', () => {
     expect(nonZeroIndices(buf)).toEqual([9, 10]);
   });
 
-  it('rgb() at the top of the universe drops the channels that overflow', () => {
-    rgb(511, 1, 1, 1); // 511, 512, 513: the last one has nowhere to go
+  it('rgb() refuses a span that runs past the end of the universe', () => {
+    // It used to write what fitted and drop the rest, so rgb(511, …) lit red
+    // and green and swallowed blue — a colour that is not the colour asked
+    // for, with nothing said. fixture() has always refused the same overflow.
+    expect(() => rgb(511, 1, 1, 1)).toThrow('would run to 513');
     expect(() => tick(0)).not.toThrow();
+    expect(nonZeroIndices(getUniverseBuffer(0))).toEqual([]);
 
-    const buf = getUniverseBuffer(0);
-    expect(buf[510]).toBe(255);
-    expect(buf[511]).toBe(255);
-    expect(nonZeroIndices(buf)).toEqual([510, 511]);
+    // The last address three channels actually fit at still works.
+    rgb(510, 1, 1, 1);
+    tick(0);
+    expect(nonZeroIndices(getUniverseBuffer(0))).toEqual([509, 510, 511]);
   });
 });
 

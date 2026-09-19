@@ -141,6 +141,9 @@ export function channelValues(
   return names.map((name, i) => channelValue([args[i]], `${what} ${name}`));
 }
 
+/** A DMX universe is 512 channels. Named because three checks now cite it. */
+const CHANNELS_PER_UNIVERSE = 512;
+
 // universe number (1-based) → 512-byte buffer
 const _universes = new Map<number, Uint8Array>();
 
@@ -161,7 +164,7 @@ let _defs = new Map<string, ChannelDef>();
 let _staging: Map<string, ChannelDef> | null = null;
 
 function getUniverse(n: number): Uint8Array {
-  if (!_universes.has(n)) _universes.set(n, new Uint8Array(512));
+  if (!_universes.has(n)) _universes.set(n, new Uint8Array(CHANNELS_PER_UNIVERSE));
   return _universes.get(n)!;
 }
 
@@ -197,12 +200,51 @@ const DEFAULT_UNIVERSE = 0;
  * is reported against the call the operator actually wrote.
  */
 export function ch(channel: number, ...args: [PatternOrValue?]): void {
-  uni(DEFAULT_UNIVERSE, channel, channelValue(args, `ch(${channel})`));
+  const value = channelValue(args, `ch(${channel})`);
+  assertChannel(channel, `ch(${channel})`);
+  uni(DEFAULT_UNIVERSE, channel, value);
+}
+
+/**
+ * Refuse an address that cannot exist, naming the call that wrote it.
+ *
+ * A DMX universe is 512 channels, 1-indexed. Writing outside that used to be
+ * accepted and then quietly dropped when the frame was built, so `ch(5100, 1)`
+ * — a typo for 510 — reported a running scene and lit nothing. The fixture
+ * family has always refused an address it cannot fit; the channel family took
+ * anything. Same rule for both now.
+ *
+ * Checked where the operator names the channel rather than at the buffer, so
+ * the message can say which call was wrong instead of which byte was.
+ */
+function assertChannel(channel: number, label: string): void {
+  if (!Number.isInteger(channel)) {
+    throw new Error(`${label}: a channel is a whole number, and this one is ${String(channel)}.`);
+  }
+  if (channel < 1 || channel > CHANNELS_PER_UNIVERSE) {
+    // The advice differs by which end was missed: there is nowhere to put a
+    // channel below 1, and another universe is the answer only above 512.
+    const remedy = channel > CHANNELS_PER_UNIVERSE
+      ? 'Use another universe for anything past that.'
+      : 'Channels count from 1, not from 0.';
+    throw new Error(
+      `${label}: a universe has channels 1 to ${CHANNELS_PER_UNIVERSE}, and this one is ${channel}. ${remedy}`,
+    );
+  }
+}
+
+/** The same for a universe, which has no upper bound but must be a number. */
+function assertUniverse(universe: number, label: string): void {
+  if (!Number.isInteger(universe) || universe < 0) {
+    throw new Error(`${label}: a universe is a whole number from 0 up, and this one is ${String(universe)}.`);
+  }
 }
 
 /** Set a channel on a specific universe. Omit the value for full. */
 export function uni(universe: number, channel: number, ...args: [PatternOrValue?]): void {
   const value = channelValue(args, `uni(${universe}, ${channel})`);
+  assertUniverse(universe, `uni(${universe}, ${channel})`);
+  assertChannel(channel, `uni(${universe}, ${channel})`);
   const target = _capture ?? _staging ?? _defs;
   const k = key(universe, channel);
   // Last write wins, and always has. Noted on the way past so the run can say
@@ -274,7 +316,9 @@ export function isChannelDriven(universe: number, channel: number): boolean {
 
 /** Alias for ch(): set a dimmer channel. Omit the value for full. */
 export function dim(channel: number, ...args: [PatternOrValue?]): void {
-  uni(DEFAULT_UNIVERSE, channel, channelValue(args, `dim(${channel})`));
+  const value = channelValue(args, `dim(${channel})`);
+  assertChannel(channel, `dim(${channel})`);
+  uni(DEFAULT_UNIVERSE, channel, value);
 }
 
 /**
@@ -283,6 +327,20 @@ export function dim(channel: number, ...args: [PatternOrValue?]): void {
  */
 export function rgb(startChannel: number, ...args: [PatternOrValue?, PatternOrValue?, PatternOrValue?]): void {
   const [r, g, b] = channelValues(args, ['r', 'g', 'b'], 'rgb');
+  assertChannel(startChannel, `rgb(${startChannel})`);
+  // The whole span, not just the address written. It used to take the start,
+  // write what fitted and drop the rest, so rgb(511, …) lit red and green and
+  // silently swallowed blue — a colour that is not the colour asked for, with
+  // nothing said. fixture() has always refused the same overflow; this now
+  // matches it.
+  const last = startChannel + 2;
+  if (last > CHANNELS_PER_UNIVERSE) {
+    throw new Error(
+      `rgb(${startChannel}): three channels from ${startChannel} would run to ${last}, `
+      + `which exceeds ${CHANNELS_PER_UNIVERSE} by ${last - CHANNELS_PER_UNIVERSE}. `
+      + 'Move it to a lower address, or drive the components with uni() on another universe.',
+    );
+  }
   ch(startChannel, r);
   ch(startChannel + 1, g);
   ch(startChannel + 2, b);

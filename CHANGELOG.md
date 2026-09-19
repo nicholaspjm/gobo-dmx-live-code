@@ -212,6 +212,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   document. A call that cannot be tagged falls back to counting, which is what a
   scene evaluated outside the editor wants.
 
+- **A channel address that cannot exist is refused instead of dropped.** `ch(5100, 1)`
+  — a typo for 510 — reported a running scene and lit nothing: out-of-range writes
+  were accepted and then discarded when the frame was built. Every fixture and strip
+  constructor already refused an address it could not fit, so the bare calls were the
+  anomaly. `ch()`, `dim()`, `uni()` and `rgb()` now check what they were given and
+  name the call. `rgb()` checks its whole span, having previously written what fitted
+  and swallowed the rest — so `rgb(511, …)` lit red and green and dropped blue, which
+  is not the colour that was asked for. The tick-time guard that used to be the only
+  protection stays as a backstop.
+
 - **The panic key now always has a way to black out.** With the stop action set
   to `freeze last frame` — a real thing to want, since stopping the code at a gig
   should not black the stage — `Ctrl+.` left **no key at all** that could darken a
