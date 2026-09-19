@@ -203,7 +203,7 @@ export function ch(channel: number, ...args: [PatternOrValue?]): void {
 /** Set a channel on a specific universe. Omit the value for full. */
 export function uni(universe: number, channel: number, ...args: [PatternOrValue?]): void {
   const value = channelValue(args, `uni(${universe}, ${channel})`);
-  const target = _staging ?? _defs;
+  const target = _capture ?? _staging ?? _defs;
   const k = key(universe, channel);
   // Last write wins, and always has. Noted on the way past so the run can say
   // so afterwards: see noteOverwrite.
@@ -269,7 +269,7 @@ export function patchAt(universe: number, channel: number): { label: string; sta
  * up here, and only here.
  */
 export function isChannelDriven(universe: number, channel: number): boolean {
-  return (_staging ?? _defs).has(key(universe, channel));
+  return (_capture ?? _staging ?? _defs).has(key(universe, channel));
 }
 
 /** Alias for ch(): set a dimmer channel. Omit the value for full. */
@@ -286,6 +286,50 @@ export function rgb(startChannel: number, ...args: [PatternOrValue?, PatternOrVa
   ch(startChannel, r);
   ch(startChannel + 1, g);
   ch(startChannel + 2, b);
+}
+
+// ─── Capturing one look ──────────────────────────────────────────────────────
+//
+// A look is a function that writes channels, so the only way to hold one as a
+// value is to run it with its writes going somewhere of its own. That is what
+// this is for: cue() with a selector runs every look into its own map, then
+// writes one value per channel that reads the selector at query time and
+// resolves whichever look it names.
+//
+// Strictly inside an evaluation, and strictly above staging: what finally
+// reaches the staging map is ordinary channel values, so the commit, the
+// rollback, hush() and the panic keys are all untouched by this existing. The
+// engine never sees a partial picture — the merge happens before anything is
+// staged.
+
+let _capture: Map<string, ChannelDef> | null = null;
+
+/** Send subsequent uni() writes to a map of their own. */
+export function beginCapture(): void {
+  _capture = new Map();
+}
+
+/** Stop capturing and hand back what was written. */
+export function endCapture(): Map<string, ChannelDef> {
+  const held = _capture ?? new Map<string, ChannelDef>();
+  _capture = null;
+  return held;
+}
+
+/**
+ * Abandon a capture without returning it.
+ *
+ * For the failure path: a look that throws halfway through must not leave the
+ * redirect in place, or every write for the rest of the run would land in a
+ * map nobody reads and the scene would commit empty.
+ */
+export function abortCapture(): void {
+  _capture = null;
+}
+
+/** The channel key for a def, so callers can merge maps without rebuilding it. */
+export function channelKey(universe: number, channel: number): string {
+  return key(universe, channel);
 }
 
 // ─── Staged scene swap ───────────────────────────────────────────────────────

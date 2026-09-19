@@ -480,6 +480,26 @@ const DOCS: DocSection[] = [
           "const wash = rgbStrip(1, 8)\n\nconst verse     = () => { wash.color(blue) }\nconst chorus    = () => { wash.color(red) }\nconst breakdown = () => { wash.mono(pulse(4)) }\n\ncue({ verse, chorus, breakdown })",
       },
       {
+        name: 'writing the choice instead',
+        signature: 'cue(looks, selector)',
+        description:
+          "A second argument makes the switch part of the scene. The selector is read every frame, so the look changes without the document being evaluated again — which is the difference between a cue you perform and a cue that is in the pattern. Give it a pattern of names or indices, or a live control. A number is an index and wraps, so a fader between looks is declared with a range: slider('look', 0, 2, { step: 1 }).",
+        example:
+          "const wash = rgbStrip(1, 8)\n\nconst verse  = () => { wash.color(blue) }\nconst chorus = () => { wash.color(red) }\n\ncue({ verse, chorus }, mini('<verse chorus chorus verse>'))",
+      },
+      {
+        name: 'what a selector does to the bar',
+        signature: 'the chips become a cast list',
+        description:
+          "A scene that chooses its own look has no one look that is up, so no chip is lit and none can be pressed — the bar says 'chosen by the scene' and lists the names. A bar claiming a live look while a pattern quietly moved between them would be the screen disagreeing with the rig.",
+      },
+      {
+        name: 'a look that is not selected is dark',
+        signature: 'switching, not layering',
+        description:
+          "Every look is run, and each channel any of them drives gets one value that resolves whichever look the selector names. A channel a look does not touch reads zero while that look is up — the same rule as running the file again with a different look called. Two looks that both want a control need one name each, because with a selector both are run.",
+      },
+      {
         name: 'picking one',
         signature: 'a chip, alt+1..9, or a program change',
         description:

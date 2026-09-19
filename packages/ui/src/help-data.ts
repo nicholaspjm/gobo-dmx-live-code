@@ -1003,10 +1003,10 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'cue',
-    signature: 'cue({ verse, chorus }) => string | null',
+    signature: 'cue(looks, selector?) => string | null',
     description:
-      'Offer a set of looks and run whichever one is selected. A look is a function you wrote. Pick one with its chip under the editor, alt+1..9, or a MIDI program change; the file runs again with that look, which is a clean swap.',
-    example: "const verse = () => { wash.color(blue) }\nconst chorus = () => { wash.color(red) }\ncue({ verse, chorus })",
+      'Offer a set of looks and run whichever one is selected. A look is a function you wrote. Pick one with its chip under the editor, alt+1..9, or a MIDI program change. Pass a selector — a pattern of names, or a control — and the scene chooses for itself, every frame, without being evaluated again.',
+    example: "const verse = () => { wash.color(blue) }\nconst chorus = () => { wash.color(red) }\ncue({ verse, chorus })\n\n// or let the scene choose:\ncue({ verse, chorus }, mini('<verse chorus>'))",
     context: 'command',
     kind: 'function',
   },

@@ -23,6 +23,7 @@ import {
   setLocationCollection,
   getCues,
   getSelectedCue,
+  isCueDrivenByPattern,
   selectCue,
   restoreCue,
   selectCueIndex,
@@ -1195,6 +1196,7 @@ connectBridge();
 const simContainerEl = document.getElementById('fixture-lights') as HTMLElement;
 const cueBarEl = document.getElementById('cue-bar') as HTMLElement;
 const cueListEl = document.getElementById('cue-list') as HTMLElement;
+const cueLabelEl = document.getElementById('cue-label') as HTMLElement;
 
 /**
  * The cue bar: one chip per look the scene offered, the live one lit.
@@ -1207,15 +1209,23 @@ const cueListEl = document.getElementById('cue-list') as HTMLElement;
 function rebuildCueBar(): void {
   const names = getCues();
   cueBarEl.hidden = names.length === 0;
+  cueLabelEl.textContent = isCueDrivenByPattern() ? 'cue · chosen by the scene' : 'cue';
   if (names.length === 0) {
     cueListEl.replaceChildren();
     return;
   }
-  const live = getSelectedCue();
+  // A scene with a selector chooses its own look, every frame. There is no one
+  // look that is up, so none is highlighted and none can be pressed: a bar
+  // claiming a live look while a pattern moves between them would be the
+  // screen disagreeing with the rig.
+  const driven = isCueDrivenByPattern();
+  cueBarEl.classList.toggle('driven', driven);
+  const live = driven ? null : getSelectedCue();
   cueListEl.replaceChildren(...names.map((name, i) => {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = name === live ? 'cue-chip live' : 'cue-chip';
+    chip.disabled = driven;
     chip.setAttribute('aria-pressed', String(name === live));
     // The number only claims a key for the first nine, because only the first
     // nine have one.
@@ -1226,9 +1236,11 @@ function rebuildCueBar(): void {
       chip.append(key);
     }
     chip.append(document.createTextNode(name));
-    chip.title = i < 9
-      ? `run "${name}" · alt+${i + 1} · program change ${i}`
-      : `run "${name}" · program change ${i}`;
+    chip.title = driven
+      ? `"${name}" is one of the looks this scene is choosing between`
+      : i < 9
+        ? `run "${name}" · alt+${i + 1} · program change ${i}`
+        : `run "${name}" · program change ${i}`;
     chip.addEventListener('click', () => selectCue(name));
     return chip;
   }));

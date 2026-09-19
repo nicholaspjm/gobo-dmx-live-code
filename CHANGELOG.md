@@ -234,6 +234,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   machine. The run now names what is being dropped and why. The README row about
   this was wrong in both halves and has been corrected.
 
+- **`cue(looks, selector)`: the switch can be written, not only pressed.** `cue()`
+  decided the look when the file was evaluated, so the only ways in were a chip, a
+  key or a MIDI button — which made it, near enough, the bar of pre-written looks
+  with a selector that live coding defines itself against. A second argument now
+  takes a pattern of names or indices, or a live control, and is read **every
+  frame**: `cue({ verse, chorus }, mini('<verse chorus chorus verse>'))` moves
+  between looks as part of the pattern, without the document being evaluated again.
+
+  Every look is captured into a map of its own, and each channel any of them drives
+  gets one value that resolves whichever look the selector names. A channel a look
+  does not touch reads zero while that look is up, so this is switching rather than
+  layering — the same rule as running the file with a different look called. What
+  reaches the engine is ordinary channel values, so the commit, the rollback and the
+  panic verbs are untouched.
+
+  A scene choosing its own look has no one look that is up, so the bar says **chosen
+  by the scene** and the chips become a cast list rather than buttons. A number is
+  an index and wraps; a fader between looks is declared with its range, as
+  `slider('look', 0, 2, { step: 1 })`.
+
 - **BREAKING: `ch()`, `dim()` and `rgb()` now write universe 0, not universe 1.**
   The fixture family has always defaulted to universe 0 and the channel family to
   universe 1, so a scene that patched a fixture *and* wrote a raw channel drove two

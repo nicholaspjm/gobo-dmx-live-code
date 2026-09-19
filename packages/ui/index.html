@@ -429,6 +429,15 @@
 
       .cue-chip:hover { color: var(--text); }
 
+      /* A scene choosing its own look: the chips are the cast list, not
+         buttons, so they read as labels and do not invite a press. */
+      .cue-chip:disabled {
+        cursor: default;
+        opacity: 0.75;
+      }
+
+      .cue-chip:disabled:hover { color: var(--text-muted); }
+
       /* Marked by more than the colour: this is read at a glance in a dark
          room, and which look is live is the thing it exists to say. */
       .cue-chip.live {
@@ -2607,7 +2616,7 @@
            every eval; hidden entirely when a scene offers none, so a file that
            does not use cue() sees no new furniture. -->
       <div class="cue-bar" id="cue-bar" hidden>
-        <span class="fixture-label">cue</span>
+        <span class="fixture-label" id="cue-label">cue</span>
         <div class="cue-list" id="cue-list"></div>
       </div>
 

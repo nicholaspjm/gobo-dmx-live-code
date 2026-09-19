@@ -26,6 +26,9 @@
 
 import {
   beginStaging,
+  beginCapture,
+  endCapture,
+  abortCapture,
   getOverwrittenChannels,
   patchAt,
   commitStaging,
@@ -795,10 +798,20 @@ function sceneLine(err: unknown, code: string): number | null {
  * is choosing between; handing back a function to be invoked separately would
  * be the same thing with a way to forget the second half.
  *
+ * With a second argument the choice is written instead of pressed:
+ *
+ *   cue({ verse, chorus }, mini('<verse chorus chorus verse>'))
+ *   cue({ verse, chorus }, slider('which', 0, 1, { step: 1 }))
+ *
+ * That form reads the selector at query time, so the look changes without the
+ * document being evaluated again — which is the difference between a cue you
+ * perform and a cue that is part of the pattern. The chips, the number keys and
+ * a MIDI program change still work without it.
+ *
  * Returns the name it ran, which is worth having for a console.log during a
  * rehearsal and costs nothing.
  */
-function cue(looks: Record<string, unknown>): string | null {
+function cue(looks: Record<string, unknown>, selector?: unknown): string | null {
   if (looks === null || typeof looks !== 'object' || Array.isArray(looks)) {
     throw new Error(
       'cue(): give it a set of looks, as in cue({ verse, chorus }). '
@@ -817,11 +830,134 @@ function cue(looks: Record<string, unknown>): string | null {
       );
     }
   }
-  registerCues(names);
+  registerCues(names, selector !== undefined);
+  if (selector !== undefined) return cueBySelector(looks, names, selector);
   const selected = getSelectedCue();
   if (selected === null) return null;
   (looks[selected] as () => void)();
   return selected;
+}
+
+/**
+ * cue() with the choice written into the scene rather than pressed.
+ *
+ * Every look is run into a capture of its own, and then one value is written
+ * per channel any of them drives. That value reads the selector when the frame
+ * asks for it and resolves whichever look it names — so the switch is a pattern
+ * like any other. `cue(looks, mini('<verse chorus>'))` alternates per cycle,
+ * `cue(looks, slider('which'))` puts it under a fader, and neither re-runs the
+ * document to do it.
+ *
+ * What reaches the staging map is ordinary channel values. The engine never
+ * sees a partial picture: the merge happens here, before anything is staged, so
+ * the commit, the rollback and hush() are exactly what they were.
+ *
+ * A channel a look does not drive reads zero while that look is up, which is
+ * what makes switching a switch rather than a layering — the same rule as
+ * running the file again with a different look called.
+ */
+/**
+ * What a capture hands back, per channel.
+ *
+ * Described here rather than imported: dmx.ts keeps its channel definition
+ * private, and fixtures.ts already exports a ChannelDef that means something
+ * else entirely — a channel in a fixture's layout rather than one write to the
+ * rig. Only the three fields this needs are named.
+ */
+interface CapturedChannel {
+  universe: number;
+  channel: number;
+  value: unknown;
+}
+
+function cueBySelector(
+  looks: Record<string, unknown>,
+  names: string[],
+  selector: unknown,
+): string | null {
+  const captured: Array<Map<string, CapturedChannel>> = [];
+  for (const name of names) {
+    beginCapture();
+    try {
+      (looks[name] as () => void)();
+    } catch (err) {
+      // The redirect must not outlive the look that threw, or every later
+      // write in the run lands in a map nobody reads and the scene commits
+      // empty. The error still propagates and rolls the whole run back.
+      abortCapture();
+      throw err;
+    }
+    captured.push(endCapture());
+  }
+
+  // One entry per channel ANY look drives. A look that leaves a channel alone
+  // contributes nothing to it, and reads as zero when it is the one selected.
+  const channels = new Map<string, { universe: number; channel: number }>();
+  for (const map of captured) {
+    for (const [k, def] of map) channels.set(k, { universe: def.universe, channel: def.channel });
+  }
+
+  for (const [k, where] of channels) {
+    const perLook = captured.map((map) => map.get(k)?.value);
+    uni(where.universe, where.channel, {
+      queryArc(begin: number, end: number) {
+        const pick = selectedIndex(selector, names, begin, end);
+        const value = pick === null ? undefined : perLook[pick];
+        if (value === undefined) return [{ value: 0 }];
+        // A pattern's own haps are passed straight through, so anything
+        // riding on them — the source locations the editor outlines, a gain
+        // from a strudel control object — survives the choice.
+        if (isQueryable(value)) return value.queryArc(begin, end);
+        return [{ value }];
+      },
+    });
+  }
+
+  // No single name to report: the scene is choosing, and what it chooses
+  // changes between one frame and the next.
+  return null;
+}
+
+/** Whether a captured value is a pattern to be queried rather than a number. */
+function isQueryable(value: unknown): value is PatternLike {
+  return typeof value === 'object' && value !== null
+    && typeof (value as PatternLike).queryArc === 'function';
+}
+
+/**
+ * Which look a selector names for this instant, or null for none.
+ *
+ * Accepts what a scene would reach for: a pattern of indices, a pattern of
+ * names, a live control, or a bare number or name. An index is wrapped rather
+ * than clamped so a counter keeps cycling, and a name that matches nothing
+ * selects nothing — that channel reads zero rather than guessing at a look.
+ */
+function selectedIndex(selector: unknown, names: string[], begin: number, end: number): number | null {
+  let raw: unknown = selector;
+  if (isQueryable(selector)) {
+    const haps = selector.queryArc(begin, end);
+    if (!haps || haps.length === 0) return null;
+    raw = haps[haps.length - 1]?.value;
+  }
+  // A strudel control object carries its value under a key rather than bare.
+  if (typeof raw === 'object' && raw !== null && 'value' in (raw as Record<string, unknown>)) {
+    raw = (raw as Record<string, unknown>).value;
+  }
+  if (typeof raw === 'string') {
+    const at = names.indexOf(raw);
+    return at === -1 ? null : at;
+  }
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    // Always an index, never a fader position scaled across the set. Guessing
+    // between the two by whether the number is whole cannot work: 1.0 is a
+    // whole number, so a fader pushed to the top read as index 1 and picked
+    // the second look rather than the last — wrong exactly where a fader
+    // spends its time. A fader that should sweep the set says so itself, with
+    // slider('look', 0, 2, { step: 1 }), which is what that range is for.
+    const index = Math.floor(raw);
+    return ((index % names.length) + names.length) % names.length;
+  }
+  return null;
 }
 
 /** How many collided channels to name before saying "and N more". */

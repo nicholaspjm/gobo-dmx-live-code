@@ -73,9 +73,25 @@ export function getSelectedCue(): string | null {
  * run that is registering is the run that has just been asked for, and telling
  * the host to run again from inside a run is a loop.
  */
-export function registerCues(names: readonly string[]): void {
+export function registerCues(names: readonly string[], drivenByPattern = false): void {
   _names = [...names];
+  _driven = drivenByPattern;
 }
+
+/**
+ * Whether the running scene is choosing its own look.
+ *
+ * With a selector the choice is written into the scene and read every frame,
+ * so there is no one look that is "up" for the bar to highlight and nothing
+ * for a chip or a key to decide. Saying so is not decoration: a bar claiming a
+ * live look while a pattern quietly moves between them is the rig disagreeing
+ * with the screen, which is the thing the chips exist to prevent.
+ */
+export function isCueDrivenByPattern(): boolean {
+  return _driven;
+}
+
+let _driven = false;
 
 /**
  * Pick a look by name. Unknown names are ignored.
@@ -86,6 +102,10 @@ export function registerCues(names: readonly string[]): void {
  * rather than interrupt a show.
  */
 export function selectCue(name: string): void {
+  // A scene choosing its own look does not take instructions from a button.
+  // Re-running it would change nothing, and pretending otherwise would move
+  // the highlight while the rig carried on doing something else.
+  if (_driven) return;
   if (!_names.includes(name)) return;
   // The EFFECTIVE selection, not the stored one: with nothing picked yet the
   // first look is the one that is lit, and pressing its button should do
@@ -128,5 +148,6 @@ export function restoreCue(name: string | null): void {
 export function resetCues(): void {
   _names = [];
   _selected = null;
+  _driven = false;
   _listeners.clear();
 }
