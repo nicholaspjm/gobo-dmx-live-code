@@ -65,9 +65,8 @@ export const OUTPUTS: readonly OutputInfo[] = [
     desktop: 'yes',
     needs: 'hardware',
     plain:
-      'Drives a DMX line straight out of a USB DMX box plugged into this computer, the Enttec DMX '
-      + 'USB Pro type. Nothing to install: choose usb below, pick the box, and the page '
-      + 'talks to it. Needs Chrome or Edge, and one universe only.',
+      'Drives a DMX line out of an Enttec DMX USB Pro box plugged into this computer. '
+      + 'Chrome or Edge, one universe.',
   },
   {
     id: 'td',
@@ -77,9 +76,7 @@ export const OUTPUTS: readonly OutputInfo[] = [
     desktop: 'yes',
     needs: 'receiver',
     plain:
-      'Hands every frame to TouchDesigner, and TouchDesigner puts Art-Net on the network for you. '
-      + 'Nothing to install, as long as TouchDesigner is already open on this same computer with a '
-      + 'WebSocket DAT listening.',
+      'Hands every frame to TouchDesigner, which puts Art-Net on the network.',
   },
   {
     id: 'artnet',
@@ -89,8 +86,7 @@ export const OUTPUTS: readonly OutputInfo[] = [
     desktop: 'yes',
     needs: 'connector',
     plain:
-      'Sends Art-Net to your nodes over the network. A web page is not allowed to put that kind of '
-      + 'packet on the network, so a small program on this computer has to do it.',
+      'Sends Art-Net to nodes on your network.',
   },
   {
     id: 'sacn',
@@ -100,8 +96,7 @@ export const OUTPUTS: readonly OutputInfo[] = [
     desktop: 'yes',
     needs: 'connector',
     plain:
-      'Sends sACN (E1.31) multicast to your rig. Same network packets as Art-Net, and the same '
-      + 'rule: the page cannot send them, so a program on this computer has to.',
+      'Sends sACN (E1.31) multicast to your rig.',
   },
   {
     id: 'osc',
@@ -111,9 +106,7 @@ export const OUTPUTS: readonly OutputInfo[] = [
     desktop: 'yes',
     needs: 'connector',
     plain:
-      'Sends one OSC message per live channel to a receiver such as TouchDesigner\'s OSC In. OSC '
-      + 'travels as the same kind of network packet as Art-Net, so this needs the connector too. It '
-      + 'is not a no-install option.',
+      'Sends one OSC message per live channel, to a receiver such as TouchDesigner\'s OSC In.',
   },
   {
     id: 'mock',
@@ -123,9 +116,7 @@ export const OUTPUTS: readonly OutputInfo[] = [
     desktop: 'yes',
     needs: 'connector',
     plain:
-      'A dry run. No fixture is driven; the connector just prints which channels are live, about '
-      + 'twice a second, so you can check a scene with the rig off. The printing happens inside the '
-      + 'connector, so this needs it running.',
+      'A dry run. Nothing is driven; the connector prints which channels are live about twice a second.',
   },
 ];
 
@@ -243,7 +234,7 @@ export function outputVerdict(id: OutputId): OutputVerdict {
     return {
       ready: false,
       badge: 'needs a usb box',
-      reason: 'Choose usb here and pick the interface. Nothing to install.',
+      reason: 'Choose usb here and pick the interface.',
     };
   }
 
@@ -259,8 +250,8 @@ export function outputVerdict(id: OutputId): OutputVerdict {
       ready: false,
       badge: 'needs touchdesigner open',
       reason:
-        'Open TouchDesigner on this computer with a WebSocket DAT listening, then run td(). A page '
-        + 'served over https can only reach a receiver on this same machine.',
+        'Open TouchDesigner here with a WebSocket DAT listening, then run td(). Over https a page '
+        + 'can only reach this machine.',
     };
   }
 
@@ -286,7 +277,7 @@ export function outputVerdict(id: OutputId): OutputVerdict {
     badge: 'needs the connector',
     reason: id === 'mock'
       ? 'The connector does the printing, so it has to be running.'
-      : 'Nothing is listening on this computer yet. Run the connector, then press ctrl+enter again.',
+      : 'Nothing is listening yet. Run the connector, then press ctrl+enter again.',
   };
 }
 
@@ -434,20 +425,17 @@ export const WHY_BROWSER_CANNOT =
   + 'switch off.';
 
 export const PANEL_INTRO =
-  'Where your light goes. Two of these work in this browser as it stands: a USB DMX box plugged '
-  + 'into this computer, or handing frames to TouchDesigner and letting it send. The rest go out '
-  + 'as network packets, which needs a small program running here.';
+  'Where your light goes. usb() and td() work in this browser. The rest send network packets, '
+  + 'which a page cannot do, so they need the connector running on this computer.';
 
 export const DESKTOP_PITCH =
-  'The desktop version is the same gobo with the sending program already inside it. Art-Net, '
-  + 'sACN, OSC and the dry-run mode work the moment it opens, with nothing to start by hand. Same '
-  + 'editor, same scenes, same files.';
+  'The desktop version has the connector inside it. Art-Net, sACN, OSC and the dry run work '
+  + 'the moment it opens.';
 
 /** Message for a scene whose output the page cannot carry on its own. */
 export function blockedOutputMessage(output: string): string {
-  return `${output} sends network packets, which this page cannot do on its own. Run the `
-    + 'connector, then press ctrl+enter again. Using a USB DMX box instead? Open the outputs panel '
-    + 'from the connection light and pick usb, nothing to install.';
+  return `${output} sends network packets, which a page cannot do. Run the connector, then press `
+    + 'ctrl+enter again. For a USB DMX box instead, open the outputs panel and pick usb.';
 }
 
 // ─── Panel ───────────────────────────────────────────────────────────────────
@@ -542,13 +530,9 @@ export function mountOutputsPanel(opts: {
     const what = document.createElement('p');
     what.className = 'connector-status-what';
     what.textContent = up
-      ? 'A small program on this computer, listening for frames from this page and putting '
-        + 'Art-Net, sACN or OSC on the network. It starts with your computer and stays out of '
-        + 'the way, which is why you may not remember running it. Nothing reaches your rig '
-        + 'until a scene picks one of those outputs.'
-      : 'Art-Net, sACN and OSC need a small program running on this computer, because a web '
-        + 'page cannot put those packets on the network itself. Without it, usb() and td() '
-        + 'still work from the browser alone.';
+      ? 'Listening for frames and putting Art-Net, sACN or OSC on the network. It starts with '
+        + 'your computer, which is why you may not remember running it.'
+      : 'Art-Net, sACN and OSC need it. usb() and td() work without it.';
     box.append(head, what);
 
     // Printed, not folded away: a connector missing fixes is the answer to a
