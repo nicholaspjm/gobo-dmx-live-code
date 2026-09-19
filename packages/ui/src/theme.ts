@@ -62,11 +62,18 @@ export const goboTheme = EditorView.theme(
     '.cm-activeLineGutter': {
       backgroundColor: v('line-highlight'),
     },
+    // Transparent, and no rule down the side.
+    //
+    // The gutter used to be a panel: its own background, a border against the
+    // code, a visible seam a third of an inch in from the left. Strudel draws
+    // the line numbers over the same background the code sits on, so the
+    // editor reads as one surface and the numbers recede on their own, by
+    // being dimmer rather than by being fenced off. That is the change: the
+    // contrast does the separating, not a border.
     '.cm-gutters': {
-      backgroundColor: v('surface'),
+      backgroundColor: 'transparent',
       color: v('text-muted'),
       border: 'none',
-      borderRight: `1px solid ${v('border')}`,
     },
     '.cm-lineNumbers .cm-gutterElement': {
       padding: '0 10px 0 6px',
