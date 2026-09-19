@@ -433,7 +433,7 @@ describe('an output call belongs to the eval in flight, not the one that bound i
 
     expect(h.getBPM()).toBe(200);
     expect(h.sends).toEqual([{ mode: 'artnet', artnet: { host: '10.9.9.9', port: 6454 } }]);
-    expect(h.getUniverseBuffer(1)[0]).toBe(128);
+    expect(h.getUniverseBuffer(0)[0]).toBe(128);
   });
 
   it('releases the active buffer when a run dies inside the registry clears', async () => {

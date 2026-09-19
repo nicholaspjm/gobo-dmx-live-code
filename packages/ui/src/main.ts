@@ -775,13 +775,15 @@ function visualizedUniverse(): number {
 /**
  * Which universe the USB interface is fed.
  *
- * A DMX line carries one universe. Both send sites used to name 0, which is
- * where `fixture()` patches — but `ch()`, `dim()` and `rgb()` write universe 1,
- * so a scene written the way the README writes them handed the box 512 zeros.
- * Nothing said so: the level strip follows visualizedUniverse(), so it animated
- * the universe the scene really was driving while the wire carried the other
- * one. Following the same rule the strip already shows means the picture and
- * the light agree, and usb(n) overrides it for a rig that needs a fixed one.
+ * A DMX line carries one universe, so one of them has to be chosen. It follows
+ * whatever the level strip is showing, so the picture and the light agree, and
+ * usb(n) overrides it for a rig that needs a fixed one.
+ *
+ * This used to matter far more than it does. Both send sites named 0, which is
+ * where fixture() patches, while ch(), dim() and rgb() wrote universe 1 — so a
+ * scene built from the channel family handed the box 512 zeros and nothing said
+ * so. Every call defaults to universe 0 now, so a scene reaches two universes
+ * only by naming one, and a run that does says which are not being sent.
  */
 function usbUniverse(): number {
   return getUsbUniverse() ?? visualizedUniverse();
@@ -802,9 +804,9 @@ function undeliveredUniverseNote(): string | null {
   return (
     `the usb interface carries one universe and is sending ${sent}, so universe `
     + `${dropped.join(' and ')} ${dropped.length === 1 ? 'is' : 'are'} not reaching it. `
-    + 'fixture() patches universe 0 and ch()/dim()/rgb() write universe 1, so a scene '
-    + 'using both drives two. Give them one universe, with uni(0, …) or a universe '
-    + 'argument on the fixture.'
+    + 'Every call defaults to universe 0, so something in the scene is naming '
+    + 'another one. Give them all one universe, or set the interface to the one '
+    + 'you want with usb(n).'
   );
 }
 

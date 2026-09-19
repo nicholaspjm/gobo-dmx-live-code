@@ -137,7 +137,7 @@ describe('fixture() patch failures', () => {
     expect(() => fixture(600, 'rgb')).toThrow();
     tick(0);
 
-    expect(getUniverseBuffer(1)[0]).toBe(255);
+    expect(getUniverseBuffer(0)[0]).toBe(255);
   });
 
   it('still reports an unknown fixture id ahead of any address complaint', () => {

@@ -175,7 +175,7 @@ const DOCS: DocSection[] = [
         name: 'usb',
         signature: 'usb()  ·  usb(universe)',
         description:
-          "Works in a plain browser, with a USB DMX box plugged into this computer and Chrome or Edge. Drive a USB DMX interface straight from the browser, with nothing installed at all. Open the outputs panel from the connection light and choose usb first, to pick the device (browsers require a click for that, so a scene cannot do it), then call usb() to select it as the output. Speaks the Enttec DMX USB Pro protocol, which most interfaces use; raw FTDI dongles that expect the host to time the DMX break are not supported. A DMX line carries one universe: by default it is whichever universe the scene actually drives, the same one the level strip shows, so a scene of fixture() calls sends universe 0 and one built from ch() sends universe 1 without either having to say so. Pass a number to fix it, as in usb(1), when the rig expects a particular one.",
+          "Works in a plain browser, with a USB DMX box plugged into this computer and Chrome or Edge. Drive a USB DMX interface straight from the browser, with nothing installed at all. Open the outputs panel from the connection light and choose usb first, to pick the device (browsers require a click for that, so a scene cannot do it), then call usb() to select it as the output. Speaks the Enttec DMX USB Pro protocol, which most interfaces use; raw FTDI dongles that expect the host to time the DMX break are not supported. A DMX line carries one universe: by default it is whichever universe the scene actually drives, the same one the level strip shows, so a scene that never names a universe sends universe 0 whichever calls built it. Pass a number to fix it, as in usb(1), when the rig expects a particular one.",
         example: "usb()      // the universe the scene drives\nusb(1)     // that one, whatever the scene does",
       },
       {
@@ -377,7 +377,7 @@ const DOCS: DocSection[] = [
         name: 'a usb interface carries one universe',
         signature: 'and the run says which are missing',
         description:
-          "A DMX line is one universe, so a USB box can only be handed one of them. It is easy to drive two by accident: fixture() patches universe 0 while ch(), dim() and rgb() write universe 1, so a scene using both has two without ever naming one. A run over USB now says which universes are not reaching the box. Give the scene one universe with uni(0, …) or a universe argument on the fixture. The connector sends every universe, so this only affects USB.",
+          "A DMX line is one universe, so a USB box can only be handed one of them. Every call defaults to universe 0, so a scene only drives two if it names a second one — and if it does, a run over USB says which universes are not reaching the box. The connector sends every universe, so this only affects USB.",
       },
     ],
   },
@@ -958,7 +958,7 @@ const DOCS: DocSection[] = [
       {
         name: 'ch',
         signature: 'ch(channel, value)',
-        description: 'Set a channel on universe 1. 1-indexed (1-512).',
+        description: 'Set a channel on universe 0, the same universe fixtures patch to. 1-indexed (1-512).',
         example: 'ch(1, sine().slow(2))',
       },
       {

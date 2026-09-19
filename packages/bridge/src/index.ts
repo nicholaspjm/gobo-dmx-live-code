@@ -387,12 +387,12 @@ function sacnBase(): number {
  *
  * ONLY scene universe 0 is remapped; everything else goes out verbatim.
  *
- * Scene universes do not all start at 0. The fixture family (fixture(),
- * rgbStrip(), rgbwStrip()) defaults to universe 0, the channel family (ch(),
- * dim(), rgb()) writes universe 1, and the shipped demo scene patches on
- * universe 1. E1.31 reserves 0, so a default fixture scene was multicasting to
- * a universe conformant receivers drop. Remapping only that value leaves
- * working rigs alone: scene uni 1 stays sACN uni 1, scene uni 7 stays 7.
+ * Every scene call defaults to universe 0 — the fixture family always did, and
+ * the channel family (ch(), dim(), rgb()) was brought onto it rather than left
+ * writing universe 1. E1.31 reserves 0, so a scene that never names a universe
+ * would otherwise multicast to one conformant receivers drop. Remapping only
+ * that value leaves working rigs alone: scene uni 1 stays sACN uni 1, scene uni
+ * 7 stays 7.
  *
  * Art-Net and OSC addressing is unchanged: both use the scene universe as-is.
  */

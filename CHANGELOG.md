@@ -234,6 +234,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   machine. The run now names what is being dropped and why. The README row about
   this was wrong in both halves and has been corrected.
 
+- **BREAKING: `ch()`, `dim()` and `rgb()` now write universe 0, not universe 1.**
+  The fixture family has always defaulted to universe 0 and the channel family to
+  universe 1, so a scene that patched a fixture *and* wrote a raw channel drove two
+  universes without ever naming one. The visualizer follows the lowest and a USB
+  interface carries a single universe, so half of such a scene could silently never
+  leave the machine. One default now, for every call.
+
+  **What changes on the wire.** A scene built only from `ch()` / `dim()` / `rgb()`
+  moves from universe 1 to universe 0. On **sACN** nothing moves: E1.31 reserves 0,
+  so the connector already remaps scene universe 0 onto the sACN base, and that
+  remap was written for exactly this split. On **Art-Net** and **OSC** those scenes
+  land one universe lower than before — Art-Net universe 0, OSC `/gobo/0/…`. Scenes
+  that name a universe, and every scene built from fixtures, are unaffected. Saved
+  share links carry their source verbatim, so an old link built from `ch()` will
+  target the new universe when it is opened; `uni(1, …)` restores the old address
+  explicitly.
+
 ### Changed
 
 - **`.color()` reads a channel name the way `.off()` and `.full()` always did.**

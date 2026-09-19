@@ -325,11 +325,12 @@ describe('an omitted value means full', () => {
   // The complaint this fixes: writing `beam.red()` and getting darkness with
   // no error. Naming a channel and no level reads as "on".
   it('drives the channel to full', () => {
-    uni(1, 1);
+    // All three on one universe, because they now share a default.
+    uni(0, 1);
     ch(2);
     dim(3);
     tick(0);
-    expect(Array.from(getUniverseBuffer(1).slice(0, 3))).toEqual([255, 255, 255]);
+    expect(Array.from(getUniverseBuffer(0).slice(0, 3))).toEqual([255, 255, 255]);
   });
 
   it('applies to fixture setters and to .color()', () => {
@@ -355,7 +356,7 @@ describe('an omitted value means full', () => {
     expect(() => rgb(1, 0.5)).toThrow('needs all 3 of r, g, b');
     expect(() => rgb(1)).not.toThrow();
     tick(0);
-    expect(Array.from(getUniverseBuffer(1).slice(0, 3))).toEqual([255, 255, 255]);
+    expect(Array.from(getUniverseBuffer(0).slice(0, 3))).toEqual([255, 255, 255]);
   });
 });
 
@@ -976,16 +977,26 @@ describe('pattern query failures', () => {
 // ─── ch / dim / rgb helpers ───────────────────────────────────────────────────
 
 describe('ch / dim / rgb', () => {
-  it('ch() and dim() write universe 1', () => {
+  it('ch() and dim() land on the same universe fixtures do', () => {
+    // They used to write universe 1 while fixture() patched universe 0, so a
+    // scene doing both drove two universes without ever naming one — and a
+    // USB interface, which carries a single universe, silently dropped half of
+    // it. One default now, for every family.
     ch(1, 1);
     dim(2, 0.5);
     tick(0);
 
-    const buf = getUniverseBuffer(1);
+    const buf = getUniverseBuffer(0);
     expect(buf[0]).toBe(255);
     expect(buf[1]).toBe(128);
-    // fixture() defaults to universe 0, ch() to universe 1; see the fixture
-    // tests below. Universe 0 stays untouched here.
+    // Nothing lands on 1 unless a scene names it.
+    expect(nonZeroIndices(getUniverseBuffer(1))).toEqual([]);
+  });
+
+  it('still writes any universe that is named', () => {
+    uni(4, 1, 1);
+    tick(0);
+    expect(getUniverseBuffer(4)[0]).toBe(255);
     expect(nonZeroIndices(getUniverseBuffer(0))).toEqual([]);
   });
 
@@ -993,7 +1004,7 @@ describe('ch / dim / rgb', () => {
     rgb(10, 1, 0.5, 0);
     tick(0);
 
-    const buf = getUniverseBuffer(1);
+    const buf = getUniverseBuffer(0);
     expect(Array.from(buf.slice(9, 13))).toEqual([255, 128, 0, 0]);
     expect(nonZeroIndices(buf)).toEqual([9, 10]);
   });
@@ -1002,7 +1013,7 @@ describe('ch / dim / rgb', () => {
     rgb(511, 1, 1, 1); // 511, 512, 513: the last one has nowhere to go
     expect(() => tick(0)).not.toThrow();
 
-    const buf = getUniverseBuffer(1);
+    const buf = getUniverseBuffer(0);
     expect(buf[510]).toBe(255);
     expect(buf[511]).toBe(255);
     expect(nonZeroIndices(buf)).toEqual([510, 511]);

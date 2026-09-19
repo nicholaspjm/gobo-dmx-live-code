@@ -169,17 +169,35 @@ function key(universe: number, channel: number): string {
   return `${universe}:${channel}`;
 }
 
+/**
+ * The universe a call lands on when it does not name one.
+ *
+ * Zero, and the same for every family. It used to be zero for fixture(),
+ * rgbStrip() and friends and ONE for ch(), dim() and rgb() — so a scene that
+ * patched a fixture and also wrote a raw channel drove two universes without
+ * ever naming one. The visualizer follows the lowest, and a USB interface
+ * carries a single universe, so half of such a scene could silently never
+ * leave the machine.
+ *
+ * Zero rather than one because the fixture family is the one nearly every
+ * scene uses, because it is what the visualizer and the USB path already
+ * default to, and because the connector already knows how to handle it: E1.31
+ * reserves universe 0, so the bridge remaps scene universe 0 onto the sACN
+ * base. That remap was written for this split and stays correct.
+ */
+const DEFAULT_UNIVERSE = 0;
+
 // ─── Public DMX API ──────────────────────────────────────────────────────────
 
 /**
- * Set a channel on universe 1. channel is 1-indexed (1-512). Omit the value for
+ * Set a channel on the default universe. channel is 1-indexed (1-512). Omit the value for
  * full.
  *
  * Resolves the value here rather than leaving it to uni(), so a rejected value
  * is reported against the call the operator actually wrote.
  */
 export function ch(channel: number, ...args: [PatternOrValue?]): void {
-  uni(1, channel, channelValue(args, `ch(${channel})`));
+  uni(DEFAULT_UNIVERSE, channel, channelValue(args, `ch(${channel})`));
 }
 
 /** Set a channel on a specific universe. Omit the value for full. */
@@ -256,7 +274,7 @@ export function isChannelDriven(universe: number, channel: number): boolean {
 
 /** Alias for ch(): set a dimmer channel. Omit the value for full. */
 export function dim(channel: number, ...args: [PatternOrValue?]): void {
-  uni(1, channel, channelValue(args, `dim(${channel})`));
+  uni(DEFAULT_UNIVERSE, channel, channelValue(args, `dim(${channel})`));
 }
 
 /**
