@@ -212,6 +212,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   document. A call that cannot be tagged falls back to counting, which is what a
   scene evaluated outside the editor wants.
 
+- **A share link pasted into a tab that already has gobo open now opens.** It
+  changed only the hash, which is a same-document navigation: nothing reloaded, so
+  the handler that reads a shared scene never ran. The scene did not arrive, the
+  address bar kept a payload nobody read, and nothing said why — and pasting a link
+  into the tab you are already in is an ordinary way to open one.
+
+- **Declining a shared scene no longer destroys the link.** The payload was stripped
+  from the address bar *before* the question was asked, so saying no once threw away
+  the only copy of someone else's scene the page had, and "keep my work, save it
+  first, then open the link" was not something you could do. The link is now left
+  where it is unless the scene is actually taken.
+
 - **A channel address that cannot exist is refused instead of dropped.** `ch(5100, 1)`
   — a typo for 510 — reported a running scene and lit nothing: out-of-range writes
   were accepted and then discarded when the frame was built. Every fixture and strip

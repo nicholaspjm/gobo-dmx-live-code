@@ -2020,17 +2020,23 @@ let _openedFromLink = false;
  *
  * Never auto-runs the code, and never replaces unsaved work without asking.
  */
-async function handleSharedSceneOnBoot(): Promise<void> {
+async function handleSharedScene(): Promise<void> {
   const shared = await decodeShareFromLocation();
   if (shared === null) return;
-  // Strip the payload before deciding anything: whichever way this goes, a
-  // refresh must not ask the same question again, and the scene is in hand.
-  clearShareFromLocation();
 
   if (!confirmReplace(`Open the shared scene "${short(normalizeSceneName(shared.name))}"?`)) {
-    setStatus('', 'shared scene not loaded · your work is untouched');
+    // The link is deliberately LEFT in the address bar. It used to be stripped
+    // before the question was asked, so saying no once destroyed the only copy
+    // of somebody else's scene that the page had — and "keep my work, save it
+    // first, then open the link" was not a thing you could do. A refresh
+    // asking again is the lesser cost, and it is the answer to a question you
+    // already chose to defer.
+    setStatus('', 'shared scene not loaded · your work is untouched, the link is still in the address bar');
     return;
   }
+  // Stripped only once it has been taken, so a refresh does not offer to
+  // replace the scene with itself.
+  clearShareFromLocation();
   // Dirty: a scene from a link exists in no file of the user's, so whatever
   // would replace it next still has to ask.
   replaceBuffer(shared.name, shared.code, { dirty: true });
@@ -2307,7 +2313,19 @@ mountLegacyNotice();
 // A scene may have arrived in the URL hash. Handled after the editor and the
 // stop above exist, so the incoming code lands in a halted app. It is loaded
 // for the user to read, never started for them.
-void handleSharedSceneOnBoot();
+void handleSharedScene();
+
+// A link pasted into a tab that already has gobo open changes only the hash,
+// which is a same-document navigation: nothing reloads, so the boot handler
+// never runs. That was silent — the scene did not arrive, the address bar kept
+// a payload nobody read, and no message said why. Pasting a link into the tab
+// you are already in is an ordinary way to open one.
+//
+// replaceState does not fire this event, so the permalink the app writes after
+// every successful run cannot trigger it; only a navigation the user made can.
+window.addEventListener('hashchange', () => {
+  void handleSharedScene();
+});
 
 initStrudel().then(() => {
   // No pattern engine means no waveforms, and evalCode() refuses every run
