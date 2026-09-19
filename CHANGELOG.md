@@ -6,6 +6,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.4.0] - 2026-09-19
+
+> **The first published release.** 0.2.0 and 0.3.0 were tagged or written up but
+> never built: the releases page has been empty the whole time, while the README
+> has told anyone without a checkout to download the connector from it. This tag
+> is the one that actually produces those binaries, for macOS, Linux and Windows.
+>
+> **Two breaking changes**, both in the section below: `ch()`, `dim()` and `rgb()`
+> now write universe 0 rather than universe 1, and an out-of-range channel address
+> is refused rather than silently dropped.
+
+
 > **A blackout that did not black out.** `.off()` walked six hardcoded channel
 > names, so a blinder whose bulbs are called warm/cold matched none of them: both
 > stayed lit and the call reported success. Which channels emit light is now
@@ -514,5 +528,6 @@ First public release. There was never a published 0.1.0. Everything below landed
 - The sim panel was hard-coded to one scene's channel layout and showed ghost fixtures after a scene switch. It is now rebuilt from the fixtures registered during the last eval. Its "off" state also reads the theme background instead of a hardcoded colour, so blackout looks dark on every theme.
 - The `ultratronics 11` template called `spot.dim()` on an RGBW fixture that has no dimmer channel, throwing on every run. The instrument palette was remapped onto discrete colour channels. The fixed version is the one in the **examples** menu; a copy you saved under the old scene model still holds the broken call, so re-load the example if you kept one.
 
+[0.4.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.4.0
 [0.3.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.3.0
 [0.2.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.2.0
