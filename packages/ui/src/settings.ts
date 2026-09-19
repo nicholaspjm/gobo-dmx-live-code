@@ -241,7 +241,7 @@ export function mountSettingsPanel(opts: {
         ${row({
           key: 'autosave',
           label: 'autosave',
-          hint: 'persist every edit to the active scene after a 500ms idle. off writes only when the tab closes, so a crash costs the session rather than nothing.',
+          hint: 'persist every edit to the active scene after a 500ms idle. off still writes when the tab closes, so a crash costs the session rather than everything — ctrl+s saves to a file either way.',
           control: toggle('autosave', s.autosave),
         })}
         ${row({

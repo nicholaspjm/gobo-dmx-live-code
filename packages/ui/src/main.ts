@@ -140,17 +140,24 @@ const outputStatusEl = document.getElementById('output-status') as HTMLButtonEle
 /**
  * Whether saving a scene to a file, and opening one back, is offered.
  *
- * Off for the first release, and deliberately a switch rather than a deletion.
- * Everything behind it still works: scene-file.ts, handleSaveToFile(),
- * handleOpenFile(), the .gobo import path and the dirty tracking are all
- * intact and still covered by their tests. Turning this back on restores the
- * two buttons, the Ctrl+S binding and the unsaved-work warning as they were.
+ * Off for the first release, and on again now. It was always a switch rather
+ * than a deletion: scene-file.ts, handleSaveToFile(), handleOpenFile(), the
+ * .gobo import path and the dirty tracking stayed intact and covered by their
+ * tests the whole time it was off.
  *
- * While it is off, a share link is the only durable copy of a scene, so the
- * places that talk about losing work say so instead of pointing at a Save
- * button that is not there.
+ * It is on because one file is one performance. A show that exists only in one
+ * browser's localStorage cannot be carried to the laptop that is going to the
+ * gig, kept in git, diffed between nights, or backed up at all — and a share
+ * link, which was the only durable copy while this was off, is sized for a
+ * scene rather than for a set. Files in an editor is also the live-coding
+ * model: the durable artefact is the practice, not a convenience.
+ *
+ * Leaving it off had a second cost that was not visible from here.
+ * markSavedToFile() became unreachable, so the "this exists nowhere else"
+ * dialog fired on every replace however recently you had saved — which trains
+ * people to dismiss the one dialog that protects their work.
  */
-const SCENE_FILES = false;
+const SCENE_FILES = true;
 
 // Scene bar: name plus share. Save and open are behind SCENE_FILES above, and
 // the bundled examples moved to the docs panel, so neither is on the bar.

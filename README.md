@@ -181,8 +181,10 @@ The bundled demos live under the **docs** panel, on its examples tab: *start her
 lines a new browser opens on), *language tour* (everything the language does), and *four-colour
 bar demo* (one custom fixture end to end). Loading one replaces the editor, and asks first.
 
-Saving a scene to a `.js` file, and opening one back, is not in this release. The code for it
-is still here and still tested, behind one switch in `packages/ui/src/main.ts`.
+**save** writes the scene to a `.js` file (`Ctrl+S`) and **open** reads one back. The file is
+the code and nothing else, so it opens with syntax highlighting in any editor and diffs line by
+line. One file is one performance: a show that lives only in this browser cannot be carried to
+the laptop going to the gig, kept in git, or backed up.
 
 Anything that replaces the whole buffer (open, share link, example) **arrives stopped** and
 waits for `Ctrl+Enter`. It asks first if the current scene has changes you have not saved to a
@@ -229,7 +231,10 @@ anything else in this version.
 | `Ctrl+Enter` | Evaluate code |
 | `Ctrl+.` | Stop. Blackout by default, `freeze` if set that way in settings |
 | `Ctrl+Space` | Stop, as an alias that also preempts the autocomplete popup |
+| `Ctrl+Shift+Enter` | Evaluate only the edits inside the selection, or the block around the cursor |
+| `Ctrl+S` | Save the scene to a `.js` file |
 | `Ctrl+Shift+F` | Format the buffer |
+| `Alt+1`…`Alt+9` | Run that cue, when the scene calls `cue()` |
 | `T` | Tap tempo (ignored while typing in the editor or any input) |
 | `Alt+M` | Performance view: hide the top bar, sim panel and level strip |
 

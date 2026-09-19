@@ -117,6 +117,25 @@
         gap: 20px;
       }
 
+      /* The bar is one row of a fixed height, so anything that wraps inside it
+         does not make it taller — it collides with the row above. The output
+         status is the only label long enough to wrap, and the two scene-file
+         buttons are what pushed the row past a narrow window. */
+      #output-status,
+      #ws-label {
+        white-space: nowrap;
+      }
+
+      /* Below this the wordmark is the first thing to go: it is the one item
+         that is decoration rather than a control, and dropping it buys back
+         the width the save and open buttons need. The number is measured, not
+         guessed — with every control shown the row wants about 1100px, so the
+         breakpoint sits just above that. */
+      @media (max-width: 1150px) {
+        .wordmark { display: none; }
+        .topbar-right { gap: 14px; }
+      }
+
       .bpm-display {
         color: var(--text-muted);
         font-size: 12px;
