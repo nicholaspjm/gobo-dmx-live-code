@@ -2195,12 +2195,23 @@ const _refreshLibraryAfterEval = (): void => libraryPanel.refresh();
 // it and has to work out why.
 
 const minimalExitEl = document.getElementById('minimal-exit') as HTMLButtonElement;
+const perfToggleEl = document.getElementById('perf-toggle') as HTMLButtonElement;
 
 let _minimalView = false;
 
 function setMinimalView(on: boolean): void {
   _minimalView = on;
   document.body.classList.toggle('minimal-view', on);
+  // What the mode hides is a setting, so the switch stays one switch. Read on
+  // every toggle rather than cached, so changing a setting with the view open
+  // takes effect when it is next turned on.
+  const s = getSettings();
+  document.body.classList.toggle('perf-hide-chrome', on && s.perfHideChrome);
+  document.body.classList.toggle('perf-hide-sim', on && s.perfHideSim);
+  document.body.classList.toggle('perf-hide-levels', on && s.perfHideLevels);
+  document.body.classList.toggle('perf-hide-cues', on && s.perfHideCues);
+  document.body.classList.toggle('perf-black', on && s.perfBlackBackground);
+  perfToggleEl.setAttribute('aria-pressed', String(on));
   // The exit button is the only thing on screen naming this mode, and clicking
   // it is the way out, so forgetting the key does not strand anyone.
   minimalExitEl.hidden = !on;
@@ -2231,6 +2242,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 minimalExitEl.addEventListener('click', () => setMinimalView(false));
+perfToggleEl.addEventListener('click', () => setMinimalView(!_minimalView));
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 

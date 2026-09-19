@@ -79,6 +79,18 @@ export interface Settings {
    *  (Ctrl+Enter). Off by default, because rewriting the doc
    *  mid-performance moves the cursor anchor. */
   formatOnRun: boolean;
+  /** What the performance view (alt+m, or the button in the top bar) hides.
+   *
+   *  The mode is one switch; these decide what it does. Someone projecting the
+   *  screen wants the code alone, someone in a booth may want the sim kept. All
+   *  default true except the background, which changes what the code sits on
+   *  and is the one worth opting into. */
+  perfHideChrome: boolean;
+  perfHideSim: boolean;
+  perfHideLevels: boolean;
+  perfHideCues: boolean;
+  /** Drop the page background to black behind the code. Default false. */
+  perfBlackBackground: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -90,6 +102,11 @@ const DEFAULTS: Settings = {
   theme: 'tungsten',
   fontSize: 13,
   formatOnRun: false,
+  perfHideChrome: true,
+  perfHideSim: true,
+  perfHideLevels: true,
+  perfHideCues: false,
+  perfBlackBackground: false,
 };
 
 let _cached: Settings | null = null;
@@ -249,6 +266,36 @@ export function mountSettingsPanel(opts: {
           label: 'format on run',
           hint: 'reformat the buffer with prettier each time you press ctrl+enter. ctrl+shift+f is the manual trigger.',
           control: toggle('formatOnRun', s.formatOnRun),
+        })}
+        ${row({
+          key: 'perfHideChrome',
+          label: 'performance view · hide the top bar',
+          hint: 'what alt+m and the performance button hide. the mode is one switch; these decide what it does.',
+          control: toggle('perfHideChrome', s.perfHideChrome),
+        })}
+        ${row({
+          key: 'perfHideSim',
+          label: 'performance view · hide the sim',
+          hint: 'the fixture simulation under the editor.',
+          control: toggle('perfHideSim', s.perfHideSim),
+        })}
+        ${row({
+          key: 'perfHideLevels',
+          label: 'performance view · hide the level strip',
+          hint: 'the 512-bar channel strip at the bottom.',
+          control: toggle('perfHideLevels', s.perfHideLevels),
+        })}
+        ${row({
+          key: 'perfHideCues',
+          label: 'performance view · hide the cue bar',
+          hint: 'off by default. the cue chips say which look is up, which is worth keeping on a projector.',
+          control: toggle('perfHideCues', s.perfHideCues),
+        })}
+        ${row({
+          key: 'perfBlackBackground',
+          label: 'performance view · black background',
+          hint: 'drop the page to black behind the code, for projecting.',
+          control: toggle('perfBlackBackground', s.perfBlackBackground),
         })}
         ${row({
           key: 'inlineViz',

@@ -823,10 +823,29 @@
          chrome, rather than main.ts reaching for each element. The screen
          lights are deliberately left alone: a scene using screen() is aiming at
          them, so they are output, not furniture. */
-      body.minimal-view .topbar,
-      body.minimal-view .viz-wrap,
-      body.minimal-view .divider {
+      /* Each piece is hidden by its own class rather than by the mode, so the
+         settings decide what the performance view does and the mode stays one
+         switch. */
+      body.perf-hide-chrome .topbar,
+      body.perf-hide-chrome .divider,
+      body.perf-hide-sim .fixture-panel,
+      body.perf-hide-levels .viz-strip,
+      body.perf-hide-cues .cue-bar {
         display: none;
+      }
+
+      /* The sim and the level strip share a wrapper. Hide it only when both of
+         them are gone, or an empty bar is left behind. */
+      body.perf-hide-sim.perf-hide-levels .viz-wrap {
+        display: none;
+      }
+
+      /* For a projected screen: the code on black, with nothing behind it. */
+      body.perf-black .editor-wrap,
+      body.perf-black .cm-editor,
+      body.perf-black .cm-gutters,
+      body.perf-black {
+        background: #000 !important;
       }
 
       /* The way out of the performance view, and the only thing on screen that
@@ -2575,6 +2594,7 @@
                other five outputs, rather than as a button of its own up here.
                Reached by clicking the connection light. -->
           <button type="button" class="docs-toggle" id="library-toggle" title="custom fixture library">library</button>
+          <button type="button" class="docs-toggle" id="perf-toggle" title="performance view: hide everything but the code (alt+m)" aria-pressed="false">perform</button>
           <button type="button" class="docs-toggle" id="log-toggle" title="what the scene has printed, and what went wrong">log</button>
           <button type="button" class="docs-toggle" id="docs-toggle" title="function reference">docs</button>
           <button type="button" class="docs-toggle settings-toggle-btn" id="settings-toggle" title="settings" aria-label="settings">
