@@ -182,10 +182,23 @@ export interface ThemeVars {
 }
 
 /** Human-readable name + the variable values. */
+/**
+ * The four a theme no longer states.
+ *
+ * They are contrast steps rather than colours: a panel lifted off the page, a
+ * border, the current line, an inset code block. Every theme was answering the
+ * same question about each of them, thirteen times over, so the answer is
+ * given once in derived() and each theme declares only its own ends.
+ */
+type DerivedVar = 'surface' | 'border' | 'lineHighlight' | 'codeBg';
+
+/** What a theme declares. The rest is worked out from it. */
+export type ThemeBase = Omit<ThemeVars, DerivedVar>;
+
 export interface ThemeDef {
   id: ThemeId;
   label: string;
-  vars: ThemeVars;
+  vars: ThemeBase;
 }
 
 export const THEMES: Record<ThemeId, ThemeDef> = {
@@ -197,8 +210,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'tungsten (default)',
     vars: {
       bg: '#1a1714',
-      surface: '#211e1b',
-      border: '#2e2a26',
       text: '#e8dfd0',
       textMuted: '#8a8078',
       accent: '#c4724a',
@@ -206,9 +217,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#7a8c6e',
       error: '#c45a5a',
       selection: '#2e2a2680',
-      lineHighlight: '#211e1b88',
       cursor: '#c4724a',
-      codeBg: '#1e1b18',
       selectionBg: '#3a342e',
       synFixtureDecl: '#c5b520',
       synFixtureRef: '#aea23a',
@@ -249,8 +258,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'moonbox',
     vars: {
       bg: '#16181c',
-      surface: '#1d2026',
-      border: '#2c3038',
       text: '#d8dde6',
       textMuted: '#7a8190',
       accent: '#6aa9d8',
@@ -258,9 +265,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#7ab5a6',
       error: '#d65a6a',
       selection: '#2c303880',
-      lineHighlight: '#1d202688',
       cursor: '#6aa9d8',
-      codeBg: '#1a1d22',
       selectionBg: '#2f3640',
       synFixtureDecl: '#dbac4f',
       synFixtureRef: '#bf9b53',
@@ -302,8 +307,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'greenroom',
     vars: {
       bg: '#141815',
-      surface: '#1a1f1c',
-      border: '#283028',
       text: '#d8e0d2',
       textMuted: '#7a8a7a',
       accent: '#6abe7a',
@@ -311,9 +314,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#b8a868',
       error: '#c46a5a',
       selection: '#28302880',
-      lineHighlight: '#1a1f1c88',
       cursor: '#6abe7a',
-      codeBg: '#171c18',
       selectionBg: '#2c382e',
       synFixtureDecl: '#d2b027',
       synFixtureRef: '#b69e41',
@@ -354,8 +355,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'blacklight',
     vars: {
       bg: '#15131c',
-      surface: '#1c1929',
-      border: '#2a253a',
       text: '#ddd8e8',
       textMuted: '#88809a',
       accent: '#b07ad8',
@@ -363,9 +362,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#7ab5b0',
       error: '#d65a6a',
       selection: '#2a253a80',
-      lineHighlight: '#1c192988',
       cursor: '#b07ad8',
-      codeBg: '#181522',
       selectionBg: '#332a45',
       synFixtureDecl: '#bab51a',
       synFixtureRef: '#a5a133',
@@ -407,8 +404,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'bastard amber (light)',
     vars: {
       bg: '#f4eede',
-      surface: '#ebe3ce',
-      border: '#d4c8af',
       text: '#2a241c',
       textMuted: '#6a6253',
       accent: '#a85a30',
@@ -416,9 +411,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#5a7050',
       error: '#b04040',
       selection: '#d4c8afa0',
-      lineHighlight: '#ebe3ce88',
       cursor: '#a85a30',
-      codeBg: '#e0d6bc',
       selectionBg: '#d4c8af',
       synFixtureDecl: '#605610',
       synFixtureRef: '#6f6525',
@@ -461,8 +454,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'blackout',
     vars: {
       bg: '#000000',
-      surface: '#070707',
-      border: '#1a1a1a',
       text: '#ffffff',
       textMuted: '#888888',
       accent: '#ff0033',
@@ -470,9 +461,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#00ff66',
       error: '#ff3344',
       selection: '#ff003322',
-      lineHighlight: '#ffffff08',
       cursor: '#ff0033',
-      codeBg: '#040404',
       selectionBg: '#1f1f1f',
       synFixtureDecl: '#dadada',
       synFixtureRef: '#b1b1b1',
@@ -515,8 +504,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'glow tape',
     vars: {
       bg: '#000000',
-      surface: '#050807',
-      border: '#143218',
       text: '#c8ffd0',
       textMuted: '#4a7050',
       accent: '#00ff66',
@@ -524,9 +511,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#00cc88',
       error: '#ff5566',
       selection: '#00ff662e',
-      lineHighlight: '#00ff660c',
       cursor: '#00ff66',
-      codeBg: '#030504',
       selectionBg: '#103018',
       synFixtureDecl: '#a6e9c2',
       synFixtureRef: '#32ca72',
@@ -569,8 +554,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'safelight',
     vars: {
       bg: '#0a0500',
-      surface: '#14100a',
-      border: '#2a200a',
       text: '#ffb83d',
       textMuted: '#886030',
       accent: '#ffc966',
@@ -578,9 +561,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#e8a548',
       error: '#ff5538',
       selection: '#ffb83d2e',
-      lineHighlight: '#ffb83d0c',
       cursor: '#ffb83d',
-      codeBg: '#050300',
       selectionBg: '#2e2310',
       synFixtureDecl: '#f5d9b5',
       synFixtureRef: '#e8a854',
@@ -623,8 +604,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'patchbay (light)',
     vars: {
       bg: '#f0f0f0',
-      surface: '#e0e0e0',
-      border: '#909090',
       text: '#000000',
       textMuted: '#555555',
       accent: '#0066cc',
@@ -632,9 +611,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#007030',
       error: '#cc0000',
       selection: '#c8d8e8',
-      lineHighlight: '#e8e8e8',
       cursor: '#0066cc',
-      codeBg: '#d8d8d8',
       selectionBg: '#c8d8e8',
       synFixtureDecl: '#665513',
       synFixtureRef: '#736429',
@@ -679,8 +656,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'cyclorama',
     vars: {
       bg: '#0b1836',
-      surface: '#122045',
-      border: '#1d3160',
       text: '#d8e4ff',
       textMuted: '#8195c4',
       accent: '#5fa8ff',
@@ -688,9 +663,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#6fd0c0',
       error: '#ff6b7a',
       selection: '#1d316080',
-      lineHighlight: '#12204588',
       cursor: '#5fa8ff',
-      codeBg: '#081230',
       selectionBg: '#24396e',
       synFixtureDecl: '#dfad3a',
       synFixtureRef: '#c19c46',
@@ -732,8 +705,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'surprise pink',
     vars: {
       bg: '#24102a',
-      surface: '#2e1636',
-      border: '#452250',
       text: '#ffe2f3',
       textMuted: '#b98cae',
       accent: '#ff5fb0',
@@ -741,9 +712,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#8fd0b8',
       error: '#ff5a6e',
       selection: '#45225080',
-      lineHighlight: '#2e163688',
       cursor: '#ff5fb0',
-      codeBg: '#1e0c24',
       selectionBg: '#55295f',
       synFixtureDecl: '#b5bb1a',
       synFixtureRef: '#a2a634',
@@ -785,8 +754,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'worklight (light)',
     vars: {
       bg: '#fbfaf7',
-      surface: '#f1efe9',
-      border: '#d6d2c7',
       text: '#24211c',
       textMuted: '#66625a',
       accent: '#b63808',
@@ -794,9 +761,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#3a795e',
       error: '#b32a34',
       selection: '#d6d2c7a0',
-      lineHighlight: '#f1efe988',
       cursor: '#b63808',
-      codeBg: '#eeebe3',
       selectionBg: '#d6d2c7',
       synFixtureDecl: '#6a5b0f',
       synFixtureRef: '#786a25',
@@ -840,8 +805,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     label: 'followspot',
     vars: {
       bg: '#000000',
-      surface: '#0a0a09',
-      border: '#26261f',
       text: '#f7f4ea',
       textMuted: '#8f8b7e',
       accent: '#f6c84b',
@@ -849,9 +812,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       sage: '#b9c7d2',
       error: '#ff5a4a',
       selection: '#f6c84b22',
-      lineHighlight: '#ffffff08',
       cursor: '#f6c84b',
-      codeBg: '#050504',
       selectionBg: '#26261f',
       synFixtureDecl: '#dcdad5',
       synFixtureRef: '#b5b1a6',
@@ -919,18 +880,72 @@ export const LEGACY_THEME_IDS: Record<string, ThemeId> = {
  * variables for code that can't use them: a canvas 2D context accepts
  * hex/rgb but not `var()` references.
  */
-export const COLORS: ThemeVars = { ...THEMES.tungsten.vars };
+export const COLORS: ThemeVars = { ...THEMES.tungsten.vars, ...derived(THEMES.tungsten.vars) };
 
 /** Write a theme's variables onto `:root` so all `var(--...)` lookups
  *  pick them up, and refresh the shared COLORS object for canvas/JS
  *  consumers. Idempotent. */
+/** One channel of a hex colour, as a number. */
+function channel(hex: string, at: number): number {
+  return parseInt(hex.slice(at, at + 2), 16);
+}
+
+/**
+ * `over` laid on `base` at `alpha`, flattened to an opaque hex.
+ *
+ * Strudel builds its contrast steps this way: one base colour, and the rest
+ * derived from it with alpha — `lineBackground: '#22222299'`, `muted:
+ * '#8a919966'`. The steps come out proportional to the theme rather than
+ * hand-picked per theme, which is why their themes hold together at ten values
+ * each while these needed forty-seven.
+ *
+ * Flattened rather than left as rgba because COLORS is read by canvas and other
+ * JS, which expects a plain colour it can hand to a 2D context.
+ */
+function blend(base: string, over: string, alpha: number): string {
+  if (base.length < 7 || over.length < 7) return base;
+  const mix = (at: number): string => {
+    const value = Math.round(channel(base, at) * (1 - alpha) + channel(over, at) * alpha);
+    return Math.max(0, Math.min(255, value)).toString(16).padStart(2, '0');
+  };
+  return `#${mix(1)}${mix(3)}${mix(5)}`;
+}
+
+/**
+ * The contrast steps every theme shares, derived from its own two ends.
+ *
+ * These used to be four more hand-picked hex values per theme, fifty-two across
+ * the set, each one somebody's judgement about how far a panel should sit from
+ * the page. Derived, they are the same judgement once, and a new theme is its
+ * base colours rather than a full sheet.
+ */
+function derived(vars: ThemeBase): Pick<ThemeVars, DerivedVar> {
+  const { bg, text } = vars;
+  // All four step the same way, towards the text, and differ only in how far.
+  // A code block is one step further from the page than the panel it sits in,
+  // which is what tells the two apart.
+  //
+  // Stepping away from the text instead was tried, to keep a code block darker
+  // on a dark theme the way the old hand-picked values were. It cannot work on
+  // a near-white theme: the page is already at 250 of 255, so there is nowhere
+  // lighter to go and the block came out one shade from its panel, invisible.
+  // One direction has room on every theme.
+  return {
+    surface: blend(bg, text, 0.04),
+    border: blend(bg, text, 0.12),
+    lineHighlight: blend(bg, text, 0.04),
+    codeBg: blend(bg, text, 0.1),
+  };
+}
+
 export function applyTheme(id: ThemeId): void {
   const t = THEMES[id] ?? THEMES.tungsten;
   const root = document.documentElement;
   // Map camelCase → kebab-case so the CSS variable names stay readable
   // (--text-muted, not --textMuted; --syn-fixture-decl, not
   // --synFixtureDecl).
-  for (const [key, value] of Object.entries(t.vars)) {
+  const vars: ThemeVars = { ...t.vars, ...derived(t.vars) };
+  for (const [key, value] of Object.entries(vars)) {
     const cssName = '--' + key.replace(/([A-Z])/g, '-$1').toLowerCase();
     root.style.setProperty(cssName, value);
   }
@@ -938,7 +953,7 @@ export function applyTheme(id: ThemeId): void {
   // without inventing a new variable for every nuance.
   root.setAttribute('data-theme', id);
   // Re-sync the shared colour bag for canvas/JS consumers.
-  Object.assign(COLORS, t.vars);
+  Object.assign(COLORS, vars);
 }
 
 /** Stable list for dropdowns (preserves insertion order of THEMES). */
