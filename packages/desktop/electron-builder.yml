@@ -57,6 +57,13 @@ mac:
 
 linux:
   category: AudioVideo
+  # The .deb format requires a maintainer, and electron-builder falls back to
+  # the package author's email when one is not set. There is deliberately no
+  # email anywhere in this project — SECURITY.md routes reports through a
+  # private GitHub advisory and everything else through issues — so it is given
+  # here explicitly rather than by putting a personal address in package.json
+  # and shipping it inside every Linux build.
+  maintainer: gobo contributors <nicholaspjm@users.noreply.github.com>
   target:
     - AppImage
     - deb
