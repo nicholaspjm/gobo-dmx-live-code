@@ -399,6 +399,56 @@
       /* The cue bar: one chip per look the scene offered, the live one lit.
          It sits directly above the sim so the look you picked and what it is
          doing to the rig read as one thing. */
+      .share-dialog {
+        /* A modal dialog is centred by the browser's own `margin: auto`, and
+           the reset at the top of this file sets margin to 0 on everything.
+           Put it back rather than position it by hand. */
+        margin: auto;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--surface);
+        color: var(--text);
+        padding: 16px;
+        max-width: min(560px, 90vw);
+        font: inherit;
+      }
+
+      .share-dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+
+      .share-title {
+        margin: 0 0 8px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: lowercase;
+      }
+
+      .share-note {
+        margin: 0 0 10px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .share-url {
+        width: 100%;
+        box-sizing: border-box;
+        resize: vertical;
+        font: inherit;
+        font-size: 11px;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 6px;
+      }
+
+      .share-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-top: 10px;
+      }
+
       .cue-bar {
         display: flex;
         align-items: center;
@@ -2508,10 +2558,8 @@
               role="textbox"
               aria-label="scene name"
             >untitled</span>
-            <span id="scene-dirty" class="scene-dirty hidden" title="not yet saved to a file" aria-hidden="true">•</span>
-            <button type="button" class="scene-action" id="scene-save" title="save this scene as a .js file (ctrl+s)">save</button>
-            <button type="button" class="scene-action" id="scene-open" title="open a .js or .txt scene from disk (.gobo files from the old version too)">open</button>
-            <button type="button" class="scene-action" id="scene-share" title="copy a link containing this whole scene">share</button>
+            <button type="button" class="scene-action" id="scene-copy" title="copy the whole scene to the clipboard">copy</button>
+            <button type="button" class="scene-action" id="scene-share" title="make a link containing this whole scene">share</button>
             <!-- No stop button. Stopping is ctrl+. / cmd+. (or ctrl+space),
                  handled at the document so it fires wherever focus happens to
                  be. It was briefly a button here, added when the shortcut was
@@ -2615,6 +2663,21 @@
       <!-- The looks the running scene offered through cue(). Rebuilt after
            every eval; hidden entirely when a scene offers none, so a file that
            does not use cue() sees no new furniture. -->
+      <!-- Share dialog. The link used to go straight to the clipboard with a
+           status line, which gave you no way to see it, select part of it, or
+           tell a long link from a short one before sending it. -->
+      <dialog class="share-dialog" id="share-dialog">
+        <form method="dialog">
+          <h2 class="share-title">share this scene</h2>
+          <p class="share-note" id="share-note"></p>
+          <textarea class="share-url" id="share-url" readonly rows="3" spellcheck="false"></textarea>
+          <div class="share-actions">
+            <button type="button" class="scene-action" id="share-copy">copy link</button>
+            <button type="submit" class="scene-action" id="share-close">close</button>
+          </div>
+        </form>
+      </dialog>
+
       <div class="cue-bar" id="cue-bar" hidden>
         <span class="fixture-label" id="cue-label">cue</span>
         <div class="cue-list" id="cue-list"></div>

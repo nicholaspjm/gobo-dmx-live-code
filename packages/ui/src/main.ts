@@ -69,10 +69,12 @@ import type { EditorView } from '@codemirror/view';
 import type { ChangeSet } from '@codemirror/state';
 import {
   loadBuffer, saveBuffer, getBufferName, setBufferName,
-  isUnsavedSinceFileSave, markSavedToFile,
+  isUnsavedSinceFileSave,
   listLegacyScenes, legacyNoticeDismissed, dismissLegacyNotice,
 } from './buffer.js';
-import { downloadScene, openSceneFile, sceneFilename } from './scene-file.js';
+// Only the legacy-scene notice writes files now: it offers scenes saved under
+// the pre-0.3 model as downloads, which is the one way out they have.
+import { downloadScene, sceneFilename } from './scene-file.js';
 import { encodeShareLink, decodeShareFromLocation, clearShareFromLocation } from './share.js';
 import { getExample, type Example } from './examples.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
@@ -138,43 +140,20 @@ const wsLabelEl = document.getElementById('ws-label')!;
 const wsLockEl = document.getElementById('ws-lock') as HTMLElement;
 const outputStatusEl = document.getElementById('output-status') as HTMLButtonElement;
 
-/**
- * Whether saving a scene to a file, and opening one back, is offered.
- *
- * Off for the first release, and on again now. It was always a switch rather
- * than a deletion: scene-file.ts, handleSaveToFile(), handleOpenFile(), the
- * .gobo import path and the dirty tracking stayed intact and covered by their
- * tests the whole time it was off.
- *
- * It is on because one file is one performance. A show that exists only in one
- * browser's localStorage cannot be carried to the laptop that is going to the
- * gig, kept in git, diffed between nights, or backed up at all — and a share
- * link, which was the only durable copy while this was off, is sized for a
- * scene rather than for a set. Files in an editor is also the live-coding
- * model: the durable artefact is the practice, not a convenience.
- *
- * Leaving it off had a second cost that was not visible from here.
- * markSavedToFile() became unreachable, so the "this exists nowhere else"
- * dialog fired on every replace however recently you had saved — which trains
- * people to dismiss the one dialog that protects their work.
- */
-const SCENE_FILES = true;
 
-// Scene bar: name plus share. Save and open are behind SCENE_FILES above, and
-// the bundled examples moved to the docs panel, so neither is on the bar.
+// Scene bar: name, copy, share.
+//
+// There is no save and no open. A scene is text, and the place to keep text is
+// the editor you already use: copy takes the whole thing to the clipboard and
+// share turns it into a link. Nothing here is a file manager.
+//
+// The dirty dot went with them. It meant "not yet written to a file", and with
+// no files it would be lit on every buffer that had ever been typed into,
+// which is no signal at all.
 const sceneNameEl = document.getElementById('scene-name') as HTMLElement;
-const sceneDirtyEl = document.getElementById('scene-dirty') as HTMLElement;
-const sceneSaveEl = document.getElementById('scene-save') as HTMLButtonElement | null;
-const sceneOpenEl = document.getElementById('scene-open') as HTMLButtonElement | null;
 const sceneShareEl = document.getElementById('scene-share') as HTMLButtonElement;
+const sceneCopyEl = document.getElementById('scene-copy') as HTMLButtonElement;
 
-// Taken out of the document rather than hidden, so nothing ships a control
-// that cannot be reached by a pointer, a screen reader or a tab stop.
-if (!SCENE_FILES) {
-  sceneSaveEl?.remove();
-  sceneOpenEl?.remove();
-  sceneDirtyEl.remove();
-}
 
 
 
@@ -455,15 +434,6 @@ async function handleFormat(): Promise<void> {
 }
 
 document.addEventListener('keydown', (e) => {
-  // Ctrl+S / Cmd+S saves the scene to a file. The working buffer autosaves on
-  // its own, so the only save worth a keystroke is the durable one. Shift is
-  // excluded: Ctrl+Shift+S used to mean "save as a new scene", and with no
-  // other scenes to save as, it is left to the browser.
-  if (SCENE_FILES && (e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 's' || e.key === 'S')) {
-    e.preventDefault();
-    handleSaveToFile();
-    return;
-  }
   // Alt+1..9 picks a cue, which is the one thing a performer needs to do
   // without looking at the keyboard. Alt rather than a bare digit because a
   // bare digit is a number you are typing into a scene, and alt+digit is not
@@ -509,10 +479,6 @@ const boot = loadBuffer();
  */
 let _dirtySinceFileSave = isUnsavedSinceFileSave();
 
-/** Paint the unsaved marker next to the scene name. */
-function refreshDirtyDot(): void {
-  sceneDirtyEl.classList.toggle('hidden', !_dirtySinceFileSave);
-}
 
 // Debounced autosave: every edit rewrites the working buffer. localStorage
 // writes take microseconds, and 500ms avoids one per keystroke of a long paste.
@@ -571,7 +537,6 @@ function onEditorChange(code: string, changes: ChangeSet): void {
   // rather than waiting out the debounce.
   if (!_dirtySinceFileSave) {
     _dirtySinceFileSave = true;
-    refreshDirtyDot();
   }
   if (_saveTimer) clearTimeout(_saveTimer);
   // Autosave can be disabled in settings; the browser copy is then left as it
@@ -720,9 +685,8 @@ function flushBuffer(): void {
 window.addEventListener('pagehide', () => {
   // Unconditionally, including with autosave off. Autosave off means "do not
   // write on every keystroke", and it used to mean "lose everything": the
-  // debounce never ran, this line was skipped, and the manual save it pointed
-  // at is compiled out with SCENE_FILES. So the one moment work could be lost
-  // for good was the one moment it cost nothing to write it.
+  // debounce never ran and this line was skipped, so the one moment work could
+  // be lost for good was the one moment it cost nothing to write it.
   flushBuffer();
   blackoutOnTheWayOut();
 });
@@ -1826,11 +1790,7 @@ function confirmReplace(headline: string): boolean {
     `${headline}\n\n` +
     `"${short(getBufferName())}" has changes that exist nowhere else. ` +
     'Replacing it will lose them.\n\n' +
-    // With scene files off there is no Save to point at, and a share link is
-    // the only durable copy, so the remedy offered has to be the real one.
-    (SCENE_FILES
-      ? 'OK to replace · Cancel to keep it (then use Save first).'
-      : 'OK to replace · Cancel to keep it (then copy a share link first).'),
+    'OK to replace · Cancel to keep it, then copy it or make a share link.',
   );
 }
 
@@ -1852,62 +1812,8 @@ function replaceBuffer(name: string, code: string, opts: { dirty: boolean }): vo
   renderSceneName();
   // After the dispatch above, whose change event set the flag true.
   _dirtySinceFileSave = opts.dirty;
-  refreshDirtyDot();
   runStop();
 }
-
-// ─── Save to file ────────────────────────────────────────────────────────────
-
-function handleSaveToFile(): void {
-  const code = editorView.state.doc.toString();
-  const name = getBufferName();
-  // Persist before recording the save point: markSavedToFile() takes its
-  // reference from the stored buffer, so a stale one would tell the next
-  // session that this work is secured when it is not. This write happens even
-  // with autosave off, because the user asked for a save.
-  flushBuffer();
-  downloadScene(name, code);
-  // downloadScene hands the file to the browser and hears nothing back; there
-  // is no event for "the user kept it", so the handover is the only save point
-  // available.
-  markSavedToFile();
-  _dirtySinceFileSave = false;
-  refreshDirtyDot();
-  // Names the file rather than the scene: the sanitiser may have rewritten the
-  // name to something the filesystem accepts ("50/50" lands as "50 50.js"),
-  // and that is what appears in the downloads folder and on reopen.
-  setStatus('ok', `saved ${shortFilename(sceneFilename(name))} to your downloads`);
-}
-
-sceneSaveEl?.addEventListener('click', handleSaveToFile);
-
-// ─── Open a file ─────────────────────────────────────────────────────────────
-
-async function handleOpenFile(): Promise<void> {
-  let opened: { name: string; code: string } | null;
-  try {
-    opened = await openSceneFile();
-  } catch (err) {
-    // A file was chosen but is not a scene we can read. The message from
-    // scene-file.ts is written to be shown as-is.
-    setStatus('error', (err as Error).message || 'could not open that file');
-    return;
-  }
-  if (opened === null) return;   // picker dismissed; say nothing
-  if (!confirmReplace(`Open "${short(opened.name)}"?`)) {
-    setStatus('', 'open cancelled · nothing replaced');
-    return;
-  }
-  // Not dirty: the editor now holds what is in that file.
-  replaceBuffer(opened.name, opened.code, { dirty: false });
-  // The buffer matches a file on disk, so record it as the reference point;
-  // otherwise a reload would report unsaved work that is already in the file
-  // it was read from.
-  markSavedToFile();
-  setStatus('', `opened "${short(opened.name)}" · ctrl+enter to run`);
-}
-
-sceneOpenEl?.addEventListener('click', () => { void handleOpenFile(); });
 
 // ─── Share link ──────────────────────────────────────────────────────────────
 
@@ -1938,18 +1844,32 @@ async function copyText(text: string): Promise<boolean> {
  * from the button just clicked, so the click read as having done nothing. The
  * confirmation belongs where the eye already is.
  */
-let _shareFlashTimer: ReturnType<typeof setTimeout> | null = null;
-function flashShareCopied(): void {
-  if (_shareFlashTimer) clearTimeout(_shareFlashTimer);
-  sceneShareEl.textContent = 'copied';
-  sceneShareEl.classList.add('copied');
-  _shareFlashTimer = setTimeout(() => {
-    sceneShareEl.textContent = 'share';
-    sceneShareEl.classList.remove('copied');
-    _shareFlashTimer = null;
-  }, 1600);
+const _flashTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+function flashCopied(button: HTMLElement, restore: string): void {
+  const held = _flashTimers.get(button);
+  if (held) clearTimeout(held);
+  button.textContent = 'copied';
+  button.classList.add('copied');
+  _flashTimers.set(button, setTimeout(() => {
+    button.textContent = restore;
+    button.classList.remove('copied');
+    _flashTimers.delete(button);
+  }, 1600));
 }
 
+const shareDialogEl = document.getElementById('share-dialog') as HTMLDialogElement;
+const shareUrlEl = document.getElementById('share-url') as HTMLTextAreaElement;
+const shareNoteEl = document.getElementById('share-note') as HTMLElement;
+const shareCopyEl = document.getElementById('share-copy') as HTMLButtonElement;
+
+/**
+ * Show the link rather than copying it and saying so.
+ *
+ * Copying straight to the clipboard left nothing on screen. You could not read
+ * the link, select part of it, or see how long it was before sending it, and a
+ * long link matters: some chat apps cut them. The dialog shows the link, its
+ * length, and copies on request.
+ */
 async function handleShare(): Promise<void> {
   const code = editorView.state.doc.toString();
   const name = getBufferName();
@@ -1961,18 +1881,45 @@ async function handleShare(): Promise<void> {
     return;
   }
 
-  if (await copyText(url)) {
-    flashShareCopied();
-    setStatus('ok', url.length > LONG_LINK_CHARS
-      ? `share link copied · ${url.length} characters · some apps truncate links this long, use save for a big set`
-      : `share link copied · ${url.length} characters`);
+  shareUrlEl.value = url;
+  shareNoteEl.textContent = url.length > LONG_LINK_CHARS
+    ? `${url.length} characters. Some chat apps cut links this long. Copy the code instead for a long scene.`
+    : `${url.length} characters. The whole scene is in the link, so it cannot expire.`;
+  shareCopyEl.textContent = 'copy link';
+  shareDialogEl.showModal();
+  shareUrlEl.select();
+}
+
+shareCopyEl.addEventListener('click', () => {
+  void (async (): Promise<void> => {
+    if (await copyText(shareUrlEl.value)) {
+      shareCopyEl.textContent = 'copied';
+      return;
+    }
+    // The link is already on screen and selected, so there is something to do
+    // about it rather than nothing.
+    shareCopyEl.textContent = 'copy it by hand';
+    shareUrlEl.select();
+  })();
+});
+
+/**
+ * Copy the whole scene.
+ *
+ * The way work leaves gobo now that there is no save. A scene is text: this
+ * puts it on the clipboard and your own editor keeps it.
+ */
+async function handleCopyScene(): Promise<void> {
+  const code = editorView.state.doc.toString();
+  if (await copyText(code)) {
+    flashCopied(sceneCopyEl, 'copy');
+    setStatus('ok', `copied ${code.length} characters · paste it somewhere you keep files`);
     return;
   }
-  // When the clipboard is unavailable, show the link somewhere the user can
-  // select it by hand.
-  window.prompt('Copy this share link:', url);
-  setStatus('', 'clipboard unavailable · the link was shown so you can copy it');
+  setStatus('error', 'the clipboard is not available here · select the code and copy it by hand');
 }
+
+sceneCopyEl.addEventListener('click', () => { void handleCopyScene(); });
 
 sceneShareEl.addEventListener('click', () => { void handleShare(); });
 
@@ -2104,7 +2051,6 @@ function mountLegacyNotice(): void {
 }
 
 renderSceneName();
-refreshDirtyDot();
 
 // ─── Sliding panels (docs / library / settings) ──────────────────────────────
 // Three independent panels, one visible at a time: opening "library" over an

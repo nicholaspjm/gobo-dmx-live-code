@@ -6,7 +6,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **Save and open are gone. Copy and share replace them.** A scene is text, and
+  the place to keep text is the editor you already use. `copy` puts the whole
+  scene on the clipboard; `share` turns it into a link. The unsaved-work dot went
+  with them: it meant "not yet written to a file", and with no files it would be
+  lit on every buffer anyone had typed into.
+
+- **Share opens a dialog instead of copying in silence.** The link went straight
+  to the clipboard with a line in the status bar, so you could not read it, select
+  part of it, or tell a long link from a short one before sending it. The dialog
+  shows the link and its length, and copies on request.
 
 ## [0.4.0] - 2026-09-19
 
