@@ -39,12 +39,12 @@
     />
     <meta name="twitter:image" content="https://nicholaspjm.github.io/gobo-dmx-live-code/og.png" />
     <meta name="theme-color" content="#1a1714" />
-    <!-- Inline SVG favicon: a small four-pointed "spark" in the accent
-         colour. Replace this <link> with a real icon file later. -->
+    <!-- The tab icon is the same ramp as the wordmark: four bars stepping
+         from solid to nearly nothing, which is what the edge of a beam does. -->
     <link
       rel="icon"
       type="image/svg+xml"
-      href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2032%2032'%3E%3Cpath%20fill%3D'%23c4724a'%20d%3D'M16%202%20L18%2014%20L30%2016%20L18%2018%20L16%2030%20L14%2018%20L2%2016%20L14%2014%20Z'%2F%3E%3C%2Fsvg%3E"
+      href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2048%2048%27%3E%3Cg%20fill%3D%27%23c4724a%27%3E%3Crect%20x%3D%272%27%20%20y%3D%2710%27%20width%3D%2710%27%20height%3D%2728%27%2F%3E%3Crect%20x%3D%2714%27%20y%3D%2710%27%20width%3D%2710%27%20height%3D%2728%27%20opacity%3D%270.7%27%2F%3E%3Crect%20x%3D%2726%27%20y%3D%2710%27%20width%3D%2710%27%20height%3D%2728%27%20opacity%3D%270.45%27%2F%3E%3Crect%20x%3D%2738%27%20y%3D%2710%27%20width%3D%278%27%20%20height%3D%2728%27%20opacity%3D%270.22%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"
     />
     <style>
       * {
@@ -103,12 +103,16 @@
         align-items: center;
         gap: 8px;
       }
-      .wordmark-icon {
+      /* Four block characters stepping from solid to nearly nothing: the edge
+         of a beam, in the font the editor is already using. It is text, so it
+         costs no asset, scales with the type and takes the theme's accent.
+         Letter-spacing is removed so the four read as one ramp rather than
+         four separate marks. */
+      .wordmark-ramp {
         color: var(--accent);
-        font-size: 14px;
+        font-size: 13px;
         line-height: 1;
-        /* Placeholder four-pointed spark; replace later with an SVG inline
-           or an <img> if you want something more detailed. */
+        letter-spacing: 0;
       }
 
       .topbar-right {
@@ -2510,7 +2514,7 @@
   <body>
     <div id="app">
       <header class="topbar">
-        <span class="wordmark"><span class="wordmark-icon" aria-hidden="true">✦</span>gobo</span>
+        <span class="wordmark"><span class="wordmark-ramp" aria-hidden="true">█▓▒░</span>gobo</span>
         <div class="topbar-right">
           <span class="bpm-display">
             bpm
