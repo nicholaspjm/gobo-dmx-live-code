@@ -147,7 +147,7 @@ const DOCS: DocSection[] = [
         name: 'artnet',
         signature: "artnet(host='127.0.0.1', port=6454)",
         description:
-          "Needs the connector: not a plain-browser output, because a web page cannot put network packets on the wire itself. Send Art-Net DMX packets via the bridge. host is the DESTINATION, never your own machine: either the IP printed on your node, or the broadcast address of the subnet your rig is on (192.168.0.255 reaches everything on 192.168.0.x). Your computer must already be on that same subnet, which is the usual reason nothing arrives. Port defaults to 6454. One ArtDmx packet per universe per tick, so multi-universe works by putting fixtures on different universes.",
+          'Needs the connector. Sends Art-Net DMX packets via the bridge. host is the destination, never your own machine: either the IP printed on your node, or the broadcast address of its subnet (192.168.0.255 reaches everything on 192.168.0.x). Your computer has to be on that subnet, which is the usual reason nothing arrives. Port defaults to 6454. One ArtDmx packet per universe per tick, so multi-universe works by putting fixtures on different universes.',
         example: "artnet('2.0.0.100')",
       },
       {
@@ -168,14 +168,14 @@ const DOCS: DocSection[] = [
         name: 'td',
         signature: "td(host='localhost', port=9980)",
         description:
-          "Works in a plain browser, as long as TouchDesigner is already open on this machine with a WebSocket DAT listening. Send straight to a TouchDesigner WebSocket DAT from the browser, with no gobo bridge running. TD receives the frames and puts Art-Net on the wire, so this works from the hosted site on any machine that already has TD open. A page served over https can only reach localhost this way, since browsers block insecure WebSockets to any other host, so TD has to be on the same machine. Setup recipe is in docs/touchdesigner.md.",
+          'Sends straight to a TouchDesigner WebSocket DAT from the browser, with no connector running. TouchDesigner puts the Art-Net on the wire. Over https a page can only reach localhost this way, because browsers block insecure WebSockets to any other host, so TouchDesigner has to be on this machine. The setup recipe is in docs/touchdesigner.md.',
         example: "td('localhost', 9980)",
       },
       {
         name: 'usb',
         signature: 'usb()  ·  usb(universe)',
         description:
-          "Works in a plain browser, with a USB DMX box plugged into this computer and Chrome or Edge. Drive a USB DMX interface straight from the browser, with nothing installed at all. Open the outputs panel from the connection light and choose usb first, to pick the device (browsers require a click for that, so a scene cannot do it), then call usb() to select it as the output. Speaks the Enttec DMX USB Pro protocol, which most interfaces use; raw FTDI dongles that expect the host to time the DMX break are not supported. A DMX line carries one universe: by default it is whichever universe the scene actually drives, the same one the level strip shows, so a scene that never names a universe sends universe 0 whichever calls built it. Pass a number to fix it, as in usb(1), when the rig expects a particular one.",
+          'Drives a USB DMX box straight from the browser, with nothing installed. Chrome or Edge. Open the outputs panel from the connection light and choose usb first to pick the device, because a browser needs a click for that and a scene cannot do it. Then call usb(). Speaks the Enttec DMX USB Pro protocol, which most interfaces use. Raw FTDI dongles that expect the host to time the DMX break are not supported. A DMX line carries one universe, and by default it is whichever universe the scene drives. Pass a number, as in usb(1), to fix it.',
         example: "usb()      // the universe the scene drives\nusb(1)     // that one, whatever the scene does",
       },
       {
@@ -239,7 +239,7 @@ const DOCS: DocSection[] = [
         name: 'a channel is offset, name, type',
         signature: '{ offset, name, type }',
         description:
-          "offset is 0-based and counts from wherever the fixture was patched, so offset 0 of a fixture at channel 21 is channel 21. It is the only thing that decides the address: list the channels in any order you like, as long as each offset is right and no two share one. name is what a scene calls it, so name: 'red' gives you .red(v), and the generic helpers read the names too, which is how .color() knows what to paint and .off() knows what to darken. type is the semantic hint, one of 'intensity', 'color', 'position', 'strobe', 'control', 'generic' or 'strip'; it changes no address at all. It decides how the sim draws the fixture, and a channel typed 'intensity' counts as light whatever it is called, which is how .off() reaches a blinder's warm1 and cold1 without those being colour names. Of the seven, only 'strip' takes more than one channel.",
+          'offset is 0-based and counts from where the fixture was patched, so offset 0 of a fixture at channel 21 is channel 21. It is the only thing that sets the address: list the channels in any order, as long as each offset is right and no two share one. name is what a scene calls it, so name: \'red\' gives you .red(v), and the generic helpers read the names, which is how .color() knows what to paint and .off() knows what to darken. type is a hint, one of \'intensity\', \'color\', \'position\', \'strobe\', \'control\', \'generic\' or \'strip\'. It changes no address. It decides how the sim draws the fixture, and a channel typed \'intensity\' counts as light whatever it is called, which is how .off() reaches a blinder\'s warm1. Only \'strip\' takes more than one channel.',
         example:
           "// the same par, patched twice\nconst a = fixture(21, 'house-par')   // dim on 21, white on 25\nconst b = fixture(41, 'house-par')   // dim on 41, white on 45",
       },
@@ -247,7 +247,7 @@ const DOCS: DocSection[] = [
         name: 'what makes a channel a colour',
         signature: "name: 'red' · name: 'Red_1' · name: 'r', type: 'color'",
         description:
-          "Name a colour channel red, green, blue or white and .color() finds it. Case, spaces, underscores, hyphens and a trailing number are all ignored, so Red_1 and RED and red are the same channel to it, which is the rule .off() and .full() read names by — and the same rule decides what a blackout darkens, so the two cannot disagree. Two kinds of channel are never a mix however they are named: one with slots, which is a wheel picked by slot name, and one of type 'strip', whose colour is per-pixel and reached through the strip. The initials r, g, b and w work as well, but only on a channel declared type: 'color', because g is as likely to be a gobo wheel as it is green and driving a gobo to full on a colour call is worse than asking. Anything else is left alone, and .color() says so rather than painting nothing: use the known words where they fit, and .set(name, v) reaches any channel by its own name regardless.",
+          'Name a colour channel red, green, blue or white and .color() finds it. Case, spaces, underscores, hyphens and a trailing number are ignored, so Red_1, RED and red are the same channel. .off() and .full() read names by the same rule, so a blackout cannot disagree with a colour call. Two kinds of channel are never a mix, however they are named: one with slots, which is a wheel picked by slot name, and one of type \'strip\', whose colour is per-pixel. The initials r, g, b and w work too, but only on a channel declared type: \'color\', because g is as likely to be a gobo wheel as green. Anything else is left alone, and .color() says so. .set(name, v) reaches any channel by its own name.',
         example:
           "// all three of these answer .color(red)\n{ offset: 1, name: 'red',   type: 'color' }\n{ offset: 1, name: 'Red_1', type: 'color' }\n{ offset: 1, name: 'r',     type: 'color' }   // initials need the type\n\n// this one does not: g here is a gobo wheel\n{ offset: 1, name: 'g', type: 'control' }",
       },
@@ -264,7 +264,7 @@ const DOCS: DocSection[] = [
         signature: "fixture(1, 'rgbw')",
         tiers: ['builtin'],
         description:
-          'Nine definitions ship inside gobo for the fixtures that have no personality: dim, rgb, rgbw, rgba, dim-rgb, dim-rgbw, moving-head-basic, moving-head-spot and strobe. Nothing has to be imported, saved or contributed for these, and a scene written against one runs on anyone else\'s machine unchanged. A generic is enough whenever the channels you care about are contiguous and in the order the name implies, which covers most PARs, battens and cheap heads: patch it at the right address and drive it. Write your own instead when the fixture has channels the generic cannot name, when its channels sit in a different order, or when it has pixels. The channel list for each one is under \'built-in fixture catalogue\' at the foot of this tab.',
+          'Nine definitions ship with gobo for fixtures with no personality: dim, rgb, rgbw, rgba, dim-rgb, dim-rgbw, moving-head-basic, moving-head-spot and strobe. Nothing has to be imported or saved, and a scene written against one runs on anyone else\'s machine. A generic is enough whenever the channels you care about are contiguous and in the order the name implies, which covers most PARs, battens and cheap heads. Write your own when the fixture has channels the generic cannot name, when they sit in a different order, or when it has pixels. The channel list for each is under \'built-in fixture catalogue\' at the foot of this tab.',
         example:
           "const par  = fixture(1, 'dim-rgb')      // 4 channels: dim, r, g, b\nconst head = fixture(5, 'moving-head-basic')\nconsole.log(listFixtures())            // every id currently registered",
       },
@@ -336,7 +336,7 @@ const DOCS: DocSection[] = [
         name: 'strip channel (in defineFixture)',
         signature: "{ offset, name, type: 'strip', pixelCount: N, pixelLayout?: 'rgb' | 'rgbw' }",
         description:
-          "The options on the channel itself. What it is is at the top of this tab: it claims pixelCount × channelsPerPixel channels from its offset and exposes a nested StripInstance under its name. pixelLayout defaults to 'rgb' (3 chs/pixel); set it to 'rgbw' for a 4-ch-per-pixel RGBW strip, which gives you .fill(r,g,b,w), .pixel(i,r,g,b,w), and a .white(v) setter. Scalar channels before and after work normally, so a dimmer, a strobe, and a pixel segment can live in one fixture.",
+          'The options on the channel itself. It claims pixelCount x channelsPerPixel channels from its offset and exposes a nested strip under its name. pixelLayout defaults to \'rgb\' (3 channels per pixel); set it to \'rgbw\' for 4, which adds the white argument to .fill() and .pixel() and gives you .white(v). Scalar channels before and after work normally, so a dimmer, a strobe and a pixel segment can live in one fixture.',
         example:
           "defineFixture('my-bar', {\n  name: 'Custom Bar', manufacturer: 'Generic', type: 'generic',\n  channelCount: 12,\n  channels: [\n    { offset: 0,  name: 'dim',    type: 'intensity' },\n    { offset: 1,  name: 'strobe', type: 'strobe' },\n    { offset: 2,  name: 'pixels', type: 'strip', pixelCount: 3 }, // ch 3-11\n    { offset: 11, name: 'mode',   type: 'control' },\n  ],\n})\nconst bar = fixture(100, 'my-bar')\nbar.dim(0.8)\nbar.pixels.fill(sine(), 0, 0)\nbar.pixels.pixel(1, 1, 0, 0)",
       },
@@ -344,7 +344,7 @@ const DOCS: DocSection[] = [
         name: 'fixture library',
         signature: "open the 'library' panel in the top bar",
         description:
-          "All four tiers in one list, tagged the way they are described at the top of this tab, and the place you act on them: save a session fixture to this browser, export one as a .gobo-fixture.json file, delete one of yours, or share it, which opens a pre-filled GitHub page proposing it as a pull request to the public library. Every fixture arriving from outside, a file import or the public bundle, is schema-validated against size and type limits and rejected if its id collides with a built-in. The search runs across all four tiers at once and says which tier a result came from and which field the query landed on, because at a gig you want the fixture and not the tier it happens to be in.",
+          'All four tiers in one list, and the place you act on them: save a session fixture to this browser, export one as a .gobo-fixture.json file, delete one of yours, or share it, which opens a pre-filled GitHub page proposing it to the public library. Every fixture arriving from outside is schema-validated against size and type limits, and rejected if its id collides with a built-in. The search runs across all four tiers at once and says which tier a result came from and which field the query matched.',
       },
     ],
   },
@@ -353,7 +353,7 @@ const DOCS: DocSection[] = [
     category: 'output',
     title: 'stopping, and getting dark for certain',
     blurb:
-      "Ctrl+. and Ctrl+Space stop the clock. What happens to the rig after that is the stop action in settings — and whichever it is set to, pressing the key again always blacks out.",
+      "Ctrl+. and Ctrl+Space stop the clock. What happens to the rig after that is the stop action in settings, and whichever it is set to, pressing the key again always blacks out.",
     entries: [
       {
         name: 'blackout',
@@ -365,19 +365,19 @@ const DOCS: DocSection[] = [
         name: 'freeze last frame',
         signature: 'for a stage you do not want dark',
         description:
-          "Stops the clock and leaves the rig on whatever it was doing, so fixing something in the code does not black the stage out. Nothing is being driven any more — the look is simply the last frame, held.",
+          'Stops the clock and leaves the rig on whatever it was doing, so fixing something in the code does not black the stage out. Nothing is being driven any more. The look is the last frame, held.',
       },
       {
         name: 'press it again to black out',
         signature: 'ctrl+. · ctrl+. ',
         description:
-          "Under freeze the second press clears everything, and the status line offers it while there is still something lit. This matters because freeze used to leave no key that could darken a rig at all: the clock is stopped so nothing rewrites the channels, and hush() needs a scene to run before it can be reached. A panic key you cannot rely on is not a panic key.",
+          'Under freeze, pressing the key again clears everything, and the status line offers it while something is still lit. Freeze on its own leaves no key that can darken the rig, because the clock is stopped and hush() needs a scene to run.',
       },
       {
         name: 'a usb interface carries one universe',
         signature: 'and the run says which are missing',
         description:
-          "A DMX line is one universe, so a USB box can only be handed one of them. Every call defaults to universe 0, so a scene only drives two if it names a second one — and if it does, a run over USB says which universes are not reaching the box. The connector sends every universe, so this only affects USB.",
+          "A DMX line is one universe, so a USB box can only be handed one of them. Every call defaults to universe 0, so a scene only drives two if it names a second one, and if it does, a run over USB says which universes are not reaching the box. The connector sends every universe, so this only affects USB.",
       },
     ],
   },
@@ -386,25 +386,25 @@ const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'running part of a file',
     blurb:
-      "Ctrl+Enter runs the whole document, and that is usually right. Ctrl+Shift+Enter runs only the edits you pointed at — for when the rest of the file is not ready to go on stage.",
+      "Ctrl+Enter runs the whole document, and that is usually right. Ctrl+Shift+Enter runs only the edits you pointed at, for when the rest of the file is not ready to go on stage.",
     entries: [
       {
         name: 'ctrl+shift+enter',
         signature: 'run only the edits in this block',
         description:
-          "Takes the document that is currently running and applies just the edits inside your selection — or, with nothing selected, inside the run of non-blank lines around the cursor, which in a performance file is one look. Everything else on the rig carries on exactly as it was.",
+          'Takes the document that is currently running and applies just the edits inside your selection. With nothing selected it takes the run of non-blank lines around the cursor, which in a performance file is one look. Everything else on the rig carries on as it was.',
       },
       {
         name: 'why it exists',
         signature: 'ctrl+enter commits everything',
         description:
-          "Not for keeping other looks alive: a whole-document run already does that, invisibly — the clock is never reset by a run and every control keeps its position, so re-running unchanged code cannot be seen on the rig. It is about what a keypress COMMITS. Nudge a level in the look that is lit and the half-written look you were drafting for the next song goes live with it, as long as it happens to parse.",
+          'Not for keeping other looks alive: a whole-document run already does that, invisibly. The clock is never reset by a run and every control keeps its position, so re-running unchanged code cannot be seen on the rig. This is about what a keypress commits. Nudge a level in the look that is lit and the half-written look you were drafting for the next song goes live with it, as long as it happens to parse.',
       },
       {
         name: 'a broken line elsewhere stops blocking you',
         signature: 'the useful half',
         description:
-          "The whole document is compiled as one unit, so a half-typed line anywhere refuses the entire run — you cannot change the level in the look that is up until the one you are drafting parses. Running the block you pointed at gets past that, because the line you are drafting is simply not in what gets compiled.",
+          'The whole document is compiled as one unit, so a half-typed line anywhere refuses the entire run. You cannot change the level in the look that is up until the one you are drafting parses. Running the block you pointed at gets past that, because the line you are drafting is not in what gets compiled.',
       },
       {
         name: 'lines that are not on the rig are marked',
@@ -416,7 +416,7 @@ const DOCS: DocSection[] = [
         name: 'what actually runs',
         signature: 'always a whole document',
         description:
-          "The engine is never handed a fragment. What gets compiled is a complete document — the last one that ran, plus your edits — so the channel map is still replaced whole, patching still happens once, brightness is still inferred across the whole rig, and hush() still means blackout. Nothing about the output path changes.",
+          'The engine is never handed a fragment. What gets compiled is always a complete document: the last one that ran, plus your edits. The channel map is still replaced whole, patching still happens once, brightness is still inferred across the whole rig, and hush() still means blackout. Nothing about the output path changes.',
       },
     ],
   },
@@ -469,13 +469,13 @@ const DOCS: DocSection[] = [
     category: 'patterns',
     title: 'looks you can switch between',
     blurb:
-      "One file is one performance, and a look inside it is a function you wrote. cue() is how you change which one is live without editing the file — with a chip under the editor, a key, or a button on a controller.",
+      "One file is one performance, and a look inside it is a function you wrote. cue() is how you change which one is live without editing the file, with a chip under the editor, a key, or a button on a controller.",
     entries: [
       {
         name: 'cue',
         signature: 'cue({ verse, chorus, breakdown })',
         description:
-          "Offers those looks and runs whichever one is selected. The shorthand names each look after the function itself, so the label on the chip and the name in the code cannot drift apart; pass an explicit name — cue({ 'big hit': chorus }) — when the look reads better as something else. Returns the name it ran.",
+          "Offers those looks and runs whichever one is selected. The shorthand names each look after the function itself, so the label on the chip and the name in the code cannot drift apart; pass an explicit name, cue({ 'big hit': chorus }), when the look reads better as something else. Returns the name it ran.",
         example:
           "const wash = rgbStrip(1, 8)\n\nconst verse     = () => { wash.color(blue) }\nconst chorus    = () => { wash.color(red) }\nconst breakdown = () => { wash.mono(pulse(4)) }\n\ncue({ verse, chorus, breakdown })",
       },
@@ -483,7 +483,7 @@ const DOCS: DocSection[] = [
         name: 'writing the choice instead',
         signature: 'cue(looks, selector)',
         description:
-          "A second argument makes the switch part of the scene. The selector is read every frame, so the look changes without the document being evaluated again — which is the difference between a cue you perform and a cue that is in the pattern. Give it a pattern of names or indices, or a live control. A number is an index and wraps, so a fader between looks is declared with a range: slider('look', 0, 2, { step: 1 }).",
+          "A second argument makes the switch part of the scene. The selector is read every frame, so the look changes without the document being evaluated again, which is the difference between a cue you perform and a cue that is in the pattern. Give it a pattern of names or indices, or a live control. A number is an index and wraps, so a fader between looks is declared with a range: slider('look', 0, 2, { step: 1 }).",
         example:
           "const wash = rgbStrip(1, 8)\n\nconst verse  = () => { wash.color(blue) }\nconst chorus = () => { wash.color(red) }\n\ncue({ verse, chorus }, mini('<verse chorus chorus verse>'))",
       },
@@ -491,31 +491,31 @@ const DOCS: DocSection[] = [
         name: 'what a selector does to the bar',
         signature: 'the chips become a cast list',
         description:
-          "A scene that chooses its own look has no one look that is up, so no chip is lit and none can be pressed — the bar says 'chosen by the scene' and lists the names. A bar claiming a live look while a pattern quietly moved between them would be the screen disagreeing with the rig.",
+          "A scene that chooses its own look has no one look that is up, so no chip is lit and none can be pressed, the bar says 'chosen by the scene' and lists the names. A bar claiming a live look while a pattern quietly moved between them would be the screen disagreeing with the rig.",
       },
       {
         name: 'a look that is not selected is dark',
         signature: 'switching, not layering',
         description:
-          "Every look is run, and each channel any of them drives gets one value that resolves whichever look the selector names. A channel a look does not touch reads zero while that look is up — the same rule as running the file again with a different look called. Two looks that both want a control need one name each, because with a selector both are run.",
+          "Every look is run, and each channel any of them drives gets one value that resolves whichever look the selector names. A channel a look does not touch reads zero while that look is up, the same rule as running the file again with a different look called. Two looks that both want a control need one name each, because with a selector both are run.",
       },
       {
         name: 'picking one',
         signature: 'a chip, alt+1..9, or a program change',
         description:
-          "Every look gets a chip on the cue bar under the editor, numbered. Click it, or press alt and its number — alt rather than a bare digit, because a bare digit is a number you are typing into a scene. A MIDI controller sends program change N for cue N+1, which is the message desks and pad controllers already send for 'recall', so a hardware button works with no mapping. The bar is hidden entirely in a file that does not call cue().",
+          "Every look gets a chip on the cue bar under the editor, numbered. Click it, or press alt and its number, alt rather than a bare digit, because a bare digit is a number you are typing into a scene. A MIDI controller sends program change N for cue N+1, which is the message desks and pad controllers already send for 'recall', so a hardware button works with no mapping. The bar is hidden entirely in a file that does not call cue().",
       },
       {
         name: 'what happens when you pick',
         signature: 'the file runs again',
         description:
-          "Which function runs is decided when the file is evaluated, not while it plays — so a fader can ride a level inside the live look but cannot select the look. Picking a cue therefore runs the file again with that one selected. That is not a seam: a run stages the whole scene and swaps it in at a tick boundary, so the rig holds the old look right up to the moment the new one is complete. Your document is not touched and not reformatted.",
+          "Which function runs is decided when the file is evaluated, not while it plays, so a fader can ride a level inside the live look but cannot select the look. Picking a cue therefore runs the file again with that one selected. That is not a seam: a run stages the whole scene and swaps it in at a tick boundary, so the rig holds the old look right up to the moment the new one is complete. Your document is not touched and not reformatted.",
       },
       {
         name: 'a look that fails changes nothing',
         signature: 'the rig holds, the selection goes back',
         description:
-          "If the look you picked throws, the run is discarded and the rig stays exactly as it was — and the selection returns to the look that is actually lit, so the cue bar, the rig and the next run all agree. The error names the line.",
+          "If the look you picked throws, the run is discarded and the rig stays exactly as it was, and the selection returns to the look that is actually lit, so the cue bar, the rig and the next run all agree. The error names the line.",
       },
       {
         name: 'the selection outlives a run',
@@ -544,7 +544,7 @@ const DOCS: DocSection[] = [
         name: 'what gets outlined',
         signature: "tokens inside mini('…')",
         description:
-          "A token is outlined when a value it produced was written to a channel above zero on that tick. A rest, a zero, and a token inside a pattern nothing is listening to stay plain — so a string that lights nothing looks like one, which is usually the answer you were after. Two channels driven by one token outline it once; several patterns running at once each outline their own step.",
+          "A token is outlined when a value it produced was written to a channel above zero on that tick. A rest, a zero, and a token inside a pattern nothing is listening to stay plain, so a string that lights nothing looks like one, which is usually the answer you were after. Two channels driven by one token outline it once; several patterns running at once each outline their own step.",
         example:
           "const bar = rgbStrip(1, 8)\nbar.red(mini('1 - 1 -'))\nbar.blue(mini('0 1 0 1'))",
       },
@@ -552,7 +552,7 @@ const DOCS: DocSection[] = [
         name: 'only plain mini() calls',
         signature: "mini('1 0 1 0'), not mini(someString)",
         description:
-          "The offsets are found by reading the source, and it is deliberately timid about what it will read: a single quoted literal written straight into the call. A string built from a variable, one carrying a backslash escape, or a call already given a second argument is left alone. Those scenes run exactly as before and simply get no outline — the scene is worth more than the decoration.",
+          "The offsets are found by reading the source, and it is deliberately timid about what it will read: a single quoted literal written straight into the call. A string built from a variable, one carrying a backslash escape, or a call already given a second argument is left alone. Those scenes run exactly as before and simply get no outline, the scene is worth more than the decoration.",
       },
     ],
   },
@@ -654,7 +654,7 @@ const DOCS: DocSection[] = [
         name: 'midi',
         signature: 'midi(cc, { channel = 1, start = 0 })',
         description:
-          "The same thing with a real fader under it. midi(74) is continuous controller 74 on channel 1, read live at query time the way a slider is, so the hardware moves the light on the next tick rather than on the next run. Values arrive 0..127 and are handed on as 0..1, the domain every other value in a scene is in. Continuous controllers only: a note is a different question. Turn it on under inputs in the outputs panel first, which is where the browser's one-time permission prompt happens; that panel then names each controller as you move it, which is how you find out what your box sends without its manual.",
+          'A hardware fader as a value. midi(74) is continuous controller 74 on channel 1, read live at query time, so the fader moves the light on the next tick rather than on the next run. Values arrive 0..127 and are handed on as 0..1. Continuous controllers only. Turn it on under inputs in the outputs panel first, where the browser asks permission once. That panel then names each controller as you move it, which is how you find out what your box sends.',
         example:
           "const level = midi(74)\nspot.dim(level)\n\nconst hue = midi(1, { channel: 2, start: 0.5 })\nwash.red(hue)",
       },
@@ -1012,21 +1012,21 @@ const DOCS: DocSection[] = [
         name: 'pick',
         signature: "pick(name, { start }) => Color",
         description:
-          "A colour with a wheel behind it. The name labels it and stores the colour, so a colour chosen during a show survives an edit, the way a slider keeps its position. A swatch appears beside the call, and clicking it opens a colour wheel: hue around the disc, saturation out from the middle, brightness on the bar beside it. It takes the arrow keys as well as the mouse, and closes on Escape or a click away. Its three components are read live, so turning the wheel moves the rig without re-running the scene. It is a colour value, so it reaches every call that takes one. `start` is the opening colour, written without quotes like any other.",
+          'A colour with a wheel behind it. The name labels it and stores the colour, so a colour chosen during a show survives an edit. A swatch appears beside the call, and clicking it opens a wheel: hue around the disc, saturation out from the middle, brightness on the bar beside it. Arrow keys work, and Escape closes it. Its components are read live, so turning the wheel moves the rig without re-running the scene. It is a colour value, so it reaches every call that takes one. start is the opening colour, written without quotes.',
         example: "const warm = pick('warm', { start: amber })\nwash.color(warm)\nstrip.fill(warm)\nstrip.chase(warm)",
       },
       {
         name: 'colours',
         signature: 'red · orange · amber · yellow · green · cyan · blue · purple · magenta · pink · white',
         description:
-          "A colour is a value, written without quotes. There are two ways to say one and only two: a predefined name from this list, or a mix of three numbers from 0 to 1. Both reach every call that takes a colour, so a colour written once can be moved anywhere. A quoted colour is refused, and the message names the identifier to use instead. Note `white` here is the r,g,b mix: on a fixture with a dedicated white emitter, use .full() to light every emitter it has. Slot names on a wheel are a different thing and stay quoted, because they are the manufacturer's labels for mechanical positions ('open', 'red/blue') rather than colours you can mix.",
+          'A colour is a value, written without quotes. Two ways to say one: a predefined name from this list, or a mix of three numbers from 0 to 1. Both reach every call that takes a colour. A quoted colour is refused, and the message names the identifier to use. Note that white here is the r,g,b mix; on a fixture with a dedicated white emitter, use .full() to light every emitter. Slot names on a wheel stay quoted, because they are the manufacturer\'s labels for mechanical positions rather than colours you can mix.',
         example: 'wash.pixels.chase(red)\nwash.color(1, 0.4, 0)\nwash.pixels.chase(1, 0.4, 0, { cycles: 2 })',
       },
       {
         name: '.stut · .linger · .when',
         signature: '.stut(n, feedback, time) · .linger(fraction) · .when(test, fn)',
         description:
-          "Three that arrived free on strudel's Pattern and were never written down, so nobody could find them. .stut repeats n times, each quieter than the last, which is an echo that decays: it is the trail effect, already built in, and the reason a feedback command was not needed. .linger repeats the first fraction of a cycle for the whole cycle, a hold or a stutter. .when applies a transformation only on the cycles where its test passes, so a scene can change every fourth bar without a second pattern.",
+          'Three that come from strudel\'s Pattern. .stut repeats n times, each quieter than the last, which is an echo that decays. .linger repeats the first fraction of a cycle for the whole cycle, a hold or a stutter. .when applies a transformation only on cycles where its test passes, so a scene can change every fourth bar without a second pattern.',
         example:
           "wash.dim(flash().stut(4, 0.6, 0.125))\nwash.dim(mini('1 0 0 0').linger(0.25))\nwash.dim(sine().when(c => c % 4 === 0, p => p.fast(4)))",
       },
@@ -1041,7 +1041,7 @@ const DOCS: DocSection[] = [
         name: 'named moves',
         signature: 'pulse(cycles) · strobe(per) · flash(per, tail) · flicker(amount) · adsr(a, d, s, r)',
         description:
-          "Five gestures a desk has a button for, each one strudel expression you would otherwise have to know to write. They are ordinary patterns, so they chain and stack like anything else. pulse is the slow swell. strobe is hard on and off, `per` times a cycle, for fixtures with no strobe channel of their own. flash is the sharp hit on a kick: `tail` is how much of each beat it stays lit, 0.3 for a snap and 0.9 for nearly a sawtooth. flicker wanders around full, for candles and failing lamps. adsr is an envelope to multiply onto any of them, four fractions of a cycle spelled the way a synth spells them. The trick inside flash and adsr is worth knowing on its own: a channel clamps below zero, so pushing most of a wave under the line leaves only its tip above, which is how a linear ramp becomes a sharp hit.",
+          'Five gestures a desk has a button for. They are ordinary patterns, so they chain and stack. pulse is the slow swell. strobe is hard on and off, per times a cycle, for a fixture with no strobe channel. flash is the sharp hit on a kick, and tail is how much of each beat it stays lit: 0.3 for a snap, 0.9 for nearly a sawtooth. flicker wanders around full, for candles and failing lamps. adsr is an envelope to multiply onto any of them, in four fractions of a cycle. One thing inside flash and adsr is worth knowing: a channel clamps below zero, so pushing most of a wave under the line leaves only its tip above, which turns a linear ramp into a sharp hit.',
         example:
           'wash.dim(pulse(4))\nwash.dim(flash())                       // on every beat\nwash.dim(flash(1, 0.9))                 // longer tail\nstrb.dim(strobe(16))\nwash.dim(flicker(0.4))\nwash.dim(flicker().mul(adsr(0.1, 0.1, 0.7, 0.2)))\nwash.dim(stack(pulse(8), flash()))      // layered, brightest wins',
       },
@@ -1049,7 +1049,7 @@ const DOCS: DocSection[] = [
         name: 'sparkle',
         signature: 'strip.each((p, i) => rand().early(i * 0.37).range(-3, 1))',
         description:
-          "Random pixels lighting and dying: not a built-in, because it is four tokens once you know the two tricks in it. rand() is one signal, so every pixel handed the same one twinkles in lockstep and the strip just breathes; .early(i * 0.37) gives each pixel its own place in that stream. And .range(-3, 1) puts three quarters of the signal below zero, where the channel clamps it, so only the occasional peak shows. Raise the floor for more sparkle, lower it for less.",
+          'Random pixels lighting and dying, in four tokens. rand() is one signal, so every pixel handed the same one twinkles in lockstep; .early(i * 0.37) gives each pixel its own place in that stream. .range(-3, 1) puts three quarters of the signal below zero, where the channel clamps it, so only the occasional peak shows. Raise the floor for more sparkle, lower it for less.',
         example:
           'strip.each((p, i) => rand().early(i * 0.37).range(-3, 1))\n\n// warmer, and sparser\nstrip.each((p, i) => [rand().early(i * 0.37).range(-6, 1), 0, 0])',
       },
@@ -1057,7 +1057,7 @@ const DOCS: DocSection[] = [
         name: '.chase',
         signature: 'strip.chase(color, { cycles?, width?, waves?, reverse?, down?, early? })',
         description:
-          "A band of one colour travelling along the strip, endlessly. The plain way to get a moving light: no callback, no phase arithmetic. Colour by name, written without quotes: red, orange, amber, yellow, green, cyan, blue, purple, magenta, pink, white. Or as a mix of three numbers 0 to 1, spelled the way .color(r, g, b) spells it. A quoted colour is refused and told which identifier to use. `cycles` is how long one lap takes, 4 by default, and bigger is slower. `width` is how much of the strip is lit at once, 0 to 1: at 1 it is a smooth swell with no dark part, and small values give a tight moving band. `waves` puts more than one crest on at a time. `reverse` sends it the other way. `down` runs it along the rows instead of the columns, on a strip that has a grid. `early` starts it that many cycles ahead so two chases can run out of step, and a negative number starts it later. Every option also has a verb on the end of the call, because those are the words people already have: .slow(n), .fast(n), .early(n), .late(n), .reverse(), .down(), .width(n) and .waves(n) each restate the chase with one thing changed, and compose in any order. A chase travels left to right, or top to bottom under .down(); .reverse() sends it the other way. On a single-channel strip there is no colour to name, so it takes options alone.",
+          'A band of colour travelling along the strip. Colour by name without quotes, or three numbers 0 to 1. A quoted colour is refused, and the message names the identifier to use. Options: cycles is how long one lap takes (4 by default, bigger is slower), width is how much is lit at once (0 to 1), waves puts more than one crest on at a time, reverse sends it the other way, down runs it along the rows of a grid, early starts it that many cycles ahead. Each option also has a verb: .slow(n), .fast(n), .early(n), .late(n), .reverse(), .down(), .width(n) and .waves(n), in any order. A single-channel strip has no colour to name, so it takes options alone.',
         example:
           'wash.pixels.chase(red)\nwash.pixels.chase(blue, { cycles: 2, width: 0.2 })\nwash.pixels.chase(1, 0.4, 0, { reverse: true })\ncells.chase({ waves: 2 })',
       },
@@ -1065,7 +1065,7 @@ const DOCS: DocSection[] = [
         name: '.rainbowChase',
         signature: 'strip.rainbowChase({ cycles?, width?, waves?, hue? })',
         description:
-          "A single bright pixel sweeps across the strip while its colour walks the hue wheel. Each pixel gets a cosine brightness envelope offset by its position (.early(i/N) shifts pixel i's peak later in the cycle), thresholded via .range(-narrow, 1) so most of the cycle sits below zero. The DMX pipeline clamps negatives to 0, leaving the tip above zero as the lit window. Bigger `narrow` gives a narrower window and fewer pixels lit at once. The hue comes from three sines 120° apart on R/G/B, so only one primary peaks at a time. Options are spelled as .chase() spells them: cycles for the lap time (2), width for how much is lit at once (0.11), waves for crests at a time (1), plus hue for cycles per turn of the hue wheel (12). They used to be speed, narrow and packets here, with narrow inverted against width, which made reaching for the neighbour's word the likeliest mistake. Works on RGB (rgbStrip) and RGBW (rgbwStrip, bar.pixels) instances. It writes r, g and b only, so a dedicated white stays where the scene put it; use .white(0) first if you want the hues on their own.",
+          'A single bright pixel sweeps across the strip while its colour walks the hue wheel. Options are spelled as .chase() spells them: cycles for the lap time (2), width for how much is lit at once (0.11), waves for crests at a time (1), and hue for cycles per turn of the hue wheel (12). Works on rgbStrip and rgbwStrip. It writes r, g and b only, so a dedicated white stays where the scene put it. Call .white(0) first to see the hues on their own.',
         example:
           "strip.rainbowChase()\nstrip.rainbowChase({ cycles: 0.5, width: 0.06 })   // fast, tight band\nbar.pixels.rainbowChase({ waves: 2, hue: 4 })          // two crests, quicker hue",
       },
@@ -1106,7 +1106,7 @@ const DOCS: DocSection[] = [
         name: 'a palette is an array',
         signature: 'const warm = [amber, orange, red]',
         description:
-          "Several colours are a plain array, with no palette type and no constructor to learn. Everything you already know about arrays therefore works: warm[0] takes one stop, [...warm].reverse() turns it round, warm.slice(0, 2) shortens it, and cat(...warm) puts it in time. An array of numbers stays one colour and is never a palette, so [1, 0, 0.5] is a mix. A colour is its own kind of value and a number is not, so the two cannot be mistaken for each other.",
+          'Several colours are a plain array, with no palette type to learn. Array operations work: warm[0] takes one stop, [...warm].reverse() turns it round, warm.slice(0, 2) shortens it, and cat(...warm) puts it in time. An array of numbers stays one colour, so [1, 0, 0.5] is a mix, not a palette.',
         example:
           "const warm = [amber, orange, red]\nstrip.fill(warm)\nstrip.fill([...warm].reverse())\nstrip.fill(warm.slice(0, 2))\nwash.color(warm[0])",
       },
@@ -1114,7 +1114,7 @@ const DOCS: DocSection[] = [
         name: '.fill',
         signature: 'strip.fill(warm)  ·  strip.fill(red, blue)',
         description:
-          "Spreads whatever stops it was given across the pixels, endpoint to endpoint: the first colour lands on the first pixel, the last on the last, blended in between. Two colours are the two-stop gradient, which used to paint the first one and drop the second without saying so. One colour repeats, so .fill(red) writes what it always wrote. Three or more values that are not colours is still the per-component spelling, so .fill(sine(), 0, cosine()) is unchanged.",
+          'Spreads the stops it was given across the pixels, endpoint to endpoint: the first colour on the first pixel, the last on the last, blended between. One colour repeats across the whole strip. Three or more values that are not colours is the per-component spelling, so .fill(sine(), 0, cosine()) drives r, g and b.',
         example:
           "strip.fill(warm)                  // amber at one end, red at the other\nstrip.fill(red, blue)             // two stops\nstrip.fill(red)                   // every pixel\nstrip.fill(sine(), 0, cosine())   // per component, as before",
       },
@@ -1122,28 +1122,28 @@ const DOCS: DocSection[] = [
         name: '.mono · brightness on any light',
         signature: 'light.mono(v)  ·  light.mono(pulse(4))',
         description:
-          "Every emitter at one level: white, as bright as you ask for. This is the brightness that works on anything, because .dim() cannot: .dim() is a channel setter, so it is there only when the fixture's definition has a dimmer, and a bare rgb par keeps its brightness in its colour and has none. .mono() drives whatever the light uses to make light — a master, three colours, four, a whole strip of pixels — to the same value. It takes a pattern like any other value, so the breathing you would write as .dim(pulse(4)) on one fixture works on all of them.",
+          'Every emitter at one level: white, as bright as you ask. It works on any light, which .dim() does not. .dim() is a channel setter, so it exists only where the definition has a dimmer, and a bare rgb par keeps its brightness in its colour. .mono() drives whatever the light uses to make light, whether that is a master, three colours, four, or a strip of pixels. It takes a pattern, so .mono(pulse(4)) breathes.',
         example: 'par.mono(0.5)          // half, in white\npar.mono(pulse(4))     // breathing, on a par with no dimmer\nbar.mono(0.2)          // a whole strip, evenly\nrig.mono(flicker())    // a mixed rig, together',
       },
       {
         name: '.temp · white in Kelvin',
         signature: 'wash.temp(3200)',
         description:
-          "White at a colour temperature, the way lighting has always said it. 2000 is candlelight, 2700 a domestic lamp, 3200 tungsten, 5600 daylight, 6500 neutral, and past that it goes blue — warmer is a smaller number, which is backwards from how it feels until you have said it a few times. It sets what colour the white is and not how bright, so pair it with .mono() or a dimmer. Works on a fixture, a group and a colour strip; a single-channel strip has no colour to set.",
+          'White at a colour temperature. 2000 is candlelight, 2700 a domestic lamp, 3200 tungsten, 5600 daylight, 6500 neutral, and past that it goes blue. Warmer is a smaller number. It sets what colour the white is, not how bright, so pair it with .mono() or a dimmer. Works on a fixture, a group and a colour strip. A single-channel strip has no colour to set.',
         example: 'wash.temp(3200)              // tungsten\nwash.temp(5600)              // daylight\nwash.temp(2700); wash.mono(0.4)   // a warm lamp, low\nrig.temp(4000)               // the whole rig matched',
       },
       {
         name: '.solo · just this one',
         signature: 'spot.solo()',
         description:
-          'Darkens every other light this scene patched and leaves this one alone — the button every desk has, for answering "just that one, now" without unpicking the look around it. The others are darkened rather than forgotten, so running the scene again brings the whole thing back. Only lights this run patched are known, which is the same window the rest of the engine works in: a run re-patches what it uses.',
+          'Darkens every other light this scene patched and leaves this one alone, the button every desk has, for answering "just that one, now" without unpicking the look around it. The others are darkened rather than forgotten, so running the scene again brings the whole thing back. Only lights this run patched are known, which is the same window the rest of the engine works in: a run re-patches what it uses.',
         example: 'spot.solo()            // just the spot\nbar.pixels.solo()      // just the bar\n// ctrl+enter again puts the look back',
       },
       {
         name: '.color on a strip',
         signature: 'strip.color(warm)  ·  strip.color(red)',
         description:
-          "The same call as .fill(), under the word every other light here answers to. A par takes .color(red) and a group takes .color(red), and a strip used to be the one thing that spelled it .fill(), so a scene had to remember which kind of light it was talking to. Both names stay, and they are the same function: .fill() is the older spelling and nothing that uses it needs changing. A mono strip has no colour to set and gains neither, which is why a cell takes a level instead.",
+          'The same call as .fill(), under the word every other light answers to. A par takes .color(red), a group takes .color(red), and so does a strip. Both names are the same function. A mono strip has no colour to set and takes a level instead.',
         example:
           "bar.pixels.color(red)             // every pixel\nbar.pixels.color(warm)            // a gradient across them\nbar.pixels.color(red, blue)       // the same, as two stops\nbar.pixels.fill(red)              // the older spelling, unchanged",
       },
@@ -1151,7 +1151,7 @@ const DOCS: DocSection[] = [
         name: 'a palette across a group',
         signature: 'rig.color(warm)',
         description:
-          "A group spreads the stops across its members in the order they were written, one colour each, by the same endpoint-to-endpoint rule the strips use. A single colour paints the whole group, which is new: rig.color(red) used to throw asking for all three of r, g and b, so the only spelling that worked was rig.color(1, 0, 0).",
+          'A group spreads the stops across its members in the order they were written, one colour each, by the same endpoint-to-endpoint rule the strips use. A single colour paints the whole group.',
         example:
           "const rig = group(washA, washB, washC)\nrig.color(warm)   // amber, orange, red, in that order\nrig.color(red)    // all three",
       },
@@ -1167,7 +1167,7 @@ const DOCS: DocSection[] = [
         name: 'a run goes where there is room for it',
         signature: 'wash.color(warm) spreads · par.color(warm) is refused',
         description:
-          "How many positions a light has decides what a run of stops means on it. A fixture with pixels has as many positions as it has pixels, so .color(warm) spreads the palette across them, endpoint to endpoint, exactly as .fill(warm) does on the strip underneath. A par is one position and has nowhere to put a gradient, so it refuses the palette rather than quietly painting the first stop and dropping the rest, and the message names the two things you probably meant: warm[0] for one stop, or cat(...warm).slow(4) for the whole palette in time. The same refusal covers a strip's .pixel(), which is one position wherever it sits. A single-channel strip refuses a colour outright, because a cell that is one channel has nothing to mix, and points at a level or at .each().",
+          'How many positions a light has decides what a run of stops does on it. A fixture with pixels has one position per pixel, so .color(warm) spreads the palette across them, the same as .fill(warm) on the strip underneath. A par is one position and has nowhere to put a gradient, so it refuses the palette rather than painting the first stop and dropping the rest. The message names the two things you probably meant: warm[0] for one stop, or cat(...warm).slow(4) for the whole palette in time. The same refusal covers .pixel(), which is one position wherever it sits. A single-channel strip refuses a colour outright and points at a level or at .each().',
         example:
           "wash.color(warm)                    // a wash with pixels: a gradient across them\nwash.color(red, blue)               // the same, written as two stops\npar.color(warm)                     // one position: refused, and told what to write\npar.color(warm[0])                  // one stop\npar.color(cat(...warm).slow(4))     // the palette, in time\n\nseg.fill(0.5)                       // mono strip: a level, not a colour",
       },
@@ -1199,7 +1199,7 @@ const DOCS: DocSection[] = [
         name: 'colour tokens',
         signature: "mini('r - g - b')",
         description:
-          "A mini string works in a colour position, so a colour sequences with the same notation as a level. A token is one of the eleven names, matched by the full name or by any prefix that names only one colour: 'r' is red, 'cy' is cyan, 'ma' is magenta. Every name but purple and pink is reachable by its first letter, and 'p' is refused because it could be either of those two; the message says so and offers 'pu' and 'pi'. A token that is not a colour throws while the scene is being evaluated, and the whole run rolls back rather than half a scene going live. The exception is a token hidden behind an alternation, where only the first cycle is inspected: mini('<red bluu>') passes that check, reports to the console when its cycle comes round, and reads dark on it.",
+          'A mini string works in a colour position, so colours sequence with the same notation as levels. A token is one of the eleven names, matched in full or by any prefix that names only one colour: \'r\' is red, \'cy\' is cyan, \'ma\' is magenta. Every name but purple and pink is reachable by its first letter. \'p\' is refused because it could be either, and the message offers \'pu\' and \'pi\'. A token that is not a colour throws while the scene is evaluated, and the whole run rolls back. The exception is a token behind an alternation, where only the first cycle is checked: mini(\'<red bluu>\') passes that check, reports to the console when its cycle comes round, and reads dark on it.',
         example:
           "wash.color(mini('r - g - b'))\nwash.color(mini('cy ma ye'))\nstrip.fill(mini('<red blue>'))    // one colour, alternating per bar",
       },
@@ -1247,7 +1247,7 @@ const DOCS: DocSection[] = [
       {
         name: 'sine',
         signature: 'sine()',
-        description: 'Sine wave, one full cycle per cycle — which is one bar, or four beats — output 0-1. Smooth breathing motion. At 120 BPM that is one breath every two seconds; .fast(4) makes it one per beat.',
+        description: 'Sine wave, one full cycle per cycle, which is one bar, or four beats, output 0-1. Smooth breathing motion. At 120 BPM that is one breath every two seconds; .fast(4) makes it one per beat.',
         example: 'washA.red(sine())',
       },
       {
@@ -1388,7 +1388,7 @@ const DOCS: DocSection[] = [
         name: 'drum grid',
         signature: "one mini() per channel, same length",
         description:
-          "Split the same 16-step rhythm across R/G/B/W, or across several fixtures. Match the bar count between strings and group tokens in fours so the columns line up, the way a drum-machine grid does. The starter example has a live version on the wash fixture.",
+          'Split the same 16-step rhythm across R/G/B/W, or across several fixtures. Match the bar count between strings and group tokens in fours so the columns line up. The starter example has a live version on the wash fixture.',
         example:
           "wash.red(  mini('1 - - -  - - 1 -  - - 1 -  - - - -'))\nwash.green(mini('- - 1 -  1 - - -  - - - -  - 1 - -'))\nwash.blue( mini('- 1 - -  - - - 1  - 1 - -  1 - - 1'))\nwash.white(mini('- - - 1  - - - -  - - - 1  - - - -'))",
       },
@@ -1590,7 +1590,7 @@ const DOCS: DocSection[] = [
         name: 'one string, many lines',
         signature: 'mini(`…`) with backticks',
         description:
-          'Backticks let a mini string run across lines, and a newline counts as ordinary whitespace. Nothing about the timing changes, so an eight-bar cue can be laid out eight tokens to a line and read like a grid. Line up your columns and the shape of the cue is visible in the source.',
+          'Backticks let a mini string run across lines, and a newline counts as ordinary whitespace. Nothing about the timing changes, so an eight-bar cue can be laid out eight tokens to a line. Line up the columns and the shape of the cue is visible in the source.',
         example:
           "wash.red(mini(`\n  1 - - -  - - 1 -\n  - - 1 -  1 - - -\n  0.5 - 0.5 -  - - - -\n  1 1 - -  - - 1 1\n`).slow(4))",
       },
@@ -1688,7 +1688,7 @@ const DOCS: DocSection[] = [
         name: 'what a pattern about sound does here',
         signature: "sine().gain(0.5)  ·  .room(…)  ·  .s('bd')",
         description:
-          "Patterns copied from strudel keep working, because gobo runs strudel's own engine: every chain method is there, under strudel's names. Some of them describe sound, and a lamp has no equivalent for most of it. What happens is decided once, where a pattern's value reaches a channel. A plain number is the level. A value that arrives wrapped — which is what every sound method produces, .s('bd') giving { value: 1, s: 'bd' } — is unwrapped, so the level underneath still drives the light rather than reading as nothing and going dark. gain is the exception that is kept, because gain is amplitude and amplitude is level: it multiplies, which is what makes .stut() and .echo() come out as repeats that decay instead of repeats at full. Everything that describes sound and not level — speed, pan, room, crush, note, the sample name — is ignored on purpose. Nothing errors, so a pasted pattern runs; it simply drives the light with the part of itself that means brightness.",
+          'Patterns copied from strudel work, because gobo runs strudel\'s own engine under strudel\'s names. Many of those methods describe sound. What happens is decided where a value reaches a channel: a plain number is the level, and a wrapped value is unwrapped so the level underneath still drives the light instead of reading as nothing. gain is kept, because gain is amplitude and amplitude is level. It multiplies, which is what makes .stut() and .echo() decay instead of repeating at full. speed, pan, room, crush, note and the sample name are ignored. Nothing errors, so a pasted pattern runs.',
         example: "wash.dim(flash().stut(4, 0.6, 0.125))   // gain folds in: the repeats decay\nwash.red(sine().gain(0.5))              // half level\nwash.red(sine().room(0.8))              // room ignored, sine drives it",
       },
       {
@@ -1793,7 +1793,7 @@ const DOCS: DocSection[] = [
         name: '.swingBy(n, sub)',
         signature: 'pat.swingBy(amount, subdivision)',
         description:
-          'Push every other subdivision late. Straight sixteenths stop sounding like a grid; the same trick reads on lights as a limp rather than a march.',
+          'Push every other subdivision late, so straight sixteenths stop reading as a grid. On lights it comes out as a limp rather than a march.',
         example: "strb.strobe(mini('1*8').swingBy(1/3, 2))",
       },
     ],
@@ -1830,7 +1830,7 @@ const DOCS: DocSection[] = [
         name: 'anything else',
         signature: "wash.red('1')",
         description:
-          "Rejected, with the channel named. A quoted number, a signal that was never called (sine rather than sine()), NaN, null: these used to be stored and read as 0, so the scene ran green with the light off. They now stop the evaluation, and the rig keeps running whatever it had.",
+          'Rejected, with the channel named. A quoted number, a signal that was never called (sine rather than sine()), NaN and null each stop the evaluation, and the rig keeps running whatever it had.',
       },
     ],
   },
