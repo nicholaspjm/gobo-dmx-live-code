@@ -82,6 +82,21 @@
       }
 
       /* Top bar */
+      /* Everything that moves, turned off in one place. It is deliberately
+         heavy-handed: a rule per component would leave anything added later
+         quietly exempt, and this is a setting somebody turns on because they
+         want the movement to stop, not mostly stop. The 0.01ms rather than 0
+         is so a transitionend listener still fires and nothing waiting on one
+         hangs. */
+      html.no-animations *,
+      html.no-animations *::before,
+      html.no-animations *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+
       .topbar {
         display: flex;
         align-items: center;
@@ -365,6 +380,24 @@
         min-height: 140px;
         overflow: hidden;
         position: relative;
+      }
+
+      /* The flash a run leaves behind. An overlay rather than a background
+         change on the editor itself: the editor's own background is the
+         theme's, and a scene that takes a moment to swap in should not be able
+         to leave the wrong colour behind if the class outlives the frame. */
+      .editor-wrap::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: var(--accent);
+        opacity: 0;
+        transition: opacity 0.18s ease-out;
+      }
+      .editor-wrap.run-flash::after {
+        opacity: 0.1;
+        transition: none;
       }
 
       #editor {
@@ -1543,12 +1576,27 @@
         flex-wrap: wrap;
       }
 
-      /* Settings panel rows */
+      /* Settings rows */
       .settings-list {
         padding-top: 16px;
         display: flex;
         flex-direction: column;
         gap: 18px;
+      }
+      /* A heading between groups. There are twenty-five switches here, and a
+         flat list of twenty-five is one nobody reads to the end of. */
+      .settings-section {
+        margin: 10px 0 -4px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: lowercase;
+        color: var(--accent2);
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 6px;
+      }
+      .settings-section:first-child {
+        margin-top: 0;
       }
       .setting-row {
         display: flex;

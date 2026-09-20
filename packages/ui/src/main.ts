@@ -85,6 +85,7 @@ import { mountLibraryPanel } from './library.js';
 import { registerPublicFixtures } from './public-fixtures.js';
 import { formatGoboCode } from './formatter.js';
 import { getSettings, mountSettingsPanel, onSettingsChange } from './settings.js';
+import type { EditorPrefs } from './editor.js';
 import { captureConsole, mountConsolePanel } from './console-log.js';
 import { tagLocations } from './mini-locations.js';
 import { applyTheme } from './themes.js';
@@ -124,9 +125,21 @@ function applyFontSize(px: number): void {
 }
 applyFontSize(getSettings().fontSize);
 
+/**
+ * Turn every transition and animation in the app off, or back on.
+ *
+ * One class on <html> rather than a rule per component, so nothing that gets
+ * added later is quietly exempt from it.
+ */
+function applyAnimations(on: boolean): void {
+  document.documentElement.classList.toggle('no-animations', !on);
+}
+applyAnimations(getSettings().animations);
+
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 
 const editorEl = document.getElementById('editor')!;
+const editorWrapEl = document.querySelector('.editor-wrap') as HTMLElement;
 const visualizerEl = document.getElementById('visualizer') as HTMLCanvasElement;
 const visualizerLabelEl = document.getElementById('visualizer-label') as HTMLElement;
 const evalStatusEl = document.getElementById('eval-status')!;
@@ -246,6 +259,7 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
       setStatus('ok', `✓ running${mark}`, note ?? undefined);
     }
     if (!isRunning()) start();
+    flashRun();
     // Rebuild inline editor visualizations to reflect any .viz() calls
     // in the new code. Widgets animate from the live universe buffer; this
     // call only (re)places them in the editor at the right lines. The
@@ -272,6 +286,29 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
     setStatus('error', message);
     return false;
   }
+}
+
+/**
+ * A brief flash across the editor when a run lands.
+ *
+ * The status bar already says so, and it is at the bottom of the window while
+ * the eyes are on the code. Strudel does the same thing for the same reason.
+ *
+ * Restarted rather than queued: two runs a beat apart should read as two
+ * flashes, not one long one, and reflow is forced between the two writes so
+ * the browser cannot coalesce them into a no-op.
+ */
+let _flashTimer: ReturnType<typeof setTimeout> | null = null;
+function flashRun(): void {
+  if (!getSettings().flashOnRun) return;
+  if (_flashTimer) clearTimeout(_flashTimer);
+  editorWrapEl.classList.remove('run-flash');
+  void editorWrapEl.offsetWidth;
+  editorWrapEl.classList.add('run-flash');
+  _flashTimer = setTimeout(() => {
+    editorWrapEl.classList.remove('run-flash');
+    _flashTimer = null;
+  }, 180);
 }
 
 /**
@@ -592,7 +629,35 @@ async function runBlock(view: EditorView): Promise<void> {
     : `✓ ran that block · ${left} edit${left === 1 ? '' : 's'} elsewhere not running`);
 }
 
-const editorView = createEditor(editorEl, runEval, runStop, onEditorChange, boot.code, (v) => { void runBlock(v); });
+/**
+ * The editor preferences, pulled out of the settings blob.
+ *
+ * Read from the same object every time rather than cached, because a toggle
+ * has to reach a running editor: the compartments in editor.ts exist so that
+ * changing one of these does not rebuild the state and lose the undo history,
+ * the folds and the live decorations with it.
+ */
+function editorPrefs(): EditorPrefs {
+  const s = getSettings();
+  return {
+    lineNumbers: s.lineNumbers,
+    activeLine: s.activeLine,
+    bracketMatching: s.bracketMatching,
+    closeBrackets: s.closeBrackets,
+    lineWrapping: s.lineWrapping,
+    autocomplete: s.autocomplete,
+    hoverHelp: s.hoverHelp,
+    eventHighlight: s.eventHighlight,
+    multiCursor: s.multiCursor,
+    blockEval: s.blockEval,
+  };
+}
+
+const goboEditor = createEditor(
+  editorEl, runEval, runStop, editorPrefs(), onEditorChange, boot.code,
+  (v) => { void runBlock(v); },
+);
+const editorView = goboEditor.view;
 
 // Picking a look runs the file again with that one selected.
 //
@@ -640,34 +705,40 @@ onCueChange((_name, previous) => {
 // asked for a stop that does not depend on the easy-to-miss period key; a stop
 // that depends on where the caret is, is worse than that.
 //
-// Bound in the capture phase so the editor's keymap never sees a second copy
-// and nothing runs twice.
+// Bound in the capture phase, which is why the tests below for where focus is
+// matter: this listener calls stopPropagation, so anything it handles the
+// editor's own keymap never sees.
 document.addEventListener('keydown', (e) => {
   // Literal Ctrl, matching the editor's 'Ctrl-' bindings rather than 'Mod-':
   // on a Mac these are ctrl, not cmd, and cmd+enter must stay free.
   if (!e.ctrlKey || e.metaKey || e.altKey) return;
-  // Shift makes it the block gesture, which the editor's own keymap handles.
-  // Without this test that binding is dead code: this listener is on the
-  // capture phase and calls stopPropagation, so Ctrl+Shift+Enter would be
-  // swallowed here and run the WHOLE buffer — the exact opposite of what it
-  // is for, and silently. Outside the editor there is no selection and no
-  // cursor to take a block from, so it falls through to a full run.
-  if (e.shiftKey && e.key === 'Enter') {
+
+  if (e.key === 'Enter') {
+    // Inside the editor, its keymap owns both Enter chords, including which
+    // of the two "ctrl+enter runs the block" has swapped them to. Handling
+    // them here as well made that binding dead code — which is what the
+    // setting ran into: the editor's Ctrl+Enter was never reached, so turning
+    // block evaluation on changed nothing at all. Ctrl+Shift+Enter already
+    // had this test; Ctrl+Enter did not, because until there was a setting
+    // the two paths did the same thing and nobody could tell.
     if (editorEl.contains(document.activeElement)) return;
     e.preventDefault();
     e.stopPropagation();
-    void runBlock(editorView);
+    // Outside the editor there is no caret to watch, but the editor's own
+    // selection is still where it was left, so the block gesture still has a
+    // region to take. The setting swaps which chord means which, the same way
+    // it does inside.
+    if (getSettings().blockEval !== e.shiftKey) void runBlock(editorView);
+    else void runEval(editorView.state.doc.toString());
     return;
   }
-  const run = e.key === 'Enter';
+
   // Space is read off `code` as well, because a keyboard layout can put a
   // different character on that key.
-  const stop = e.key === '.' || e.key === ' ' || e.code === 'Space';
-  if (!run && !stop) return;
+  if (e.key !== '.' && e.key !== ' ' && e.code !== 'Space') return;
   e.preventDefault();
   e.stopPropagation();
-  if (run) void runEval(editorView.state.doc.toString());
-  else runStop();
+  runStop();
 }, true);
 
 /** Write the buffer now rather than at the end of the debounce. Used before
@@ -2121,7 +2192,12 @@ evalStatusEl.addEventListener('click', () => {
 // Re-apply the theme whenever the setting changes. Other settings are read at
 // the point of use and need no subscription; themes need one because they
 // write CSS variables onto :root to take effect.
-onSettingsChange((s) => { applyTheme(s.theme); applyFontSize(s.fontSize); });
+onSettingsChange((s) => {
+  applyTheme(s.theme);
+  applyFontSize(s.fontSize);
+  goboEditor.setPrefs(editorPrefs());
+  applyAnimations(s.animations);
+});
 
 // After every successful eval, any new defineFixture() calls land in the
 // runtime registry. Refresh the library panel so those show up in the

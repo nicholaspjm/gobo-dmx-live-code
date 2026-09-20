@@ -15,15 +15,22 @@
  * commands only mean anything while that extension is installed. Neither is
  * bound when the popup is closed: Enter inserts a newline and Tab moves focus
  * out of the editor, which is how a keyboard user leaves it. See autocomplete.ts.
+ *
+ * Nine of these behaviours are switchable, because the editor is the whole
+ * interface and an editor habit is personal. Each one lives in its own
+ * Compartment so a setting can be changed with a scene running: replacing the
+ * whole extension set would rebuild the state and take the undo history, the
+ * fold state and the live decorations with it.
  */
 
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view';
 import { liveTokens } from './live-tokens.js';
 import { pendingMarks } from './pending-marks.js';
-import { EditorState, Prec } from '@codemirror/state';
-import type { ChangeSet } from '@codemirror/state';
+import { EditorState, Prec, Compartment } from '@codemirror/state';
+import type { ChangeSet, Extension } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { defaultKeymap, historyKeymap, history } from '@codemirror/commands';
+import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { bracketMatching, indentOnInput, foldGutter, foldKeymap, codeFolding } from '@codemirror/language';
 import { goboTheme, goboHighlight } from './theme.js';
@@ -51,14 +58,86 @@ export type ChangeHandler = (code: string, changes: ChangeSet) => void;
 /** Run only the edits inside the current selection. See splice.ts. */
 export type EvalBlockHandler = (view: EditorView) => void;
 
+/**
+ * The editor behaviours a user can turn off.
+ *
+ * Deliberately the same list strudel offers, minus the ones that mean
+ * something different here. Tab indentation is not offered because Tab is
+ * already the second key that accepts a completion, and with the popup closed
+ * it is how a keyboard user leaves the editor: taking it would cost an
+ * accessibility control to save a keystroke. Syncing across browser tabs is
+ * not offered either — two tabs holding the same scene is two schedulers
+ * writing the same DMX channels, which is a conflict rather than a
+ * convenience.
+ */
+export interface EditorPrefs {
+  lineNumbers: boolean;
+  activeLine: boolean;
+  bracketMatching: boolean;
+  closeBrackets: boolean;
+  lineWrapping: boolean;
+  autocomplete: boolean;
+  hoverHelp: boolean;
+  eventHighlight: boolean;
+  multiCursor: boolean;
+  /** Ctrl+Enter runs the block around the cursor rather than the document. */
+  blockEval: boolean;
+}
+
+/** What createEditor() hands back: the view, and the way to change a pref. */
+export interface GoboEditor {
+  view: EditorView;
+  setPrefs(prefs: EditorPrefs): void;
+}
+
 export function createEditor(
   parent: HTMLElement,
   onEval: EvalHandler,
   onStop: StopHandler,
+  prefs: EditorPrefs,
   onChange?: ChangeHandler,
   initialDoc: string = DEFAULT_DOC,
   onEvalBlock?: EvalBlockHandler,
-): EditorView {
+): GoboEditor {
+  // Read by the Ctrl+Enter binding below, which is built once and has to see
+  // the current value rather than the one that was set when it was built.
+  let current = prefs;
+
+  // One compartment per switchable behaviour. `of(…)` at build time and
+  // `reconfigure(…)` later, both going through the same table, so a setting
+  // cannot mean one thing on load and another after it is toggled.
+  const parts = {
+    lineNumbers: new Compartment(),
+    activeLine: new Compartment(),
+    bracketMatching: new Compartment(),
+    closeBrackets: new Compartment(),
+    lineWrapping: new Compartment(),
+    autocomplete: new Compartment(),
+    hoverHelp: new Compartment(),
+    eventHighlight: new Compartment(),
+    multiCursor: new Compartment(),
+  };
+
+  /** What each compartment holds when its pref is on. Off is the empty set. */
+  function extensionFor(key: keyof typeof parts, p: EditorPrefs): Extension {
+    if (!p[key]) return [];
+    switch (key) {
+      case 'lineNumbers': return lineNumbers();
+      case 'activeLine': return highlightActiveLine();
+      case 'bracketMatching': return bracketMatching();
+      case 'closeBrackets': return [closeBrackets(), keymap.of(closeBracketsKeymap)];
+      case 'lineWrapping': return EditorView.lineWrapping;
+      case 'autocomplete': return goboAutocomplete;
+      case 'hoverHelp': return goboHoverHelp;
+      case 'eventHighlight': return liveTokens();
+      // drawSelection goes with it: without it the browser draws one native
+      // selection and the extra cursors are invisible, which is worse than
+      // not having them.
+      case 'multiCursor': return [EditorState.allowMultipleSelections.of(true), drawSelection()];
+    }
+  }
+
+  const compartmentKeys = Object.keys(parts) as (keyof typeof parts)[];
   const evalKeybinding = Prec.highest(
     keymap.of([
       {
@@ -66,6 +145,10 @@ export function createEditor(
         // Ctrl-Enter so the more specific chord is offered first.
         key: 'Ctrl-Shift-Enter',
         run(view) {
+          if (current.blockEval) {
+            onEval(view.state.doc.toString());
+            return true;
+          }
           if (!onEvalBlock) return false;
           onEvalBlock(view);
           return true;
@@ -74,6 +157,13 @@ export function createEditor(
       {
         key: 'Ctrl-Enter',
         run(view) {
+          // With block evaluation on, the main chord takes the block around
+          // the cursor and Ctrl+Shift+Enter still takes the whole document,
+          // so the pair swaps rather than one of them disappearing.
+          if (current.blockEval && onEvalBlock) {
+            onEvalBlock(view);
+            return true;
+          }
           onEval(view.state.doc.toString());
           return true;
         },
@@ -112,27 +202,25 @@ export function createEditor(
     doc: initialDoc,
     extensions: [
       history(),
-      lineNumbers(),
       // Folding a look you are not working on. The gutter has been styled
       // since the theme was written; what was missing was the extension that
       // draws it, so a long document had no way to collapse anything.
       codeFolding(),
       foldGutter(),
-      highlightActiveLine(),
       // Find, which the editor simply did not have. The browser's own find is
       // no substitute: CodeMirror only renders the lines near the viewport, so
       // Cmd+F in the browser searches the part of the document you can already
       // see. In a file holding a whole performance that is the wrong half.
       search({ top: true }),
       highlightSelectionMatches(),
-      // Outlines the mini-notation token currently driving light. Inert until
-      // the engine is asked to collect locations, which main.ts does once.
-      liveTokens(),
       // Marks lines edited since the run that is currently live. See
       // pending-marks.ts; fed by main.ts after every edit and every run.
       pendingMarks(),
-      bracketMatching(),
       indentOnInput(),
+      // Everything switchable. The compartments sit here, in the order the
+      // fixed extensions used to, so turning one on puts it back where it was
+      // rather than at the end of the precedence chain.
+      ...compartmentKeys.map((key) => parts[key].of(extensionFor(key, prefs))),
       javascript(),
       goboTheme,
       goboHighlight,
@@ -148,14 +236,22 @@ export function createEditor(
       // which is the opposite of what this file's own comment and the README
       // both promise, and it is a panic key.
       evalKeybinding,
-      goboAutocomplete,
-      goboHoverHelp,
       vizDecorationsField,
       changeListener,
       keymap.of([...searchKeymap, ...foldKeymap, ...defaultKeymap, ...historyKeymap]),
     ],
   });
 
-  return new EditorView({ state, parent });
+  const view = new EditorView({ state, parent });
+
+  return {
+    view,
+    setPrefs(next: EditorPrefs): void {
+      current = next;
+      view.dispatch({
+        effects: compartmentKeys.map((key) => parts[key].reconfigure(extensionFor(key, next))),
+      });
+    },
+  };
 }
 

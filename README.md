@@ -29,11 +29,11 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 - Built-in fixture profiles for RGB, RGBW, moving heads and strobes, and custom definitions
 - Pixel strips, `rgbStrip()` / `rgbwStrip()`, with per-pixel, grid and chase helpers
 - Output to Art-Net 4, sACN (E1.31), OSC, a USB DMX interface over WebSerial with nothing installed, TouchDesigner directly, or mock
-- One working scene, autosaved to the browser as you type, saved as a plain `.js` file when you want a durable copy
+- One working scene, autosaved to the browser as you type
 - A share link that carries the whole scene, no server involved
 - Three bundled demo scenes, on the examples tab of the reference
 - Built-in, bundled public, saved and session fixtures on one fixtures tab, with JSON import/export
-- Click `docs` in the top bar for inline function reference, plus hover help and autocomplete
+- One panel behind the ☰ button: reference, fixtures, log, outputs, settings — plus hover help and autocomplete in the editor
 - Thirteen themes, named after the lights they look like. `tungsten` (warm charcoal / terracotta) by default, through `bastardAmber`, `cyclorama`, `blackout`, `glowtape` and `surprisePink`
 - Semantic highlighting: fixtures, patterns, colour channels, movement, pixel methods and output config each get their own colour
 
@@ -204,15 +204,15 @@ The trade-off is length. Deflate gets typical scene source to around a third of 
 base64 adds about a third back, so a 2 kB scene lands near 900 characters of link. Browsers
 handle far longer URLs, but chat apps, mail gateways and QR codes start truncating somewhere
 past 2000 characters. gobo reports the character count when it copies and warns when a link
-crosses that mark. **For a big set, save a file and send the file.**
+crosses that mark. **For a big set, use "copy the code instead" in the same dialog and send that.**
 
-A link carries the code and the name, nothing else. Saved fixtures, settings and themes stay in
-your browser, so a scene relying on a fixture you imported needs its `defineFixture()` call in
-the scene itself to work on someone else's machine.
+A link carries the code and nothing else. Saved fixtures, settings and themes stay in your
+browser, so a scene relying on a fixture you imported needs its `defineFixture()` call in the
+scene itself to work on someone else's machine.
 
 > **A shared link is someone else's code, and scene code is not sandboxed.** Opening one and
 > pressing `Ctrl+Enter` runs it on your machine. A shared scene never auto-runs: it loads
-> stopped, behind a banner saying where it came from. Read it before you run it.
+> stopped, and asks before it replaces what you had. Read it before you run it.
 > [SECURITY.md](SECURITY.md#share-links-carry-someone-elses-code-into-your-browser) has the
 > detail.
 
@@ -229,10 +229,13 @@ anything else in this version.
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+Enter` | Evaluate code |
-| `Ctrl+.` | Stop. Blackout by default, `freeze` if set that way in settings |
+| `Ctrl+Enter` | Evaluate the whole document |
+| `Ctrl+.` | Stop. Blackout by default, `freeze` if set that way in settings. A second press blacks out either way |
 | `Ctrl+Space` | Stop, as an alias that also preempts the autocomplete popup |
 | `Ctrl+Shift+Enter` | Evaluate only the edits inside the selection, or the block around the cursor |
+
+Turning on **ctrl+enter runs the block** in settings swaps those last two over, so the plain
+chord takes the block and the shifted one takes the document.
 | `Ctrl+Shift+F` | Format the buffer |
 | `Alt+1`…`Alt+9` | Run that cue, when the scene calls `cue()` |
 | `T` | Tap tempo (ignored while typing in the editor or any input) |

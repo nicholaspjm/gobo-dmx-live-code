@@ -93,6 +93,45 @@ export interface Settings {
   zenHideCues: boolean;
   /** Drop the page background to black behind the code. Default false. */
   zenBlackBackground: boolean;
+
+  // ── The editor itself ──────────────────────────────────────────────────
+  // The editor is the whole interface here, and an editor habit is personal:
+  // someone who has typed in one for twenty years has opinions about brackets
+  // closing themselves. Each of these maps to a CodeMirror extension held in
+  // a compartment (editor.ts), so changing one takes effect with a scene
+  // running rather than on the next reload.
+  /** Line numbers down the gutter. Default true. */
+  lineNumbers: boolean;
+  /** Tint the line the cursor is on. Default true. */
+  activeLine: boolean;
+  /** Light up the bracket matching the one beside the cursor. Default true. */
+  bracketMatching: boolean;
+  /** Type ( and get (). Default true. */
+  closeBrackets: boolean;
+  /** Wrap a long line instead of scrolling it sideways. Default false. */
+  lineWrapping: boolean;
+  /** The completion popup. Default true. */
+  autocomplete: boolean;
+  /** Hover a name for what it does. Default true. */
+  hoverHelp: boolean;
+  /** Outline the mini-notation token that is driving light right now.
+   *  Default true; the one setting here that is about the rig rather than
+   *  about typing. */
+  eventHighlight: boolean;
+  /** Cmd/Ctrl+click for a second cursor. Default true. */
+  multiCursor: boolean;
+  /** Ctrl+Enter runs the block around the cursor, and Ctrl+Shift+Enter runs
+   *  the whole document. The pair swaps rather than one disappearing.
+   *  Default false, because the document is the safer thing for the main
+   *  chord to mean. */
+  blockEval: boolean;
+  /** Flash the editor when a run lands. Default true: the status bar is at
+   *  the bottom of the window and the eyes are on the code. */
+  flashOnRun: boolean;
+  /** CSS transitions and animations across the app. Off is for a slow
+   *  machine, or for anyone who does not want movement they did not ask for.
+   *  Default true. */
+  animations: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -109,6 +148,18 @@ const DEFAULTS: Settings = {
   zenHideLevels: true,
   zenHideCues: false,
   zenBlackBackground: false,
+  lineNumbers: true,
+  activeLine: true,
+  bracketMatching: true,
+  closeBrackets: true,
+  lineWrapping: false,
+  autocomplete: true,
+  hoverHelp: true,
+  eventHighlight: true,
+  multiCursor: true,
+  blockEval: false,
+  flashOnRun: true,
+  animations: true,
 };
 
 let _cached: Settings | null = null;
@@ -245,10 +296,16 @@ export function mountSettingsPanel(opts: {
 
   function render(): void {
     const s = getSettings();
-    // Each section is a definition list-shaped row: label, control, hint.
-    // A string template plus a couple of delegated listeners, no framework.
+    // Each row is label, control, hint. A string template plus a couple of
+    // delegated listeners, no framework.
+    //
+    // Grouped under headings rather than run together: there are twenty-five
+    // of these now, and a flat list of twenty-five switches is a list nobody
+    // reads to the end of. The groups are by what the setting is about, not
+    // by what kind of control it is.
     bodyEl.innerHTML = `
       <div class="settings-list">
+        ${section('how it looks')}
         ${row({
           key: 'theme',
           label: 'theme',
@@ -269,19 +326,83 @@ export function mountSettingsPanel(opts: {
           ]),
         })}
         ${row({
+          key: 'animations',
+          label: 'animations',
+          hint: 'the slide, fade and colour transitions across the app. off for a slow machine, or for anyone who would rather nothing moved unasked.',
+          control: toggle('animations', s.animations),
+        })}
+
+        ${section('the editor')}
+        ${row({
+          key: 'lineNumbers',
+          label: 'line numbers',
+          hint: 'the gutter down the left. an error names the line it came from, so these are how you find it.',
+          control: toggle('lineNumbers', s.lineNumbers),
+        })}
+        ${row({
+          key: 'activeLine',
+          label: 'highlight the active line',
+          hint: 'a tint on the line the cursor is on.',
+          control: toggle('activeLine', s.activeLine),
+        })}
+        ${row({
+          key: 'lineWrapping',
+          label: 'wrap long lines',
+          hint: 'off, a long chain runs off the right edge and scrolls. on, it folds onto the next line and the line numbers stop lining up with what you see.',
+          control: toggle('lineWrapping', s.lineWrapping),
+        })}
+        ${row({
+          key: 'bracketMatching',
+          label: 'match brackets',
+          hint: 'lights up the bracket paired with the one beside the cursor.',
+          control: toggle('bracketMatching', s.bracketMatching),
+        })}
+        ${row({
+          key: 'closeBrackets',
+          label: 'close brackets',
+          hint: 'type ( and get () with the cursor inside. typing the closing one steps over it rather than doubling it.',
+          control: toggle('closeBrackets', s.closeBrackets),
+        })}
+        ${row({
+          key: 'multiCursor',
+          label: 'multiple cursors',
+          hint: 'cmd/ctrl+click puts a second cursor down, and typing goes to all of them. for changing the same thing on four lights at once.',
+          control: toggle('multiCursor', s.multiCursor),
+        })}
+        ${row({
+          key: 'autocomplete',
+          label: 'autocomplete',
+          hint: 'the popup that offers function and channel names as you type. enter or tab accepts.',
+          control: toggle('autocomplete', s.autocomplete),
+        })}
+        ${row({
+          key: 'hoverHelp',
+          label: 'hover help',
+          hint: 'hover a function name for what it does and what it takes.',
+          control: toggle('hoverHelp', s.hoverHelp),
+        })}
+
+        ${section('running a scene')}
+        ${row({
+          key: 'blockEval',
+          label: 'ctrl+enter runs the block',
+          hint: 'off, ctrl+enter runs the whole document and ctrl+shift+enter runs the block around the cursor. on, the two swap. the document is the default because it is the one that cannot leave half a scene running.',
+          control: toggle('blockEval', s.blockEval),
+        })}
+        ${row({
           key: 'stopAction',
           label: 'stop action',
-          hint: 'what ctrl+. / ctrl+space does. blackout zeroes all channels; freeze leaves the last frame on outputs.',
+          hint: 'what ctrl+. / ctrl+space does. blackout zeroes all channels; freeze leaves the last frame on outputs. a second press blacks out either way.',
           control: select('stopAction', s.stopAction, [
             { value: 'blackout', label: 'blackout (default)' },
             { value: 'freeze',   label: 'freeze last frame' },
           ]),
         })}
         ${row({
-          key: 'autosave',
-          label: 'autosave',
-          hint: 'persist every edit to the browser after a 500ms idle. off still writes when the tab closes, so a crash costs the session rather than everything. share is what makes a copy that outlives this browser.',
-          control: toggle('autosave', s.autosave),
+          key: 'flashOnRun',
+          label: 'flash on run',
+          hint: 'a brief flash across the editor when a run lands. the status bar says so too, but it is at the bottom of the window and your eyes are on the code.',
+          control: toggle('flashOnRun', s.flashOnRun),
         })}
         ${row({
           key: 'formatOnRun',
@@ -290,34 +411,18 @@ export function mountSettingsPanel(opts: {
           control: toggle('formatOnRun', s.formatOnRun),
         })}
         ${row({
-          key: 'zenHideChrome',
-          label: 'zen mode · hide the top bar',
-          hint: 'what alt+m, the zen button and a click on the mark hide. the mode is one switch; these decide what it does.',
-          control: toggle('zenHideChrome', s.zenHideChrome),
+          key: 'autosave',
+          label: 'autosave',
+          hint: 'persist every edit to the browser after a 500ms idle. off still writes when the tab closes, so a crash costs the session rather than everything. share is what makes a copy that outlives this browser.',
+          control: toggle('autosave', s.autosave),
         })}
+
+        ${section('what the rig is doing')}
         ${row({
-          key: 'zenHideSim',
-          label: 'zen mode · hide the sim',
-          hint: 'the fixture simulation under the editor.',
-          control: toggle('zenHideSim', s.zenHideSim),
-        })}
-        ${row({
-          key: 'zenHideLevels',
-          label: 'zen mode · hide the level strip',
-          hint: 'the 512-bar channel strip at the bottom.',
-          control: toggle('zenHideLevels', s.zenHideLevels),
-        })}
-        ${row({
-          key: 'zenHideCues',
-          label: 'zen mode · hide the cue bar',
-          hint: 'off by default. the cue chips say which look is up, which is worth keeping on a projector.',
-          control: toggle('zenHideCues', s.zenHideCues),
-        })}
-        ${row({
-          key: 'zenBlackBackground',
-          label: 'zen mode · black background',
-          hint: 'drop the page to black behind the code, for projecting.',
-          control: toggle('zenBlackBackground', s.zenBlackBackground),
+          key: 'eventHighlight',
+          label: 'highlight events in code',
+          hint: 'outlines the mini-notation token that is driving light at this instant, so the code and the rig read as one thing.',
+          control: toggle('eventHighlight', s.eventHighlight),
         })}
         ${row({
           key: 'inlineViz',
@@ -342,6 +447,39 @@ export function mountSettingsPanel(opts: {
             { value: '44',  label: '44 Hz (DMX maximum)' },
           ]),
         })}
+
+        ${section('zen mode')}
+        ${row({
+          key: 'zenHideChrome',
+          label: 'hide the top bar',
+          hint: 'what alt+m, the zen button and a click on the mark hide. the mode is one switch; these decide what it does.',
+          control: toggle('zenHideChrome', s.zenHideChrome),
+        })}
+        ${row({
+          key: 'zenHideSim',
+          label: 'hide the sim',
+          hint: 'the fixture simulation under the editor.',
+          control: toggle('zenHideSim', s.zenHideSim),
+        })}
+        ${row({
+          key: 'zenHideLevels',
+          label: 'hide the level strip',
+          hint: 'the 512-bar channel strip at the bottom.',
+          control: toggle('zenHideLevels', s.zenHideLevels),
+        })}
+        ${row({
+          key: 'zenHideCues',
+          label: 'hide the cue bar',
+          hint: 'off by default. the cue chips say which look is up, which is worth keeping on a projector.',
+          control: toggle('zenHideCues', s.zenHideCues),
+        })}
+        ${row({
+          key: 'zenBlackBackground',
+          label: 'black background',
+          hint: 'drop the page to black behind the code, for projecting.',
+          control: toggle('zenBlackBackground', s.zenBlackBackground),
+        })}
+
         <div class="settings-footer">
           <button type="button" class="settings-reset" data-setting-action="reset">reset all to defaults</button>
         </div>
@@ -378,6 +516,11 @@ export function mountSettingsPanel(opts: {
 }
 
 // ─── HTML helpers ────────────────────────────────────────────────────────────
+
+/** A heading between groups of rows. Plain text, no control. */
+function section(title: string): string {
+  return `<h3 class="settings-section">${escapeHtml(title)}</h3>`;
+}
 
 interface Row {
   key: keyof Settings;

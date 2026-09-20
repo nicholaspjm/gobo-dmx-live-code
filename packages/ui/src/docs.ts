@@ -1843,7 +1843,12 @@ const DOCS: DocSection[] = [
       {
         name: 'Ctrl+Enter',
         signature: 'Ctrl+Enter',
-        description: 'Evaluate the whole editor. Clears previous patterns first.',
+        description: 'Evaluate the whole editor. Clears previous patterns first. Settings has a switch that swaps this with Ctrl+Shift+Enter, so the plain chord takes the block instead.',
+      },
+      {
+        name: 'Ctrl+Shift+Enter',
+        signature: 'Ctrl+Shift+Enter',
+        description: 'Evaluate only the edits inside the selection, or the block around the cursor if nothing is selected, on top of what is already running. For nudging the look that is lit without sending the half-written one next to it.',
       },
       {
         name: 'Ctrl+.',
