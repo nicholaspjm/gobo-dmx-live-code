@@ -134,11 +134,8 @@ function plainHashOfText(text: string): string {
 }
 
 /** Encode a scene, then point the location stub at the resulting link. */
-async function roundTrip(
-  code: string,
-  name: string,
-): Promise<{ code: string; name: string } | null> {
-  const link = await encodeShareLink(code, name);
+async function roundTrip(code: string): Promise<{ code: string } | null> {
+  const link = await encodeShareLink(code);
   setLocation(link);
   return decodeShareFromLocation();
 }
@@ -148,13 +145,13 @@ async function roundTrip(
 describe('round-trip fidelity', () => {
   it('preserves plain ascii scene code', async () => {
     const code = 'dim(1, sine.range(0, 255));\nrgb(2, "red");\n';
-    expect(await roundTrip(code, 'basic')).toEqual({ code, name: 'basic' });
+    expect(await roundTrip(code)).toEqual({ code });
   });
 
   it('preserves unicode and emoji, including surrogate pairs', async () => {
     const code = '// スポット照明, naïve café\nconst 灯 = 1; // 💡🎛️🔦 flag: 🏳️‍🌈\n';
-    const name = 'ライブ 💡';
-    expect(await roundTrip(code, name)).toEqual({ code, name });
+
+    expect(await roundTrip(code)).toEqual({ code });
   });
 
   it('preserves characters that are awkward in URLs', async () => {
@@ -162,17 +159,17 @@ describe('round-trip fidelity', () => {
     // terminator, percent-escapes, query separators, the space-as-plus
     // convention, path separators, plus quoting and escapes.
     const code = '#hash %41 %% &a=b ?q +plus /slash\\back "dq" \'sq\' `tick` <tag> {}|^[]~;,\n\t';
-    const name = 'a#b%c&d=e?f+g/h';
-    expect(await roundTrip(code, name)).toEqual({ code, name });
+
+    expect(await roundTrip(code)).toEqual({ code });
   });
 
-  it('preserves an empty scene and an empty name', async () => {
-    expect(await roundTrip('', '')).toEqual({ code: '', name: '' });
+  it('preserves an empty scene', async () => {
+    expect(await roundTrip('')).toEqual({ code: '' });
   });
 
   it('preserves newline styles exactly', async () => {
     const code = 'a\r\nb\nc\rd\n\n';
-    expect(await roundTrip(code, 'eol')).toEqual({ code, name: 'eol' });
+    expect(await roundTrip(code)).toEqual({ code });
   });
 
   it('preserves a very long scene', async () => {
@@ -182,7 +179,7 @@ describe('round-trip fidelity', () => {
       code += `dim(${i % 512}, sine.range(${i}, ${i * 3}).fast(${i % 17})); // 灯 ${i}\n`;
     }
     expect(code.length).toBeGreaterThan(150_000);
-    const out = await roundTrip(code, 'long');
+    const out = await roundTrip(code);
     expect(out).not.toBeNull();
     expect(out?.code).toBe(code);
     expect(out?.code.length).toBe(code.length);
@@ -190,7 +187,7 @@ describe('round-trip fidelity', () => {
 
   it('compresses: a repetitive scene yields a link far shorter than the source', async () => {
     const code = 'dim(1, sine.range(0, 255));\n'.repeat(2000);
-    const link = await encodeShareLink(code, 'repetitive');
+    const link = await encodeShareLink(code);
     expect(link.length).toBeLessThan(code.length / 10);
   });
 });
@@ -201,31 +198,31 @@ describe('link shape', () => {
   it('returns an absolute URL that keeps the current base path', async () => {
     // GitHub Pages serves the app from a subpath; the link has to carry it.
     setLocation('https://someone.github.io/gobo/');
-    const link = await encodeShareLink('dim(1, 255);', 'x');
+    const link = await encodeShareLink('dim(1, 255);');
     expect(link.startsWith('https://someone.github.io/gobo/#')).toBe(true);
   });
 
   it('works from a localhost dev server', async () => {
     setLocation('http://localhost:5173/');
-    const link = await encodeShareLink('dim(1, 255);', 'x');
+    const link = await encodeShareLink('dim(1, 255);');
     expect(link.startsWith('http://localhost:5173/#')).toBe(true);
   });
 
   it('preserves an existing query string', async () => {
     setLocation('https://example.test/app/?debug=1');
-    const link = await encodeShareLink('dim(1, 255);', 'x');
+    const link = await encodeShareLink('dim(1, 255);');
     expect(new URL(link).search).toBe('?debug=1');
   });
 
   it('replaces an existing hash rather than appending to it', async () => {
     setLocation('https://example.test/app/#s1=stale');
-    const link = await encodeShareLink('dim(1, 255);', 'x');
+    const link = await encodeShareLink('dim(1, 255);');
     expect(link.split('#').length).toBe(2);
     expect(link).not.toContain('stale');
   });
 
   it('uses the versioned s1 prefix and a URL-safe payload', async () => {
-    const link = await encodeShareLink('dim(1, 255);', 'x');
+    const link = await encodeShareLink('dim(1, 255);');
     const hash = new URL(link).hash;
     expect(hash.startsWith('#s1=')).toBe(true);
     // No padding, no '+' or '/', so the link survives being pasted anywhere.
@@ -338,7 +335,7 @@ describe('malformed input returns null', () => {
   });
 
   it('a truncated payload', async () => {
-    const link = await encodeShareLink('dim(1, sine.range(0, 255));\n'.repeat(200), 'trunc');
+    const link = await encodeShareLink('dim(1, sine.range(0, 255));\n'.repeat(200));
     const payload = new URL(link).hash.slice('#s1='.length);
     setHash(`s1=${payload.slice(0, Math.floor(payload.length * 0.6))}`);
     expect(await decodeShareFromLocation()).toBeNull();
@@ -366,22 +363,19 @@ describe('malformed input returns null', () => {
     }
   });
 
-  it('an object missing code or name', async () => {
-    for (const json of ['{}', '{"name":"a"}', '{"code":"b"}']) {
+  it('an object missing code', async () => {
+    for (const json of ['{}', '{"name":"a"}']) {
       setHash(await compressedHashOfText(json));
       expect(await decodeShareFromLocation(), json).toBeNull();
     }
   });
 
-  it('code or name of the wrong type', async () => {
+  it('code of the wrong type', async () => {
     const cases = [
       '{"name":"a","code":42}',
       '{"name":"a","code":null}',
       '{"name":"a","code":["x"]}',
       '{"name":"a","code":{"toString":"x"}}',
-      '{"name":42,"code":"b"}',
-      '{"name":null,"code":"b"}',
-      '{"name":{},"code":"b"}',
     ];
     for (const json of cases) {
       setHash(await compressedHashOfText(json));
@@ -398,12 +392,12 @@ describe('malformed input returns null', () => {
     padded.set(good, 0);
     padded.set([1, 2, 3, 4, 5, 6, 7, 8], good.length);
     setHash(`s1=${bytesToBase64Url(padded)}`);
-    expect(await decodeShareFromLocation()).toEqual({ code: 'b', name: 'a' });
+    expect(await decodeShareFromLocation()).toEqual({ code: 'b' });
   });
 
   it('ignores extra fields on an otherwise valid object', async () => {
     setHash(await compressedHashOfText('{"name":"a","code":"b","autorun":true,"x":1}'));
-    expect(await decodeShareFromLocation()).toEqual({ code: 'b', name: 'a' });
+    expect(await decodeShareFromLocation()).toEqual({ code: 'b' });
   });
 
   it('never throws, whatever the hash contains', async () => {
@@ -432,13 +426,13 @@ describe('malformed input returns null', () => {
 describe('uncompressed fallback', () => {
   it('decodes an s1u payload', async () => {
     setHash(plainHashOfText('{"name":"plain","code":"dim(1, 255);"}'));
-    expect(await decodeShareFromLocation()).toEqual({ code: 'dim(1, 255);', name: 'plain' });
+    expect(await decodeShareFromLocation()).toEqual({ code: 'dim(1, 255);' });
   });
 
   it('decodes an s1u payload containing unicode', async () => {
     const scene = { name: '灯 💡', code: '// naïve café 🎛️\ndim(1, 255);' };
     setHash(plainHashOfText(JSON.stringify(scene)));
-    expect(await decodeShareFromLocation()).toEqual({ code: scene.code, name: scene.name });
+    expect(await decodeShareFromLocation()).toEqual({ code: scene.code });
   });
 
   it('does not need DecompressionStream', async () => {
@@ -446,7 +440,7 @@ describe('uncompressed fallback', () => {
     delete g.DecompressionStream;
     try {
       setHash(plainHashOfText('{"name":"plain","code":"x"}'));
-      expect(await decodeShareFromLocation()).toEqual({ code: 'x', name: 'plain' });
+      expect(await decodeShareFromLocation()).toEqual({ code: 'x' });
     } finally {
       g.DecompressionStream = saved;
     }
@@ -458,7 +452,7 @@ describe('uncompressed fallback', () => {
     delete g.CompressionStream;
     let link: string;
     try {
-      link = await encodeShareLink('dim(1, 255); // 💡', 'safari');
+      link = await encodeShareLink('dim(1, 255); // 💡');
     } finally {
       g.CompressionStream = saved;
     }
@@ -466,10 +460,15 @@ describe('uncompressed fallback', () => {
 
     // And the link still opens in a browser that does have the API.
     setLocation(link);
-    expect(await decodeShareFromLocation()).toEqual({
-      code: 'dim(1, 255); // 💡',
-      name: 'safari',
-    });
+    expect(await decodeShareFromLocation()).toEqual({ code: 'dim(1, 255); // 💡' });
+  });
+
+  it('opens a link written before scenes lost their names', async () => {
+    // Links made by 0.4.x and earlier carry { name, code }. The name is read
+    // past rather than refused: it was never the part worth carrying, and an
+    // old link still has to open.
+    setHash(await compressedHashOfText('{"name":"friday set","code":"dim(1, 255);"}'));
+    expect(await decodeShareFromLocation()).toEqual({ code: 'dim(1, 255);' });
   });
 
   it('rejects a compressed payload when DecompressionStream is missing, without throwing', async () => {

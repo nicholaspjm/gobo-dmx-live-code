@@ -68,7 +68,7 @@ import { showPending } from './pending-marks.js';
 import type { EditorView } from '@codemirror/view';
 import type { ChangeSet } from '@codemirror/state';
 import {
-  loadBuffer, saveBuffer, getBufferName, setBufferName,
+  loadBuffer, saveBuffer,
   isUnsavedSinceFileSave,
   listLegacyScenes, legacyNoticeDismissed, dismissLegacyNotice,
 } from './buffer.js';
@@ -150,9 +150,7 @@ const outputStatusEl = document.getElementById('output-status') as HTMLButtonEle
 // The dirty dot went with them. It meant "not yet written to a file", and with
 // no files it would be lit on every buffer that had ever been typed into,
 // which is no signal at all.
-const sceneNameEl = document.getElementById('scene-name') as HTMLElement;
 const sceneShareEl = document.getElementById('scene-share') as HTMLButtonElement;
-const sceneCopyEl = document.getElementById('scene-copy') as HTMLButtonElement;
 
 
 
@@ -1038,7 +1036,7 @@ function rememberSceneInAddressBar(code: string): void {
   // Sequenced: the encode is async, and two fast runs must not land out of
   // order and leave the older scene in the bar.
   const id = ++_hashWriteId;
-  void encodeShareLink(code, getBufferName())
+  void encodeShareLink(code)
     .then((url) => {
       if (id !== _hashWriteId) return;
       const hash = new URL(url).hash;
@@ -1668,42 +1666,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ─── Scene bar ───────────────────────────────────────────────────────────────
-// Name (click to rename), save to file, open file, share link. Bundled
-// examples are on the docs panel, beside the reference that explains them.
-// There is no scene list any more: the browser holds one working buffer and
-// everything durable is a file or a link.
+// One button: share. Bundled examples are on the docs panel, beside the
+// reference that explains them. There is no scene list and no name, because
+// the browser holds one working buffer: it is the document on screen, and
+// nothing else exists for a name to tell it apart from.
 
-/**
- * Scene names are shown on one top-bar line and feed the filename on save, so
- * any name adopted from outside is flattened to a single line and capped. A
- * share link's name is attacker-controlled and otherwise unbounded: it could
- * be a megabyte of newlines.
- *
- * 80 is the same ceiling scene-file.ts puts on a name it reads back out of a
- * file, so a name that survives the bar survives a save/open round trip. (The
- * filename is trimmed further there, to the filesystem's rules.)
- */
-const MAX_NAME_LEN = 80;
-
-/** Fallback when a name normalises to nothing at all. */
-const UNTITLED_NAME = 'untitled';
-
-function normalizeSceneName(raw: string): string {
-  // Control codes are replaced by code point rather than with a regex class:
-  // they are invisible in this source, so a mangled escape would silently
-  // stop sanitising and nobody would see it.
-  let out = '';
-  for (const ch of raw) {
-    const code = ch.codePointAt(0) ?? 0;
-    out += code < 0x20 || code === 0x7f ? ' ' : ch;
-  }
-  out = out.replace(/\s+/g, ' ').trim();
-  if (out.length > MAX_NAME_LEN) out = out.slice(0, MAX_NAME_LEN).trim();
-  return out || UNTITLED_NAME;
-}
-
-/** Shorten a name for a status line or a dialog. Separate from the cap above:
- *  a legal name can still be too long to read in a one-line status message. */
+/** Shorten a name for a status line. A legal filename can still be too long
+ *  to read in a one-line status message. */
 function short(name: string): string {
   return name.length > 32 ? `${name.slice(0, 31)}…` : name;
 }
@@ -1722,46 +1691,6 @@ function shortFilename(filename: string): string {
   const base = filename.slice(0, dot);
   return base.length > 31 ? `${base.slice(0, 30)}…${filename.slice(dot)}` : filename;
 }
-
-/** Write the stored name into the top bar. textContent, never innerHTML: the
- *  name may have come from a share link. */
-function renderSceneName(): void {
-  sceneNameEl.textContent = getBufferName();
-}
-
-// ─── Inline rename ───────────────────────────────────────────────────────────
-// The name span is contenteditable: click, type, Enter or blur to commit,
-// Escape to revert. Same gesture as the BPM readout, and no modal.
-
-function commitNameEdit(): void {
-  setBufferName(normalizeSceneName(sceneNameEl.textContent ?? ''));
-  // Snap back to the stored value: normalisation may have rewritten what was
-  // typed, and an emptied field reverts to a name rather than to nothing.
-  renderSceneName();
-}
-
-sceneNameEl.addEventListener('focus', () => {
-  // Select all so typing replaces the name, matching the BPM field.
-  const range = document.createRange();
-  range.selectNodeContents(sceneNameEl);
-  const sel = window.getSelection();
-  sel?.removeAllRanges();
-  sel?.addRange(range);
-});
-
-sceneNameEl.addEventListener('blur', commitNameEdit);
-
-sceneNameEl.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    // A name is one line; Enter commits instead of inserting a break.
-    e.preventDefault();
-    sceneNameEl.blur();
-  } else if (e.key === 'Escape') {
-    e.preventDefault();
-    renderSceneName();   // revert before the blur handler can commit
-    sceneNameEl.blur();
-  }
-});
 
 // ─── Replacing the buffer ────────────────────────────────────────────────────
 
@@ -1788,28 +1717,23 @@ function confirmReplace(headline: string): boolean {
   if (!_dirtySinceFileSave) return true;
   return confirm(
     `${headline}\n\n` +
-    `"${short(getBufferName())}" has changes that exist nowhere else. ` +
+    'The scene in the editor has changes that exist nowhere else. ' +
     'Replacing it will lose them.\n\n' +
     'OK to replace · Cancel to keep it, then copy it or make a share link.',
   );
 }
 
 /**
- * Swap the whole buffer for something else: an example, an opened file, a
- * shared scene. Always lands stopped, so new code runs only when the operator
- * asks for it.
+ * Swap the whole buffer for something else: an example or a shared scene.
+ * Always lands stopped, so new code runs only when the operator asks for it.
  *
- * `dirty` says whether the incoming text exists in a file of the user's.
+ * `dirty` says whether the incoming text exists anywhere outside this browser.
  */
-function replaceBuffer(name: string, code: string, opts: { dirty: boolean }): void {
-  const clean = normalizeSceneName(name);
+function replaceBuffer(code: string, opts: { dirty: boolean }): void {
   loadCodeIntoEditor(code);
-  setBufferName(clean);
-  // Persist immediately, and regardless of the autosave setting: the name
-  // has just been stored, so leaving the code alone would pair a new name
-  // with the previous scene's source in the browser copy.
-  saveBuffer(code, clean);
-  renderSceneName();
+  // Persist immediately, and regardless of the autosave setting: the editor
+  // is showing the new scene, so the browser copy has to be it too.
+  saveBuffer(code);
   // After the dispatch above, whose change event set the flag true.
   _dirtySinceFileSave = opts.dirty;
   runStop();
@@ -1860,22 +1784,28 @@ function flashCopied(button: HTMLElement, restore: string): void {
 const shareDialogEl = document.getElementById('share-dialog') as HTMLDialogElement;
 const shareUrlEl = document.getElementById('share-url') as HTMLTextAreaElement;
 const shareNoteEl = document.getElementById('share-note') as HTMLElement;
+const shareResultEl = document.getElementById('share-result') as HTMLElement;
 const shareCopyEl = document.getElementById('share-copy') as HTMLButtonElement;
+const shareCodeEl = document.getElementById('share-code') as HTMLButtonElement;
 
 /**
- * Show the link rather than copying it and saying so.
+ * One button, one gesture: build the link, put it on the clipboard, and say so.
  *
- * Copying straight to the clipboard left nothing on screen. You could not read
- * the link, select part of it, or see how long it was before sending it, and a
- * long link matters: some chat apps cut them. The dialog shows the link, its
- * length, and copies on request.
+ * It used to be two buttons — copy, for the code, and share, for a link — and
+ * the difference between them is a distinction about storage, which is not
+ * something to make somebody read a top bar to work out. So there is one verb
+ * now, it does the thing almost everyone means, and the other way out of gobo
+ * is a second button inside the dialog, where there is room to say what it is.
+ *
+ * The copy happens before the dialog opens rather than on a button inside it.
+ * Clipboard writes need a user gesture and this click is one; deferring to a
+ * second click inside a modal spends that gesture on opening the modal.
  */
 async function handleShare(): Promise<void> {
   const code = editorView.state.doc.toString();
-  const name = getBufferName();
   let url: string;
   try {
-    url = await encodeShareLink(code, name);
+    url = await encodeShareLink(code);
   } catch (err) {
     setStatus('error', `couldn't build a share link: ${(err as Error).message}`);
     return;
@@ -1883,43 +1813,53 @@ async function handleShare(): Promise<void> {
 
   shareUrlEl.value = url;
   shareNoteEl.textContent = url.length > LONG_LINK_CHARS
-    ? `${url.length} characters. Some chat apps cut links this long. Copy the code instead for a long scene.`
+    ? `${url.length} characters. Some chat apps cut links this long. Send the code instead for a long scene.`
     : `${url.length} characters. The whole scene is in the link, so it cannot expire.`;
+
+  const copied = await copyText(url);
+  // The link is on screen and selected either way, so a browser that refuses
+  // the clipboard leaves something to do rather than nothing.
+  shareResultEl.textContent = copied
+    ? '✓ link copied to the clipboard'
+    : 'this browser would not write to the clipboard — the link is selected below, copy it by hand';
+  shareResultEl.classList.toggle('ok', copied);
   shareCopyEl.textContent = 'copy link';
+  shareCodeEl.textContent = 'copy the code instead';
+
   shareDialogEl.showModal();
   shareUrlEl.select();
 }
 
+/** Copy the link again, for a second paste or a first one that did not take. */
 shareCopyEl.addEventListener('click', () => {
   void (async (): Promise<void> => {
     if (await copyText(shareUrlEl.value)) {
-      shareCopyEl.textContent = 'copied';
+      flashCopied(shareCopyEl, 'copy link');
       return;
     }
-    // The link is already on screen and selected, so there is something to do
-    // about it rather than nothing.
     shareCopyEl.textContent = 'copy it by hand';
     shareUrlEl.select();
   })();
 });
 
 /**
- * Copy the whole scene.
+ * The scene as text rather than as a link.
  *
- * The way work leaves gobo now that there is no save. A scene is text: this
- * puts it on the clipboard and your own editor keeps it.
+ * Kept because a link has a ceiling and a paste does not: past a couple of
+ * thousand characters the link is the worse of the two, and a scene long
+ * enough to matter is exactly the one worth keeping in a file of your own.
  */
-async function handleCopyScene(): Promise<void> {
-  const code = editorView.state.doc.toString();
-  if (await copyText(code)) {
-    flashCopied(sceneCopyEl, 'copy');
-    setStatus('ok', `copied ${code.length} characters · paste it somewhere you keep files`);
-    return;
-  }
-  setStatus('error', 'the clipboard is not available here · select the code and copy it by hand');
-}
-
-sceneCopyEl.addEventListener('click', () => { void handleCopyScene(); });
+shareCodeEl.addEventListener('click', () => {
+  void (async (): Promise<void> => {
+    const code = editorView.state.doc.toString();
+    if (await copyText(code)) {
+      flashCopied(shareCodeEl, 'copy the code instead');
+      setStatus('ok', `copied ${code.length} characters · paste it somewhere you keep files`);
+      return;
+    }
+    shareCodeEl.textContent = 'the clipboard is not available';
+  })();
+});
 
 sceneShareEl.addEventListener('click', () => { void handleShare(); });
 
@@ -1940,7 +1880,7 @@ function loadExample(ex: Example): void {
   // Not dirty: untouched example text is ours, not the user's work, so the
   // next replace has nothing to warn about. buffer.ts seeds a brand-new
   // browser from EXAMPLES[0] on the same reasoning.
-  replaceBuffer(ex.label, ex.code, { dirty: false });
+  replaceBuffer(ex.code, { dirty: false });
   setStatus('', `example: ${ex.label} · ctrl+enter to run`);
 }
 
@@ -1971,7 +1911,7 @@ async function handleSharedScene(): Promise<void> {
   const shared = await decodeShareFromLocation();
   if (shared === null) return;
 
-  if (!confirmReplace(`Open the shared scene "${short(normalizeSceneName(shared.name))}"?`)) {
+  if (!confirmReplace('Open the shared scene?')) {
     // The link is deliberately LEFT in the address bar. It used to be stripped
     // before the question was asked, so saying no once destroyed the only copy
     // of somebody else's scene that the page had — and "keep my work, save it
@@ -1986,7 +1926,7 @@ async function handleSharedScene(): Promise<void> {
   clearShareFromLocation();
   // Dirty: a scene from a link exists in no file of the user's, so whatever
   // would replace it next still has to ask.
-  replaceBuffer(shared.name, shared.code, { dirty: true });
+  replaceBuffer(shared.code, { dirty: true });
   _openedFromLink = true;
   setStatus('', 'shared scene loaded · read it, then ctrl+enter to run');
 }
@@ -2049,8 +1989,6 @@ function mountLegacyNotice(): void {
   legacyNoticeEl.classList.add('open');
   legacyNoticeEl.setAttribute('aria-hidden', 'false');
 }
-
-renderSceneName();
 
 // ─── Sliding panels (docs / library / settings) ──────────────────────────────
 // Three independent panels, one visible at a time: opening "library" over an

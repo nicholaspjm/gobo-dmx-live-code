@@ -24,8 +24,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   loadBuffer,
   saveBuffer,
-  getBufferName,
-  setBufferName,
   isUnsavedSinceFileSave,
   markSavedToFile,
   listLegacyScenes,
@@ -77,7 +75,6 @@ beforeEach(() => {
 });
 
 const BUFFER_KEY = 'gobo-buffer-v1';
-const NAME_KEY = 'gobo-buffer-name-v1';
 const SCENES_KEY = 'gobo-scenes-v1';
 const ACTIVE_KEY = 'gobo-active-scene-v1';
 const META_KEY = 'gobo-scene-meta-v1';
@@ -86,9 +83,9 @@ const META_KEY = 'gobo-scene-meta-v1';
 
 describe('first run', () => {
   it('seeds the buffer from the first bundled example', () => {
-    const { code, name } = loadBuffer();
+    const { code } = loadBuffer();
     expect(code).toBe(EXAMPLES[0].code);
-    expect(name).toBe(EXAMPLES[0].label);
+
   });
 
   it('persists the seed so the next load is an ordinary load', () => {
@@ -129,9 +126,9 @@ describe('stale seeds', () => {
 
   it('replaces an untouched copy of an older bundled scene', () => {
     saveBuffer(olderDemo.code);
-    const { code, name } = loadBuffer();
+    const { code } = loadBuffer();
     expect(code).toBe(EXAMPLES[0].code);
-    expect(name).toBe(EXAMPLES[0].label);
+
   });
 
   it('leaves the current opening example alone', () => {
@@ -169,42 +166,24 @@ describe('stale seeds', () => {
 // ─── save / load ─────────────────────────────────────────────────────────────
 
 describe('save and load', () => {
-  it('round-trips code and name', () => {
-    saveBuffer('sine().slow(4)', 'friday set');
+  it('round-trips the code', () => {
+    saveBuffer('sine().slow(4)');
     const loaded = loadBuffer();
     expect(loaded.code).toBe('sine().slow(4)');
-    expect(loaded.name).toBe('friday set');
-    expect(getBufferName()).toBe('friday set');
   });
 
-  it('leaves the name alone when saveBuffer omits it', () => {
-    saveBuffer('one', 'friday set');
-    saveBuffer('two');
-    expect(getBufferName()).toBe('friday set');
-    expect(loadBuffer().code).toBe('two');
-  });
-
-  it('falls back to untitled for a buffer with no name', () => {
-    saveBuffer('code with no name');
-    expect(getBufferName()).toBe('untitled');
-  });
-
-  it('falls back to untitled for a blank name', () => {
-    setBufferName('   ');
-    expect(getBufferName()).toBe('untitled');
-  });
-
-  it('renames without touching the code', () => {
-    saveBuffer('keep me', 'old');
-    setBufferName('new');
-    expect(getBufferName()).toBe('new');
-    expect(loadBuffer().code).toBe('keep me');
+  it('keeps nothing but the code, so nothing else can go stale', () => {
+    // A buffer had a name until 0.5.0 and it named nothing: there is one
+    // document, it is the one on screen, and no second buffer exists for a
+    // name to tell it apart from. Its key is not written any more.
+    saveBuffer('sine().slow(4)');
+    const written = Array.from({ length: store.length }, (_, i) => store.key(i));
+    expect(written).toEqual([BUFFER_KEY]);
   });
 
   it('does not throw when the quota is full', () => {
     store.failWrites = true;
-    expect(() => saveBuffer('anything', 'any name')).not.toThrow();
-    expect(() => setBufferName('any name')).not.toThrow();
+    expect(() => saveBuffer('anything')).not.toThrow();
     expect(() => markSavedToFile()).not.toThrow();
   });
 });
@@ -310,10 +289,7 @@ describe('legacy scenes', () => {
     loadBuffer();
     expectLegacyUntouched();
 
-    saveBuffer('new work', 'saturday');
-    expectLegacyUntouched();
-
-    setBufferName('sunday');
+    saveBuffer('new work');
     expectLegacyUntouched();
 
     markSavedToFile();

@@ -122,7 +122,7 @@ const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'scenes and files',
     blurb:
-      "You edit one scene at a time. It autosaves to the browser as you type, so a refresh costs nothing. Click its name in the top bar to rename it. share copies a link that carries the whole scene, which is the durable copy. Bundled demos are on the examples tab here. Anything that replaces the buffer arrives stopped, and asks first.",
+      "You edit one scene at a time. It autosaves to the browser as you type, so a refresh costs nothing. It has no name, because it is the only one. share copies a link carrying the whole scene, and that link is the durable copy — the dialog will also hand you the code as text, which is what to keep for a long scene. Bundled demos are on the examples tab here. Anything that replaces the buffer arrives stopped, and asks first.",
     entries: [],
   },
   {

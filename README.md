@@ -172,10 +172,11 @@ uni(2, 1, sine().slow(4))
 
 There is **one working scene**. It autosaves to the browser as you type, debounced at ~0.5 s;
 switch that off under **autosave** in settings. A refresh, a crash or a closed laptop costs
-you nothing. Click the name in the top bar to rename it.
+you nothing. It has no name: there is only the one, and it is the document on screen.
 
 A share link is the durable copy. **share** in the top bar copies a link carrying the entire
-scene, described below.
+scene and shows you what it copied, described below. The same dialog will hand you the code
+as plain text instead, which is what to keep for a scene too long to paste as a link.
 
 The bundled demos live under the **docs** panel, on its examples tab: *start here* (the two
 lines a new browser opens on), *language tour* (everything the language does), and *four-colour

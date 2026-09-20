@@ -23,8 +23,11 @@
  * output. A decoded scene must be loaded stopped, behind a visible notice,
  * and run only on a deliberate keystroke. Enforcing that is the caller's
  * job; this module only promises never to run the code itself and never to
- * throw on hostile input. The returned `name` is untrusted text too. Render
- * it as text, never as HTML.
+ * throw on hostile input.
+ *
+ * Links written before 0.5.0 carry a `name` alongside the code, from when a
+ * scene had one. It is read past rather than rejected: the code is the part
+ * that was ever worth carrying, and an old link still has to open.
  */
 
 // Version prefixes. The hash is `#<version>=<base64url>`, so the decoder
@@ -187,8 +190,8 @@ async function inflateRaw(bytes: Bytes): Promise<Bytes | null> {
  * localhost dev server alike, with no configured origin to get wrong. Any
  * existing hash is replaced, never appended to.
  */
-export async function encodeShareLink(code: string, name: string): Promise<string> {
-  const json = JSON.stringify({ name, code });
+export async function encodeShareLink(code: string): Promise<string> {
+  const json = JSON.stringify({ code });
   const bytes = new TextEncoder().encode(json);
 
   const compressed = await deflateRaw(bytes);
@@ -210,7 +213,7 @@ export async function encodeShareLink(code: string, name: string): Promise<strin
  * or non-JSON payload is an expected case, not an exception. The caller sees
  * "no share link here" and carries on with the user's own buffer.
  */
-export async function decodeShareFromLocation(): Promise<{ code: string; name: string } | null> {
+export async function decodeShareFromLocation(): Promise<{ code: string } | null> {
   const rawHash = globalThis.location?.hash;
   if (!rawHash) return null;
 
@@ -253,13 +256,15 @@ export async function decodeShareFromLocation(): Promise<{ code: string; name: s
   }
 
   // Validate the shape before trusting it. An attacker controls this object,
-  // so anything that isn't a plain record of two strings is rejected;
-  // otherwise a number where `code` should be would reach the editor.
+  // so anything that isn't a plain record with a string `code` is rejected;
+  // otherwise a number where `code` should be would reach the editor. Any
+  // other key, `name` included, is ignored rather than refused: a link from
+  // an older gobo carries one and still has to open.
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
-  const { code, name } = parsed as { code?: unknown; name?: unknown };
-  if (typeof code !== 'string' || typeof name !== 'string') return null;
+  const { code } = parsed as { code?: unknown };
+  if (typeof code !== 'string') return null;
 
-  return { code, name };
+  return { code };
 }
 
 // ─── cleanup ─────────────────────────────────────────────────────────────────

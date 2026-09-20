@@ -5,9 +5,14 @@
  * dropdown of named buffers the user had to remember to switch plus a
  * protected "default" they could not overwrite. gobo behaves like a text
  * editor instead: one document open, saved to localStorage on every
- * keystroke so a crash costs nothing. Durable copies live in files
- * (scene-file.ts) or in a share link (share.ts) rather than in browser
- * keys nobody can back up.
+ * keystroke so a crash costs nothing. The durable copy is the text itself:
+ * copied to the clipboard, or carried whole in a share link (share.ts),
+ * rather than a browser key nobody can back up.
+ *
+ * The buffer has no name. It had one until 0.5.0, editable in the top bar
+ * and carried in share links, and it named nothing: there is one document,
+ * it is always the one on screen, and no other buffer exists for a name to
+ * tell it apart from.
  *
  * Storage keys are new (gobo-buffer-*). The old scene keys are read here
  * for the one-time migration notice and are NEVER written. See
@@ -17,14 +22,10 @@
 import { EXAMPLES } from './examples.js';
 
 const BUFFER_KEY = 'gobo-buffer-v1';
-const NAME_KEY = 'gobo-buffer-name-v1';
 /** Snapshot of the buffer at the last moment it was known to be safe to
  *  discard. See isUnsavedSinceFileSave(). */
 const FILE_REF_KEY = 'gobo-buffer-file-ref-v1';
 const LEGACY_NOTICE_KEY = 'gobo-legacy-notice-dismissed-v1';
-
-/** Fallback name when a buffer exists but has no name recorded. */
-const UNTITLED = 'untitled';
 
 // ─── Storage helpers ─────────────────────────────────────────────────────────
 
@@ -66,11 +67,11 @@ function writeKey(key: string, value: string): void {
  * reach anyone who had visited before. Only exact, unedited matches against
  * the bundled scenes qualify, so nothing a person typed can be caught by it.
  */
-export function loadBuffer(): { code: string; name: string } {
+export function loadBuffer(): { code: string } {
   const stored = readKey(BUFFER_KEY);
   if (stored !== null) {
     if (isStaleSeed(stored)) return seedBuffer();
-    return { code: stored, name: getBufferName() };
+    return { code: stored };
   }
   return seedBuffer();
 }
@@ -92,36 +93,25 @@ function isStaleSeed(code: string): boolean {
 }
 
 /** Write the opening example into the buffer and return it. */
-function seedBuffer(): { code: string; name: string } {
+function seedBuffer(): { code: string } {
   const seed = EXAMPLES[0];
   writeKey(BUFFER_KEY, seed.code);
-  writeKey(NAME_KEY, seed.label);
   // Pristine example code is not the user's work, so record it as the
   // reference point: a freshly seeded buffer is not "unsaved changes" and
   // must not trigger the overwrite prompt on the first share link opened.
   writeKey(FILE_REF_KEY, seed.code);
-  return { code: seed.code, name: seed.label };
+  return { code: seed.code };
 }
 
 /**
  * Persist the buffer. Called from the editor's change handler on every
- * edit, so it does the minimum: one write, plus a second only when the
- * caller is also renaming. No debounce or dirty-check, because an extra
- * localStorage write is cheaper than a lost set, and skipping writes
- * based on a cached value would let a second tab's write win.
+ * edit, so it does the minimum: one write. No debounce or dirty-check,
+ * because an extra localStorage write is cheaper than a lost set, and
+ * skipping writes based on a cached value would let a second tab's write
+ * win.
  */
-export function saveBuffer(code: string, name?: string): void {
+export function saveBuffer(code: string): void {
   writeKey(BUFFER_KEY, code);
-  if (name !== undefined) writeKey(NAME_KEY, name);
-}
-
-export function getBufferName(): string {
-  const name = readKey(NAME_KEY);
-  return name !== null && name.trim() !== '' ? name : UNTITLED;
-}
-
-export function setBufferName(name: string): void {
-  writeKey(NAME_KEY, name);
 }
 
 /**

@@ -86,11 +86,10 @@ distinguishes a malicious scene from a harmless one.
   not match one of its own payload formats, rejects a hash containing characters outside
   base64url, drains decompression incrementally and abandons it past 512 kB so a deflate
   bomb cannot exhaust the tab's memory, decodes UTF-8 in fatal mode, and requires the
-  result to be an object whose `code` and `name` are both strings. Every failure is "there
-  is no share link here", and your own buffer is left alone.
-- **The scene name is treated as hostile text.** It is stripped of control characters,
-  collapsed to one line, capped at 80 characters, and put into the DOM through `textContent`
-  and text nodes, never as markup.
+  result to be an object whose `code` is a string. Every failure is "there is no share link
+  here", and your own buffer is left alone. A link written before 0.5.0 also carries a scene
+  `name`; it is read past, never rendered, so there is no attacker-controlled text left to
+  put on screen at all.
 - **The payload is stripped from the address bar** with `history.replaceState` before
   anything is decided, so a reload cannot re-ask the question and the link does not sit in
   the URL bar afterwards.
@@ -164,8 +163,8 @@ Things that break an expectation gobo sets:
   promise the share feature makes, so a way around it is the most serious bug this app can
   have.
 - **A share payload getting past the decoder**: a hash that makes `decodeShareFromLocation`
-  return something other than two strings, that hangs or exhausts the tab despite the size
-  caps, or a scene name that reaches the DOM as markup instead of text.
+  return something other than a string of code, or that hangs or exhausts the tab despite
+  the size caps.
 - **Anything that writes to or clears `gobo-scenes-v1`**, `gobo-active-scene-v1` or
   `gobo-scene-meta-v1`. Those keys hold scenes from the old multi-scene version and are
   deliberately read-only forever; for many users the browser is the only copy, so a write

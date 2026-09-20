@@ -434,8 +434,20 @@
         text-transform: lowercase;
       }
 
-      .share-note {
+      /* What just happened, in one line, at the top where the eye lands when
+         a modal opens. The link below it is the thing you check; this is the
+         thing you are told. */
+      .share-result {
         margin: 0 0 10px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .share-result.ok {
+        color: var(--accent2);
+      }
+
+      .share-note {
+        margin: 8px 0 0;
         font-size: 12px;
         color: var(--text-muted);
       }
@@ -893,43 +905,6 @@
         gap: 6px;
       }
 
-      /* Click-to-rename. Left unadorned until hovered so the bar reads as a
-         label rather than a form. The BPM field opposite behaves the same
-         way, so one gesture covers both. */
-      .scene-name {
-        display: inline-block;
-        max-width: 190px;
-        padding: 2px 6px;
-        border-radius: 2px;
-        color: var(--text);
-        font-size: 12px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        cursor: text;
-        outline: none;
-      }
-      .scene-name:hover {
-        background: rgba(196, 114, 74, 0.08);
-      }
-      .scene-name:focus {
-        background: rgba(196, 114, 74, 0.15);
-        color: var(--accent2);
-        /* An ellipsis mid-edit would hide the characters being typed. */
-        text-overflow: clip;
-      }
-      /* Marks the buffer as differing from the last copy written to a file.
-         A single dot next to the name, never a colour change on its own. */
-      .scene-dirty {
-        color: var(--accent);
-        font-size: 14px;
-        line-height: 1;
-        margin-left: -3px;
-      }
-      .scene-dirty.hidden {
-        display: none;
-      }
-
       .scene-action {
         background: transparent;
         border: 1px solid var(--border);
@@ -1044,12 +1019,6 @@
         flex: 1;
         min-width: 0;
       }
-      /* The scene name is attacker-controlled text; it is written with
-         textContent and shown here so it can never be mistaken for our copy. */
-      .share-banner-name {
-        color: var(--accent2);
-      }
-
       /* ─── Legacy scenes notice ───────────────────────────────────────────
          One-time panel for scenes saved under the old multi-scene model. The
          old localStorage keys are never written or deleted, so this is an
@@ -2576,20 +2545,15 @@
             </span>
           </button>
           <div class="scene-bar">
-            <!-- contenteditable rather than an <input>, matching the BPM field:
-                 it inherits the top-bar typography and only looks editable on
-                 hover. main.ts commits on Enter / blur and reverts on Escape. -->
-            <span
-              id="scene-name"
-              class="scene-name"
-              contenteditable="plaintext-only"
-              spellcheck="false"
-              title="click to rename this scene"
-              role="textbox"
-              aria-label="scene name"
-            >untitled</span>
-            <button type="button" class="scene-action" id="scene-copy" title="copy the whole scene to the clipboard">copy</button>
-            <button type="button" class="scene-action" id="scene-share" title="make a link containing this whole scene">share</button>
+            <!-- One button. It used to be two, copy and share, whose difference
+                 is a distinction about storage: not something to make somebody
+                 read a top bar to work out. Copying the code as text is still
+                 there, inside the dialog, where there is room to say what it is.
+
+                 The scene has no name either. There is one working buffer, it
+                 is the document on screen, and nothing else exists for a name
+                 to tell it apart from. -->
+            <button type="button" class="scene-action" id="scene-share" title="copy a link containing this whole scene">share</button>
             <!-- No stop button. Stopping is ctrl+. / cmd+. (or ctrl+space),
                  handled at the document so it fires wherever focus happens to
                  be. It was briefly a button here, added when the shortcut was
@@ -2700,9 +2664,15 @@
       <dialog class="share-dialog" id="share-dialog">
         <form method="dialog">
           <h2 class="share-title">share this scene</h2>
-          <p class="share-note" id="share-note"></p>
+          <!-- Filled by main.ts, which has already put the link on the
+               clipboard by the time this opens: the click on "share" is the
+               user gesture a clipboard write needs, and spending it on opening
+               a dialog would mean asking for a second click to do the thing. -->
+          <p class="share-result" id="share-result"></p>
           <textarea class="share-url" id="share-url" readonly rows="3" spellcheck="false"></textarea>
+          <p class="share-note" id="share-note"></p>
           <div class="share-actions">
+            <button type="button" class="scene-action" id="share-code">copy the code instead</button>
             <button type="button" class="scene-action" id="share-copy">copy link</button>
             <button type="submit" class="scene-action" id="share-close">close</button>
           </div>
