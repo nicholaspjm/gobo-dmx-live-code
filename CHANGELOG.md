@@ -6,18 +6,83 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+
+- **Run and stop are buttons.** Both keys still work and are still how anyone
+  does this mid-set; the buttons are for the hand already on the mouse. Run is
+  never disabled, because re-running is the whole gesture of live coding. Stop
+  carries the state instead, lit while there is something to stop, so the pair
+  doubles as the answer to "is anything going out right now".
+
+- **Twelve editor settings, from strudel's list.** Line numbers, the
+  active-line tint, bracket matching, auto-closing brackets, line wrapping,
+  autocomplete, hover help, event highlighting, multiple cursors, block
+  evaluation, a flash when a run lands, and a kill switch for every animation
+  in the app. Each editor behaviour lives in its own CodeMirror compartment, so
+  changing one does not rebuild the editor and take the undo history, the folds
+  and the live decorations with it.
+
+  Two from that list are deliberately absent. Tab indentation, because Tab
+  already accepts a completion and, with the popup closed, is how a keyboard
+  user leaves the editor. Syncing across browser tabs, because two tabs holding
+  one scene is two schedulers writing the same DMX channels.
+
+- **"ctrl+enter runs the block"** swaps the two evaluate chords, so the plain
+  one takes the block around the cursor and the shifted one takes the whole
+  document. Off by default: the document is the safer thing for the main chord
+  to mean.
+
 ### Changed
 
-- **Save and open are gone. Copy and share replace them.** A scene is text, and
-  the place to keep text is the editor you already use. `copy` puts the whole
-  scene on the clipboard; `share` turns it into a link. The unsaved-work dot went
-  with them: it meant "not yet written to a file", and with no files it would be
-  lit on every buffer anyone had typed into.
+- **One panel with tabs, instead of five panels with five buttons.** The
+  reference, the fixtures, the log, the outputs and the settings are one
+  sliding panel behind one button now. Each used to carry its own close button,
+  its own Escape handler and its own copy of "shut the other four first, or
+  they stack"; mutual exclusion stopped being a rule every panel had to
+  remember and became what a tab strip already is. The connection light still
+  opens it straight to outputs, and a clickable error still opens it on the log.
 
-- **Share opens a dialog instead of copying in silence.** The link went straight
-  to the clipboard with a line in the status bar, so you could not read it, select
-  part of it, or tell a long link from a short one before sending it. The dialog
-  shows the link and its length, and copies on request.
+- **The fixture library is the "fixtures" tab.** The old name said where the
+  definitions were kept. The new one says what they are.
+
+- **The performance view is zen mode**, which is what strudel calls it, so
+  someone arriving from there does not have to discover gobo's own word for the
+  same thing. Three ways in: `Alt+M`, the button, and clicking the mark at the
+  top left. The five settings behind it were renamed with it and are adopted
+  from their old spelling on read, so a changed one is not silently reset.
+
+- **Copy and share are one button.** The difference between them is a
+  distinction about storage, which is not something to make anyone read a top
+  bar to work out. `share` builds the link, puts it on the clipboard and opens
+  a dialog saying so; copying the scene as plain text is a second button
+  inside, where there is room to say what it is for.
+
+- **A scene has no name.** It had one, editable in the top bar and carried in
+  share links, and it named nothing: there is one working buffer, it is the
+  document on screen, and no second one exists for a name to tell it apart
+  from. Links written by 0.4.x carry a name and still open; it is read past.
+
+### Fixed
+
+- **"x.y is not a function" now says what to write.** Three different mistakes
+  arrive as that one message and the engine's version names the variable and
+  the method and stops there, which is the half the scene already knows. A
+  factory called as an object (`screen.flash()`) is told it needs its brackets;
+  a gobo function used as a method is sent into a setter; `.dim()` and
+  `.white()` on a colour strip name the call that does work. Neither is quietly
+  aliased onto `.mono()`, because `.dim(0.5)` on a fixture with a dimmer leaves
+  the colour alone and a strip has no colour to leave alone — the alias would
+  turn a blue wash white and report success.
+
+- **The editor's Ctrl+Enter binding was dead code.** A capture-phase listener
+  on the document handles that chord so the key works when focus is outside the
+  editor, and it called `stopPropagation` without first checking where focus
+  was. Ctrl+Shift+Enter had that check; Ctrl+Enter did not, because until there
+  was a setting both paths did the same thing and nothing could tell them
+  apart.
+
+- **The README and the autosave hint both offered `Ctrl+S` to save a scene to a
+  file.** That key has not been bound since save was removed in 0.4.0.
 
 ## [0.4.0] - 2026-09-19
 
