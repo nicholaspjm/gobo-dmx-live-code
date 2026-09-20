@@ -2160,8 +2160,12 @@ _panel = mountPanel({
   closeEl:  document.getElementById('panel-close')  as HTMLButtonElement,
   toggleEl: document.getElementById('panel-toggle') as HTMLButtonElement,
   pages: [
-    { id: 'reference', label: 'reference', bodyEl: docsBodyEl,
-      title: 'every function a scene can call, and the bundled examples' },
+    // "docs" rather than "reference", which this page has a sub-tab of its
+    // own called: a reference inside a reference reads as a mistake. It is
+    // also the more accurate word for what is here, since the page carries the
+    // walkthrough and the bundled scenes as well as the function list.
+    { id: 'docs', label: 'docs', bodyEl: docsBodyEl,
+      title: 'every function a scene can call, the bundled examples, and how to start' },
     // "fixtures" rather than "library", which said where the definitions are
     // kept instead of what they are. It sits under the same panel as the
     // reference's own fixtures tab; one is the stock you can address by name,

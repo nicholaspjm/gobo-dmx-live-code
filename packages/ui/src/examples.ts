@@ -22,8 +22,8 @@ export interface Example {
   /** Stable id, safe to persist in a menu or a URL. Never reuse an id for
    *  different code, or an old link resolves to the wrong scene. */
   id: string;
-  /** Short human label; also used as the buffer name when loaded, so it
-   *  doubles as the suggested filename. Keep it filename-friendly. */
+  /** Short human label, shown in the list and in the status line that
+   *  confirms a load. */
   label: string;
   /** One line saying what the example demonstrates, shown in the menu. */
   blurb: string;

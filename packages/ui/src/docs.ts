@@ -100,7 +100,7 @@ const DOCS: DocSection[] = [
     category: 'examples',
     title: 'bundled scenes',
     blurb:
-      'Working scenes to read or take apart. Loading one replaces what is in the editor, so save first if you want to keep it.',
+      'Working scenes to read or take apart. Loading one replaces what is in the editor, and asks first if you have unsaved work — take a share link or copy the code before you say yes.',
     entries: EXAMPLES.map((ex) => ({
       name: ex.label,
       signature: `${ex.code.split('\n').length} lines`,
@@ -387,7 +387,7 @@ const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'running part of a file',
     blurb:
-      "Ctrl+Enter runs the whole document, and that is usually right. Ctrl+Shift+Enter runs only the edits you pointed at, for when the rest of the file is not ready to go on stage.",
+      "Ctrl+Enter runs the whole document, and that is usually right. Ctrl+Shift+Enter runs only the edits you pointed at, for when the rest of the file is not ready to go on stage. Settings can swap the two over, if the block is what you reach for most.",
     entries: [
       {
         name: 'ctrl+shift+enter',
