@@ -67,7 +67,7 @@ format doc: schema, channel types, and the limits the validator enforces.
 The flow:
 
 1. Define it in the editor with `defineFixture('your-id', {…})` and hit `Ctrl+Enter`.
-2. Open the **library** panel. Your fixture is listed under *Defined this session*.
+2. Open the panel's **fixtures** tab. Your fixture is listed under *Defined this session*.
 3. Click **share**. That opens a GitHub new-file page with `fixtures/your-id.json`
    pre-filled; *Propose change* forks the repo and opens the PR for you. By hand
    instead: **export** downloads `your-id.gobo-fixture.json`, which you rename to
@@ -114,7 +114,7 @@ More is welcome, especially anything pinning the timing path.
 ```
 packages/core/     clock worker, scheduler, pattern eval, DMX state, WS client, fixtures. No DOM.
 packages/bridge/   Node WebSocket server → Art-Net / sACN / OSC / mock UDP. Stateless: one frame in, one packet out.
-packages/ui/       Vite frontend: CodeMirror editor, visualizer, sim panel, docs + library panels.
+packages/ui/       Vite frontend: CodeMirror editor, visualizer, sim panel, the tabbed side panel.
 ```
 
 ---

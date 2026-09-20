@@ -31,8 +31,8 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 - Output to Art-Net 4, sACN (E1.31), OSC, a USB DMX interface over WebSerial with nothing installed, TouchDesigner directly, or mock
 - One working scene, autosaved to the browser as you type, saved as a plain `.js` file when you want a durable copy
 - A share link that carries the whole scene, no server involved
-- Three bundled demo scenes, on the examples tab of the docs panel
-- Built-in, bundled public, saved and session fixtures in one library panel, with JSON import/export
+- Three bundled demo scenes, on the examples tab of the reference
+- Built-in, bundled public, saved and session fixtures on one fixtures tab, with JSON import/export
 - Click `docs` in the top bar for inline function reference, plus hover help and autocomplete
 - Thirteen themes, named after the lights they look like. `tungsten` (warm charcoal / terracotta) by default, through `bastardAmber`, `cyclorama`, `blackout`, `glowtape` and `surprisePink`
 - Semantic highlighting: fixtures, patterns, colour channels, movement, pixel methods and output config each get their own colour
@@ -178,7 +178,7 @@ A share link is the durable copy. **share** in the top bar copies a link carryin
 scene and shows you what it copied, described below. The same dialog will hand you the code
 as plain text instead, which is what to keep for a scene too long to paste as a link.
 
-The bundled demos live under the **docs** panel, on its examples tab: *start here* (the two
+The bundled demos live under the panel's **reference** tab, on its examples sub-tab: *start here* (the two
 lines a new browser opens on), *language tour* (everything the language does), and *four-colour
 bar demo* (one custom fixture end to end). Loading one replaces the editor, and asks first.
 

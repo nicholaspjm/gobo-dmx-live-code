@@ -1,6 +1,6 @@
 /**
- * User settings panel: small preferences persisted in localStorage.
- * Mounted as a sliding side-panel mirroring the docs / library panels.
+ * User settings: small preferences persisted in localStorage.
+ * Rendered into one tab of the side panel (panel.ts).
  *
  * Each setting has:
  *   - a stable key in the persisted JSON blob
@@ -14,6 +14,7 @@
  */
 
 import { THEMES, THEME_LIST, LEGACY_THEME_IDS, type ThemeId } from './themes.js';
+import { PANEL_OPEN_EVENT } from './panel.js';
 import { migrateLegacyKey } from './storage-migration.js';
 
 const STORAGE_KEY = 'gobo-settings-v1';
@@ -230,36 +231,17 @@ export function resetSettings(): void {
 
 // ─── Panel UI ────────────────────────────────────────────────────────────────
 
-/** Mount the settings panel. Returns { setOpen } so the host can drive
- *  open/close from outside (used by the mutual-exclusion logic that
- *  shuts the other panels when this one opens). */
+/** Render the settings page into `bodyEl`. The panel shell (panel.ts) owns
+ *  opening, closing and which tab is showing. */
 export function mountSettingsPanel(opts: {
-  panelEl: HTMLElement;
   bodyEl: HTMLElement;
-  toggleEl: HTMLButtonElement;
-  closeEl: HTMLButtonElement;
-  /** Called whenever the user opens the panel. The host uses this to
-   *  close the other sliding panels for mutual exclusion. */
-  onOpen?: () => void;
-}): { setOpen: (open: boolean) => void; isOpen: () => boolean } {
-  const { panelEl, bodyEl, toggleEl, closeEl, onOpen } = opts;
+}): void {
+  const { bodyEl } = opts;
 
-  function setOpen(open: boolean): void {
-    panelEl.classList.toggle('open', open);
-    panelEl.setAttribute('aria-hidden', open ? 'false' : 'true');
-    toggleEl.classList.toggle('active', open);
-    if (open) {
-      render();
-      onOpen?.();
-    }
-  }
-  function isOpen(): boolean { return panelEl.classList.contains('open'); }
-
-  toggleEl.addEventListener('click', () => setOpen(!isOpen()));
-  closeEl.addEventListener('click', () => setOpen(false));
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isOpen()) setOpen(false);
-  });
+  // Drawn each time it comes into view rather than once: a setting can be
+  // changed from elsewhere (the zen-key adoption on first read, a reset), and
+  // a stale toggle is a switch that lies about what it is set to.
+  bodyEl.addEventListener(PANEL_OPEN_EVENT, () => render());
 
   function render(): void {
     const s = getSettings();
@@ -392,7 +374,7 @@ export function mountSettingsPanel(opts: {
     }
   });
 
-  return { setOpen, isOpen };
+  render();
 }
 
 // ─── HTML helpers ────────────────────────────────────────────────────────────

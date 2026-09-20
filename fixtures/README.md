@@ -47,7 +47,7 @@ manufacturer-and-model id.
 ## Writing a fixture by exporting from the app
 
 Define it in the editor with `defineFixture('your-id', {…})`, run it, then
-use the **library** panel's *share* (opens a pre-filled PR) or *export*
+use the **fixtures** tab's *share* (opens a pre-filled PR) or *export*
 (downloads `your-id.gobo-fixture.json`, which you rename to
 `your-id.json`; the validator rejects any other filename). Full
 contribution flow in [`../CONTRIBUTING.md`](../CONTRIBUTING.md).

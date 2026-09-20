@@ -321,7 +321,7 @@ function describeFixture(decl: LightDecl): LightInfo {
       summary: `Fixture "${id}".`,
       channels: [],
       commands: [],
-      note: `No fixture is loaded under that id. If it comes from defineFixture, run the scene once; otherwise check the library panel for the id.`,
+      note: `No fixture is loaded under that id. If it comes from defineFixture, run the scene once; otherwise check the fixtures tab of the panel for the id.`,
     };
   }
   const uni = universe !== null && universe !== 0 ? ` · universe ${universe}` : '';

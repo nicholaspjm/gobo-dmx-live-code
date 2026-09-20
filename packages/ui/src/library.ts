@@ -1,13 +1,14 @@
 /**
- * Fixture library panel: UI over the core fixture-library storage.
+ * The fixtures page: UI over the core fixture-library storage.
  *
  * Lists every saved fixture with export / delete controls, plus any
  * session-only custom fixtures (declared via `defineFixture` in the
  * user's code but not yet saved) so the user can promote them into
  * persistent storage. Also hosts the "import from file" flow.
  *
- * It sits in a sliding side-panel keyed off a topbar button, mirroring
- * the docs panel.
+ * It is one page of the side panel (panel.ts), which owns the tab strip and
+ * the opening and closing. This module renders into the page and is told when
+ * it comes into view.
  *
  * A search field in the toolbar filters every tier at once, ranked by
  * rankFixtures() at the bottom of this file. It shares nothing with the docs
@@ -34,6 +35,7 @@ import {
   type FixtureDef,
 } from '@gobo/core';
 import { getPublicFixtures } from './public-fixtures.js';
+import { PANEL_OPEN_EVENT } from './panel.js';
 
 /** Destination of the GitHub "share" flow. Kept here so a repo rename
  *  is a one-line change. */
@@ -76,18 +78,12 @@ export function provenanceTag(tier: RowTier): string {
   return `<span class="fx-tag fx-tag-${tier}">${TIER_LABEL[tier]}</span>`;
 }
 
-/** Mount the library panel inside the page. The caller owns the toggle
- *  button's visibility; this only wires its click handler. The optional
- *  `onOpen` callback fires when the panel becomes visible, letting the
- *  host close other sliding panels for mutual exclusion. */
+/** Render the fixture library into `bodyEl`. The panel shell handles being
+ *  opened and closed; this wires up what happens when it comes into view. */
 export function mountLibraryPanel(opts: {
-  panelEl: HTMLElement;
   bodyEl: HTMLElement;
-  toggleEl: HTMLButtonElement;
-  closeEl: HTMLButtonElement;
-  onOpen?: () => void;
-}): { refresh: () => void; setOpen: (open: boolean) => void; isOpen: () => boolean } {
-  const { panelEl, bodyEl, toggleEl, closeEl, onOpen } = opts;
+}): { refresh: () => void } {
+  const { bodyEl } = opts;
 
   // The panel's fixed furniture: the toolbar (import button and search
   // field), the banner, and the container everything else renders into.
@@ -95,9 +91,9 @@ export function mountLibraryPanel(opts: {
   // take the field, its text and the caret with it. It also means a banner
   // survives the refresh that follows the action it is reporting on.
   //
-  // The field is styled by the docs panel's own .doc-search rules: this
-  // panel is a .docs-panel instance and already borrows its chrome, so the
-  // search looks like the one people have used. Three properties are set
+  // The field is styled by the reference's own .doc-search rules: every page
+  // of the panel shares that chrome, so the search looks like the one people
+  // have already used. Three properties are set
   // here because that bar is a sticky full-width row of its own and this one
   // shares the toolbar. Nothing but the appearance is shared; the ranking
   // lives at the bottom of this file.
@@ -128,30 +124,17 @@ export function mountLibraryPanel(opts: {
     searchEl.focus();
   });
 
-  function setOpen(open: boolean): void {
-    panelEl.classList.toggle('open', open);
-    panelEl.setAttribute('aria-hidden', open ? 'false' : 'true');
-    toggleEl.classList.toggle('active', open);
-    if (open) {
-      refresh();
-      onOpen?.();
-      // Straight into the search, the way the docs panel does it: the panel
-      // is usually opened to find one fixture. Deferred so the slide-in
-      // doesn't fight the focus. Any previous query is left selected, so
-      // typing replaces it and Backspace still gets you the whole list.
-      setTimeout(() => {
-        searchEl.focus();
-        searchEl.select();
-      }, 50);
-    }
-  }
-  function isOpen(): boolean { return panelEl.classList.contains('open'); }
-
-  toggleEl.addEventListener('click', () => setOpen(!isOpen()));
-  closeEl.addEventListener('click', () => setOpen(false));
-  // Escape closes, same as docs panel.
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && panelEl.classList.contains('open')) setOpen(false);
+  bodyEl.addEventListener(PANEL_OPEN_EVENT, () => {
+    // A fixture may have been defined by a run since this was last drawn.
+    refresh();
+    // Straight into the search, the way the reference does it: this page is
+    // usually opened to find one fixture. Deferred so the slide-in does not
+    // fight the focus. Any previous query is left selected, so typing replaces
+    // it and Backspace still gets you the whole list.
+    setTimeout(() => {
+      searchEl.focus();
+      searchEl.select();
+    }, 50);
   });
 
   // Body-level click delegation. Buttons are rebuilt on every refresh, so
@@ -525,7 +508,7 @@ export function mountLibraryPanel(opts: {
     bannerTimer = setTimeout(() => { bannerEl.className = 'lib-banner'; }, 2400);
   }
 
-  return { refresh, setOpen, isOpen };
+  return { refresh };
 }
 
 function escapeText(s: string): string {

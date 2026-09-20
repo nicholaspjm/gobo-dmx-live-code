@@ -75,6 +75,7 @@ import {
 // Only the legacy-scene notice writes files now: it offers scenes saved under
 // the pre-0.3 model as downloads, which is the one way out they have.
 import { downloadScene, sceneFilename } from './scene-file.js';
+import { mountPanel, type PanelHost } from './panel.js';
 import { encodeShareLink, decodeShareFromLocation, clearShareFromLocation } from './share.js';
 import { getExample, type Example } from './examples.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
@@ -2028,28 +2029,31 @@ function mountLegacyNotice(): void {
   legacyNoticeEl.setAttribute('aria-hidden', 'false');
 }
 
-// ─── Sliding panels (docs / library / settings) ──────────────────────────────
-// Three independent panels, one visible at a time: opening "library" over an
-// already-open "docs" would stack them. Each panel registers its close fn
-// here; opening one calls closeOtherPanels(self) to shut the others first.
+// ─── The side panel ──────────────────────────────────────────────────────────
+// One panel, five tabs: the reference, the fixture library, the log, the
+// outputs and the settings. It used to be five panels behind four top-bar
+// buttons plus the connection light, each with its own close, its own Escape
+// handler and its own copy of "shut the other four first". Mutual exclusion is
+// not a rule any of them has to remember now; it is what a tab strip is.
+//
+// panel.ts owns the shell. Each module below renders into the page it is
+// handed and is told when that page comes into view.
 
-type PanelCloser = (open: boolean) => void;
-const _panelClosers = new Map<string, PanelCloser>();
-function closeOtherPanels(except: string): void {
-  for (const [key, fn] of _panelClosers) {
-    if (key !== except) fn(false);
-  }
-}
+const docsBodyEl     = document.getElementById('docs-body')     as HTMLElement;
+const libraryBodyEl  = document.getElementById('library-body')  as HTMLElement;
+const logBodyEl      = document.getElementById('log-body')      as HTMLElement;
+const outputsBodyEl  = document.getElementById('outputs-body')  as HTMLElement;
+const settingsBodyEl = document.getElementById('settings-body') as HTMLElement;
 
-// Docs panel
-const docsToggleEl = document.getElementById('docs-toggle') as HTMLButtonElement;
-const docsCloseEl  = document.getElementById('docs-close')  as HTMLButtonElement;
-const docsPanelEl  = document.getElementById('docs-panel')  as HTMLElement;
-const docsBodyEl   = document.getElementById('docs-body')   as HTMLElement;
+// Declared before the pages are mounted, because each of them asks whether it
+// is the one on screen and the panel does not exist yet at that point. Null
+// until mountPanel() returns, which is before anything can be clicked.
+let _panel: PanelHost | null = null;
+const pageIsOpen = (id: string) => (): boolean => _panel?.isOpen(id) ?? false;
 
 renderDocs(docsBodyEl);
 
-// The docs panel raises this when one of its example rows is clicked. It
+// The reference raises this when one of its example rows is clicked. It
 // carries the id rather than the scene itself, so an unknown id fails visibly
 // here instead of quietly loading the wrong thing.
 docsBodyEl.addEventListener('gobo:load-example', (ev) => {
@@ -2062,79 +2066,57 @@ docsBodyEl.addEventListener('gobo:load-example', (ev) => {
   loadExample(ex);
 });
 
-function setDocsOpen(open: boolean): void {
-  docsPanelEl.classList.toggle('open', open);
-  docsPanelEl.setAttribute('aria-hidden', open ? 'false' : 'true');
-  docsToggleEl.classList.toggle('active', open);
-  if (open) closeOtherPanels('docs');
-}
-_panelClosers.set('docs', setDocsOpen);
+const libraryPanel = mountLibraryPanel({ bodyEl: libraryBodyEl });
 
-docsToggleEl.addEventListener('click', () => {
-  setDocsOpen(!docsPanelEl.classList.contains('open'));
-});
-docsCloseEl.addEventListener('click', () => setDocsOpen(false));
+// Recording starts before anything else runs, so a failure during start-up is
+// already in the log by the time anyone opens it.
+mountConsolePanel({ bodyEl: logBodyEl, isOpen: pageIsOpen('log') });
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && docsPanelEl.classList.contains('open')) {
-    setDocsOpen(false);
-  }
+mountSettingsPanel({ bodyEl: settingsBodyEl });
+
+// Kept in _outputsPanel so the connection listeners can repaint it.
+_outputsPanel = mountOutputsPanel({
+  bodyEl: outputsBodyEl,
+  isOpen: pageIsOpen('outputs'),
+  // Choosing a serial port needs a user gesture, and a click on the panel row
+  // is one, so the row can share the top-bar button's handler.
+  onUsbRequest: () => { void handleUsbButton(); },
 });
 
-// Fixture library panel. Closes docs and settings when it opens.
-const libraryPanel = mountLibraryPanel({
-  panelEl:  document.getElementById('library-panel')  as HTMLElement,
-  bodyEl:   document.getElementById('library-body')   as HTMLElement,
-  toggleEl: document.getElementById('library-toggle') as HTMLButtonElement,
-  closeEl:  document.getElementById('library-close')  as HTMLButtonElement,
-  onOpen:   () => closeOtherPanels('library'),
+_panel = mountPanel({
+  shellEl:  document.getElementById('panel')        as HTMLElement,
+  tabsEl:   document.getElementById('panel-tabs')   as HTMLElement,
+  closeEl:  document.getElementById('panel-close')  as HTMLButtonElement,
+  toggleEl: document.getElementById('panel-toggle') as HTMLButtonElement,
+  pages: [
+    { id: 'reference', label: 'reference', bodyEl: docsBodyEl,
+      title: 'every function a scene can call, and the bundled examples' },
+    // "fixtures" rather than "library", which said where the definitions are
+    // kept instead of what they are. It sits under the same panel as the
+    // reference's own fixtures tab; one is the stock you can address by name,
+    // the other is how to address it.
+    { id: 'fixtures', label: 'fixtures', bodyEl: libraryBodyEl,
+      title: 'fixture definitions you can address by name, and the ones this scene declared' },
+    { id: 'log', label: 'log', bodyEl: logBodyEl,
+      title: 'what the scene has printed, and what went wrong' },
+    { id: 'outputs', label: 'outputs', bodyEl: outputsBodyEl,
+      title: 'where light is going, and whether it is arriving' },
+    { id: 'settings', label: 'settings', bodyEl: settingsBodyEl },
+  ],
 });
-_panelClosers.set('library', libraryPanel.setOpen);
 
-// The log panel. Recording starts before anything else runs, so a failure
-// during start-up is in the panel by the time anyone opens it.
-const logPanel = mountConsolePanel({
-  panelEl:  document.getElementById('log-panel')  as HTMLElement,
-  bodyEl:   document.getElementById('log-body')   as HTMLElement,
-  toggleEl: document.getElementById('log-toggle') as HTMLButtonElement,
-  closeEl:  document.getElementById('log-close')  as HTMLButtonElement,
-  onOpen:   () => closeOtherPanels('log'),
-});
-_panelClosers.set('log', logPanel.setOpen);
+// The connection light is still a way in, straight to the tab that answers
+// the question it raises. It is the thing a lighting person already looks at
+// when the rig is dark.
+outputStatusEl.addEventListener('click', () => _panel?.toggle('outputs'));
 
 // An error on the bar is usually longer than the bar. Clicking it opens the
 // log, which has the whole thing; the hover title has it too, for anyone who
 // would rather not lose the editor width. Wired here rather than in
 // setStatus so the handler is installed once instead of per message.
 evalStatusEl.addEventListener('click', () => {
-  if (evalStatusEl.classList.contains('clickable')) logPanel.setOpen(true);
+  if (evalStatusEl.classList.contains('clickable')) _panel?.open('log');
 });
-
-// Settings panel. Closes docs and library when it opens.
-const settingsPanel = mountSettingsPanel({
-  panelEl:  document.getElementById('settings-panel')  as HTMLElement,
-  bodyEl:   document.getElementById('settings-body')   as HTMLElement,
-  toggleEl: document.getElementById('settings-toggle') as HTMLButtonElement,
-  closeEl:  document.getElementById('settings-close')  as HTMLButtonElement,
-  onOpen:   () => closeOtherPanels('settings'),
-});
-_panelClosers.set('settings', settingsPanel.setOpen);
-
-// Outputs panel. Opened by the connection light rather than by a button of its
-// own: the light already answers half this question, and the top bar has no
-// room for another word. Mounted last, and the reference is kept in
-// _outputsPanel so the connection listeners can repaint it.
-_outputsPanel = mountOutputsPanel({
-  panelEl:  document.getElementById('outputs-panel') as HTMLElement,
-  bodyEl:   document.getElementById('outputs-body')  as HTMLElement,
-  toggleEl: outputStatusEl,
-  closeEl:  document.getElementById('outputs-close') as HTMLButtonElement,
-  // Choosing a serial port needs a user gesture, and a click on the panel row
-  // is one, so the row can share the top-bar button's handler.
-  onUsbRequest: () => { void handleUsbButton(); },
-  onOpen:   () => closeOtherPanels('outputs'),
-});
-_panelClosers.set('outputs', _outputsPanel.setOpen);
 
 // Re-apply the theme whenever the setting changes. Other settings are read at
 // the point of use and need no subscription; themes need one because they
@@ -2199,9 +2181,9 @@ function setZenMode(on: boolean): void {
   // it is the way out, so forgetting the key does not strand anyone.
   zenExitEl.hidden = !on;
   if (!on) return;
-  // Every panel opens from a button in the top bar, so one left open would be
+  // The panel opens from a button in the top bar, so one left open would be
   // unreachable as well as uncloseable once the bar is gone.
-  for (const closePanel of _panelClosers.values()) closePanel(false);
+  _panel?.close();
   // Whatever had focus may have just become display:none, which drops focus to
   // the body. The code is the only thing left to type into.
   editorView.focus();
@@ -2422,7 +2404,7 @@ connectorBannerDismissEl.addEventListener('click', () => setConnectorBannerOpen(
 // The banner says one output is blocked. This opens the panel that says which
 // outputs are not, which is the more useful answer for anyone unwilling to
 // install anything.
-connectorBannerMoreEl.addEventListener('click', () => _outputsPanel?.setOpen(true));
+connectorBannerMoreEl.addEventListener('click', () => _panel?.open('outputs'));
 
 // Once something is listening, the banner has served its purpose.
 onStatusChange((connected) => {

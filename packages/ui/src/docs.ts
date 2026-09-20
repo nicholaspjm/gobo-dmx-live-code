@@ -10,6 +10,7 @@
  */
 
 import { EXAMPLES } from './examples.js';
+import { PANEL_OPEN_EVENT } from './panel.js';
 
 /**
  * Where a fixture came from. The library panel tags every row with one of
@@ -279,7 +280,7 @@ const DOCS: DocSection[] = [
       },
       {
         name: 'saved, or only this scene',
-        signature: 'the library panel promotes one to the other',
+        signature: 'the fixtures tab promotes one to the other',
         tiers: ['saved', 'session'],
         description:
           "A defineFixture() call lives exactly as long as the scene that holds it. Open another scene and the id is unknown again, which is what you want while you are still working out what the channels are. When it is right, open the library panel: the fixture is listed under 'Defined this session' with a save to library button, and saving pins it to this browser. Saved fixtures are registered again at startup, so fixture(1, 'house-par') works in a fresh scene with no defineFixture line in it at all. They are per browser and are not synced: export one to a file to carry it to another machine, or share it to propose it for the public library. Deleting one does not touch a scene that is already running.",
@@ -291,7 +292,7 @@ const DOCS: DocSection[] = [
         signature: 'the tag on the row',
         tiers: ['builtin', 'public', 'saved', 'session'],
         description:
-          'Open the library panel and every fixture wears the tag for where it came from: built-in for one shipped with gobo, public for a contributed one, yours for one you saved, session for one the current scene declared and nothing has saved yet. It matters where two of them nearly agree: a public definition you edited and saved is yours, the public copy is still there and still says public, and the two can differ by the channel you fixed. Each row also opens up to show the code that makes it, generated from the definition itself, which is the quickest way to start your own: find the nearest fixture, copy its defineFixture call into the scene, and change what is wrong.',
+          'Open the fixtures tab and every fixture wears the tag for where it came from: built-in for one shipped with gobo, public for a contributed one, yours for one you saved, session for one the current scene declared and nothing has saved yet. It matters where two of them nearly agree: a public definition you edited and saved is yours, the public copy is still there and still says public, and the two can differ by the channel you fixed. Each row also opens up to show the code that makes it, generated from the definition itself, which is the quickest way to start your own: find the nearest fixture, copy its defineFixture call into the scene, and change what is wrong.',
       },
     ],
   },
@@ -2272,18 +2273,14 @@ export function renderDocs(body: HTMLElement): void {
     if (next) switchTab(next);
   });
 
-  // Focus search automatically when the panel opens
-  // (the opener sets .open on the panel; we watch for that via an observer)
-  const panel = body.closest<HTMLElement>('.docs-panel');
-  if (panel) {
-    const obs = new MutationObserver(() => {
-      if (panel.classList.contains('open')) {
-        // Defer so the slide-in transition doesn't fight the focus
-        setTimeout(() => input.focus(), 50);
-      }
-    });
-    obs.observe(panel, { attributes: true, attributeFilter: ['class'] });
-  }
+  // Focus search whenever this page comes into view. It used to watch the
+  // panel's class list with a MutationObserver, which no longer says what it
+  // said: the panel opens for five different tabs now, and only one of them is
+  // this one. The shell raises an event on the page it is showing instead.
+  body.addEventListener(PANEL_OPEN_EVENT, () => {
+    // Deferred so the slide-in transition does not fight the focus.
+    setTimeout(() => input.focus(), 50);
+  });
 
   // Initial render
   update();

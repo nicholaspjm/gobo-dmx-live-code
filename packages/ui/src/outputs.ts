@@ -28,6 +28,7 @@ import {
   isUsbDmxSupported,
   type ConnectorNotice,
 } from '@gobo/core';
+import { PANEL_OPEN_EVENT } from './panel.js';
 
 // ─── The table ───────────────────────────────────────────────────────────────
 
@@ -441,49 +442,30 @@ export function blockedOutputMessage(output: string): string {
 // ─── Panel ───────────────────────────────────────────────────────────────────
 
 export interface OutputsPanel {
-  setOpen: (open: boolean) => void;
-  isOpen: () => boolean;
   /** Repaint the badges. Cheap, and called whenever a connection changes. */
   refresh: () => void;
 }
 
 /**
- * Mount the outputs panel. Mirrors the docs / library / settings panels: the
- * host owns mutual exclusion via `onOpen`, this owns its own contents.
+ * Render the outputs page. The panel shell (panel.ts) owns opening, closing
+ * and which tab is showing; this owns the contents.
  *
- * `onUsbRequest` is the same handler as the top-bar usb button. A click inside
- * the panel is still a user gesture, which is what requestPort() requires.
+ * `onUsbRequest` is the same handler the outputs row would reach for anyway. A
+ * click inside the panel is still a user gesture, which is what requestPort()
+ * requires.
  */
 export function mountOutputsPanel(opts: {
-  panelEl: HTMLElement;
   bodyEl: HTMLElement;
-  toggleEl: HTMLElement;
-  closeEl: HTMLButtonElement;
+  /** Whether this page is the one currently on screen. */
+  isOpen: () => boolean;
   onUsbRequest: () => void;
-  onOpen?: () => void;
 }): OutputsPanel {
-  const { panelEl, bodyEl, toggleEl, closeEl, onUsbRequest, onOpen } = opts;
+  const { bodyEl, isOpen, onUsbRequest } = opts;
 
-  function isOpen(): boolean {
-    return panelEl.classList.contains('open');
-  }
-
-  function setOpen(open: boolean): void {
-    panelEl.classList.toggle('open', open);
-    panelEl.setAttribute('aria-hidden', open ? 'false' : 'true');
-    toggleEl.classList.toggle('active', open);
-    toggleEl.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (open) {
-      render();
-      onOpen?.();
-    }
-  }
-
-  toggleEl.addEventListener('click', () => setOpen(!isOpen()));
-  closeEl.addEventListener('click', () => setOpen(false));
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isOpen()) setOpen(false);
-  });
+  // Drawn from scratch each time it comes into view: every badge on it is a
+  // live verdict about hardware, and a stale one is the whole failure this
+  // page exists to prevent.
+  bodyEl.addEventListener(PANEL_OPEN_EVENT, () => render());
 
   /**
    * Whether the connector is running, said out loud.
@@ -822,5 +804,5 @@ export function mountOutputsPanel(opts: {
     if (isOpen()) render();
   }
 
-  return { setOpen, isOpen, refresh };
+  return { refresh };
 }

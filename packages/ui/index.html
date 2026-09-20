@@ -186,18 +186,21 @@
 
       /* The wordmark gives way before any control does, because it is the one
          item in the row that is decoration rather than something you press.
-         It goes in two steps rather than one, since the word costs about fifty
-         pixels and the ramp costs thirty.
- 
-         Both numbers are measured, not guessed. With every control shown the
-         row wants 1098px for the ramp and the word, 1047px for the ramp on its
-         own, and 1016px for neither. The breakpoints sit just above each. */
-      @media (max-width: 1150px) {
+         It goes in two steps rather than one, since the word and the ramp cost
+         about fifty pixels each.
+
+         Both numbers are measured, not guessed, and they moved a long way when
+         four top-bar buttons became one: the row now wants 864px with the
+         whole mark, 813px for the ramp alone and 750px for neither, against
+         1098 / 1047 / 1016 before. The breakpoints sit just above each. Below
+         750 the bar is out of room whatever the mark does, which is a fact
+         about how many controls are in it. */
+      @media (max-width: 880px) {
         .wordmark-word { display: none; }
         .topbar-right { gap: 14px; }
       }
 
-      @media (max-width: 1050px) {
+      @media (max-width: 830px) {
         .wordmark { display: none; }
       }
 
@@ -1172,10 +1175,10 @@
         border-color: var(--accent);
       }
 
-      /* Icon-only variant, the settings gear. Same border and hover treatment
+      /* Icon-only variant, the panel button. Same border and hover treatment
          as the text toggles, but square so the SVG sits centred without the
          lopsided text padding. */
-      .settings-toggle-btn {
+      .panel-toggle {
         padding: 0;
         width: 24px;
         height: 22px;
@@ -1183,12 +1186,12 @@
         align-items: center;
         justify-content: center;
       }
-      .settings-toggle-btn svg {
+      .panel-toggle svg {
         display: block;
       }
 
-      /* Docs panel */
-      .docs-panel {
+      /* The side panel */
+      .panel {
         position: fixed;
         top: 38px;
         right: 0;
@@ -1205,42 +1208,74 @@
         box-shadow: -8px 0 24px rgba(0, 0, 0, 0.3);
       }
 
-      .docs-panel.open {
+      .panel.open {
         transform: translateX(0);
       }
 
-      .docs-header {
+      .panel-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 14px 18px;
+        gap: 10px;
+        padding: 10px 14px 0 18px;
         border-bottom: 1px solid var(--border);
         flex-shrink: 0;
       }
 
-      .docs-title {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--accent2);
-        letter-spacing: 0.08em;
-        text-transform: lowercase;
+      /* The tab strip. It wraps rather than scrolls: five short words fit on
+         one line at the panel's width, and a second line is easier to read
+         than a row that hides its ends. */
+      .panel-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        min-width: 0;
       }
 
-      .docs-close {
+      .panel-tab {
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--text-muted);
+        font: inherit;
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: lowercase;
+        padding: 6px 9px 7px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: color 0.12s, border-color 0.12s;
+      }
+
+      .panel-tab:hover {
+        color: var(--text);
+      }
+
+      /* The selected tab is marked twice: the accent colour and the underline.
+         Colour alone would say nothing on the monochrome themes, which have no
+         second hue to spend. */
+      .panel-tab.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+      }
+
+      .panel-close {
         background: transparent;
         border: none;
         color: var(--text-muted);
         font-size: 18px;
         cursor: pointer;
-        padding: 0 4px;
+        padding: 0 4px 6px;
         line-height: 1;
+        align-self: center;
+        flex-shrink: 0;
       }
 
-      .docs-close:hover {
+      .panel-close:hover {
         color: var(--text);
       }
 
-      .docs-body {
+      .panel-body {
         flex: 1;
         overflow-y: auto;
         padding: 0 18px 40px;
@@ -1791,13 +1826,13 @@
         display: none !important;
       }
 
-      .docs-body::-webkit-scrollbar {
+      .panel-body::-webkit-scrollbar {
         width: 8px;
       }
-      .docs-body::-webkit-scrollbar-track {
+      .panel-body::-webkit-scrollbar-track {
         background: var(--surface);
       }
-      .docs-body::-webkit-scrollbar-thumb {
+      .panel-body::-webkit-scrollbar-thumb {
         background: var(--border);
         border-radius: 4px;
       }
@@ -1972,10 +2007,10 @@
         color: color-mix(in srgb, var(--syn-output) 85%, var(--text));
       }
 
-      /* ─── Fixture library panel ────────────────────────────────────────
-         Lives in its own .docs-panel instance with a distinct id, reusing
-         the slide-in layout / scrollbar / sticky header styling from the
-         docs panel. Library-specific rows, buttons and banner live here. */
+      /* ─── Fixture library page ─────────────────────────────────────────
+         One tab of the side panel, reusing the panel's layout, scrollbar and
+         sticky-header styling. The rows, buttons and banner that only this
+         page has live here. */
       .lib-toolbar {
         display: flex;
         gap: 8px;
@@ -2628,14 +2663,12 @@
           <!-- Choosing a USB interface lives in the outputs panel, next to the
                other five outputs, rather than as a button of its own up here.
                Reached by clicking the connection light. -->
-          <button type="button" class="docs-toggle" id="library-toggle" title="custom fixture library">library</button>
           <button type="button" class="docs-toggle" id="zen-toggle" title="zen mode: hide everything but the code (alt+m, or click the mark on the left)" aria-pressed="false">zen</button>
-          <button type="button" class="docs-toggle" id="log-toggle" title="what the scene has printed, and what went wrong">log</button>
-          <button type="button" class="docs-toggle" id="docs-toggle" title="function reference">docs</button>
-          <button type="button" class="docs-toggle settings-toggle-btn" id="settings-toggle" title="settings" aria-label="settings">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          <!-- The panel, all of it. Four buttons used to stand here; what
+               they opened is now five tabs behind this one. -->
+          <button type="button" class="docs-toggle panel-toggle" id="panel-toggle" title="reference, fixtures, log, outputs and settings" aria-label="panel" aria-expanded="false" aria-controls="panel">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M3 6h18"></path><path d="M3 12h18"></path><path d="M3 18h18"></path>
             </svg>
           </button>
         </div>
@@ -2658,47 +2691,25 @@
         <button type="button" class="scene-action" id="connector-banner-dismiss">dismiss</button>
       </div>
 
-      <aside class="docs-panel" id="docs-panel" aria-hidden="true">
-        <div class="docs-header">
-          <span class="docs-title">reference</span>
-          <button type="button" class="docs-close" id="docs-close" title="close">×</button>
-        </div>
-        <div class="docs-body" id="docs-body"></div>
-      </aside>
+      <!-- One panel, five tabs. It used to be five panels with five buttons
+           in the top bar, each carrying its own close, its own Escape handler
+           and its own copy of "shut the other four first". The five things
+           behind them are all the same kind of thing — something you read
+           beside the code — so mutual exclusion stopped being a rule every
+           panel had to remember and became what a tab strip is.
 
-      <aside class="docs-panel" id="library-panel" aria-hidden="true">
-        <div class="docs-header">
-          <span class="docs-title">library</span>
-          <button type="button" class="docs-close" id="library-close" title="close">×</button>
+           The tabs themselves are built in panel.ts, from the page list, so
+           there is one place that decides what the panel holds. -->
+      <aside class="panel" id="panel" aria-hidden="true">
+        <div class="panel-header">
+          <div class="panel-tabs" id="panel-tabs" role="tablist"></div>
+          <button type="button" class="panel-close" id="panel-close" title="close" aria-label="close">×</button>
         </div>
-        <div class="docs-body" id="library-body"></div>
-      </aside>
-
-      <!-- Fourth sliding panel, opened by the connection light. Contents are
-           built in outputs.ts from the output table, so this is an empty
-           shell like the others. -->
-      <aside class="docs-panel" id="outputs-panel" aria-hidden="true">
-        <div class="docs-header">
-          <span class="docs-title">outputs</span>
-          <button type="button" class="docs-close" id="outputs-close" title="close">×</button>
-        </div>
-        <div class="docs-body" id="outputs-body"></div>
-      </aside>
-
-      <aside class="docs-panel" id="log-panel" aria-hidden="true">
-        <div class="docs-header">
-          <span class="docs-title">log</span>
-          <button type="button" class="docs-close" id="log-close" title="close">×</button>
-        </div>
-        <div class="docs-body" id="log-body"></div>
-      </aside>
-
-      <aside class="docs-panel" id="settings-panel" aria-hidden="true">
-        <div class="docs-header">
-          <span class="docs-title">settings</span>
-          <button type="button" class="docs-close" id="settings-close" title="close">×</button>
-        </div>
-        <div class="docs-body" id="settings-body"></div>
+        <div class="panel-body" id="docs-body" hidden></div>
+        <div class="panel-body" id="library-body" hidden></div>
+        <div class="panel-body" id="outputs-body" hidden></div>
+        <div class="panel-body" id="log-body" hidden></div>
+        <div class="panel-body" id="settings-body" hidden></div>
       </aside>
 
       <div class="editor-wrap">
@@ -2778,11 +2789,11 @@
     <aside class="legacy-notice" id="legacy-notice" aria-hidden="true">
       <div class="legacy-notice-head">
         <span class="legacy-notice-title">scenes from the old version</span>
-        <button type="button" class="docs-close" id="legacy-close" title="dismiss">×</button>
+        <button type="button" class="panel-close" id="legacy-close" title="dismiss">×</button>
       </div>
       <p class="legacy-notice-body">
-        gobo now keeps one working scene and saves to files. These were saved under
-        the old multi-scene menu. They are still in this browser and nothing here
+        gobo now keeps one working scene. These were saved under the old
+        multi-scene menu. They are still in this browser and nothing here
         deletes them. Download any you want to keep as a file.
       </p>
       <div class="legacy-notice-list" id="legacy-list"></div>

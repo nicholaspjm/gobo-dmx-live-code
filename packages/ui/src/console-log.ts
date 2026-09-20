@@ -15,6 +15,8 @@
  * devtools stays exactly as useful as it was.
  */
 
+import { PANEL_OPEN_EVENT } from './panel.js';
+
 /** What kind of line this is, which decides how it is coloured. */
 export type LogKind = 'log' | 'warn' | 'error';
 
@@ -160,13 +162,11 @@ function escapeHtml(s: string): string {
 }
 
 export function mountConsolePanel(opts: {
-  panelEl: HTMLElement;
   bodyEl: HTMLElement;
-  toggleEl: HTMLButtonElement;
-  closeEl: HTMLButtonElement;
-  onOpen?: () => void;
-}): { refresh: () => void; setOpen: (open: boolean) => void; isOpen: () => boolean } {
-  const { panelEl, bodyEl, toggleEl, closeEl, onOpen } = opts;
+  /** Whether this page is the one currently on screen. */
+  isOpen: () => boolean;
+}): { refresh: () => void } {
+  const { bodyEl, isOpen } = opts;
 
   bodyEl.innerHTML = `
     <div class="log-toolbar">
@@ -180,7 +180,7 @@ export function mountConsolePanel(opts: {
   function refresh(): void {
     // Only while it is on screen. This is called on every line, and a scene
     // logging inside a pattern body calls it at frame rate.
-    if (!panelEl.classList.contains('open')) return;
+    if (!isOpen()) return;
     const entries = getLog();
     if (entries.length === 0) {
       listEl.innerHTML = '<p class="log-empty">Nothing logged yet. A scene can write here with console.log(), '
@@ -200,18 +200,9 @@ export function mountConsolePanel(opts: {
 
   onLogChange(refresh);
 
-  function setOpen(open: boolean): void {
-    panelEl.classList.toggle('open', open);
-    panelEl.setAttribute('aria-hidden', String(!open));
-    toggleEl.setAttribute('aria-expanded', String(open));
-    if (open) {
-      onOpen?.();
-      refresh();
-    }
-  }
+  // Everything logged while the page was hidden was skipped by the guard
+  // above, so it is drawn the moment the page comes into view.
+  bodyEl.addEventListener(PANEL_OPEN_EVENT, refresh);
 
-  toggleEl.addEventListener('click', () => setOpen(!panelEl.classList.contains('open')));
-  closeEl.addEventListener('click', () => setOpen(false));
-
-  return { refresh, setOpen, isOpen: () => panelEl.classList.contains('open') };
+  return { refresh };
 }

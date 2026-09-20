@@ -169,10 +169,10 @@ Things that break an expectation gobo sets:
   `gobo-scene-meta-v1`. Those keys hold scenes from the old multi-scene version and are
   deliberately read-only forever; for many users the browser is the only copy, so a write
   there destroys work that cannot be recovered.
-- **XSS in the UI.** The library panel builds rows with `innerHTML` and escapes every
+- **XSS in the UI.** The fixtures page builds rows with `innerHTML` and escapes every
   fixture-supplied string through `escapeText` / `escapeAttr` (`packages/ui/src/library.ts`).
   A fixture id, name, manufacturer, or channel name that escapes that and executes is a bug.
-  Same for the docs, sim and settings panels.
+  Same for the reference, the sim and the settings.
 - **Validator bypass.** `validateFixture` (`packages/core/src/fixture-validator.ts`) is the
   gate for imported `.gobo-fixture.json` files and for the bundled public library. A def
   that passes it and then breaks something downstream is a bug: resource exhaustion past
