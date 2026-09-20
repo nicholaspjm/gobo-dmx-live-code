@@ -93,7 +93,11 @@
         flex-shrink: 0;
       }
 
+      /* A button, not a label: clicking the mark is the way into zen mode.
+         Styled back down to text, because it should read as the logo and
+         reward being tried rather than advertise itself as a control. */
       .wordmark {
+        font: inherit;
         font-size: 15px;
         font-weight: 600;
         letter-spacing: 0.12em;
@@ -102,6 +106,15 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
+        padding: 2px 6px;
+        margin-left: -6px;
+        background: transparent;
+        border: 0;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      .wordmark:hover {
+        background: rgba(196, 114, 74, 0.1);
       }
       /* Four block characters stepping from solid to nearly nothing: the edge
          of a beam, in the font the editor is already using. It is text, so it
@@ -119,6 +132,47 @@
         display: flex;
         align-items: center;
         gap: 20px;
+      }
+
+      /* Run and stop, as a pair, at the head of the row. Both keys have worked
+         since the beginning; the buttons are for the hand that is on the mouse,
+         and for anyone who has not read the status bar yet.
+
+         Run is not disabled while a scene is running, because re-running is the
+         whole gesture of live coding: the button does what ctrl+enter does,
+         every time it is pressed. Stop is the one that changes, going quiet
+         when there is nothing to stop. */
+      .transport {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .transport-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 21px;
+        padding: 0;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text-muted);
+        font: inherit;
+        font-size: 10px;
+        line-height: 1;
+        cursor: pointer;
+        transition: color 0.12s, border-color 0.12s, background 0.12s;
+      }
+      .transport-btn:hover {
+        color: var(--text);
+        border-color: var(--accent2);
+      }
+      /* Lit while the scheduler is running, so the pair doubles as the answer
+         to "is anything going out right now". */
+      .transport-btn.live {
+        color: var(--accent);
+        border-color: var(--accent);
       }
 
       /* The bar is one row of a fixed height, so anything that wraps inside it
@@ -842,40 +896,39 @@
         color: var(--sage);
       }
 
-      /* Performance view. The class goes on <body> so one rule takes out the
-         chrome, rather than main.ts reaching for each element. The screen
-         lights are deliberately left alone: a scene using screen() is aiming at
-         them, so they are output, not furniture. */
+      /* Zen mode. The class goes on <body> so one rule takes out the chrome,
+         rather than main.ts reaching for each element. The screen lights are
+         deliberately left alone: a scene using screen() is aiming at them, so
+         they are output, not furniture. */
       /* Each piece is hidden by its own class rather than by the mode, so the
-         settings decide what the performance view does and the mode stays one
-         switch. */
-      body.perf-hide-chrome .topbar,
-      body.perf-hide-chrome .divider,
-      body.perf-hide-sim .fixture-panel,
-      body.perf-hide-levels .viz-strip,
-      body.perf-hide-cues .cue-bar {
+         settings decide what zen mode does and the mode stays one switch. */
+      body.zen-hide-chrome .topbar,
+      body.zen-hide-chrome .divider,
+      body.zen-hide-sim .fixture-panel,
+      body.zen-hide-levels .viz-strip,
+      body.zen-hide-cues .cue-bar {
         display: none;
       }
 
       /* The sim and the level strip share a wrapper. Hide it only when both of
          them are gone, or an empty bar is left behind. */
-      body.perf-hide-sim.perf-hide-levels .viz-wrap {
+      body.zen-hide-sim.zen-hide-levels .viz-wrap {
         display: none;
       }
 
       /* For a projected screen: the code on black, with nothing behind it. */
-      body.perf-black .editor-wrap,
-      body.perf-black .cm-editor,
-      body.perf-black .cm-gutters,
-      body.perf-black {
+      body.zen-black .editor-wrap,
+      body.zen-black .cm-editor,
+      body.zen-black .cm-gutters,
+      body.zen-black {
         background: #000 !important;
       }
 
-      /* The way out of the performance view, and the only thing on screen that
-         says which mode this is. It lives in the status bar because that is the
-         one strip the performance view keeps, and it is drawn in the accent so
-         it is not mistaken for status text. */
-      .minimal-exit {
+      /* The way out of zen mode, and the only thing on screen that says which
+         mode this is. It lives in the status bar because that is the one strip
+         zen mode keeps, and it is drawn in the accent so it is not mistaken for
+         status text. */
+      .zen-exit {
         margin-left: auto;
         padding: 1px 8px;
         background: transparent;
@@ -888,10 +941,10 @@
         white-space: nowrap;
         cursor: pointer;
       }
-      .minimal-exit:hover {
+      .zen-exit:hover {
         background: rgba(196, 114, 74, 0.15);
       }
-      .minimal-exit[hidden] {
+      .zen-exit[hidden] {
         display: none;
       }
 
@@ -2490,8 +2543,15 @@
   <body>
     <div id="app">
       <header class="topbar">
-        <span class="wordmark"><span class="wordmark-ramp" aria-hidden="true">█▓▒░</span><span class="wordmark-word">gobo</span></span>
+        <!-- The mark is the way into zen mode, which is where strudel puts
+             the same gesture. It is a button so the keyboard can reach it;
+             the CSS takes it back to looking like the logo. -->
+        <button type="button" class="wordmark" id="wordmark" title="zen mode (alt+m)" aria-pressed="false"><span class="wordmark-ramp" aria-hidden="true">█▓▒░</span><span class="wordmark-word">gobo</span></button>
         <div class="topbar-right">
+          <div class="transport">
+            <button type="button" class="transport-btn" id="transport-run" title="run the scene (ctrl+enter)" aria-label="run">▶</button>
+            <button type="button" class="transport-btn" id="transport-stop" title="stop (ctrl+. / ctrl+space)" aria-label="stop">■</button>
+          </div>
           <span class="bpm-display">
             bpm
             <!-- contenteditable instead of <input> so it inherits the top-bar
@@ -2569,7 +2629,7 @@
                other five outputs, rather than as a button of its own up here.
                Reached by clicking the connection light. -->
           <button type="button" class="docs-toggle" id="library-toggle" title="custom fixture library">library</button>
-          <button type="button" class="docs-toggle" id="perf-toggle" title="performance view: hide everything but the code (alt+m)" aria-pressed="false">perform</button>
+          <button type="button" class="docs-toggle" id="zen-toggle" title="zen mode: hide everything but the code (alt+m, or click the mark on the left)" aria-pressed="false">zen</button>
           <button type="button" class="docs-toggle" id="log-toggle" title="what the scene has printed, and what went wrong">log</button>
           <button type="button" class="docs-toggle" id="docs-toggle" title="function reference">docs</button>
           <button type="button" class="docs-toggle settings-toggle-btn" id="settings-toggle" title="settings" aria-label="settings">
@@ -2703,10 +2763,10 @@
         <!-- The app's only error channel. role="status" makes it a live region, so a
            screen reader hears an eval error instead of it appearing silently. -->
         <span id="eval-status" role="status" aria-live="polite">ctrl+enter to run  ·  ctrl+. to stop</span>
-        <!-- On screen only in the performance view, where the top bar is gone.
-             It names the mode and the key, and clicking it is the way back, so
+        <!-- On screen only in zen mode, where the top bar is gone. It names
+             the mode and the key, and clicking it is the way back, so
              forgetting the key cannot strand anyone in there. -->
-        <button type="button" class="minimal-exit" id="minimal-exit" hidden>performance view · exit (alt+m)</button>
+        <button type="button" class="zen-exit" id="zen-exit" hidden>zen mode · exit (alt+m)</button>
       </div>
     </div>
 

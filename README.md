@@ -233,11 +233,10 @@ anything else in this version.
 | `Ctrl+.` | Stop. Blackout by default, `freeze` if set that way in settings |
 | `Ctrl+Space` | Stop, as an alias that also preempts the autocomplete popup |
 | `Ctrl+Shift+Enter` | Evaluate only the edits inside the selection, or the block around the cursor |
-| `Ctrl+S` | Save the scene to a `.js` file |
 | `Ctrl+Shift+F` | Format the buffer |
 | `Alt+1`…`Alt+9` | Run that cue, when the scene calls `cue()` |
 | `T` | Tap tempo (ignored while typing in the editor or any input) |
-| `Alt+M` | Performance view: hide the top bar, sim panel and level strip |
+| `Alt+M` | Zen mode: hide the top bar, sim panel and level strip. Clicking the mark does the same |
 
 ---
 

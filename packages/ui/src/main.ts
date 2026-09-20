@@ -878,6 +878,39 @@ onTick((cyclePos, _delta) => {
   }
 });
 
+// ─── Transport ───────────────────────────────────────────────────────────────
+// Run and stop as buttons, next to the tempo. Both keys have worked since the
+// beginning; these are for the hand that is on the mouse, and for anyone who
+// has not read the status bar yet.
+//
+// Run is not disabled while a scene runs. Re-running is the whole gesture of
+// live coding, so the button does exactly what ctrl+enter does, every press.
+// Stop is the one that carries state: it is lit while there is something to
+// stop, which makes the pair double as the answer to "is anything going out".
+
+const transportRunEl = document.getElementById('transport-run') as HTMLButtonElement;
+const transportStopEl = document.getElementById('transport-stop') as HTMLButtonElement;
+
+transportRunEl.addEventListener('click', () => {
+  // Through the editor's own document, not a cached string: the button has to
+  // run what is on screen, including edits made since the last run.
+  runEval(editorView.state.doc.toString());
+  // Focus goes back to the code. Clicking a button takes it, and the next
+  // thing anyone does after pressing run is type.
+  editorView.focus();
+});
+
+transportStopEl.addEventListener('click', () => {
+  runStop();
+  editorView.focus();
+});
+
+function refreshTransport(): void {
+  const live = isRunning();
+  transportStopEl.classList.toggle('live', live);
+  transportStopEl.setAttribute('aria-disabled', String(!live));
+}
+
 // ─── Status bar updates ──────────────────────────────────────────────────────
 
 // Update cycle bar continuously; BPM display updates too EXCEPT while the
@@ -887,6 +920,11 @@ let _bpmEditing = false;
 setInterval(() => {
   if (!_bpmEditing) bpmValEl.textContent = String(getBPM());
   cycleFillEl.style.width = `${(getCycleFraction() * 100).toFixed(1)}%`;
+  // Polled rather than pushed. A scene can stop itself, and the scheduler can
+  // stop for reasons that never pass through runStop(), so reading the engine
+  // on the same tick as the tempo keeps the buttons honest where a callback on
+  // each of our own entry points would not.
+  refreshTransport();
 }, 100);
 
 // ─── BPM inline edit ─────────────────────────────────────────────────────────
@@ -2108,11 +2146,16 @@ onSettingsChange((s) => { applyTheme(s.theme); applyFontSize(s.fontSize); });
 // "Defined this session" section as save-able.
 const _refreshLibraryAfterEval = (): void => libraryPanel.refresh();
 
-// ─── Performance view ────────────────────────────────────────────────────────
+// ─── Zen mode ────────────────────────────────────────────────────────────────
 // One key takes away everything that is not the code: the top bar, the sim
 // panel and the level strip. The screen lights stay, because a scene using
 // screen() is aiming at them and they are output rather than furniture, and so
 // does the status bar, which is where a pattern error turns up mid-set.
+//
+// Called "zen mode" because that is what it is called in strudel, and someone
+// arriving from there should not have to discover that gobo's word for it is
+// "performance view". Three ways in, for the same reason: alt+m, the button in
+// the bar, and clicking the mark on the left, which is strudel's own gesture.
 //
 // Bound on the document, not in the editor's keymap. A CodeMirror keymap only
 // fires while the editor has focus, which is how the stop shortcut once ended
@@ -2132,27 +2175,29 @@ const _refreshLibraryAfterEval = (): void => libraryPanel.refresh();
 // also the safer default: nobody opens gobo into a window with no controls on
 // it and has to work out why.
 
-const minimalExitEl = document.getElementById('minimal-exit') as HTMLButtonElement;
-const perfToggleEl = document.getElementById('perf-toggle') as HTMLButtonElement;
+const zenExitEl = document.getElementById('zen-exit') as HTMLButtonElement;
+const zenToggleEl = document.getElementById('zen-toggle') as HTMLButtonElement;
+const wordmarkEl = document.getElementById('wordmark') as HTMLButtonElement;
 
-let _minimalView = false;
+let _zenMode = false;
 
-function setMinimalView(on: boolean): void {
-  _minimalView = on;
-  document.body.classList.toggle('minimal-view', on);
+function setZenMode(on: boolean): void {
+  _zenMode = on;
+  document.body.classList.toggle('zen-mode', on);
   // What the mode hides is a setting, so the switch stays one switch. Read on
   // every toggle rather than cached, so changing a setting with the view open
   // takes effect when it is next turned on.
   const s = getSettings();
-  document.body.classList.toggle('perf-hide-chrome', on && s.perfHideChrome);
-  document.body.classList.toggle('perf-hide-sim', on && s.perfHideSim);
-  document.body.classList.toggle('perf-hide-levels', on && s.perfHideLevels);
-  document.body.classList.toggle('perf-hide-cues', on && s.perfHideCues);
-  document.body.classList.toggle('perf-black', on && s.perfBlackBackground);
-  perfToggleEl.setAttribute('aria-pressed', String(on));
+  document.body.classList.toggle('zen-hide-chrome', on && s.zenHideChrome);
+  document.body.classList.toggle('zen-hide-sim', on && s.zenHideSim);
+  document.body.classList.toggle('zen-hide-levels', on && s.zenHideLevels);
+  document.body.classList.toggle('zen-hide-cues', on && s.zenHideCues);
+  document.body.classList.toggle('zen-black', on && s.zenBlackBackground);
+  zenToggleEl.setAttribute('aria-pressed', String(on));
+  wordmarkEl.setAttribute('aria-pressed', String(on));
   // The exit button is the only thing on screen naming this mode, and clicking
   // it is the way out, so forgetting the key does not strand anyone.
-  minimalExitEl.hidden = !on;
+  zenExitEl.hidden = !on;
   if (!on) return;
   // Every panel opens from a button in the top bar, so one left open would be
   // unreachable as well as uncloseable once the bar is gone.
@@ -2176,11 +2221,12 @@ document.addEventListener('keydown', (e) => {
   // Holding the key repeats at the OS rate, which would strobe the layout.
   if (e.repeat) return;
   e.preventDefault();
-  setMinimalView(!_minimalView);
+  setZenMode(!_zenMode);
 });
 
-minimalExitEl.addEventListener('click', () => setMinimalView(false));
-perfToggleEl.addEventListener('click', () => setMinimalView(!_minimalView));
+zenExitEl.addEventListener('click', () => setZenMode(false));
+zenToggleEl.addEventListener('click', () => setZenMode(!_zenMode));
+wordmarkEl.addEventListener('click', () => setZenMode(!_zenMode));
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 
@@ -2236,7 +2282,7 @@ initStrudel().then(() => {
   // whichever order the network decides, and its message, that the code on
   // screen came from a link, says more than the generic hint.
   if (!_openedFromLink) {
-    setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop  ·  alt+m for the performance view');
+    setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop  ·  alt+m for zen mode');
   }
 });
 

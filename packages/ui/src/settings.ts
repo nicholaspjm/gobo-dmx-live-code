@@ -79,18 +79,19 @@ export interface Settings {
    *  (Ctrl+Enter). Off by default, because rewriting the doc
    *  mid-performance moves the cursor anchor. */
   formatOnRun: boolean;
-  /** What the performance view (alt+m, or the button in the top bar) hides.
+  /** What zen mode (alt+m, the button in the top bar, or a click on the mark)
+   *  hides.
    *
    *  The mode is one switch; these decide what it does. Someone projecting the
    *  screen wants the code alone, someone in a booth may want the sim kept. All
    *  default true except the background, which changes what the code sits on
    *  and is the one worth opting into. */
-  perfHideChrome: boolean;
-  perfHideSim: boolean;
-  perfHideLevels: boolean;
-  perfHideCues: boolean;
+  zenHideChrome: boolean;
+  zenHideSim: boolean;
+  zenHideLevels: boolean;
+  zenHideCues: boolean;
   /** Drop the page background to black behind the code. Default false. */
-  perfBlackBackground: boolean;
+  zenBlackBackground: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -102,11 +103,11 @@ const DEFAULTS: Settings = {
   theme: 'tungsten',
   fontSize: 13,
   formatOnRun: false,
-  perfHideChrome: true,
-  perfHideSim: true,
-  perfHideLevels: true,
-  perfHideCues: false,
-  perfBlackBackground: false,
+  zenHideChrome: true,
+  zenHideSim: true,
+  zenHideLevels: true,
+  zenHideCues: false,
+  zenBlackBackground: false,
 };
 
 let _cached: Settings | null = null;
@@ -149,12 +150,50 @@ function resolveThemeId(stored: unknown): ThemeId | null {
   return LEGACY_THEME_IDS[stored] ?? null;
 }
 
+/**
+ * The five zen-mode switches under the names they had while the mode was
+ * called the performance view.
+ *
+ * Renaming a key silently resets whoever had changed one: the stored blob
+ * still holds the old spelling, the merge below drops it as unknown, and the
+ * default takes over with nothing on screen to say so. Adopted on read, then
+ * written back, so the old spelling is gone for good rather than depending on
+ * this map being kept forever.
+ */
+const RENAMED_KEYS: Record<string, keyof Settings> = {
+  perfHideChrome: 'zenHideChrome',
+  perfHideSim: 'zenHideSim',
+  perfHideLevels: 'zenHideLevels',
+  perfHideCues: 'zenHideCues',
+  perfBlackBackground: 'zenBlackBackground',
+};
+
+/** Pull any old key spellings in `raw` across to their current names. Returns
+ *  the adopted pairs, empty when there was nothing to adopt. */
+function adoptRenamedKeys(raw: Record<string, unknown>): Partial<Settings> {
+  const out: Record<string, unknown> = {};
+  for (const [was, now] of Object.entries(RENAMED_KEYS)) {
+    // The current spelling wins where both are present, so an adoption can
+    // never undo a choice made since the rename.
+    if (was in raw && !(now in raw)) out[now] = raw[was];
+  }
+  return out as Partial<Settings>;
+}
+
 /** Merge persisted values over defaults. Unknown keys are dropped and
  *  missing ones inherit defaults. Cached for fast repeat reads. */
 export function getSettings(): Settings {
   if (_cached) return _cached;
   const raw = readRaw();
-  const merged: Settings = { ...DEFAULTS, ...raw };
+  const adopted = adoptRenamedKeys(raw as Record<string, unknown>);
+  // Only keys that exist today are carried over. A plain spread would keep
+  // whatever else is in the blob and write it back out again, which would make
+  // the adoption above a lie: the old spelling would live in storage forever.
+  const merged: Settings = { ...DEFAULTS };
+  for (const key of Object.keys(DEFAULTS) as (keyof Settings)[]) {
+    if (key in raw) (merged as unknown as Record<string, unknown>)[key] = (raw as Record<string, unknown>)[key];
+  }
+  Object.assign(merged, adopted);
   merged.theme = resolveThemeId(raw.theme) ?? DEFAULTS.theme;
   // 60 and 120 Hz used to be offered, and both are above what DMX can carry.
   merged.sendRate = LEGACY_SEND_RATES[merged.sendRate as number] ?? merged.sendRate;
@@ -166,7 +205,8 @@ export function getSettings(): Settings {
   // the map is still here. Guarded on an actual change so a first run
   // (no stored theme at all) doesn't write.
   if ((raw.theme !== undefined && raw.theme !== merged.theme)
-    || (raw.sendRate !== undefined && raw.sendRate !== merged.sendRate)) writeRaw(merged);
+    || (raw.sendRate !== undefined && raw.sendRate !== merged.sendRate)
+    || Object.keys(adopted).length > 0) writeRaw(merged);
   return _cached;
 }
 
@@ -258,7 +298,7 @@ export function mountSettingsPanel(opts: {
         ${row({
           key: 'autosave',
           label: 'autosave',
-          hint: 'persist every edit to the active scene after a 500ms idle. off still writes when the tab closes, so a crash costs the session rather than everything — ctrl+s saves to a file either way.',
+          hint: 'persist every edit to the browser after a 500ms idle. off still writes when the tab closes, so a crash costs the session rather than everything. share is what makes a copy that outlives this browser.',
           control: toggle('autosave', s.autosave),
         })}
         ${row({
@@ -268,34 +308,34 @@ export function mountSettingsPanel(opts: {
           control: toggle('formatOnRun', s.formatOnRun),
         })}
         ${row({
-          key: 'perfHideChrome',
-          label: 'performance view · hide the top bar',
-          hint: 'what alt+m and the performance button hide. the mode is one switch; these decide what it does.',
-          control: toggle('perfHideChrome', s.perfHideChrome),
+          key: 'zenHideChrome',
+          label: 'zen mode · hide the top bar',
+          hint: 'what alt+m, the zen button and a click on the mark hide. the mode is one switch; these decide what it does.',
+          control: toggle('zenHideChrome', s.zenHideChrome),
         })}
         ${row({
-          key: 'perfHideSim',
-          label: 'performance view · hide the sim',
+          key: 'zenHideSim',
+          label: 'zen mode · hide the sim',
           hint: 'the fixture simulation under the editor.',
-          control: toggle('perfHideSim', s.perfHideSim),
+          control: toggle('zenHideSim', s.zenHideSim),
         })}
         ${row({
-          key: 'perfHideLevels',
-          label: 'performance view · hide the level strip',
+          key: 'zenHideLevels',
+          label: 'zen mode · hide the level strip',
           hint: 'the 512-bar channel strip at the bottom.',
-          control: toggle('perfHideLevels', s.perfHideLevels),
+          control: toggle('zenHideLevels', s.zenHideLevels),
         })}
         ${row({
-          key: 'perfHideCues',
-          label: 'performance view · hide the cue bar',
+          key: 'zenHideCues',
+          label: 'zen mode · hide the cue bar',
           hint: 'off by default. the cue chips say which look is up, which is worth keeping on a projector.',
-          control: toggle('perfHideCues', s.perfHideCues),
+          control: toggle('zenHideCues', s.zenHideCues),
         })}
         ${row({
-          key: 'perfBlackBackground',
-          label: 'performance view · black background',
+          key: 'zenBlackBackground',
+          label: 'zen mode · black background',
           hint: 'drop the page to black behind the code, for projecting.',
-          control: toggle('perfBlackBackground', s.perfBlackBackground),
+          control: toggle('zenBlackBackground', s.zenBlackBackground),
         })}
         ${row({
           key: 'inlineViz',

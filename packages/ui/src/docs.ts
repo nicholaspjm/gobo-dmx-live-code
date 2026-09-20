@@ -1857,7 +1857,7 @@ const DOCS: DocSection[] = [
       {
         name: 'Alt+M',
         signature: 'Alt+M',
-        description: 'The performance view: hides the top bar, the sim panel and the level strip, leaving the code. The same key brings them back, and the status bar says so while it is on. Not remembered across a reload.',
+        description: 'Zen mode: hides the top bar, the sim panel and the level strip, leaving the code. Clicking the mark at the top left does the same. The same key brings everything back, and the status bar says so while it is on. Not remembered across a reload.',
       },
       {
         name: 'Ctrl+Shift+F',
