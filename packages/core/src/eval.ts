@@ -995,8 +995,94 @@ function overwrittenNote(): string | null {
   );
 }
 
-export function locatedError(err: unknown, code: string): string {
-  const message = errorMessage(err);
+/**
+ * Light-makers. Calling a method on one of these is a missing pair of
+ * brackets: the name is the factory, and the light is what it returns.
+ */
+const FACTORY_NAMES = new Set([
+  'screen', 'fixture', 'rgbStrip', 'rgbwStrip', 'monoStrip', 'group',
+]);
+
+/**
+ * Methods a scene reaches for on a light that no light has.
+ *
+ * Each one is a real mistake rather than a hypothetical. `.dim()` and
+ * `.white()` are the first words anyone tries on a colour strip, and a strip
+ * has neither channel: brightness lives in the colour, and white is the three
+ * emitters together. Neither is quietly aliased onto `.mono()`, because the
+ * two are not the same call — `.dim(0.5)` on a fixture with a dimmer leaves
+ * the colour alone, and on a strip there is nothing to leave alone, so a
+ * silent alias would turn a blue wash white and report success.
+ */
+const METHOD_HINTS: Record<string, string> = {
+  dim:
+    '.dim() drives a dimmer channel, and a colour strip has none: its brightness is '
+    + 'the colour itself. .mono(v) puts every emitter at one level, and .color(c) takes '
+    + 'a pattern, so .color(red.mul(sine())) fades a colour.',
+  brightness: 'brightness is spelled .dim() on a fixture with a dimmer, and .mono(v) on a colour strip.',
+  intensity: 'intensity is spelled .dim() on a fixture with a dimmer, and .mono(v) on a colour strip.',
+  level: 'a level is .dim() on a fixture with a dimmer, and .mono(v) on a colour strip.',
+  white:
+    '.white() drives a dedicated white emitter, which an rgb strip does not have. '
+    + '.mono(v) is white on one: all three emitters at the same level.',
+  fade: 'there is no .fade(): a fade is a pattern, as in .dim(sine().slow(4)).',
+  play: 'a scene has no .play(). Ctrl+Enter runs it and Ctrl+. stops it.',
+};
+
+/**
+ * Turn "x.y is not a function" into something that says what to write.
+ *
+ * JavaScript's own message names the variable and the method and stops there,
+ * which is the least useful half: the scene already knows what it typed. Three
+ * kinds of mistake arrive through this one message, and each has a different
+ * answer — a missing pair of brackets on a factory, a gobo function used as a
+ * method, and a channel this light does not have.
+ *
+ * `globals` is the sandbox's own binding list rather than a second hardcoded
+ * copy of it, so a function added to a scene's vocabulary is covered here the
+ * day it is added.
+ */
+export function methodHint(message: string, globals: Iterable<string>): string {
+  const m = /^(\w+)\.(\w+) is not a function$/.exec(message);
+  if (!m) return message;
+  const [, receiver, method] = m;
+
+  // A factory called as an object: `screen.flash()` rather than `screen()`.
+  // Answered first, because the method on the end is beside the point until
+  // there is a light to call it on.
+  if (FACTORY_NAMES.has(receiver)) {
+    return (
+      `${message}. ${receiver}() is what makes the light, so it needs its brackets: `
+      + `const myLight = ${receiver}(), and then myLight.${method}(…).`
+    );
+  }
+
+  const specific = METHOD_HINTS[method];
+  if (specific) return `${message}. ${specific}`;
+
+  // Anything else the sandbox binds. A pattern, a colour or a helper used as
+  // if it were a method: it is a value, and it goes inside a setter.
+  //
+  // The two halves get different advice because the fix is different, and a
+  // hint that leads into a second error is worse than none: `.color(flash)`
+  // asks a numeric pattern for a colour, and `.dim(red)` asks a colour for a
+  // level. Which setter takes it also depends on the light, so both are named
+  // rather than one guessed at.
+  if (new Set(globals).has(method)) {
+    const where = method in COLORS
+      ? `${receiver}.color(${method})`
+      : `${receiver}.dim(${method}()) on a fixture with a dimmer, or `
+        + `${receiver}.mono(${method}()) on a colour strip`;
+    return (
+      `${message}. ${method} is one of gobo's own, not something a light answers to. `
+      + `It is a value, so it goes inside a setter: ${where}.`
+    );
+  }
+  return message;
+}
+
+export function locatedError(err: unknown, code: string, globals: Iterable<string> = []): string {
+  const message = methodHint(errorMessage(err), globals);
   const line = sceneLine(err, code);
   return line === null ? message : `line ${line}: ${message}`;
 }
@@ -1150,7 +1236,7 @@ export function evalCode(code: string): EvalResult {
     impliedColour = raiseImpliedEmitters();
     result = { success: true };
   } catch (err) {
-    result = { success: false, error: locatedError(err, code) };
+    result = { success: false, error: locatedError(err, code, keys) };
   } finally {
     // Release ownership before anything else in this block, on both paths. A
     // stranded _activeBuffer would buffer every later artnet()/setBPM(), from

@@ -22,7 +22,7 @@ import { describe, it, expect } from 'vitest';
 const g = globalThis as { window?: { location: { hostname: string } } };
 if (g.window === undefined) g.window = { location: { hostname: 'localhost' } };
 
-const { locatedError, reservedNameHint } = await import('./eval.js');
+const { locatedError, methodHint, reservedNameHint } = await import('./eval.js');
 
 /** Compile and run `code` the way the sandbox does, returning what it threw. */
 function runAndCatch(code: string, names: string[] = []): unknown {
@@ -37,10 +37,10 @@ function runAndCatch(code: string, names: string[] = []): unknown {
 }
 
 /** The located message for a scene expected to throw at runtime. */
-function failureOf(code: string, names: string[] = []): string {
+function failureOf(code: string, names: string[] = [], globals: string[] = []): string {
   const err = runAndCatch(code, names);
   expect(err).not.toBeNull();
-  return locatedError(err, code);
+  return locatedError(err, code, globals);
 }
 
 describe('runtime errors carry their line', () => {
@@ -161,5 +161,74 @@ describe('a name gobo already uses explains itself', () => {
 
   it('leaves an unrelated message untouched', () => {
     expect(reservedNameHint('Unexpected end of input', NAMES)).toBe('Unexpected end of input');
+  });
+});
+
+/**
+ * "x.y is not a function", which is the message three different mistakes
+ * arrive as. What the engine says names the variable and the method and stops
+ * there, which is the half the scene already knows.
+ */
+describe('a method a light does not have', () => {
+  const GLOBALS = ['screen', 'fixture', 'rgbStrip', 'flash', 'sine', 'red', 'amber'];
+  const hint = (message: string): string => methodHint(message, GLOBALS);
+
+  it('says a factory needs its brackets', () => {
+    const error = hint('screen.flash is not a function');
+    expect(error).toContain('screen()');
+    expect(error).toContain('const myLight = screen()');
+  });
+
+  it('covers every light-maker, not just screen', () => {
+    for (const name of ['fixture', 'rgbStrip', 'rgbwStrip', 'monoStrip', 'group']) {
+      expect(hint(`${name}.dim is not a function`)).toContain(`${name}()`);
+    }
+  });
+
+  it('answers .dim on a strip with the call that works', () => {
+    const error = hint('wash.dim is not a function');
+    expect(error).toContain('.mono(');
+    // And says why it is not simply an alias, since .mono() would recolour.
+    expect(error).toContain('the colour itself');
+  });
+
+  it('answers .white on an rgb strip', () => {
+    expect(hint('wash.white is not a function')).toContain('.mono(');
+  });
+
+  it('sends a gobo function into a setter rather than onto a light', () => {
+    const error = hint('wash.flash is not a function');
+    expect(error).toContain('wash.dim(flash())');
+    expect(error).toContain('wash.mono(flash())');
+  });
+
+  it('sends a colour to a colour setter, not a level one', () => {
+    // A hint that leads into a second error is worse than none: .dim(red)
+    // hands a colour to something that wants a level.
+    const error = hint('wash.amber is not a function');
+    expect(error).toContain('wash.color(amber)');
+    expect(error).not.toContain('.dim(');
+  });
+
+  it('reads the sandbox binding list rather than a second copy of it', () => {
+    // 'punch' is not bound here, so there is nothing to say about it.
+    expect(hint('wash.punch is not a function')).toBe('wash.punch is not a function');
+    expect(methodHint('wash.punch is not a function', [...GLOBALS, 'punch']))
+      .toContain("gobo's own");
+  });
+
+  it('leaves any other message alone', () => {
+    expect(hint('Cannot read properties of undefined')).toBe('Cannot read properties of undefined');
+    expect(hint('wash.dim is not a fun')).toBe('wash.dim is not a fun');
+  });
+
+  it('still carries the line when it adds a hint', () => {
+    const error = failureOf(
+      ['const wash = {}', 'wash.dim(1)'].join('\n'),
+      [],
+      GLOBALS,
+    );
+    expect(error).toMatch(/^line 2: /);
+    expect(error).toContain('.mono(');
   });
 });
