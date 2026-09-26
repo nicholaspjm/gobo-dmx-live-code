@@ -2301,8 +2301,61 @@
       }
       .lib-row-actions {
         display: flex;
-        gap: 6px;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
         flex-shrink: 0;
+      }
+
+      /* The patch form under a row. See patch-builder.ts. */
+      .lib-patch {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 8px 12px;
+        margin-top: 8px;
+        padding: 8px 0 2px;
+        border-top: 1px solid var(--border);
+      }
+      .lib-patch-field {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+      }
+      .lib-patch-field input {
+        width: 7ch;
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text);
+        font: inherit;
+        font-size: 12px;
+        padding: 3px 6px;
+      }
+      .lib-patch-field input[data-f='name'] {
+        width: 12ch;
+      }
+      .lib-patch-field input:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .lib-patch-preview {
+        flex-basis: 100%;
+        margin: 0;
+      }
+      .lib-patch-preview[hidden] {
+        display: none;
+      }
+      .lib-patch-error {
+        flex-basis: 100%;
+        font-size: 11px;
+        color: var(--error);
+      }
+      .lib-patch-error:empty {
+        display: none;
       }
 
       /* ─── Autocomplete popup (@codemirror/autocomplete) ────────────────

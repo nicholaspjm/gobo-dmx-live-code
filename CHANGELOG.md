@@ -8,6 +8,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Added
 
+- **Patch a rig from the fixtures tab.** Every fixture has "add to rig": say how
+  many, the address set on the first one, the universe and a name, and it
+  writes one `const par1 = fixture(…)` line per light, stepped by the fixture's
+  channel count, plus a group over them. The address starts at the first
+  channel the scene is not already using, names never clash with the scene's
+  own or with gobo's, and the lines are shown before they go in. It writes
+  code and nothing else: ctrl+enter still runs it.
 - **The desktop app says when a newer gobo is out.** It asks GitHub at most
   twice a day, and when there is a newer release it puts one link in the top
   bar, "0.5.4 is out", that opens the download page. It never downloads or

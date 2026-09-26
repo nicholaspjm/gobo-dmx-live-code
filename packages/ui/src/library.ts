@@ -32,10 +32,24 @@ import {
   isEmitterChannel,
   defineFixtureSource,
   BUILT_IN_FIXTURES,
+  COLOR_NAMES,
+  findFixtureDef,
   type FixtureDef,
 } from '@gobo/core';
 import { getPublicFixtures } from './public-fixtures.js';
 import { PANEL_OPEN_EVENT } from './panel.js';
+import { HELP_ENTRIES } from './help-data.js';
+import { baseName, namesInUse, nextFreeAddress, planPatch } from './patch-builder.js';
+
+/**
+ * Names a scene cannot give a light, because gobo already binds them: every
+ * function in the reference and every colour. A light called strobe or red
+ * would stop the scene with "has already been declared".
+ */
+const RESERVED_NAMES: ReadonlySet<string> = new Set([
+  ...HELP_ENTRIES.filter((e) => e.context === 'command').map((e) => e.label),
+  ...COLOR_NAMES,
+]);
 
 /** Destination of the GitHub "share" flow. Kept here so a repo rename
  *  is a one-line change. */
@@ -82,8 +96,12 @@ export function provenanceTag(tier: RowTier): string {
  *  opened and closed; this wires up what happens when it comes into view. */
 export function mountLibraryPanel(opts: {
   bodyEl: HTMLElement;
+  /** The scene as it stands, for the next free address and the names in use. */
+  getDoc?: () => string;
+  /** Put patch lines into the scene. `summary` is for the status line. */
+  onPatch?: (code: string, summary: string) => void;
 }): { refresh: () => void } {
-  const { bodyEl } = opts;
+  const { bodyEl, getDoc, onPatch } = opts;
 
   // The panel's fixed furniture: the toolbar (import button and search
   // field), the banner, and the container everything else renders into.
@@ -161,6 +179,7 @@ export function mountLibraryPanel(opts: {
     const action = btn.dataset.libAction;
     const id = btn.dataset.libId ?? '';
     switch (action) {
+      case 'patch':     togglePatchForm(id, btn); break;
       case 'save':      handleSave(id);         break;
       case 'delete':    handleDelete(id);       break;
       case 'export':    handleExport(id);       break;
@@ -185,6 +204,107 @@ export function mountLibraryPanel(opts: {
 
   function openFilePicker(): void {
     fileInput.click();
+  }
+
+  /**
+   * The patch form under a row: how many, from which address, on which
+   * universe, and what to call them. The lines it will write are shown as the
+   * fields change, so what goes into the scene is never a surprise. See
+   * patch-builder.ts.
+   */
+  function togglePatchForm(id: string, btn: HTMLElement): void {
+    const row = btn.closest<HTMLElement>('.lib-row');
+    const meta = row?.querySelector<HTMLElement>('.lib-row-meta');
+    if (!row || !meta || !onPatch) return;
+    const open = meta.querySelector('.lib-patch');
+    if (open) {
+      open.remove();
+      return;
+    }
+    const def = findFixtureDef(id);
+    if (!def) {
+      flashBanner(`"${id}" is not registered yet. Run the scene that defines it first.`, 'error');
+      return;
+    }
+    const doc = getDoc?.() ?? '';
+    const channelsOf = (fid: string): number | undefined => findFixtureDef(fid)?.channelCount;
+
+    const form = document.createElement('div');
+    form.className = 'lib-patch';
+    const field = (label: string, key: string, value: string, attrs: Record<string, string> = {}): HTMLInputElement => {
+      const wrap = document.createElement('label');
+      wrap.className = 'lib-patch-field';
+      const span = document.createElement('span');
+      span.textContent = label;
+      const input = document.createElement('input');
+      input.dataset.f = key;
+      input.value = value;
+      input.spellcheck = false;
+      for (const [k, v] of Object.entries(attrs)) input.setAttribute(k, v);
+      wrap.append(span, input);
+      form.appendChild(wrap);
+      return input;
+    };
+    const nameEl = field('name', 'name', baseName(id, def.type), { size: '10' });
+    const countEl = field('how many', 'count', '1', { type: 'number', min: '1', max: '64' });
+    const startEl = field('address', 'start', String(nextFreeAddress(doc, 0, channelsOf)), { type: 'number', min: '1', max: '512' });
+    const uniEl = field('universe', 'universe', '0', { type: 'number', min: '0' });
+    const preview = document.createElement('pre');
+    preview.className = 'lib-row-usage lib-patch-preview';
+    const error = document.createElement('p');
+    error.className = 'lib-patch-error';
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'lib-action lib-primary';
+    go.textContent = 'add to scene';
+    form.append(preview, error, go);
+
+    // The address follows the universe until someone types one: a new
+    // universe starts from its own first free channel.
+    let startTouched = false;
+    startEl.addEventListener('input', () => { startTouched = true; });
+    uniEl.addEventListener('input', () => {
+      if (startTouched) return;
+      const u = Number(uniEl.value);
+      if (Number.isInteger(u) && u >= 0) startEl.value = String(nextFreeAddress(getDoc?.() ?? '', u, channelsOf));
+    });
+
+    const plan = () => planPatch({
+      id,
+      channelCount: def.channelCount,
+      name: nameEl.value,
+      count: Number(countEl.value),
+      start: Number(startEl.value),
+      universe: Number(uniEl.value),
+    }, new Set([...RESERVED_NAMES, ...namesInUse(getDoc?.() ?? '')]));
+
+    const update = (): void => {
+      const r = plan();
+      preview.textContent = r.ok ? r.plan.code : '';
+      preview.hidden = !r.ok;
+      error.textContent = r.ok ? '' : r.error;
+      go.disabled = !r.ok;
+    };
+    form.addEventListener('input', update);
+
+    const add = (): void => {
+      const r = plan();
+      if (!r.ok) return;
+      const { names, first, last } = r.plan;
+      const lights = names.length > 1 ? `${names[0]} to ${names[names.length - 2]}` : names[0];
+      onPatch(r.plan.code, `${lights} on ${first}–${last}`);
+      form.remove();
+    };
+    go.addEventListener('click', add);
+    form.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); add(); }
+      if (ev.key === 'Escape') { ev.preventDefault(); form.remove(); }
+    });
+
+    meta.appendChild(form);
+    update();
+    nameEl.focus();
+    nameEl.select();
   }
 
   function handleSave(id: string): void {
@@ -331,6 +451,11 @@ export function mountLibraryPanel(opts: {
         <button type="button" class="lib-action lib-primary" data-lib-action="save"   data-lib-id="${idAttr}">save to library</button>
         <button type="button" class="lib-action"            data-lib-action="export" data-lib-id="${idAttr}">export</button>
         <button type="button" class="lib-action"            data-lib-action="share"  data-lib-id="${idAttr}" title="Propose this fixture for the public library">share</button>`;
+    }
+    // Every row, whatever its tier, can be patched into the scene.
+    if (onPatch) {
+      actions = `
+        <button type="button" class="lib-action lib-primary" data-lib-action="patch" data-lib-id="${idAttr}" title="Write fixture() lines for this light into the scene">add to rig</button>${actions}`;
     }
     const extraClass =
       tier === 'session' ? ' lib-row-unsaved' :

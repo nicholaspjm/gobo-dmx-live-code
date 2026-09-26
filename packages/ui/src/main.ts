@@ -106,6 +106,7 @@ import { applyTheme } from './themes.js';
 import { locateSyntaxError } from './syntax-line.js';
 import { lightNamesByAddress } from './declared-lights.js';
 import { mountAppUpdate } from './app-update.js';
+import { patchInsertLine } from './patch-builder.js';
 import {
   mountOutputsPanel,
   connectionSummary,
@@ -1890,6 +1891,33 @@ function useOutputCode(code: string): void {
   setStatus('', `${code} is in the scene · ctrl+enter to run it`);
 }
 
+/**
+ * Write patch lines from the fixtures tab into the scene, under the lights it
+ * already declares. Like the outputs panel's lines it does not run them: the
+ * lines are code in the buffer, and ctrl+enter is still what puts them on the
+ * rig. The new lines are selected so they are easy to see and to undo.
+ */
+function insertPatch(code: string, summary: string): void {
+  const doc = editorView.state.doc;
+  const line = patchInsertLine(doc.toString());
+  let from: number;
+  let insert: string;
+  if (line < doc.lines) {
+    from = doc.line(line + 1).from;
+    insert = `${code}\n`;
+  } else {
+    from = doc.length;
+    insert = doc.length === 0 || doc.toString().endsWith('\n') ? `${code}\n` : `\n${code}\n`;
+  }
+  const start = insert.startsWith('\n') ? from + 1 : from;
+  editorView.dispatch({
+    changes: { from, insert },
+    selection: { anchor: start, head: start + code.length },
+    scrollIntoView: true,
+  });
+  setStatus('', `added ${summary} · ctrl+enter to run`);
+}
+
 // ─── Replacing the buffer ────────────────────────────────────────────────────
 
 /** Replace the editor's document, cursor back at the top. */
@@ -2250,7 +2278,11 @@ docsBodyEl.addEventListener('gobo:load-example', (ev) => {
   loadExample(ex);
 });
 
-const libraryPanel = mountLibraryPanel({ bodyEl: libraryBodyEl });
+const libraryPanel = mountLibraryPanel({
+  bodyEl: libraryBodyEl,
+  getDoc: () => editorView.state.doc.toString(),
+  onPatch: insertPatch,
+});
 
 // Recording starts before anything else runs, so a failure during start-up is
 // already in the log by the time anyone opens it.
