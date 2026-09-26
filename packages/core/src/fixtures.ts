@@ -3516,6 +3516,34 @@ export function groupCommands(): string[] {
 }
 
 /**
+ * Strudel's pan, ported from a stereo field to a row of lights.
+ *
+ * In strudel `.pan(x)` puts a sound between the left speaker (0) and the right
+ * (1). Across a group the lights are the speakers: a step panned to 0 lands on
+ * the first, 1 on the last, and a position between two lights is shared
+ * between them, so `rig.dim(mini('1*8').pan(saw))` walks one light along the
+ * rig and a slow pan sweeps it smoothly rather than jumping.
+ *
+ * Steps with no pan reach every light as before. The wrapper reads each value
+ * as it comes, so a pattern of pans (`.pan(mini('0 1'))`, `.pan(rand)`)
+ * places each step on its own.
+ */
+function placeAcross(value: PatternOrValue, index: number, count: number): PatternOrValue {
+  if (typeof value === 'number' || count < 2) return value;
+  const p = value as unknown as { fmap?: (fn: (v: unknown) => unknown) => PatternOrValue };
+  if (typeof p.fmap !== 'function') return value;
+  return p.fmap((v: unknown) => {
+    if (v === null || typeof v !== 'object') return v;
+    const pan = (v as { pan?: unknown }).pan;
+    if (typeof pan !== 'number' || !Number.isFinite(pan)) return v;
+    const at = Math.max(0, Math.min(1, pan)) * (count - 1);
+    const share = Math.max(0, 1 - Math.abs(index - at));
+    const gain = (v as { gain?: unknown }).gain;
+    return { ...(v as object), gain: (typeof gain === 'number' ? gain : 1) * share };
+  });
+}
+
+/**
  * Treat several fixtures, strips and pixels as one addressable thing.
  *
  * @example
@@ -3561,12 +3589,12 @@ export function group(...members: GroupMember[]): GroupInstance {
    */
   const applyRole = (role: string, value: PatternOrValue, what: string): void => {
     let applied = 0;
-    for (const cell of cells) {
+    cells.forEach((cell, i) => {
       if (cell.roles.has(role)) {
-        cell.set(role, value);
+        cell.set(role, placeAcross(value, i, cells.length));
         applied++;
       }
-    }
+    });
     if (applied === 0) {
       const available = [...new Set(cells.flatMap((c) => [...c.roles]))].sort().join(', ');
       throw new Error(

@@ -213,3 +213,37 @@ describe('cases that cannot work say so', () => {
     );
   });
 });
+
+// ─── pan ──────────────────────────────────────────────────────────────────────
+
+/**
+ * A stand-in for a strudel pattern carrying a pan: one value, and fmap, which
+ * is all the group reads.
+ */
+function panned(value: Record<string, number>): PatternLike & { fmap(fn: (v: unknown) => unknown): PatternLike } {
+  const make = (v: unknown): PatternLike & { fmap(fn: (v: unknown) => unknown): PatternLike } => ({
+    queryArc: () => [{ value: v }],
+    fmap: (fn) => make(fn(v)),
+  });
+  return make(value);
+}
+
+describe('pan places a step across the group', () => {
+  it('lands on the light at that position, and on no other', () => {
+    const lights = [1, 2, 3, 4, 5].map((c) => fixture(c, 'dim'));
+    group(...lights).dim(panned({ value: 1, pan: 0.5 }));
+    expect(read(1, 5)).toEqual([0, 0, 255, 0, 0]);
+  });
+
+  it('shares a position between two lights between them', () => {
+    const lights = [1, 2, 3].map((c) => fixture(c, 'dim'));
+    group(...lights).dim(panned({ value: 1, pan: 0.25 }));
+    expect(read(1, 3)).toEqual([128, 128, 0]);
+  });
+
+  it('leaves a step with no pan on every light', () => {
+    const lights = [1, 2, 3].map((c) => fixture(c, 'dim'));
+    group(...lights).dim(panned({ value: 1 }));
+    expect(read(1, 3)).toEqual([255, 255, 255]);
+  });
+});
