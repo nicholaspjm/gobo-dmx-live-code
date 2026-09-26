@@ -30,7 +30,7 @@
 class GoboConnector < Formula
   desc "Local bridge from the gobo browser app to Art-Net, sACN and OSC"
   homepage "https://github.com/nicholaspjm/gobo-dmx-live-code"
-  version "0.5.0" # gobo:version
+  version "0.5.1" # gobo:version
   license "MIT"
 
   livecheck do
@@ -46,16 +46,16 @@ class GoboConnector < Formula
     # type in executable" the first time someone runs it.
     depends_on arch: :arm64
 
-    url "https://github.com/nicholaspjm/gobo-dmx-live-code/releases/download/v0.5.0/gobo-connector-macos-arm64.tar.gz" # gobo:url macos-arm64
-    sha256 "29b38fd641a945d8781b775ae1dfedb527e48ba76b4057a9a73dfb0db7838e74" # gobo:sha256 macos-arm64
+    url "https://github.com/nicholaspjm/gobo-dmx-live-code/releases/download/v0.5.1/gobo-connector-macos-arm64.tar.gz" # gobo:url macos-arm64
+    sha256 "9936be4c159d6de28dc27161d889cd66e564a7459bd5532c2db8e020af0d1dcc" # gobo:sha256 macos-arm64
   end
 
   on_linux do
     # Same reasoning: the Linux connector is built on ubuntu-latest, x86_64.
     depends_on arch: :x86_64
 
-    url "https://github.com/nicholaspjm/gobo-dmx-live-code/releases/download/v0.5.0/gobo-connector-linux-x86_64.tar.gz" # gobo:url linux-x86_64
-    sha256 "b88a5fce3dc7f58f2360ae41d34708461a8495546b2072f89bb3ffb7f37319ec" # gobo:sha256 linux-x86_64
+    url "https://github.com/nicholaspjm/gobo-dmx-live-code/releases/download/v0.5.1/gobo-connector-linux-x86_64.tar.gz" # gobo:url linux-x86_64
+    sha256 "328fb99846cd80f436ede15eb527ef839af5e50699e4642cafe72b9be2eea625" # gobo:sha256 linux-x86_64
   end
 
   def install
