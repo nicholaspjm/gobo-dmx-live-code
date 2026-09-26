@@ -56,6 +56,13 @@ export function setLiveSource(make: ((read: () => number) => PatternLike) | null
 /** How many sliders this run has declared strudel's way, for their names. */
 let _unnamed = 0;
 
+/**
+ * The value each strudel-form slider was written with, last run. For those the
+ * number in the code is the position, as in strudel, so editing it moves the
+ * handle; a dragged position is kept only while the code says the same.
+ */
+const _written = new Map<string, number>();
+
 /** Forget the declarations. Values are kept. Called before each run. */
 export function clearControls(): void {
   _entries = [];
@@ -119,7 +126,10 @@ export function slider(
     const hi = arguments.length > 2 ? max : 1;
     const step = typeof opts === 'number' ? opts : 0;
     _unnamed++;
-    return slider(`slider ${_unnamed}`, lo, hi, { start: value, step });
+    const label = `slider ${_unnamed}`;
+    if (_written.get(label) !== value) _values.delete(label);
+    _written.set(label, value);
+    return slider(label, lo, hi, { start: value, step });
   }
   if (typeof opts === 'number') opts = { step: opts };
   checkOptions(opts as Record<string, unknown>, ['start', 'step'], 'slider()');
