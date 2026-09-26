@@ -36,6 +36,7 @@ import {
   isStrudelReady,
   getStrudelError,
   connectBridge,
+  retryBridgeNow,
   onStatusChange,
   getOutputConfig,
   getDirectUrl,
@@ -76,6 +77,13 @@ import {
 // the pre-0.3 model as downloads, which is the one way out they have.
 import { downloadScene, sceneFilename } from './scene-file.js';
 import { mountPanel, type PanelHost } from './panel.js';
+import {
+  BLOCKED_BY_BROWSER,
+  browserBlocksConnector,
+  onLocalAccessChange,
+  servedLocally,
+  watchLocalAccess,
+} from './browser-access.js';
 import { encodeShareLink, decodeShareFromLocation, clearShareFromLocation } from './share.js';
 import { getExample, type Example } from './examples.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
@@ -2418,17 +2426,16 @@ const CONNECT_GRACE_MS = 2500;
 let _connectorPromptTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** True when this page came from a local dev server or a local connector. */
-function servedLocally(): boolean {
-  // location.hostname wraps an IPv6 literal in brackets, so ::1 arrives as
-  // "[::1]" and a bare equality check misses it.
-  const h = window.location.hostname.replace(/^\[|\]$/g, '');
-  return h === 'localhost' || h === '127.0.0.1' || h === '::1';
-}
+
 
 function undeliveredHint(): string {
   const out = describeOutput();
   if (out?.text.startsWith('direct')) return 'Is the receiver listening?';
   if (out?.text.startsWith('usb')) return 'Open the outputs panel from the connection light and pick the interface.';
+  if (browserBlocksConnector()) {
+    return 'Your browser is blocking this page from reaching this computer: allow local network '
+      + 'access for this site, or run gobo locally.';
+  }
   // A hosted visitor has no checkout to run anything from, so point them at the
   // outputs panel by name: it says what does work here as well as what to get.
   return servedLocally()
@@ -2454,6 +2461,15 @@ function showConnectorBanner(target: string): void {
 
 function renderConnectorBanner(target: string): void {
   connectorBannerLinkEl.href = RELEASES_URL;
+
+  if (browserBlocksConnector()) {
+    // Offering the download here would send someone to fetch a program they
+    // may well have running already. The browser is the missing piece.
+    connectorBannerTextEl.textContent = `${target} is going nowhere. ${BLOCKED_BY_BROWSER}`;
+    connectorBannerLinkEl.hidden = true;
+    setConnectorBannerOpen(true);
+    return;
+  }
 
   if (hasSeenConnector()) {
     // They have one. The download is not the missing piece; running it is.
@@ -2485,6 +2501,23 @@ connectorBannerDismissEl.addEventListener('click', () => setConnectorBannerOpen(
 // outputs are not, which is the more useful answer for anyone unwilling to
 // install anything.
 connectorBannerMoreEl.addEventListener('click', () => _panel?.open('outputs'));
+
+// Ask the browser once whether this page may reach the computer at all, and
+// keep listening. Allowing it takes effect at once rather than after whatever
+// the reconnect backoff has stretched to, and every surface that explains the
+// connector is redrawn with the new answer.
+if (!servedLocally()) {
+  onLocalAccessChange((state) => {
+    if (state === 'granted') retryBridgeNow();
+    refreshOutputStatus();
+    if (connectorBannerEl.classList.contains('open')) {
+      const out = describeOutput();
+      if (out && !out.delivered) renderConnectorBanner(out.text);
+      else setConnectorBannerOpen(false);
+    }
+  });
+  void watchLocalAccess();
+}
 
 // Once something is listening, the banner has served its purpose.
 onStatusChange((connected) => {

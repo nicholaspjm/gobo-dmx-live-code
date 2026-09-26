@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import {
   APP_VERSION,
   HANDSHAKE_SINCE,
+  ORIGIN_CHECK_SINCE,
   compareVersions,
   connectorAge,
   connectorNotice,
@@ -178,6 +179,22 @@ describe('connectorNotice', () => {
     const notice = connectorNotice({ version: null, settled: true }, '0.3.0');
     expect(notice?.fix).toContain('--uninstall');
     expect(notice?.fix).toContain('log in');
+  });
+
+  it('says a connector from before the origin check is open to any site, and to replace it now', () => {
+    // 0.4.0 and earlier listened on every interface and took a WebSocket from
+    // any page. Being behind is usually a missing fix; this is a reason to act.
+    const notice = connectorNotice({ version: '0.4.0', settled: true }, '0.5.0');
+    expect(notice?.reason).toContain('any website');
+    expect(notice?.badge).toContain('replace it');
+    expect(connectorNotice({ version: null, settled: true }, '0.5.0')?.reason).toContain('any website');
+  });
+
+  it('does not say so about a connector that has the origin check', () => {
+    const notice = connectorNotice({ version: ORIGIN_CHECK_SINCE, settled: true }, '0.6.0');
+    expect(notice?.level).toBe('stale');
+    expect(notice?.reason).not.toContain('any website');
+    expect(notice?.badge).toBe('out of date');
   });
 
   it('notes a newer connector quietly and asks for nothing', () => {

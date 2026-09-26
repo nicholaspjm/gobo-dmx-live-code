@@ -43,6 +43,21 @@ export const APP_VERSION = '0.4.0';
  */
 export const HANDSHAKE_SINCE = '0.3.0';
 
+/**
+ * The first connector that refuses pages from other websites.
+ *
+ * Everything before it listened on every network interface and accepted a
+ * WebSocket from anything, so any site open in the same browser could drive
+ * the rig through it. A connector that is merely behind is missing fixes; one
+ * that is behind this is a reason to act today, and the notice says so.
+ */
+export const ORIGIN_CHECK_SINCE = '0.5.0';
+
+/** Said after the usual reason when the connector predates the origin check. */
+const OPEN_TO_ANY_SITE =
+  ' It is also old enough to accept connections from any website open in this browser, and from '
+  + 'anything on the same network, so replace it now rather than later.';
+
 /** The only message the connector sends today. */
 export interface ConnectorHello {
   type: 'hello';
@@ -188,25 +203,29 @@ export function connectorNotice(
   if (!report) return null;
 
   switch (connectorAge(report, appVersion)) {
-    case 'behind':
+    case 'behind': {
+      const open = (compareVersions(report.version as string, ORIGIN_CHECK_SINCE) ?? 0) < 0;
       return {
         level: 'stale',
-        badge: 'out of date',
+        badge: open ? 'out of date · replace it' : 'out of date',
         reason:
           `The connector on this computer is version ${report.version} and this page is ${appVersion}, `
           + `so anything fixed since ${report.version} is missing from the program that reaches your rig. `
-          + 'Output still goes out.',
+          + 'Output still goes out.'
+          + (open ? OPEN_TO_ANY_SITE : ''),
         fix: REPLACE_IT,
       };
+    }
 
     case 'pre-handshake':
       return {
         level: 'stale',
-        badge: 'out of date',
+        badge: 'out of date · replace it',
         reason:
           'The connector on this computer never said which version it is. Every connector from '
           + `${HANDSHAKE_SINCE} onward does, so this one is older than that, and anything fixed since is `
-          + 'missing from the program that reaches your rig. Output still goes out.',
+          + 'missing from the program that reaches your rig. Output still goes out.'
+          + OPEN_TO_ANY_SITE,
         fix: REPLACE_IT,
       };
 

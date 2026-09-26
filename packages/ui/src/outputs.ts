@@ -29,6 +29,7 @@ import {
   type ConnectorNotice,
 } from '@gobo/core';
 import { PANEL_OPEN_EVENT } from './panel.js';
+import { BLOCKED_BY_BROWSER, browserBlocksConnector, servedLocally } from './browser-access.js';
 
 // ─── The table ───────────────────────────────────────────────────────────────
 
@@ -152,16 +153,20 @@ export function isBridgeConnected(): boolean {
 /**
  * A released desktop build, or null while none exists.
  *
- * Data rather than markup because this repository ships no desktop binary yet.
- * A panel offering a download that no release provides would be a lie, so the
- * desktop row appears only once this is filled in.
+ * Data rather than markup so that a panel never offers a download no release
+ * provides. It stayed null for a release after the first desktop build shipped,
+ * so the panel went on saying "there is no desktop download yet" to everyone
+ * while one sat on the releases page.
  */
 export interface DesktopRelease {
   label: string;
   url: string;
 }
 
-export const DESKTOP_RELEASE: DesktopRelease | null = null;
+export const DESKTOP_RELEASE: DesktopRelease | null = {
+  label: 'download the desktop app',
+  url: 'https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest',
+};
 
 /** Where the connector binaries live. */
 export const RELEASES_URL = 'https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest';
@@ -427,7 +432,8 @@ export const WHY_BROWSER_CANNOT =
 
 export const PANEL_INTRO =
   'Where your light goes. usb() and td() work in this browser. The rest send network packets, '
-  + 'which a page cannot do, so they need the connector running on this computer.';
+  + 'which a page cannot do, so something has to run on this computer: the connector beside this '
+  + 'page, or gobo itself run locally, which needs nothing else.';
 
 export const DESKTOP_PITCH =
   'The desktop version has the connector inside it. Art-Net, sACN, OSC and the dry run work '
@@ -478,6 +484,9 @@ export function mountOutputsPanel(opts: {
   function renderConnectorStatus(): HTMLElement {
     const box = document.createElement('div');
     const up = isBridgeConnected();
+    // Blocked is not the same answer as not running, and the fix is not the
+    // same either: see browser-access.ts.
+    const blocked = !up && browserBlocksConnector();
     box.className = up ? 'connector-status up' : 'connector-status';
 
     const notice = up ? connectorVersionNotice() : null;
@@ -488,7 +497,7 @@ export function mountOutputsPanel(opts: {
     dot.className = 'connector-status-dot';
     const name = document.createElement('span');
     name.className = 'connector-status-name';
-    name.textContent = up ? 'connector running' : 'connector not running';
+    name.textContent = up ? 'connector running' : blocked ? 'connector blocked by this browser' : 'connector not running';
     head.append(dot, name);
 
     // Deliberately the plain badge and not the sage one: being out of date is
@@ -514,6 +523,7 @@ export function mountOutputsPanel(opts: {
     what.textContent = up
       ? 'Listening for frames and putting Art-Net, sACN or OSC on the network. It starts with '
         + 'your computer, which is why you may not remember running it.'
+      : blocked ? BLOCKED_BY_BROWSER
       : 'Art-Net, sACN and OSC need it. usb() and td() work without it.';
     box.append(head, what);
 
@@ -558,23 +568,34 @@ export function mountOutputsPanel(opts: {
     summary.append(icon, document.createTextNode('how do I start it?'));
     wrap.appendChild(summary);
 
+    // No npx route. The package is not on npm, and an instruction to npx a
+    // name nobody has published hands that name, and everyone who follows the
+    // instruction, to whoever publishes it first.
     const routes: Array<{ title: string; body: string; code?: string }> = [
+      {
+        title: 'or skip it: run gobo locally',
+        body:
+          'The simplest setup. The desktop app, or npm start in a copy of the repository, serves '
+          + 'this same app and does the sending from one process, so there is no connector to '
+          + 'start and nothing for the browser to allow.',
+        code: 'npm start',
+      },
       {
         title: 'the download',
         body:
-          'The usual one. Download the connector for this computer and run it once. '
-          + 'It registers itself to start with your computer and then stays out of the way: '
-          + 'there is no window, and this panel turning green is how you know it is up.',
+          'Download the connector for this computer and run it once. It registers itself to start '
+          + 'with your computer and then stays out of the way: there is no window, and this panel '
+          + 'turning green is how you know it is up. It is not signed, so the first run asks you to '
+          + 'confirm it; the README says where.',
       },
       {
-        title: 'from npm',
-        body: 'If you have Node installed, this fetches and runs it without installing anything permanently.',
-        code: 'npx gobo-connector',
-      },
-      {
-        title: 'from a clone',
-        body: 'If you have the repository, this runs the connector from source.',
-        code: 'npm run dev:bridge',
+        title: 'with Homebrew',
+        body:
+          'On an Apple Silicon Mac or x86_64 Linux. It skips the confirmation a download asks for, '
+          + 'and brew services starts it with the computer.',
+        code: 'brew tap nicholaspjm/gobo https://github.com/nicholaspjm/gobo-dmx-live-code\n'
+          + 'brew install gobo-connector\n'
+          + 'brew services start gobo-connector',
       },
     ];
 
@@ -600,7 +621,8 @@ export function mountOutputsPanel(opts: {
     const foot = document.createElement('p');
     foot.className = 'connector-how-body connector-how-foot';
     foot.textContent =
-      'It listens on localhost:3001, so only this computer can reach it. '
+      'It listens on localhost:3001, so only this computer can reach it, and it only answers gobo '
+      + 'itself: another website open in the same browser cannot drive your rig through it. '
       + 'Whichever route you take, this panel goes green within a couple of seconds of it starting. '
       + 'If it does not, something else is already on that port, usually a second connector.';
     wrap.appendChild(foot);
@@ -750,9 +772,11 @@ export function mountOutputsPanel(opts: {
     why.textContent = WHY_BROWSER_CANNOT;
     foot.appendChild(why);
 
-    // Inside the desktop build the sender is already in the app, so every
-    // download prompt would be an offer of something the user is running.
-    if (!isDesktopBuild()) {
+    // Inside the desktop build the sender is already in the app, and a page
+    // served from this computer came from npm start or npm run dev, which run
+    // it alongside. Either way every download here would be an offer of
+    // something the user is already running.
+    if (!isDesktopBuild() && !servedLocally()) {
       const note = document.createElement('p');
       note.className = 'outputs-note';
       note.textContent = hasSeenConnector()

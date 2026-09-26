@@ -46,6 +46,17 @@ function pickBridgeHost(): string {
 const BRIDGE_URL = `ws://${pickBridgeHost()}:3001`;
 
 /**
+ * Where this page looks for the connector. The UI asks, rather than repeating
+ * the ranges above, to decide whether the browser's local-network permission
+ * is what stands in the way: it only governs a page reaching localhost from
+ * somewhere public, and a page served from a LAN address looks for the
+ * connector at that same address instead.
+ */
+export function bridgeHost(): string {
+  return pickBridgeHost();
+}
+
+/**
  * Reconnect backoff.
  *
  * Most people who open gobo have no connector running and never will: the
@@ -258,9 +269,11 @@ function scheduleReconnect(url: string): void {
  *
  * Called when the scene picks an output that needs the connector. By then the
  * backoff may have stretched to half a minute, and waiting that long to notice
- * a bridge that is already running reads as the connector being broken.
+ * a bridge that is already running reads as the connector being broken. Also
+ * called by the page when the browser starts allowing it to reach this
+ * computer, which is the same wait for the same bad reason.
  */
-function retryNow(): void {
+export function retryBridgeNow(): void {
   if (_connected) return;
   _reconnectDelay = RECONNECT_MIN_MS;
   if (_reconnectTimer) {
@@ -285,7 +298,7 @@ export function sendConfig(config: Record<string, unknown>): void {
   flushConfig();
   // The scene has just asked for an output the connector has to carry, so this
   // is the moment the connection starts mattering.
-  if (!_configDelivered) retryNow();
+  if (!_configDelivered) retryBridgeNow();
 }
 
 function flushConfig(): void {
