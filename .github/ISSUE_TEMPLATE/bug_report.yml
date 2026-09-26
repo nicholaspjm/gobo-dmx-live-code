@@ -1,0 +1,59 @@
+name: Something went wrong
+description: A light that did the wrong thing, an error that made no sense, or the app getting in the way.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The quickest route here is the **report a problem** button in the app's log tab, which fills in your versions below.
+
+        A security problem? Please don't open an issue: [report it privately](https://github.com/nicholaspjm/gobo-dmx-live-code/security/advisories/new) instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, and what the light, the sim or the app did.
+      placeholder: I ran the scene below and the wash stayed dark, but the status bar said it was running.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+
+  - type: textarea
+    id: scene
+    attributes:
+      label: The scene, or the part of it that shows the problem
+      description: |
+        The fewer lines, the faster it gets fixed. **A scene is public once it is posted here**, including any node IP addresses, venue names and comments in it, and so is a share link, which carries the whole scene. Paste only what you are happy to publish.
+      render: js
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Anything in the log tab
+      description: The lines around the problem. Check them for addresses you would rather not publish.
+      render: text
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Versions and setup
+      description: |
+        Filled in for you by the button in the log tab. Otherwise: the gobo version (the outputs tab shows the connector's), how you run it (the website, the website with the connector, the desktop app, or npm start), your browser, your system, and which output the scene uses.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Was real hardware involved?
+      options:
+        - No, the sim or mock output only
+        - Yes, over USB DMX
+        - Yes, over Art-Net or sACN
+        - Yes, through TouchDesigner or OSC

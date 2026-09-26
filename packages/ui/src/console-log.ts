@@ -165,17 +165,25 @@ export function mountConsolePanel(opts: {
   bodyEl: HTMLElement;
   /** Whether this page is the one currently on screen. */
   isOpen: () => boolean;
+  /**
+   * Open a bug report with the setup filled in. Here because the log is where
+   * someone is standing when something has gone wrong, and it is what the
+   * report will ask them to paste.
+   */
+  onReport?: () => void;
 }): { refresh: () => void } {
-  const { bodyEl, isOpen } = opts;
+  const { bodyEl, isOpen, onReport } = opts;
 
   bodyEl.innerHTML = `
     <div class="log-toolbar">
+      ${onReport ? '<button type="button" class="log-report" id="log-report" title="open a bug report with your versions filled in">report a problem</button>' : ''}
       <button type="button" class="log-clear" id="log-clear">clear</button>
     </div>
     <div class="log-list" id="log-list"></div>
   `;
   const listEl = bodyEl.querySelector('#log-list') as HTMLElement;
   (bodyEl.querySelector('#log-clear') as HTMLButtonElement).addEventListener('click', clearLog);
+  if (onReport) (bodyEl.querySelector('#log-report') as HTMLButtonElement).addEventListener('click', onReport);
 
   function refresh(): void {
     // Only while it is on screen. This is called on every line, and a scene

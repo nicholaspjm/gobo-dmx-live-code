@@ -37,6 +37,8 @@ import {
   getStrudelError,
   connectBridge,
   retryBridgeNow,
+  getConnectorInfo,
+  APP_VERSION,
   onStatusChange,
   getOutputConfig,
   getDirectUrl,
@@ -80,10 +82,12 @@ import { mountPanel, type PanelHost } from './panel.js';
 import {
   BLOCKED_BY_BROWSER,
   browserBlocksConnector,
+  getLocalAccess,
   onLocalAccessChange,
   servedLocally,
   watchLocalAccess,
 } from './browser-access.js';
+import { browserName, reportUrl, routeName, systemName, type Environment } from './report.js';
 import { encodeShareLink, decodeShareFromLocation, clearShareFromLocation } from './share.js';
 import { getExample, type Example } from './examples.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
@@ -106,6 +110,8 @@ import {
   hasSeenConnector,
   rememberConnector,
   RELEASES_URL,
+  currentOutputId,
+  isDesktopBuild,
 } from './outputs.js';
 
 // Apply the persisted theme before the editor mounts and before any
@@ -2108,6 +2114,31 @@ function mountLegacyNotice(): void {
   legacyNoticeEl.setAttribute('aria-hidden', 'false');
 }
 
+// ─── Report a problem ────────────────────────────────────────────────────────
+// What the bug form's environment field is filled with. Read at the moment the
+// button is pressed, so it describes the setup as it is while something is
+// wrong, not as it was at load. What goes in, and what is kept out, is in
+// report.ts: a report is public, so this names the setup and nothing of yours.
+
+function currentEnvironment(): Environment {
+  const nav = navigator as Navigator & {
+    userAgentData?: { brands?: { brand: string; version: string }[]; platform?: string };
+  };
+  const desktop = isDesktopBuild();
+  const connector = getConnectorInfo();
+  return {
+    version: APP_VERSION,
+    route: routeName({ desktop, hostname: window.location.hostname, port: window.location.port }),
+    browser: browserName(nav.userAgent, nav.userAgentData?.brands),
+    system: systemName(nav.userAgent, nav.userAgentData?.platform),
+    output: currentOutputId() ?? 'none chosen',
+    connector: connector
+      ? (connector.version ?? 'connected, too old to say its version')
+      : desktop ? 'built into the app, not connected' : 'not connected',
+    localAccess: servedLocally() ? 'not asked (served from this computer)' : getLocalAccess(),
+  };
+}
+
 // ─── The side panel ──────────────────────────────────────────────────────────
 // One panel, five tabs: the reference, the fixture library, the log, the
 // outputs and the settings. It used to be five panels behind four top-bar
@@ -2149,7 +2180,12 @@ const libraryPanel = mountLibraryPanel({ bodyEl: libraryBodyEl });
 
 // Recording starts before anything else runs, so a failure during start-up is
 // already in the log by the time anyone opens it.
-mountConsolePanel({ bodyEl: logBodyEl, isOpen: pageIsOpen('log') });
+mountConsolePanel({
+  bodyEl: logBodyEl,
+  isOpen: pageIsOpen('log'),
+  // In the desktop app this new window is handed to the system browser.
+  onReport: () => { window.open(reportUrl(currentEnvironment()), '_blank', 'noopener'); },
+});
 
 mountSettingsPanel({ bodyEl: settingsBodyEl });
 

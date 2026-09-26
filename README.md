@@ -424,6 +424,8 @@ Full setup for both: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
 
 ## Project
 
+- [Report a problem](https://github.com/nicholaspjm/gobo-dmx-live-code/issues/new/choose), or the **report a problem** button in the app's log tab, which fills in your versions
+- [Discussions](https://github.com/nicholaspjm/gobo-dmx-live-code/discussions): questions, ideas you want to talk through, and things you made
 - [CHANGELOG.md](CHANGELOG.md): what landed in each release
 - [CONTRIBUTING.md](CONTRIBUTING.md): dev setup, fixture contributions, PR expectations
 - [SECURITY.md](SECURITY.md): threat model, what a share link hands you, why the eval is unguarded on purpose, and what the connector will and will not answer

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: A question, or something you made
+    url: https://github.com/nicholaspjm/gobo-dmx-live-code/discussions
+    about: How do I…, what do people use for…, and look what I made. Discussions, not issues.
+  - name: A security problem
+    url: https://github.com/nicholaspjm/gobo-dmx-live-code/security/advisories/new
+    about: Please report it privately rather than in a public issue.

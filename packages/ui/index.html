@@ -824,10 +824,12 @@
       .log-toolbar {
         display: flex;
         justify-content: flex-end;
+        gap: 6px;
         padding: 0 0 8px;
       }
 
-      .log-clear {
+      .log-clear,
+      .log-report {
         background: none;
         border: 1px solid var(--border);
         color: var(--text-muted);
@@ -837,7 +839,8 @@
         cursor: pointer;
       }
 
-      .log-clear:hover { color: var(--text); border-color: var(--text-muted); }
+      .log-clear:hover,
+      .log-report:hover { color: var(--text); border-color: var(--text-muted); }
 
       .log-list {
         display: flex;
