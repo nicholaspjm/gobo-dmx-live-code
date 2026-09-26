@@ -261,6 +261,67 @@ export function uni(universe: number, channel: number, ...args: [PatternOrValue?
   target.set(k, { universe, channel, value });
 }
 
+// ─── A level on a colour ─────────────────────────────────────────────────────
+//
+// On a desk, colour and intensity are separate: pick red, then run a chase on
+// the intensity, and the chase is red. A colour strip or a par with no dimmer
+// has no intensity channel, so a level there used to be written straight onto
+// the colour channels, and `strip.color(red); strip.each(chase)` came out as a
+// white chase with a note that red had been overwritten. A level handed to
+// colour channels that already hold a colour now scales that colour instead.
+
+/** A value as a level from 0 to 1 at an instant, for multiplying. */
+function levelAt(v: PatternOrValue, begin: number, end: number): number {
+  if (typeof v === 'number') return v > 1 ? v / 255 : v;
+  let best = 0;
+  for (const h of v.queryArc(begin, end)) {
+    const l = levelOf(h.value);
+    if (l !== null && l > best) best = l;
+  }
+  return best;
+}
+
+/** `held` scaled by `level`, keeping the level's haps so its tokens still light up. */
+export function scaledBy(held: PatternOrValue, level: PatternOrValue): PatternOrValue {
+  if (typeof held === 'number' && typeof level === 'number') return levelAt(held, 0, 0) * levelAt(level, 0, 0);
+  return {
+    queryArc(begin: number, end: number) {
+      const colour = levelAt(held, begin, end);
+      if (typeof level === 'number') return [{ value: colour * levelAt(level, begin, end) }];
+      return level.queryArc(begin, end).map((h) => {
+        const l = levelOf(h.value);
+        return { ...h, value: l === null ? 0 : l * colour };
+      });
+    },
+  };
+}
+
+/**
+ * Put a level on a set of colour channels: scaling the colour they already
+ * hold in this scene, or, when none of them holds anything, writing the level
+ * to each (a white level, as before). Not counted as setting them twice: it
+ * is one light's colour and intensity, not two looks fighting.
+ */
+export function levelOnColour(
+  universe: number,
+  channels: readonly number[],
+  value: PatternOrValue,
+  /** With nothing held, how many of the channels take the level; the rest go
+   *  to 0. An RGBW pixel lights R, G and B and holds white off. */
+  fill = channels.length,
+): void {
+  const target = _capture ?? _staging ?? _defs;
+  const held = channels.map((c) => target.get(key(universe, c))?.value);
+  if (held.every((h) => h === undefined)) {
+    channels.forEach((c, i) => uni(universe, c, i < fill ? value : 0));
+    return;
+  }
+  channels.forEach((c, i) => {
+    const h = held[i];
+    target.set(key(universe, c), { universe, channel: c, value: h === undefined ? 0 : scaledBy(h, value) });
+  });
+}
+
 // ─── Channels set more than once ─────────────────────────────────────────────
 //
 // A scene is imperative, so two calls to one channel are an assignment

@@ -1428,8 +1428,8 @@ strip.fill(0, 0, 0, 0)`,
     description:
       'Every pixel, or every light in a group, runs the pattern, each a step later than the one before: a phase spread. '
       + 'The steps add up to spread cycles along the strip, one bar by default, so a slow pattern wants a spread to '
-      + 'match. The pattern is a level, all emitters together on a colour strip. A level or a colour on its own is '
-      + 'the same for every pixel.',
+      + 'match. The pattern is a level: over a colour already set it runs in that colour, and with none it is white. '
+      + 'A level or a colour on its own is the same for every pixel.',
     example: `strip.each(cosine.slow(2).range(-7, 1), 2)     // a band walks the strip
 strip.each(mini('1 - - - - - - -').fadeOut(2))  // a chase with tails
 strip.each(rand.range(-3, 1), 3.7)              // sparkle`,

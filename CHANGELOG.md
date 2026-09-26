@@ -22,6 +22,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   `.across(rand)` scatters. It is strudel's stereo `.pan()` with the lights as
   the speakers, and a pasted `.pan()` does the same (on a moving head, `.pan()`
   is still the head's pan channel).
+- **A chase over a colour keeps the colour.** On a colour strip or a par with
+  no dimmer, `strip.color(red)` then `strip.each(mini('1 - - -').fadeOut(2))`
+  is a red chase, as on a desk where colour and intensity are separate. It
+  used to come out white, with a note that the red had been overwritten. With
+  no colour set, a level is still white.
 - **`all(change)` is a grand master.** Strudel's all() changes every pattern
   playing; here it changes every channel that makes light, after the rest of
   the scene, so `all(mul(slider(1)))` puts the whole rig's brightness on one

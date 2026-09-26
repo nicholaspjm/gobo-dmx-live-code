@@ -196,6 +196,30 @@ describe('looks and mutes', () => {
   });
 });
 
+describe('a level over a colour', () => {
+  it('runs a chase in the colour already set, on a strip', () => {
+    run("const s = rgbStrip(1, 2)\ns.color(red)\ns.each(mini('1 0'), 0)");
+    core.tick(0.1);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 6))).toEqual([255, 0, 0, 255, 0, 0]);
+    core.tick(0.6);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 6))).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(core.evalCode("const s = rgbStrip(1, 2)\ns.color(red)\ns.each(mini('1 0'), 0)").warning ?? '').not.toContain('set more than once');
+  });
+
+  it('does the same on a par with no dimmer, through a group', () => {
+    run("const a = fixture(1, 'rgb')\nconst b = fixture(4, 'rgb')\nconst g = group(a, b)\ng.color(amber)\ng.each(0.5)");
+    core.tick(0.1);
+    expect(core.getUniverseBuffer(0)[0]).toBe(128);
+    expect(core.getUniverseBuffer(0)[2]).toBeLessThan(20);   // amber stays amber, just dimmer
+  });
+
+  it('is white when no colour was set', () => {
+    run("const s = rgbStrip(1, 1)\ns.each(0.5)");
+    core.tick(0.1);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 3))).toEqual([128, 128, 128]);
+  });
+});
+
 describe('each() with a pattern', () => {
   it('is the function form with the same phase spread', () => {
     const rig = "const a = fixture(1, 'dim')\nconst b = fixture(2, 'dim')\nconst c = fixture(3, 'dim')\nconst d = fixture(4, 'dim')\nconst rig = group(a, b, c, d)\n";

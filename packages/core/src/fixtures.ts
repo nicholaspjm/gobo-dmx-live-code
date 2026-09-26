@@ -26,6 +26,7 @@ import {
   type PatternOrValue,
   claimChannels,
   markMasterTarget,
+  levelOnColour,
   clearPatchClaims,
   type PatternLike,
 } from './dmx.js';
@@ -2283,9 +2284,8 @@ export function rgbStrip(
             }
           } else {
             const v = channelValue([result], `.eachXY() (${x}, ${y})`);
-            uni(universe, base,     v);
-            uni(universe, base + 1, v);
-            uni(universe, base + 2, v);
+            // Scales a colour already set, or lights white. See levelOnColour.
+            levelOnColour(universe, [base, base + 1, base + 2], v);
           }
         }
       }
@@ -2422,9 +2422,8 @@ export function rgbStrip(
           // returns nothing is a missing return rather than a request for
           // full, so this one takes the value as given.
           const v = channelValue([result], `.each() pixel ${i}`);
-          uni(universe, base,     v);
-          uni(universe, base + 1, v);
-          uni(universe, base + 2, v);
+          // Scales a colour already set, or lights white. See levelOnColour.
+          levelOnColour(universe, [base, base + 1, base + 2], v);
         }
       }
     },
@@ -3027,10 +3026,7 @@ export function rgbwStrip(
           } else {
             // Monochrome, white held off, matching each().
             const v = channelValue([result], `.eachXY() (${x}, ${y})`);
-            uni(universe, base,     v);
-            uni(universe, base + 1, v);
-            uni(universe, base + 2, v);
-            uni(universe, base + 3, 0);
+            levelOnColour(universe, [base, base + 1, base + 2, base + 3], v, 3);
           }
         }
       }
@@ -3184,10 +3180,7 @@ export function rgbwStrip(
           // that returns nothing is a missing return rather than a request for
           // full, so this one takes the value as given.
           const v = channelValue([result], `.each() pixel ${i}`);
-          uni(universe, base,     v);
-          uni(universe, base + 1, v);
-          uni(universe, base + 2, v);
-          uni(universe, base + 3, 0);
+          levelOnColour(universe, [base, base + 1, base + 2, base + 3], v, 3);
         }
       }
     },
@@ -3370,12 +3363,11 @@ function pixelCell(
       for (let i = 0; i < stride; i++) uni(universe, base + i, level);
     },
     level(value) {
-      // Matches what strip.each() already does with a single value: R = G = B,
-      // and a white channel held off so it does not wash out the mix.
-      uni(universe, base,     value);
-      uni(universe, base + 1, value);
-      uni(universe, base + 2, value);
-      if (stride === 4) uni(universe, base + 3, 0);
+      // Matches what strip.each() already does with a single value: a colour
+      // already set is scaled, and otherwise R = G = B with a white channel
+      // held off so it does not wash out the mix.
+      const channels = stride === 4 ? [base, base + 1, base + 2, base + 3] : [base, base + 1, base + 2];
+      levelOnColour(universe, channels, value, 3);
     },
   };
 }
@@ -3458,14 +3450,16 @@ function fixtureCell(inst: FixtureInstance): GroupCell {
         for (const name of dims) inst.set(name, value);
         return;
       }
-      let lit = false;
-      for (const role of ['red', 'green', 'blue'] as const) {
-        if (roles.has(role)) {
-          setOn(role, value);
-          lit = true;
-        }
+      // No dimmer: the level goes on the colour, scaling one already set, as
+      // a desk runs an intensity chase over a colour. See levelOnColour.
+      const colourChannels = inst.def.channels
+        .filter((c) => { const r = mixRole(c); return r === 'red' || r === 'green' || r === 'blue'; })
+        .map((c) => inst.startChannel + c.offset);
+      if (colourChannels.length > 0) {
+        levelOnColour(inst.universe, colourChannels, value);
+        return;
       }
-      if (!lit && roles.has('white')) setOn('white', value);
+      if (roles.has('white')) setOn('white', value);
     },
   };
 }
