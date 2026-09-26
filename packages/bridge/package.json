@@ -29,7 +29,6 @@
   "files": [
     "bin",
     "dist",
-    "bridge.config.json",
     "README.md"
   ],
   "engines": {

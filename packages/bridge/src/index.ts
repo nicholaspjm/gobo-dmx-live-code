@@ -90,6 +90,17 @@ const PACKAGED = !/^node(\.exe)?$/i.test(basename(process.execPath));
  */
 const UNDER_PACKAGE_MANAGER = /[\\/](?:Cellar|linuxbrew)[\\/]/i.test(process.execPath);
 
+/**
+ * Started from the npm package, `npx gobo-connector`, rather than from a
+ * download or a checkout. Set by bin/gobo-connector.mjs.
+ *
+ * It behaves like the download where that helps someone who has just typed one
+ * command: no config file expected, the app's address printed and opened. It
+ * installs no login item, because under npx it runs from a cache directory npm
+ * clears when it likes.
+ */
+const VIA_NPM = (globalThis as { goboViaNpm?: boolean }).goboViaNpm === true;
+
 function resolveConfigPath(): string {
   const flag = process.argv.indexOf('--config');
   if (flag !== -1 && process.argv[flag + 1]) return resolve(process.argv[flag + 1]);
@@ -116,7 +127,7 @@ try {
   // A missing file is a normal first run. Unreadable or malformed JSON is a
   // mistake, and both otherwise land on the same silent default.
   if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-    if (PACKAGED) {
+    if (PACKAGED || VIA_NPM) {
       // Expected: a connector is configured by the app's artnet() / sacn() /
       // osc() call, not by a file the user was never asked to create.
       console.log('[gobo] no config file, waiting for the app to choose an output');
@@ -1135,7 +1146,7 @@ listenAll({
     console.log(`[bridge] serving the app from ${UI_DIR}`);
     console.log(`[bridge] open ${url}`);
     if (process.argv.includes('--open')) openBrowser(url);
-  } else if (PACKAGED) {
+  } else if (PACKAGED || VIA_NPM) {
     // No local copy of the app is bundled, so send them to the hosted one.
     console.log('[gobo] connector running. Open the app and press ctrl+enter:');
     console.log(`[gobo] ${HOSTED_APP}`);

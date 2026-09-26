@@ -215,6 +215,35 @@ jobs:
             The two `.tar.gz` files are the macOS and Linux connectors with the
             execute bit intact, which is what the Homebrew formula installs.
 
+  npm:
+    # Publish the connector to npm, so `npx gobo-connector@latest` is always the
+    # release that just went out.
+    #
+    # Trusted publishing: npm checks this workflow's identity token against the
+    # publisher configured on the package's settings page, so there is no npm
+    # token in this repository to leak or rotate, and every version carries
+    # provenance pointing back at the commit and the run that built it. The
+    # first version had to be published by hand, since a package has to exist
+    # before a trusted publisher can be set on it.
+    needs: [release]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1 or later, newer than some Node
+      # releases bundle.
+      - run: npm install -g npm@latest
+      - run: npm ci
+      # prepublishOnly builds dist/ from the tagged source.
+      - run: npm publish --workspace=packages/bridge --access public
+
   formula:
     # Point the Homebrew formula at the release that just went out.
     #
