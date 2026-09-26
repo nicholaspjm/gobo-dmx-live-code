@@ -432,6 +432,13 @@ const DOCS: DocSection[] = [
         example: "pars.dim(mini('1*8').across(saw))   // one light walks the rig",
       },
       {
+        name: 'all → the grand master',
+        signature: 'all(mul(slider(1)))',
+        description:
+          "strudel's all() changes every pattern that is playing. Here it changes every channel that makes light, which is a grand master: dimmers where a fixture has one, colour where it does not, and never pan, tilt or a wheel.",
+        example: "all(mul(slider(1)))",
+      },
+      {
         name: 'jux → the two halves of a rig',
         signature: '.jux(change)',
         description:

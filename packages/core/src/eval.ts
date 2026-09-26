@@ -39,7 +39,9 @@ import {
   rgb,
   hushDefs,
   levelOf,
+  mapLightChannels,
   type PatternLike,
+  type PatternOrValue,
 } from './dmx.js';
 import { COLORS, colorFromToken, mix, toColorValue, type Color } from './colors.js';
 import { setBPM } from './scheduler.js';
@@ -168,6 +170,57 @@ function installJux(proto: any, stack: (...pats: unknown[]) => unknown): void {
     return jux.call(this as { fmap(fn: (v: unknown) => unknown): unknown }, change);
   };
 }
+
+/**
+ * all(change): strudel's global transform, ported to light as the grand
+ * master.
+ *
+ * In strudel all() applies a change to every pattern that is playing. Here it
+ * applies to every channel that makes light, which is what a lighting desk's
+ * grand master fader does: all(mul(slider(1))) puts the whole rig's
+ * brightness on one handle. "Makes light" is decided by the patch (see
+ * mapLightChannels in dmx.ts): a fixture's master dimmer if it has one, its
+ * emitters if not, every channel of a strip. Pan, tilt and wheels are left
+ * alone, so a master never moves a head.
+ */
+let _allChanges: Array<(pattern: unknown) => unknown> = [];
+
+function all(change: unknown): void {
+  if (typeof change !== 'function') {
+    throw new Error('all() takes a change for every light, as in all(mul(slider(1))) for a grand master, or all(fast(2)).');
+  }
+  _allChanges.push(change as (pattern: unknown) => unknown);
+}
+
+/** A channel's value as a strudel pattern a change can be applied to. */
+function asStrudelPattern(value: unknown): unknown {
+  if (typeof value === 'number') {
+    const pure = _strudelCtx.pure as (v: number) => unknown;
+    // A raw DMX number reads as its level, so a master halves 200 rather than
+    // turning it into a pattern value of 100 that clamps to full.
+    return pure(value > 1 ? value / 255 : value);
+  }
+  const v = value as { fmap?: unknown; queryArc?: (b: number, e: number) => Array<Record<string, unknown>> };
+  if (typeof v.fmap === 'function') return value;
+  // A colour component is a value source rather than a strudel pattern; wrap
+  // it in one so the change has methods to call.
+  const kit = _patternKit;
+  if (kit === null || typeof v.queryArc !== 'function') return value;
+  const source = v.queryArc.bind(v);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return new kit.Pattern((state: any) => source(state.span.begin.valueOf(), state.span.end.valueOf())
+    .map((h) => new kit.Hap(h.whole, h.part ?? state.span, h.value, h.context)));
+}
+
+function applyAllChanges(): void {
+  if (_allChanges.length === 0) return;
+  const changes = _allChanges;
+  mapLightChannels((value) => changes.reduce<unknown>((acc, change) => change(asStrudelPattern(acc)), value) as PatternOrValue);
+}
+
+/** Strudel's Pattern and Hap, kept once the engine loads, for asStrudelPattern(). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _patternKit: { Pattern: any; Hap: any } | null = null;
 
 /** Call once (async) before first eval to load @strudel/core waveforms. */
 export async function initStrudel(): Promise<void> {
@@ -447,6 +500,7 @@ export async function initStrudel(): Promise<void> {
       // envelope.ts.
       if (proto) installFades({ Pattern: core.Pattern, Hap: core.Hap, TimeSpan: core.TimeSpan, Fraction: core.Fraction }, proto);
       if (proto) installPalette(proto);
+      _patternKit = { Pattern: core.Pattern, Hap: core.Hap };
       if (proto) installJux(proto, core.stack as (...pats: unknown[]) => unknown);
     } catch {
       // Strudel's internals changed shape, or sample failed. Audio reactives
@@ -1429,6 +1483,7 @@ export function evalCode(code: string): EvalResult {
     rgb,
     /** Everything dark, from inside the scene. Strudel spells it this way. */
     hush: hushDefs,
+    all,
     /**
      * Tempo the way strudel writes it, so pasted code runs.
      *
@@ -1536,6 +1591,7 @@ export function evalCode(code: string): EvalResult {
     clearScreens();
     clearControls();
     clearPickers();
+    _allChanges = [];
     clearFixtureActivity();
     fn(...values);
     // Inside the try and before the commit, so raised dimmers belong to the
@@ -1543,6 +1599,9 @@ export function evalCode(code: string): EvalResult {
     // everything else rather than leaving a rig lit by a run that failed.
     implied = raiseImpliedDimmers();
     impliedColour = raiseImpliedEmitters();
+    // Last, so the grand master also scales a dimmer gobo raised for the
+    // scene. Still inside the run, so it commits or rolls back with it.
+    applyAllChanges();
     result = { success: true };
   } catch (err) {
     result = { success: false, error: locatedError(err, code, keys, knownMethodNames()) };

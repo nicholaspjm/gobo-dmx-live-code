@@ -1055,6 +1055,15 @@ spot.white(mini('1 - - -').punch())`,
     kind: 'method',
   },
   {
+    label: 'all',
+    signature: 'all(change)',
+    description:
+      "A change for every light at once, after the rest of the scene: all(mul(slider(1))) is a grand master fader. It scales what makes light, the dimmer of a fixture that has one and the colour of one that does not, and never pan, tilt or a wheel, so a master cannot move a head. Strudel's all() does the same across every pattern playing.",
+    example: "all(mul(slider(1)))          // grand master\nall(mul(sine.slow(8).range(0.3, 1)))   // the whole rig breathing",
+    context: 'command',
+    kind: 'function',
+  },
+  {
     label: 'slider',
     signature: 'slider(value, min, max, step) · slider(name, min, max)',
     description:

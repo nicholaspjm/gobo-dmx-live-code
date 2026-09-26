@@ -25,6 +25,7 @@ import {
   isChannelDriven,
   type PatternOrValue,
   claimChannels,
+  markMasterTarget,
   clearPatchClaims,
   type PatternLike,
 } from './dmx.js';
@@ -596,6 +597,21 @@ export function clearFixtureActivity(): void {
 
 function channelsPerPixelOf(ch: ChannelDef): number {
   return ch.pixelLayout === 'rgbw' ? 4 : ch.pixelLayout === 'mono' ? 1 : 3;
+}
+
+/** Tell the grand master which of this fixture's channels make light. See dmx.ts. */
+function markLightChannels(def: FixtureDef, universe: number, startChannel: number): void {
+  const dimmer = masterDimmerChannel(def, startChannel);
+  if (dimmer !== undefined) {
+    markMasterTarget(universe, dimmer);
+    return;
+  }
+  for (const ch of def.channels) {
+    if (!isEmitterChannel(ch)) continue;
+    const abs = startChannel + ch.offset;
+    const span = ch.type === 'strip' ? (ch.pixelCount ?? 0) * channelsPerPixelOf(ch) : 1;
+    for (let k = 0; k < span; k++) markMasterTarget(universe, abs + k);
+  }
 }
 
 function registerFixtureActivity(def: FixtureDef, universe: number, startChannel: number): void {
@@ -1366,6 +1382,7 @@ export function fixture(
   }
 
   claimChannels(universe, startChannel, def.channelCount, `fixture "${fixtureId}"`);
+  markLightChannels(def, universe, startChannel);
 
   // Note what could imply its own brightness, once at patch time, so the check
   // at the end of the run is a lookup rather than a walk of every definition.
@@ -2216,6 +2233,7 @@ export function rgbStrip(
   // set only on that path.
   if (opts.simFixtureId === undefined) {
     claimChannels(universe, startChannel, pixelCount * 3, 'rgbStrip()');
+    for (let c = 0; c < pixelCount * 3; c++) markMasterTarget(universe, startChannel + c);
   }
   // Registered after the instance exists, at the end of this builder.
   const geo = resolveGeometry(pixelCount, opts, 'rgbStrip');
@@ -2575,6 +2593,7 @@ export function monoStrip(
   // set only on that path.
   if (opts.simFixtureId === undefined) {
     claimChannels(universe, startChannel, pixelCount * 1, 'monoStrip()');
+    for (let c = 0; c < pixelCount * 1; c++) markMasterTarget(universe, startChannel + c);
   }
   // Registered after the instance exists, at the end of this builder.
   const geo = resolveGeometry(pixelCount, opts, 'monoStrip');
@@ -2956,6 +2975,7 @@ export function rgbwStrip(
   // set only on that path.
   if (opts.simFixtureId === undefined) {
     claimChannels(universe, startChannel, pixelCount * 4, 'rgbwStrip()');
+    for (let c = 0; c < pixelCount * 4; c++) markMasterTarget(universe, startChannel + c);
   }
   // Registered after the instance exists, at the end of this builder.
   const geo = resolveGeometry(pixelCount, opts, 'rgbwStrip');

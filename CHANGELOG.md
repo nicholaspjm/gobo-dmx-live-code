@@ -22,6 +22,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   `.across(rand)` scatters. It is strudel's stereo `.pan()` with the lights as
   the speakers, and a pasted `.pan()` does the same (on a moving head, `.pan()`
   is still the head's pan channel).
+- **`all(change)` is a grand master.** Strudel's all() changes every pattern
+  playing; here it changes every channel that makes light, after the rest of
+  the scene, so `all(mul(slider(1)))` puts the whole rig's brightness on one
+  fader. A fixture with a master dimmer has only that scaled, one without has
+  its colour scaled, and pan, tilt and wheels are never touched. Raw `ch()`
+  writes no fixture owns count as dimmers.
 - **Sliders are patterns, and take strudel's form.** `slider(0.8)` starts a
   fader at 0.8 (min, max and step can follow), named "slider 1", "slider 2" in
   order, with its handle on its own line. Named sliders still work. Either

@@ -740,6 +740,43 @@ export function claimChannels(universe: number, start: number, count: number, la
  */
 export function clearPatchClaims(): void {
   _patched.length = 0;
+  _masterTargets.clear();
+}
+
+// ─── The grand master ────────────────────────────────────────────────────────
+
+/**
+ * The channels a grand master scales: the ones that make light. A fixture with
+ * a master dimmer contributes that one channel, since scaling its colour as
+ * well would square the effect; one without contributes its emitters; a strip
+ * contributes every channel. Pan, tilt and wheels are never in here, so all()
+ * cannot move a head or spin a gobo. Filled as the scene patches, cleared with
+ * the patch claims.
+ */
+const _masterTargets = new Set<string>();
+
+export function markMasterTarget(universe: number, channel: number): void {
+  _masterTargets.add(key(universe, channel));
+}
+
+function isPatched(universe: number, channel: number): boolean {
+  return _patched.some((p) => p.universe === universe && channel >= p.start && channel <= p.end);
+}
+
+/**
+ * Rewrite the value of every channel that makes light, in the scene being
+ * built. A raw ch() or uni() write that no fixture owns counts as light too,
+ * since that is nearly always a dimmer. Returns how many it touched.
+ */
+export function mapLightChannels(change: (value: PatternOrValue) => PatternOrValue): number {
+  const target = _capture ?? _staging ?? _defs;
+  let touched = 0;
+  for (const [k, def] of target) {
+    if (!_masterTargets.has(k) && isPatched(def.universe, def.channel)) continue;
+    def.value = change(def.value);
+    touched++;
+  }
+  return touched;
 }
 
 export function clearDefs(): void {

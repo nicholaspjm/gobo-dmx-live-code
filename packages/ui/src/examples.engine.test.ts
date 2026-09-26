@@ -132,6 +132,37 @@ describe('sound, ported to light', () => {
   });
 });
 
+describe('all() is the grand master', () => {
+  it('scales the dimmer of a fixture that has one, and leaves its colour alone', () => {
+    run("const w = fixture(1, 'dim-rgb')\nw.color(red)\nw.dim(1)\nall(mul(0.5))");
+    core.tick(0.1);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 4))).toEqual([128, 255, 0, 0]);
+  });
+
+  it('scales the colour of a fixture without one', () => {
+    run("const w = fixture(1, 'rgb')\nw.color(red)\nall(mul(0.5))");
+    expect(at(0.1)).toBe(128);
+  });
+
+  it('never moves a head', () => {
+    run("const h = fixture(1, 'moving-head-basic')\nh.pan(1)\nh.dim(1)\nall(mul(0))");
+    core.tick(0.1);
+    const buf = core.getUniverseBuffer(0);
+    expect(buf[0]).toBe(255);   // pan, untouched
+    expect(buf[2]).toBe(0);     // the master dimmer, mastered to nothing
+  });
+
+  it('halves a raw DMX value rather than clamping it to full', () => {
+    run('ch(10, 200)\nall(mul(0.5))');
+    expect(at(0.1, 10)).toBe(100);
+  });
+
+  it('takes a fader', () => {
+    run("const w = fixture(1, 'dim')\nw.dim(1)\nall(mul(slider('master', 0, 1, { start: 0.25 })))");
+    expect(at(0.1)).toBe(64);
+  });
+});
+
 describe('sliders', () => {
   it("take strudel's form, slider(value, min, max), and are named in order", () => {
     run("const w = fixture(1, 'dim')\nw.dim(slider(0.5))");
