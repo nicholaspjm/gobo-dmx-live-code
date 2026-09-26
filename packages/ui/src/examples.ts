@@ -82,6 +82,9 @@ pars.each(mini('1 - - -').fadeOut(2))
 
 // ── strobe · a fill at the end of every bar, dark the rest of it ───
 strb.dim(mini('- - - [1 1 1 1]').flash())
+
+// ── grand master · one fader for every light; drag the handle ───────
+all(mul(slider(1)))
 // strb.dim(mini('- - - -  - - - [1 1 1 1 1 1 1 1]').slow(2).flash()) // every other bar
 `,
   },
