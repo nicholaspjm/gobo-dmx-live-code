@@ -385,6 +385,77 @@ const DOCS: DocSection[] = [
 
   {
     category: 'welcome',
+    title: 'coming from strudel',
+    blurb:
+      "gobo runs strudel's own pattern engine, so the language is the one you know: signals, mini-notation, method chains, curried changes. What changes is what a pattern is for. A channel takes a level from 0 to 1, not a note, so every idea strudel has about sound has a lighting meaning here, and that is the one gobo uses.",
+    entries: [
+      {
+        name: 'sounds → lights',
+        signature: "s('bd')  →  fixture(1, 'rgb')",
+        description:
+          "A strudel pattern plays a sound; a gobo pattern drives a light. Patch each light at the DMX address set on it, then give its channels patterns. There are no samples to load: fixtures are what a scene loads, from the fixtures tab or with defineFixture().",
+        example: "const wash = fixture(1, 'rgb')\nwash.color(blue)\nwash.dim('1 - 1 -')",
+      },
+      {
+        name: 'notes → levels and colours',
+        signature: "note('c e g')  →  '1 0.5 0'  ·  '<red blue>'",
+        description:
+          "A step is a level from 0 to 1, or a colour name where a colour is taken. A quoted string is mini-notation, as in strudel, and - or ~ is a rest.",
+        example: "wash.dim('1 [1 1] - 0.5')\nwash.color('<red amber blue>')",
+      },
+      {
+        name: 'gain, velocity → level',
+        signature: '.gain(x)  ·  .velocity(x)',
+        description:
+          'Both scale the level, which is what they mean for a light: .velocity() is how a step is accented, and .echo() and .stut() come back dimmer each time.',
+        example: "wash.dim(mini('1 1 1 1').velocity('1 0.5 0.7 0.3'))",
+      },
+      {
+        name: 'attack, decay, release → fades',
+        signature: '.fadeIn(beats)  ·  .settle(beats, level)  ·  .fadeOut(beats)',
+        description:
+          "strudel shapes every note with an envelope; gobo shapes every step with a fade. fadeIn is attack, settle is decay to a sustain level, fadeOut is release: the tail a light keeps after its step. They take beats, so they follow the tempo. strudel's own names (.attack .decay .sustain .release .adsr) work too, in seconds as strudel means them.",
+        example: "strb.dim(mini('1 1 1 1').settle(0.25))           // a flash per beat\npars.each(mini('1 - - -').fadeOut(2))            // a chase with tails",
+      },
+      {
+        name: 'pan → across',
+        signature: '.across(position)',
+        description:
+          "strudel's stereo position, with the lights as the speakers: 0 is the first light in a group, 1 the last. A pasted .pan() does the same, except on a moving head, where .pan() is the head's own pan channel.",
+        example: "pars.dim(mini('1*8').across(saw))   // one light walks the rig",
+      },
+      {
+        name: '$: and labels → looks',
+        signature: 'verse: { … }  ·  cue(verse, chorus)  ·  _verse:',
+        description:
+          "A named block is a look, like a cue on a desk, and cue() switches between them with the chips, alt+1…9, a MIDI program change, or a pattern of names. An underscore mutes a block or a line, as in strudel. $: on a line just runs it.",
+        example: "verse: {\n  wash.color(blue)\n}\nchorus: {\n  wash.color(red)\n}\ncue(verse, chorus)",
+      },
+      {
+        name: 'the same, as written',
+        signature: 'sine.slow(4)  ·  .every(4, fast(2))  ·  setcpm(30)',
+        description:
+          "Signals are written bare or called, both work. Changes are curried values, as in strudel. Tempo: one cycle is one bar of four beats, so setcpm(30) is 120 BPM, and setBPM(120) says the same in a lighting desk's words. hush() takes everything dark. Ctrl+Enter or Alt+Enter runs, Ctrl+. or Alt+. stops.",
+        example: "wash.dim(sine.slow(4))\nwash.dim(mini('1 - 1 -').every(4, fast(2)))",
+      },
+      {
+        name: 'visuals',
+        signature: '.roll()  ·  .wave()  ·  .punchcard()  ·  .spiral()',
+        description:
+          "Drawn beside the line, as strudel's inline ones are, and spelled ._scope(), ._punchcard() and ._spiral() as well. There is no pianoroll, because a light has levels rather than notes: .roll() is the level drawn across the cycle.",
+        example: "wash.dim(sine.slow(2).roll())",
+      },
+      {
+        name: 'different on purpose',
+        signature: 'ctrl+space  ·  "…".fast(2)  ·  sound effects',
+        description:
+          "Ctrl+Space stops, because a performer asked for a panic key that does not need the full stop. A method on a bare string is not supported: start with mini('…') to chain. Effects that only make sense for sound (room, delay, crush, speed) are ignored rather than refused, so a pasted pattern still runs.",
+      },
+    ],
+  },
+
+  {
+    category: 'welcome',
     title: 'running part of a file',
     blurb:
       "Ctrl+Enter runs the whole document, and that is usually right. Ctrl+Shift+Enter runs only the edits you pointed at, for when the rest of the file is not ready to go on stage. Settings can swap the two over, if the block is what you reach for most.",
@@ -1689,7 +1760,7 @@ const DOCS: DocSection[] = [
         name: 'what a pattern about sound does here',
         signature: "sine.gain(0.5)  ·  .room(…)  ·  .s('bd')",
         description:
-          'Patterns copied from strudel work, because gobo runs strudel\'s own engine under strudel\'s names. Many of those methods describe sound. What happens is decided where a value reaches a channel: a plain number is the level, and a wrapped value is unwrapped so the level underneath still drives the light instead of reading as nothing. gain is kept, because gain is amplitude and amplitude is level, and so is velocity, which is how strudel accents a step. Both multiply, which is what makes .stut() and .echo() decay instead of repeating at full. speed, pan, room, crush, note and the sample name are ignored. Nothing errors, so a pasted pattern runs.',
+          'Patterns copied from strudel mostly run, because gobo runs strudel\'s own engine under strudel\'s names; the coming from strudel page on the welcome tab has the differences. Many of those methods describe sound. What happens is decided where a value reaches a channel: a plain number is the level, and a wrapped value is unwrapped so the level underneath still drives the light instead of reading as nothing. gain is kept, because gain is amplitude and amplitude is level, and so is velocity, which is how strudel accents a step. Both multiply, which is what makes .stut() and .echo() decay instead of repeating at full. speed, pan, room, crush, note and the sample name are ignored. Nothing errors, so a pasted pattern runs.',
         example: "wash.dim(flash().stut(4, 0.6, 0.125))   // gain folds in: the repeats decay\nwash.red(sine.gain(0.5))              // half level\nwash.red(sine.room(0.8))              // room ignored, sine drives it",
       },
       {
