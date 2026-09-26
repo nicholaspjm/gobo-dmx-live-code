@@ -1011,7 +1011,7 @@ const DOCS: DocSection[] = [
     entries: [
       {
         name: 'pick',
-        signature: "pick(name, { start }) => Color",
+        signature: "pick(name, { start })",
         description:
           'A colour with a wheel behind it. The name labels it and stores the colour, so a colour chosen during a show survives an edit. A swatch appears beside the call, and clicking it opens a wheel: hue around the disc, saturation out from the middle, brightness on the bar beside it. Arrow keys work, and Escape closes it. Its components are read live, so turning the wheel moves the rig without re-running the scene. It is a colour value, so it reaches every call that takes one. start is the opening colour, written without quotes.',
         example: "const warm = pick('warm', { start: amber })\nwash.color(warm)\nstrip.fill(warm)\nstrip.chase(warm)",

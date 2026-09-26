@@ -137,7 +137,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   // ─── Named moves ───────────────────────────────────────────────────────────
   {
     label: 'pulse',
-    signature: 'pulse(cycles = 4) => Pattern',
+    signature: 'pulse(cycles = 4)',
     description: 'The slow swell. Breathing, on any channel.',
     example: 'wash.dim(pulse(4))',
     context: 'command',
@@ -145,7 +145,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'strobe',
-    signature: 'strobe(per = 8) => Pattern',
+    signature: 'strobe(per = 8)',
     description: 'Hard on and off, `per` times a cycle. A software strobe for a fixture without one.',
     example: 'wash.dim(strobe(16))',
     context: 'command',
@@ -153,7 +153,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'flash',
-    signature: 'flash(per = 1, tail = 0.3) => Pattern',
+    signature: 'flash(per = 1, tail = 0.3)',
     description: 'Sharp hit, quick decay: the move you make on a kick. `tail` is how much of each beat it stays lit.',
     example: 'wash.dim(flash())',
     context: 'command',
@@ -161,7 +161,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'flicker',
-    signature: 'flicker(amount = 0.3) => Pattern',
+    signature: 'flicker(amount = 0.3)',
     description: 'Wanders around full. Candles, fire, a lamp on its way out.',
     example: 'wash.dim(flicker(0.4))',
     context: 'command',
@@ -169,7 +169,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'adsr',
-    signature: 'adsr(attack, decay, sustain, release) => Pattern',
+    signature: 'adsr(attack, decay, sustain, release)',
     description: 'A cue-style fade shape to multiply onto any effect, once per cycle: fade up (attack), drop to a hold level (decay, sustain), fade out (release). Times are fractions of a cycle.',
     example: 'wash.dim(flicker().mul(adsr(0.1, 0.1, 0.7, 0.2)))',
     context: 'command',
@@ -179,7 +179,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   // ─── From strudel, spelled as strudel spells them ──────────────────────────
   {
     label: 'fadeIn',
-    signature: '.fadeIn(beats) => Pattern',
+    signature: '.fadeIn(beats)',
     description:
       'Each step comes up over this many beats instead of snapping on: the fade in a desk gives every step of a chase. Strudel calls it attack, in seconds, and .attack() does the same here.',
     example: "rig.dim(mini('1 - 1 -').fadeIn(0.5))",
@@ -188,7 +188,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'fadeOut',
-    signature: '.fadeOut(beats) => Pattern',
+    signature: '.fadeOut(beats)',
     description:
       'Each step keeps glowing for this many beats after it ends, going out as the next one comes up: the tail that makes a chase look like one. Strudel calls it release, in seconds, and .release() does the same here.',
     example: "rig.each((p) => mini('1 - - -').early(p).fadeOut(2))",
@@ -197,7 +197,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'settle',
-    signature: '.settle(beats, level = 0) => Pattern',
+    signature: '.settle(beats, level = 0)',
     description:
       'Each step hits full and falls to `level` over this many beats, then holds there while the step lasts. With no level every step is a flash. Strudel spells it decay and sustain; .decay() and .sustain() do the same here, and .adsr("a:d:s:r") sets all four in seconds.',
     example: "strb.dim(mini('1 1 1 1').settle(0.25))        // a flash per beat\nwash.dim(mini('1 - 1 -').settle(0.5, 0.3))   // hit, then hold at 30%",
@@ -264,7 +264,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
 
   {
     label: 'pick',
-    signature: 'pick(name, { start }) => Color',
+    signature: 'pick(name, { start })',
     description:
       'A colour with a wheel behind it. Shows a swatch beside the call; clicking opens the colour picker, '
       + 'and turning it moves the rig live without a re-run. Reads as a colour anywhere a colour is taken.',
@@ -275,7 +275,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
 
   {
     label: 'mix',
-    signature: 'mix(a, b, t) => Color',
+    signature: 'mix(a, b, t)',
     description:
       'Blend two colours, t of the way from the first to the second. Use it when the even spread across a '
       + 'palette is not the curve you want. Both endpoints come back as themselves, so mix(red, blue, 0) is red.',
@@ -328,7 +328,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'listFixtures',
-    signature: 'listFixtures() => string[]',
+    signature: 'listFixtures()',
     description: 'List every registered fixture id (built-in + custom + library).',
     example: 'console.log(listFixtures())',
     context: 'command',
@@ -400,7 +400,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   // ─── Patterns ──────────────────────────────────────────────────────────────
   {
     label: 'sine',
-    signature: 'sine() => Pattern',
+    signature: 'sine()',
     description: 'Sine waveform 0..1. One full cycle per pattern cycle, which is one bar of four beats, so .fast(4) gives one per beat. Strudel writes signals without the brackets, sine.slow(4), and that works too, for every signal.',
     example: 'wash.red(sine().slow(4).range(0.2, 1))',
     context: 'command',
@@ -408,7 +408,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'cosine',
-    signature: 'cosine() => Pattern',
+    signature: 'cosine()',
     description: 'Cosine waveform 0..1. Same as sine, phase-shifted by ¼ cycle.',
     example: 'wash.blue(cosine().slow(4))',
     context: 'command',
@@ -416,7 +416,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'square',
-    signature: 'square() => Pattern',
+    signature: 'square()',
     description: '50% duty square wave: 1 for half the cycle, then 0.',
     example: 'wash.dim(square().slow(2))',
     context: 'command',
@@ -424,7 +424,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'saw',
-    signature: 'saw() => Pattern',
+    signature: 'saw()',
     description: 'Sawtooth ramp 0→1. Useful for sweeps and phase indexing.',
     example: 'wash.red(saw().slow(8))',
     context: 'command',
@@ -432,7 +432,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'rand',
-    signature: 'rand() => Pattern',
+    signature: 'rand()',
     description: 'Uniform random 0..1, new value every cycle.',
     example: 'spot.red(rand().range(-6, 1))',
     context: 'command',
@@ -442,7 +442,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   // ─── Sequencing (mini-notation) ────────────────────────────────────────────
   {
     label: 'mini',
-    signature: "mini(pattern: string) => Pattern",
+    signature: "mini(pattern: string)",
     description:
       "Step sequencer. Tokens split one cycle equally. `-` is a rest, `[a b]` compresses, `*N` repeats, `<a b>` alternates per cycle.",
     example: "wash.white(mini('1 - 1 -').flash())",
@@ -451,7 +451,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'm',
-    signature: "m(pattern: string) => Pattern",
+    signature: "m(pattern: string)",
     description: 'Alias for mini().',
     example: "wash.green(m('1*16').range(-2, 0.6))",
     context: 'command',
@@ -459,7 +459,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'sequence',
-    signature: 'sequence(...steps) => Pattern',
+    signature: 'sequence(...steps)',
     description: 'Positional-args form of mini(). Each arg is one step.',
     example: 'wash.red(sequence(1, 0, sine(), 0))',
     context: 'command',
@@ -467,7 +467,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'cat',
-    signature: 'cat(...patterns) => Pattern',
+    signature: 'cat(...patterns)',
     description: 'Concatenate patterns. Each takes one full cycle in turn.',
     example: 'wash.dim(cat(sine(), saw(), square()).slow(3))',
     context: 'command',
@@ -475,7 +475,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'stack',
-    signature: 'stack(...patterns) => Pattern',
+    signature: 'stack(...patterns)',
     description: 'Run patterns in parallel on one channel. The brightest value wins, as on a desk.',
     example: 'wash.red(stack(mini("1 - - -"), sine().mul(0.3)))',
     context: 'command',
@@ -526,7 +526,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'tri',
-    signature: 'tri() => Pattern',
+    signature: 'tri()',
     description: 'Triangle signal: up then down in equal time, with no dwell at either end.',
     example: 'spot.dim(tri().slow(8))',
     context: 'command',
@@ -534,7 +534,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'isaw',
-    signature: 'isaw() => Pattern',
+    signature: 'isaw()',
     description: 'Ramp down, 1 to 0 across the cycle. The mirror of saw().',
     example: 'strip.blue(isaw().slow(2))',
     context: 'command',
@@ -542,7 +542,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'mouseX',
-    signature: 'mouseX · mouseY => Pattern',
+    signature: 'mouseX · mouseY',
     description:
       'Where the pointer is across the window, 0 at the left or top and 1 at the right or bottom, read live. Two of them make an XY pad for a moving head.',
     example: 'head.pan(mouseX)\nhead.tilt(mouseY)',
@@ -551,7 +551,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'mouseY',
-    signature: 'mouseY => Pattern',
+    signature: 'mouseY',
     description: 'The pointer down the window, 0 at the top and 1 at the bottom. See mouseX.',
     example: 'head.tilt(mouseY)',
     context: 'command',
@@ -559,7 +559,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'seq',
-    signature: 'seq(a, b, c, …) => Pattern',
+    signature: 'seq(a, b, c, …)',
     description:
       "One cycle split evenly between the values, one after another: the same as sequence(), under the name strudel uses. seq(1, 0, 0.5, 0) is a four-step level pattern.",
     example: 'wash.dim(seq(1, 0, 0.5, 0))',
@@ -568,7 +568,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'arrange',
-    signature: 'arrange([cycles, pattern], …) => Pattern',
+    signature: 'arrange([cycles, pattern], …)',
     description:
       'Lay patterns end to end, each for so many cycles (bars): the running order of a song, written as code. It loops when it reaches the end.',
     example: "wash.dim(arrange([8, mini('1 - 1 -')], [8, sine.fast(2)]))",
@@ -577,7 +577,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'xfade',
-    signature: 'xfade(a, position, b) => Pattern',
+    signature: 'xfade(a, position, b)',
     description:
       'A crossfade between two patterns: position 0 is all a, 1 is all b, and anything between mixes them. Give it a slider for a crossfader in code.',
     example: "wash.dim(xfade(mini('1 - 1 -'), slider('xf'), sine))",
@@ -586,7 +586,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'perlin',
-    signature: 'perlin() => Pattern',
+    signature: 'perlin()',
     description:
       'Smooth noise: wanders rather than jumping, so it reads as flicker or drift where rand() reads as sparkle.',
     example: 'wash.red(perlin().slow(4).range(0.3, 1))',
@@ -595,7 +595,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'irand',
-    signature: 'irand(n) => Pattern',
+    signature: 'irand(n)',
     description: 'A whole number below n, at random. Usually wants dividing down into a level.',
     example: 'wash.red(irand(4).div(4).segment(8))',
     context: 'command',
@@ -603,7 +603,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'run',
-    signature: 'run(n) => Pattern',
+    signature: 'run(n)',
     description: 'Counts 0 to n-1 across the cycle.',
     example: 'wash.red(run(4).div(4))',
     context: 'command',
@@ -611,7 +611,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'pure',
-    signature: 'pure(value) => Pattern',
+    signature: 'pure(value)',
     description: 'A constant, as a pattern. Mostly useful inside cat() or a conditional.',
     example: 'wash.red(pure(0.5))',
     context: 'command',
@@ -627,7 +627,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'choose',
-    signature: 'choose(...values) => Pattern',
+    signature: 'choose(...values)',
     description: 'Pick one of the values at random, continuously. Add .segment(n) to settle it into steps.',
     example: 'wash.red(choose(0.2, 0.6, 1).segment(4))',
     context: 'command',
@@ -635,7 +635,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'wchoose',
-    signature: 'wchoose([value, weight], …) => Pattern',
+    signature: 'wchoose([value, weight], …)',
     description: 'choose with the odds written down: each pair is a value and how likely it is.',
     example: 'wash.red(wchoose([0.2, 3], [1, 1]).segment(4))',
     context: 'command',
@@ -643,7 +643,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'chooseCycles',
-    signature: 'chooseCycles(...values) => Pattern',
+    signature: 'chooseCycles(...values)',
     description: 'Pick one of the values per bar rather than continuously.',
     example: 'wash.red(chooseCycles(0.2, 1))',
     context: 'command',
@@ -651,7 +651,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'randcat',
-    signature: 'randcat(...patterns) => Pattern',
+    signature: 'randcat(...patterns)',
     description: 'Play one of the patterns for the cycle, chosen at random. wrandcat weights the choice.',
     example: "wash.red(randcat(mini('1 - 1 -'), mini('1 1 1 1')))",
     context: 'command',
@@ -659,7 +659,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'wrandcat',
-    signature: 'wrandcat([pattern, weight], …) => Pattern',
+    signature: 'wrandcat([pattern, weight], …)',
     description: 'randcat with the odds written down.',
     example: "wash.red(wrandcat([mini('1 - 1 -'), 3], [mini('1 1 1 1'), 1]))",
     context: 'command',
@@ -675,7 +675,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'brandBy',
-    signature: 'brandBy(probability) => Pattern',
+    signature: 'brandBy(probability)',
     description: 'Random zero or one, with p as the chance of a one.',
     example: 'wash.red(sine().mul(brandBy(0.7).segment(8)))',
     context: 'command',
@@ -683,7 +683,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'shuffle',
-    signature: '.shuffle(n) => Pattern',
+    signature: '.shuffle(n)',
     description:
       'Cut the cycle into n parts and reorder them, using each exactly once. The material is preserved; only the order changes.',
     example: "bar.pixels.red(mini('1 0.6 0.3 0').shuffle(4))",
@@ -692,7 +692,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'scramble',
-    signature: '.scramble(n) => Pattern',
+    signature: '.scramble(n)',
     description: 'Like shuffle, but parts are picked freely, so they can repeat or vanish.',
     example: "bar.pixels.red(mini('1 0.6 0.3 0').scramble(4))",
     context: 'pattern-method',
@@ -700,7 +700,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'slowcat',
-    signature: 'slowcat(...patterns) => Pattern',
+    signature: 'slowcat(...patterns)',
     description: 'Each pattern gets a whole cycle in turn. What plain cat() does.',
     example: "wash.red(slowcat(mini('1 - - -'), mini('1 1 1 1')))",
     context: 'command',
@@ -708,7 +708,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'fastcat',
-    signature: 'fastcat(...patterns) => Pattern',
+    signature: 'fastcat(...patterns)',
     description: 'Squeeze every pattern into one cycle, sharing it equally.',
     example: "wash.red(fastcat(mini('1 - - -'), mini('1 1 1 1')))",
     context: 'command',
@@ -716,7 +716,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'timeCat',
-    signature: 'timeCat([weight, pattern], …) => Pattern',
+    signature: 'timeCat([weight, pattern], …)',
     description: 'cat with the shares written down, for sections that are not equal length. stepcat is the same.',
     example: "wash.red(timeCat([3, mini('1 - - -')], [1, mini('1 1 1 1')]))",
     context: 'command',
@@ -724,7 +724,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'stepcat',
-    signature: 'stepcat([weight, pattern], …) => Pattern',
+    signature: 'stepcat([weight, pattern], …)',
     description: 'The same as timeCat: cat with explicit shares.',
     example: "wash.red(stepcat([2, mini('1 - - -')], [1, mini('1 1')]))",
     context: 'command',
@@ -732,7 +732,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'polymeter',
-    signature: 'polymeter(...patterns) => Pattern',
+    signature: 'polymeter(...patterns)',
     description:
       "Step every pattern at the same rate, so different lengths drift against each other. The function form of {a, b}. pm is the short name.",
     example: "wash.red(polymeter(mini('1 0'), mini('0.4 0.4 0.4')))",
@@ -741,7 +741,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'polyrhythm',
-    signature: 'polyrhythm(...patterns) => Pattern',
+    signature: 'polyrhythm(...patterns)',
     description:
       "Squeeze every pattern into the same cycle, so they stay aligned but subdivide differently. The function form of [a, b]. pr is the short name.",
     example: "wash.red(polyrhythm(mini('1 0'), mini('0.4 0.4 0.4')))",
@@ -750,7 +750,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'pm',
-    signature: 'pm(...patterns) => Pattern',
+    signature: 'pm(...patterns)',
     description: "Short name for polymeter.",
     example: "wash.red(pm(mini('1 0'), mini('0.4 0.4 0.4')))",
     context: 'command',
@@ -758,7 +758,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'pr',
-    signature: 'pr(...patterns) => Pattern',
+    signature: 'pr(...patterns)',
     description: "Short name for polyrhythm.",
     example: "wash.red(pr(mini('1 0'), mini('0.4 0.4 0.4')))",
     context: 'command',
@@ -775,7 +775,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'group',
-    signature: 'group(...fixtures) => Group',
+    signature: 'group(...fixtures)',
     description:
       'Treat several fixtures, strips and pixels as one. Same setters as a fixture, plus .each() to spread a pattern across the whole group in order.',
     example: `const rig = group(washA, washB, bar.pixels)
@@ -799,7 +799,7 @@ spot.white(mini('1 - - -').punch())`,
   // ─── Pattern methods ───────────────────────────────────────────────────────
   {
     label: 'slow',
-    signature: '.slow(n) => Pattern',
+    signature: '.slow(n)',
     description: 'Stretch the pattern so one cycle takes n beats.',
     example: 'sine().slow(4)',
     context: 'pattern-method',
@@ -807,7 +807,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'fast',
-    signature: '.fast(n) => Pattern',
+    signature: '.fast(n)',
     description: 'Compress the pattern by n. Inverse of slow().',
     example: 'mini("1 0").fast(2)',
     context: 'pattern-method',
@@ -815,7 +815,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'early',
-    signature: '.early(n) => Pattern',
+    signature: '.early(n)',
     description: 'Shift the pattern earlier by n cycles (phase shift forward).',
     example: 'cosine().early(1/3).slow(12)',
     context: 'pattern-method',
@@ -823,7 +823,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'late',
-    signature: '.late(n) => Pattern',
+    signature: '.late(n)',
     description: 'Shift the pattern later by n cycles.',
     example: 'sine().late(0.5)',
     context: 'pattern-method',
@@ -831,7 +831,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'range',
-    signature: '.range(lo, hi) => Pattern',
+    signature: '.range(lo, hi)',
     description: 'Remap 0..1 output to [lo, hi]. Values outside 0..1 (e.g. lo=-8) clip, which narrows the peaks.',
     example: 'cosine().range(-8, 1)',
     context: 'pattern-method',
@@ -839,7 +839,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'add',
-    signature: '.add(n | pattern) => Pattern',
+    signature: '.add(n | pattern)',
     description: 'Add a number or pattern to the output.',
     example: 'sine().slow(4).add(0.2)',
     context: 'pattern-method',
@@ -847,7 +847,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'mul',
-    signature: '.mul(n | pattern) => Pattern',
+    signature: '.mul(n | pattern)',
     description: 'Multiply the output by a number or pattern. Combine an envelope with a colour cycle.',
     example: 'cosine().range(-8, 1).mul(sine().slow(12))',
     context: 'pattern-method',
@@ -855,7 +855,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'rangex',
-    signature: '.rangex(lo, hi) => Pattern',
+    signature: '.rangex(lo, hi)',
     description:
       'Range on an exponential curve, so the motion is visible at the dim end where a linear fade is not. Keep lo above 0.',
     example: 'spot.dim(sine().slow(8).rangex(0.01, 1))',
@@ -864,7 +864,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'struct',
-    signature: '.struct(pattern) => Pattern',
+    signature: '.struct(pattern)',
     description: 'Take values from this pattern and rhythm from another.',
     example: "wash.red(sine().slow(4).struct(mini('1 - 1 - 1 - - -')))",
     context: 'pattern-method',
@@ -872,7 +872,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'mask',
-    signature: '.mask(pattern) => Pattern',
+    signature: '.mask(pattern)',
     description:
       'Gate a pattern: it plays where the mask is on and is silent where it is off. The pattern keeps running underneath, so it returns mid-motion.',
     example: "wash.red(sine().slow(2).mask(mini('1 1 - -')))",
@@ -881,7 +881,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'segment',
-    signature: '.segment(n) => Pattern',
+    signature: '.segment(n)',
     description: 'Sample a continuous waveform n times per cycle, turning a smooth fade into n steps.',
     example: 'spot.dim(sine().segment(8))',
     context: 'pattern-method',
@@ -889,7 +889,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'every',
-    signature: '.every(n, fn) => Pattern',
+    signature: '.every(n, fn)',
     description: 'Apply a transform on every nth cycle. firstOf / lastOf are the same idea at named ends.',
     example: "wash.red(mini('1 - 1 -').every(4, p => p.fast(2)))",
     context: 'pattern-method',
@@ -897,7 +897,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'iter',
-    signature: '.iter(n) => Pattern',
+    signature: '.iter(n)',
     description: 'Rotate the pattern one step left each cycle, resetting after n. One bar becomes a phrase.',
     example: "bar.pixels.red(mini('1 0.6 0.3 0').iter(4))",
     context: 'pattern-method',
@@ -905,7 +905,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'chunk',
-    signature: '.chunk(n, fn) => Pattern',
+    signature: '.chunk(n, fn)',
     description: 'Split the cycle into n parts and transform a different part each cycle, walking across.',
     example: "wash.red(mini('1 1 1 1').chunk(4, p => p.mul(0.2)))",
     context: 'pattern-method',
@@ -913,7 +913,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'rev',
-    signature: '.rev() => Pattern',
+    signature: '.rev()',
     description: 'Play the cycle backwards. palindrome() alternates forwards and back each cycle.',
     example: "bar.pixels.red(mini('1 0.6 0.3 0').palindrome())",
     context: 'pattern-method',
@@ -921,7 +921,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'palindrome',
-    signature: '.palindrome() => Pattern',
+    signature: '.palindrome()',
     description: 'Alternate forwards and backwards each cycle. Turns any chase into a bounce.',
     example: "bar.pixels.red(mini('1 0.6 0.3 0').palindrome())",
     context: 'pattern-method',
@@ -929,7 +929,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'ply',
-    signature: '.ply(n | pattern) => Pattern',
+    signature: '.ply(n | pattern)',
     description: 'Repeat each step n times inside its own slot. Takes a pattern, so subdivision can change per bar.',
     example: "strb.strobe(mini('1 0.5').ply(mini('<1 2 4 8>')))",
     context: 'pattern-method',
@@ -937,7 +937,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'superimpose',
-    signature: '.superimpose(fn) => Pattern',
+    signature: '.superimpose(fn)',
     description: 'Layer a transformed copy on top of the original. Merged brightest-wins, so nothing is lost.',
     example: "wash.red(mini('1 - - -').superimpose(p => p.late(0.125).mul(0.4)))",
     context: 'pattern-method',
@@ -945,7 +945,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'echoWith',
-    signature: '.echoWith(times, time, fn) => Pattern',
+    signature: '.echoWith(times, time, fn)',
     description:
       'n copies, each shifted a further `time` later and passed through fn with its index. A decaying tail in one line.',
     example: "wash.red(mini('1 - - -').echoWith(4, 0.125, (p, i) => p.mul(1 / (i + 1))))",
@@ -954,7 +954,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'euclid',
-    signature: '.euclid(k, n) => Pattern',
+    signature: '.euclid(k, n)',
     description: "Spread k hits evenly across n steps. euclidRot(k, n, r) rotates it. Same as mini('1(k,n,r)').",
     example: "strb.strobe(mini('1').euclid(3, 8))",
     context: 'pattern-method',
@@ -962,7 +962,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'euclidRot',
-    signature: '.euclidRot(k, n, rotation) => Pattern',
+    signature: '.euclidRot(k, n, rotation)',
     description: 'A euclid spread rotated r steps, so two fixtures interlock instead of firing together.',
     example: "washB.red(mini('1').euclidRot(3, 8, 2))",
     context: 'pattern-method',
@@ -970,7 +970,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'degradeBy',
-    signature: '.degradeBy(n) => Pattern',
+    signature: '.degradeBy(n)',
     description: "Drop a fraction n of events at random. A '?' after a mini token does the same at 50%.",
     example: "strb.strobe(mini('1*16').degradeBy(0.3))",
     context: 'pattern-method',
@@ -978,7 +978,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'sometimesBy',
-    signature: '.sometimesBy(n, fn) => Pattern',
+    signature: '.sometimesBy(n, fn)',
     description: 'Transform a fraction n of events rather than dropping them. someCyclesBy works per bar.',
     example: "wash.red(mini('1 1 1 1').sometimesBy(0.3, p => p.mul(0.2)))",
     context: 'pattern-method',
@@ -986,7 +986,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'swingBy',
-    signature: '.swingBy(amount, subdivision) => Pattern',
+    signature: '.swingBy(amount, subdivision)',
     description: 'Push every other subdivision late, so a straight grid stops marching.',
     example: "strb.strobe(mini('1*8').swingBy(1/3, 2))",
     context: 'pattern-method',
@@ -994,7 +994,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'flash',
-    signature: '.flash() => Pattern',
+    signature: '.flash()',
     description: 'Inline viz: editor line flashes on rising edges. No effect on DMX output.',
     example: "wash.white(mini('1 - 1 -').flash())",
     context: 'pattern-method',
@@ -1002,7 +1002,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'roll',
-    signature: '.roll() => Pattern',
+    signature: '.roll()',
     description:
       'Inline viz: the bar as blocks, one per event, with a playhead. Shows structure, including holds the wire cannot express. No effect on DMX output.',
     example: "wash.red(mini('1 - - -  - - 1 -').roll())",
@@ -1011,7 +1011,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'punchcard',
-    signature: '.punchcard() => Pattern',
+    signature: '.punchcard()',
     description:
       'Inline viz: the bar as a fixed sixteen-cell grid, for reading rhythm at a glance. No effect on DMX output.',
     example: "strb.strobe(mini('1(5,16)').punchcard())",
@@ -1020,7 +1020,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'spiral',
-    signature: '.spiral() => Pattern',
+    signature: '.spiral()',
     description:
       'Inline viz: the bar wound round with the playhead sweeping it. Compact, and shows drift against the bar. No effect on DMX output.',
     example: "wash.blue(mini('1(3,8)').spiral())",
@@ -1029,7 +1029,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'spectrum',
-    signature: '.spectrum() => Pattern',
+    signature: '.spectrum()',
     description:
       'Inline viz: which rates the recent values move at, for checking a strobe. Analyses the channel, not audio. No effect on DMX output.',
     example: "strb.strobe(mini('1*16').spectrum())",
@@ -1047,7 +1047,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'pick',
-    signature: '.pick(looks: Pattern[]) => Pattern',
+    signature: '.pick(looks: Pattern[])',
     description:
       "Choose between whole patterns with a pattern of indices. The switch is written into the pattern, so the document still says everything about what the rig will do.",
     example: "const verse  = mini('1 0 1 0')\nconst chorus = mini('1 1 1 1')\nwash.red(mini('<0 1 1 2>').pick([verse, chorus]))",
@@ -1056,7 +1056,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'pickmod',
-    signature: '.pickmod(looks: Pattern[]) => Pattern',
+    signature: '.pickmod(looks: Pattern[])',
     description:
       'Like .pick(), but the index wraps instead of clamping, so an index past the end comes back round to the start.',
     example: "wash.red(mini('<0 1 2 3 4>').pickmod([verse, chorus]))",
@@ -1065,7 +1065,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'pickSqueeze',
-    signature: '.pickSqueeze(looks: Pattern[]) => Pattern',
+    signature: '.pickSqueeze(looks: Pattern[])',
     description:
       'Like .pick(), but each chosen pattern is squeezed into the step that chose it, so a whole look plays inside one step.',
     example: "wash.red(mini('<0 1>').pickSqueeze([verse, chorus]))",
@@ -1074,7 +1074,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'pickRestart',
-    signature: '.pickRestart(looks: Pattern[]) => Pattern',
+    signature: '.pickRestart(looks: Pattern[])',
     description:
       'Like .pick(), but the chosen pattern starts from its beginning each time it is picked rather than carrying on where it was.',
     example: "wash.red(mini('<0 1>').pickRestart([verse, chorus]))",
@@ -1083,7 +1083,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'squeeze',
-    signature: '.squeeze(looks: Pattern[]) => Pattern',
+    signature: '.squeeze(looks: Pattern[])',
     description:
       'Fit a whole chosen pattern into each step of this one. The same join .pickSqueeze() uses, under its shorter strudel name.',
     example: "wash.red(mini('<0 1>').squeeze([verse, chorus]))",
@@ -1101,7 +1101,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'cue',
-    signature: 'cue(looks, selector?) => string | null',
+    signature: 'cue(looks, selector?)',
     description:
       'Offer a set of looks and run whichever one is selected. A look is a function you wrote. Pick one with its chip under the editor, alt+1..9, or a MIDI program change. Pass a selector — a pattern of names, or a control — and the scene chooses for itself, every frame, without being evaluated again.',
     example: "const verse = () => { wash.color(blue) }\nconst chorus = () => { wash.color(red) }\ncue({ verse, chorus })\n\n// or let the scene choose:\ncue({ verse, chorus }, mini('<verse chorus>'))",
@@ -1110,7 +1110,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'midi',
-    signature: 'midi(cc, opts?) => Pattern',
+    signature: 'midi(cc, opts?)',
     description:
       'A hardware fader as a value. Continuous controller cc, read live at query time, handed on as 0..1. opts: { channel = 1, start = 0 }. Turn on midi in under inputs in the outputs panel first.',
     example: "const level = midi(74)\nspot.dim(level)",
@@ -1119,7 +1119,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'glow',
-    signature: '.glow() => Pattern',
+    signature: '.glow()',
     description: 'Inline viz: editor line background tracks the pattern value. No effect on DMX output.',
     example: 'wash.blue(sine().slow(16).range(0.1, 0.9).glow())',
     context: 'pattern-method',
@@ -1127,7 +1127,7 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'wave',
-    signature: '.wave() => Pattern',
+    signature: '.wave()',
     description: 'Inline viz: sparkline at line-end. No effect on DMX output.',
     example: 'wash.red(saw().slow(4).wave())',
     context: 'pattern-method',
@@ -1360,7 +1360,7 @@ strip.fill(0, 0, 0, 0)`,
   },
   {
     label: 'width',
-    signature: '.width => number',
+    signature: '.width',
     description: 'Pixels across one row. A plain strip is width = pixelCount.',
     example: 'wash.pixels.width',
     context: 'property',
@@ -1368,7 +1368,7 @@ strip.fill(0, 0, 0, 0)`,
   },
   {
     label: 'height',
-    signature: '.height => number',
+    signature: '.height',
     description: 'Rows in the grid. A plain strip is height = 1.',
     example: 'wash.pixels.height',
     context: 'property',
@@ -1376,7 +1376,7 @@ strip.fill(0, 0, 0, 0)`,
   },
   {
     label: 'slots',
-    signature: '.slots(channelName) => string[]',
+    signature: '.slots(channelName)',
     description:
       "The named positions on a wheel channel. Pass a name to the setter to pick one: head.color('red').",
     example: "console.log(head.slots('color'))",
@@ -1455,7 +1455,7 @@ bar.pixels.chase(warm, { cycles: 2 }).down()     // stops onto the rows`,
   },
   {
     label: 'channels',
-    signature: '.channels() => string[]',
+    signature: '.channels()',
     description: 'List channel names exposed by this fixture.',
     example: 'console.log(wash.channels())',
     context: 'fixture-method',

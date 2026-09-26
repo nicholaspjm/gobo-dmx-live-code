@@ -2130,7 +2130,7 @@ export interface StripInstance {
    *   strip.each(p => cosine().early(p).slow(2).range(-7, 1))   // monochrome walk
    *   strip.each(p => [sine().early(p), 0, cosine().early(p)])  // colour chase
    */
-  each(fn: (phase: number, i: number, count: number) => PatternOrValue | PatternOrValue[]): void;
+  each(fn: EachArg<PatternOrValue | PatternOrValue[]>, spread?: number): void;
 
   /** Set just the red channel on every pixel. Omit the value for full. */
   red(...v: [PatternOrValue?]): void;
@@ -2382,7 +2382,8 @@ export function rgbStrip(
       };
     },
 
-    each(fn) {
+    each(arg, spread) {
+      const fn = eachFunction(arg, spread);
       for (let i = 0; i < pixelCount; i++) {
         const phase = i / pixelCount;
         const result = spreadIfColor(fn(phase, i, pixelCount));
@@ -2523,7 +2524,7 @@ export interface MonoStripInstance {
   /** Set every cell in one column. Omit the value for full. */
   column(x: number, ...v: [PatternOrValue?]): void;
   /** Run a callback per cell; `(phase, i, count)` as on the colour strips. */
-  each(fn: (phase: number, i: number, count: number) => PatternOrValue): void;
+  each(fn: EachArg<PatternOrValue>, spread?: number): void;
   /** Run a callback per cell with its grid position `(x, y, w, h)`. */
   eachXY(fn: (x: number, y: number, w: number, h: number) => PatternOrValue): void;
   /**
@@ -2662,7 +2663,8 @@ export function monoStrip(
       for (let y = 0; y < geo.height; y++) set(geo.index(x, y), level);
     },
 
-    each(fn) {
+    each(arg, spread) {
+      const fn = eachFunction(arg, spread);
       for (let i = 0; i < pixelCount; i++) {
         set(geo.seq(i), channelValue([fn(i / pixelCount, i, pixelCount)], `.each() cell ${i}`));
       }
@@ -2863,7 +2865,7 @@ export interface RgbwStripInstance {
    *   bar.pixels.each(p => cosine().early(p).slow(2).range(-7, 1))           // walk
    *   bar.pixels.each(p => [0, sine().early(p), cosine().early(p), 0])       // chase
    */
-  each(fn: (phase: number, i: number, count: number) => PatternOrValue | PatternOrValue[]): void;
+  each(fn: EachArg<PatternOrValue | PatternOrValue[]>, spread?: number): void;
 
   /** Set just the red channel on every pixel. Omit the value for full. */
   red(...v: [PatternOrValue?]): void;
@@ -3138,7 +3140,8 @@ export function rgbwStrip(
       };
     },
 
-    each(fn) {
+    each(arg, spread) {
+      const fn = eachFunction(arg, spread);
       for (let i = 0; i < pixelCount; i++) {
         const phase = i / pixelCount;
         const result = spreadIfColor(fn(phase, i, pixelCount));
@@ -3500,7 +3503,7 @@ export interface GroupInstance {
    *   const rig = group(washA, washB, bar.pixels, strip)
    *   rig.each(p => sine().early(p).slow(4))
    */
-  each(fn: (phase: number, i: number, count: number) => PatternOrValue | PatternOrValue[]): void;
+  each(fn: EachArg<PatternOrValue | PatternOrValue[]>, spread?: number): void;
 }
 
 /**
@@ -3513,6 +3516,39 @@ export function groupCommands(): string[] {
     'red(v)', 'green(v)', 'blue(v)', 'white(v)', 'dim(v)',
     'color(r,g,b)', 'mono(v)', 'temp(k)', 'set(role, v)', 'each(fn)', 'full()', 'off()', 'size',
   ];
+}
+
+/**
+ * What .each() is handed: a pattern, or for the rare case a pattern cannot
+ * say, a function of the light's position.
+ */
+export type EachArg<R> = PatternLike | ((phase: number, i: number, count: number) => R);
+
+/**
+ * .each() as a function of position, whichever form it was given.
+ *
+ * A pattern is the lighting move a desk calls a phase spread: every light runs
+ * the same pattern, each a step later than the one before, so
+ * `rig.each(sine)` is a wave travelling along the rig and
+ * `rig.each(mini('1 - - -').fadeOut(2))` is a chase with tails. The step
+ * adds up to `spread` cycles across the whole group, one by default, so the
+ * last light is the first one a cycle on. The function form, which receives
+ * the position and the index, is kept for what a pattern cannot express.
+ */
+function eachFunction<R>(arg: EachArg<R>, spread: number | undefined): (phase: number, i: number, count: number) => R {
+  if (typeof arg === 'function') return arg;
+  const pattern = arg as unknown as { early?: (t: number) => R };
+  if (pattern === null || typeof pattern !== 'object' || typeof pattern.early !== 'function') {
+    throw new Error(
+      ".each() takes a pattern, which every light runs a step later than the one before, as in "
+      + "rig.each(sine) or rig.each(mini('1 - - -').fadeOut(2)).",
+    );
+  }
+  const amount = spread ?? 1;
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) {
+    throw new Error('.each(pattern, spread): spread is how many cycles the steps add up to across the lights, as in rig.each(sine, 0.5).');
+  }
+  return (phase) => (pattern.early as (t: number) => R).call(pattern, phase * amount);
 }
 
 /**
@@ -3700,7 +3736,8 @@ export function group(...members: GroupMember[]): GroupInstance {
       for (const cell of cells) cell.all(1);
     },
 
-    each(fn) {
+    each(arg, spread) {
+      const fn = eachFunction(arg, spread);
       const count = cells.length;
       for (let i = 0; i < count; i++) {
         const result = spreadIfColor(fn(i / count, i, count));

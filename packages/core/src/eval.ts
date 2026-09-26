@@ -261,6 +261,14 @@ export async function initStrudel(): Promise<void> {
       'seq', 'arrange', 'xfade', 'randrun', 'wchooseCycles', 'keyDown',
       'sine2', 'cosine2', 'saw2', 'square2', 'tri2', 'isaw2', 'rand2', 'itri', 'berlin',
       'mouseX', 'mouseY',
+      // Transforms as values, so a conditional takes one without writing a
+      // function: .every(4, fast(2)), .chunk(4, mul(0.2)), .off(0.25,
+      // mul(0.4)). Strudel curries these: fast(2) with no pattern is the
+      // change "twice as fast", waiting for the pattern to apply it to. The
+      // ones that take nothing but the pattern (rev, palindrome, brak, press)
+      // are passed bare, as in .every(4, rev).
+      'fast', 'slow', 'early', 'late', 'rev', 'palindrome', 'iter', 'ply', 'linger',
+      'degradeBy', 'segment', 'mul', 'add', 'sub', 'brak', 'press', 'fastGap', 'hurry',
     ] as const;
     // Signals are exported as Pattern instances; wrap() makes them callable so
     // scene code says tri() the way it says sine(). Everything else is already
