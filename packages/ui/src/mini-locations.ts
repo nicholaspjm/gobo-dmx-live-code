@@ -25,6 +25,7 @@
 import { stripNonCode } from './source-scan.js';
 // The module on its own: the package index reads `window` at import time.
 import { PATTERN_VIZ_METHOD_NAMES } from '@gobo/core/pattern-viz';
+import { quotedReceivers } from '@gobo/core/looks';
 
 /** What a rewrite produced, or the original when nothing was touched. */
 export interface Rewritten {
@@ -243,6 +244,24 @@ function sliderEdits(source: string): Edit[] {
   return edits;
 }
 
+/**
+ * `'1 0'.fast(2)` becomes `m('1 0', offsetOfTheQuote).fast(2)`: strudel's chain
+ * on a quoted pattern, outlined live like any other. The editor does not know
+ * the engine's method list, so anything a string itself lacks counts; the
+ * engine makes the same rewrite with the real list for code run without it.
+ */
+function receiverEdits(source: string): Edit[] {
+  try {
+    return quotedReceivers(source, () => true).map(({ from, to }) => ({
+      from,
+      to,
+      text: `m(${source.slice(from, to)}, ${from})`,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 /** The pattern-level viz methods, which take no arguments of their own. */
 const VIZ_METHODS = new RegExp(`\\.(${PATTERN_VIZ_METHOD_NAMES.join('|')})\\s*\\(\\s*\\)`, 'g');
 
@@ -287,5 +306,5 @@ function vizEdits(source: string): Edit[] {
  * already shifted.
  */
 export function tagLocations(source: string): Rewritten {
-  return applyEdits(source, [...miniEdits(source), ...setterStringEdits(source), ...sliderEdits(source), ...vizEdits(source)]);
+  return applyEdits(source, [...miniEdits(source), ...setterStringEdits(source), ...sliderEdits(source), ...receiverEdits(source), ...vizEdits(source)]);
 }

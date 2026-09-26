@@ -279,3 +279,49 @@ export function rewriteLooks(code: string): LookRewrite {
   for (const e of edits) out = out.slice(0, e.from) + e.text + out.slice(e.to);
   return { code: out, looks, labels, muted };
 }
+
+/**
+ * Quoted strings that are the start of a chain: `'1 0'.fast(2)`.
+ *
+ * In strudel a quoted string is mini-notation, so a chain can start on one.
+ * JavaScript sees a string there, which has no .fast(), so these are found and
+ * wrapped in mini() before a run. `isMethod` says which names count: a pattern
+ * method, and never one a string already has (`'a b'.split(' ')` is left
+ * alone). Returns where each string literal sits, quotes included.
+ */
+export function quotedReceivers(code: string, isMethod: (name: string) => boolean): Array<{ from: number; to: number }> {
+  const found: Array<{ from: number; to: number }> = [];
+  let i = 0;
+  const n = code.length;
+  while (i < n) {
+    const c = code[i];
+    const next = code[i + 1];
+    if (c === '/' && next === '/') {
+      while (i < n && code[i] !== '\n') i++;
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      const end = code.indexOf('*/', i + 2);
+      i = end === -1 ? n : end + 2;
+      continue;
+    }
+    if (c === '/' && opensRegex(code, i)) {
+      i = skipRegex(code, i);
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      const end = skipString(code, i);
+      const literal = code.slice(i, end);
+      // A template with an interpolation is code, not a pattern.
+      const plain = c !== '`' || !literal.includes('${');
+      if (plain && code[end - 1] === c && end - i >= 2) {
+        const chained = /^\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/.exec(code.slice(end, end + 80));
+        if (chained && !(chained[1] in String.prototype) && isMethod(chained[1])) found.push({ from: i, to: end });
+      }
+      i = end;
+      continue;
+    }
+    i++;
+  }
+  return found;
+}

@@ -124,3 +124,10 @@ describe("strudel's unnamed slider", () => {
     expect(tagLocations(src).code).toBe(src);
   });
 });
+
+describe('a chain that starts on a quoted pattern', () => {
+  it('is tagged like mini(), so the steps light up', () => {
+    const src = 'wash.dim("1 0".fast(2))';
+    expect(tagLocations(src).code).toBe(`wash.dim(m("1 0", ${src.indexOf('"')}).fast(2))`);
+  });
+});

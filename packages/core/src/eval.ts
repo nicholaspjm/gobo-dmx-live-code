@@ -46,7 +46,7 @@ import {
 import { COLORS, colorFromToken, mix, toColorValue, type Color } from './colors.js';
 import { setBPM } from './scheduler.js';
 import { installFades } from './envelope.js';
-import { rewriteLooks } from './looks.js';
+import { quotedReceivers, rewriteLooks } from './looks.js';
 import { setStringPatternParser, stringPattern } from './string-patterns.js';
 import {
   fixture,
@@ -441,6 +441,15 @@ export async function initStrudel(): Promise<void> {
       const miniMod = await import('@strudel/mini');
       _strudelCtx.mini = miniMod.mini;
       _strudelCtx.m = miniMod.m ?? miniMod.mini;
+      // Strudel's own switch: a string anywhere strudel takes a pattern is
+      // mini-notation, so .fast('<1 2>') and stack('1 0', '0 1') read the way
+      // they do in strudel. Only with the real parser; the shim below is not
+      // one strudel should hand every string to.
+      try {
+        (core.setStringParser as ((p: unknown) => void) | undefined)?.(miniMod.mini);
+      } catch {
+        // An older strudel without the hook: strings stay plain values there.
+      }
     } catch {
       console.warn('[gobo] @strudel/mini unavailable, falling back to sequence()');
       const seq = core.sequence as (...args: unknown[]) => PatternLike;
@@ -1460,6 +1469,24 @@ function knownMethodNames(): Set<string> {
   return names;
 }
 
+/**
+ * `'1 0'.fast(2)` becomes `mini('1 0').fast(2)`: strudel's chain on a quoted
+ * pattern (see quotedReceivers in looks.ts). Only for names a pattern answers
+ * to, and only within a line, so error line numbers are unchanged.
+ */
+function chainOnStrings(code: string): string {
+  const pure = _strudelCtx.pure as ((v: unknown) => Record<string, unknown>) | undefined;
+  if (typeof pure !== 'function' || typeof _strudelCtx.mini !== 'function') return code;
+  const probe = pure(0);
+  const spots = quotedReceivers(code, (name) => typeof probe[name] === 'function');
+  let out = code;
+  for (let k = spots.length - 1; k >= 0; k--) {
+    const { from, to } = spots[k];
+    out = `${out.slice(0, from)}mini(${out.slice(from, to)})${out.slice(to)}`;
+  }
+  return out;
+}
+
 export function locatedError(
   err: unknown,
   code: string,
@@ -1576,7 +1603,7 @@ export function evalCode(code: string): EvalResult {
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     // Labelled blocks become looks and _labels mute, before anything else
     // reads the code. See looks.ts.
-    fn = new Function(...keys, `"use strict";\n${rewriteLooks(code).code}`) as (...args: unknown[]) => unknown;
+    fn = new Function(...keys, `"use strict";\n${chainOnStrings(rewriteLooks(code).code)}`) as (...args: unknown[]) => unknown;
   } catch (err) {
     return { success: false, error: reservedNameHint(errorMessage(err), keys) };
   }

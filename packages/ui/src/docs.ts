@@ -402,7 +402,7 @@ export const DOCS: DocSection[] = [
         name: 'notes → levels and colours',
         signature: "note('c e g')  →  '1 0.5 0'  ·  '<red blue>'",
         description:
-          "A step is a level from 0 to 1, or a colour name where a colour is taken. A quoted string is mini-notation, as in strudel, and - or ~ is a rest.",
+          "A step is a level from 0 to 1, or a colour name where a colour is taken. A quoted string is mini-notation, as in strudel, and - or ~ is a rest. It is a pattern wherever one is taken, .fast('<1 2>') included, and a chain can start on it: '1 - 1 -'.fadeOut(2).",
         example: "wash.dim('1 [1 1] - 0.5')\nwash.color('<red amber blue>')",
       },
       {
@@ -1452,7 +1452,7 @@ export const DOCS: DocSection[] = [
         name: 'mini',
         signature: "mini('1 - 0.5 -')",
         description:
-          "Parse mini-notation into a Pattern<number>. Each space-separated token is one step; tokens split one scheduler cycle equally. Numeric tokens ('1', '0.5', '0') are levels, which gives per-step brightness. A word is not a level: on a dimmer that step stays dark and the status bar names the word. Colour names go to .color(), as in wash.color(mini('<red blue>')). Aliased as m(). Returns a regular Pattern, so .slow / .fast / .range / .glow / .flash all chain afterward. Anywhere a level or a colour is taken, a quoted string on its own reads as mini-notation too, as in strudel: wash.dim('1 - 1 -'), wash.color('<red blue>'). To chain onto one, start with mini().",
+          "Parse mini-notation into a Pattern<number>. Each space-separated token is one step; tokens split one scheduler cycle equally. Numeric tokens ('1', '0.5', '0') are levels, which gives per-step brightness. A word is not a level: on a dimmer that step stays dark and the status bar names the word. Colour names go to .color(), as in wash.color(mini('<red blue>')). Aliased as m(). Returns a regular Pattern, so .slow / .fast / .range / .glow / .flash all chain afterward. Anywhere a level or a colour is taken, a quoted string on its own reads as mini-notation too, as in strudel: wash.dim('1 - 1 -'), wash.color('<red blue>'). A chain can start on one, as in strudel: wash.dim('1 0'.fast(2)), in single or double quotes.",
         example:
           "spot.dim(mini('1 - 1 -'))\nwash.red(mini('1 0.5 0 0.5'))\nstrb.strobe(m('1 - 1 -').flash())",
       },

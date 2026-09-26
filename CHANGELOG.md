@@ -13,6 +13,10 @@ ported to light rather than borrowed as words: a note's envelope is a step's
 fade, a stereo position is a place along the rig, a scale is a palette, the
 global transform is a grand master, and a labelled block is a look.
 
+- **A quoted string is a pattern everywhere, as in strudel.** A chain can
+  start on one (`'1 0'.fast(2)`, `"1 - - -".fadeOut(2)`), and a string works
+  wherever strudel takes a pattern (`.fast('<1 2>')`, `stack('1 0', '0 1')`).
+  A string's own methods (`'a b'.split(' ')`) are left alone.
 - **Strudel code runs as written in more places.** Signals work without
   brackets (`sine.slow(4)`, as strudel writes them, as well as `sine()`),
   Alt+Enter and Alt+. run and stop as they do in strudel, `.velocity()` folds

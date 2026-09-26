@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { isMuteLabel, rewriteLooks } from './looks.js';
+import { isMuteLabel, quotedReceivers, rewriteLooks } from './looks.js';
 
 describe('a named block is a look', () => {
   it('becomes a function with that name, on the same lines', () => {
@@ -108,5 +108,26 @@ describe('what still parses', () => {
     const out = rewriteLooks('verse: {\n  if (a) break verse\n  b()\n}');
     expect(out.code).toBe('const verse = function verse() {\n  if (a) return\n  b()\n};');
     expect(() => new Function('a', 'b', out.code)).not.toThrow();
+  });
+});
+
+describe('a chain that starts on a quoted pattern', () => {
+  const pattern = (name: string): boolean => ['fast', 'slow', 'fadeOut'].includes(name);
+  const spots = (src: string) => quotedReceivers(src, pattern).map(({ from, to }) => src.slice(from, to));
+
+  it("finds strudel's \"1 0\".fast(2), in either quote", () => {
+    expect(spots(`wash.dim("1 0".fast(2))`)).toEqual(['"1 0"']);
+    expect(spots("wash.dim('1 - - -'.fadeOut(2))")).toEqual(["'1 - - -'"]);
+  });
+
+  it('finds one carried onto the next line', () => {
+    expect(spots("wash.dim('1 0'\n  .slow(2))")).toEqual(["'1 0'"]);
+  });
+
+  it("leaves a string's own methods, other names, and strings in comments alone", () => {
+    expect(spots("'a b'.split(' ')")).toEqual([]);
+    expect(spots("'a b'.nope(1)")).toEqual([]);
+    expect(spots("// '1 0'.fast(2)")).toEqual([]);
+    expect(spots("wash.dim('1 0')")).toEqual([]);
   });
 });

@@ -66,6 +66,26 @@ describe('the bundled examples', () => {
 });
 
 describe('strudel written as strudel writes it', () => {
+  it('a chain can start on a quoted pattern', () => {
+    run("const w = fixture(1, 'dim')\nw.dim(\"1 0\".fast(2))");
+    expect(at(0.1)).toBe(255);
+    expect(at(0.3)).toBe(0);
+    expect(at(0.6)).toBe(255);
+  });
+
+  it('a quoted pattern works where strudel takes one: .fast(\'<1 2>\'), stack()', () => {
+    run("const w = fixture(1, 'dim')\nw.dim(mini('1 0').fast('<1 2>'))");
+    expect(at(0.3)).toBe(255);
+    expect(at(1.3)).toBe(0);
+    run("const w = fixture(1, 'dim')\nw.dim(stack('1 0', '0 0.5'))");
+    expect(at(0.1)).toBe(255);
+  });
+
+  it("leaves a string's own methods alone", () => {
+    run("const w = fixture(1, 'dim')\nconst parts = 'a b'.split(' ')\nw.dim(parts.length / 2)");
+    expect(at(0.1)).toBe(255);
+  });
+
   it('takes a signal bare or called, and they are the same', () => {
     run("const a = fixture(1, 'dim')\nconst b = fixture(2, 'dim')\na.dim(sine.slow(4))\nb.dim(sine().slow(4))");
     for (const t of [0.1, 0.9, 2.3]) expect(at(t, 1)).toBe(at(t, 2));
