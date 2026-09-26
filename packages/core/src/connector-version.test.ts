@@ -16,6 +16,7 @@ import {
   compareVersions,
   connectorAge,
   connectorNotice,
+  onNetwork,
   parseConnectorMessage,
 } from './connector-version.js';
 
@@ -78,12 +79,30 @@ describe('parseConnectorMessage', () => {
       type: 'hello',
       version: '0.3.0',
       updates: false,
+      networks: [],
     });
   });
 
   it('keeps only the fields it knows', () => {
     const msg = parseConnectorMessage('{"type":"hello","version":"0.3.0","pid":41,"host":"x"}');
-    expect(msg).toEqual({ type: 'hello', version: '0.3.0', updates: false });
+    expect(msg).toEqual({ type: 'hello', version: '0.3.0', updates: false, networks: [] });
+  });
+
+  it('reads the networks the connector is on, and drops anything malformed', () => {
+    const msg = parseConnectorMessage(JSON.stringify({
+      type: 'hello',
+      version: '0.5.3',
+      networks: [
+        { address: '192.168.1.23', netmask: '255.255.255.0', broadcast: '192.168.1.255' },
+        { address: '<img>', netmask: '255.255.255.0', broadcast: '192.168.1.255' },
+        { address: '10.0.0.300', netmask: '255.0.0.0', broadcast: '10.255.255.255' },
+        'not an object',
+      ],
+    }));
+    expect(msg?.networks).toEqual([
+      { address: '192.168.1.23', netmask: '255.255.255.0', broadcast: '192.168.1.255' },
+    ]);
+    expect(parseConnectorMessage('{"type":"hello","version":"0.5.3","networks":"x"}')?.networks).toEqual([]);
   });
 
   it('reads whether the connector updates itself, and only a real true counts', () => {
@@ -222,5 +241,16 @@ describe('connectorNotice', () => {
   it('falls back to the version this build was released as', () => {
     expect(connectorNotice({ version: APP_VERSION, settled: true })).toBeNull();
     expect(connectorNotice({ version: null, settled: true })?.level).toBe('stale');
+  });
+});
+
+describe('onNetwork', () => {
+  const home = { address: '192.168.1.23', netmask: '255.255.255.0', broadcast: '192.168.1.255' };
+
+  it('says whether an address is on the network', () => {
+    expect(onNetwork('192.168.1.50', home)).toBe(true);
+    expect(onNetwork('192.168.1.255', home)).toBe(true);
+    expect(onNetwork('2.0.0.100', home)).toBe(false);
+    expect(onNetwork('lights.local', home)).toBe(false);
   });
 });

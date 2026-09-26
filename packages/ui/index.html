@@ -1580,6 +1580,29 @@
         line-height: 1.55;
         color: var(--text);
       }
+      .output-warn {
+        color: var(--error);
+      }
+
+      .artnet-targets {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 2px;
+      }
+      .artnet-target {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .artnet-target .connector-how-code {
+        margin-top: 0;
+      }
+      .artnet-target-me {
+        font-size: 10px;
+        color: var(--text-muted);
+      }
 
       .outputs-foot {
         display: flex;
@@ -2335,6 +2358,13 @@
          must not compete with the syntax under it or the live-token outline. */
       .cm-content .gobo-pending {
         box-shadow: inset 2px 0 0 -1px var(--text-muted);
+      }
+
+      /* The line a failed run names. Goes when the line is edited or a run
+         succeeds. */
+      .cm-content .gobo-error-line {
+        background: color-mix(in srgb, var(--error) 14%, transparent);
+        box-shadow: inset 2px 0 0 0 var(--error);
       }
 
       .cm-content .gobo-live-token {

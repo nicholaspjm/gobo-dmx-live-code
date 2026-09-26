@@ -48,10 +48,12 @@ rig.
 --ui <dir>            also serve a built copy of the app from the same port
 --config <p>          read startup config from a specific file
 --no-open             do not open a browser
+--no-install          do not add the login item that starts it with the computer
 --lan                 listen on every network interface, not just this computer
 --allow-origin <url>  also accept pages from that site (repeatable)
 --no-update           do not replace itself when a new release comes out
 --version             print the version and stop
+--help                print these options and stop
 --uninstall           remove the login item the first run added
 ```
 

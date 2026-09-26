@@ -316,6 +316,12 @@ describe('setBPM is part of the transaction', () => {
     expect(h.getBPM()).toBe(400);
   });
 
+  it('reads a quoted tempo as the number it spells', async () => {
+    const h = await readyHarness();
+    expect(h.evalCode("setBPM('140')").success).toBe(true);
+    expect(h.getBPM()).toBe(140);
+  });
+
   it('does not let a garbage call discard a good one earlier in the scene', async () => {
     // Immediate setBPM() ignores non-finite input, so setBPM(130) followed by
     // a typo used to leave 130 running. "Last call wins" must not turn the

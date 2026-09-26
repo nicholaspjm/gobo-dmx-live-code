@@ -22,7 +22,7 @@ import { describe, it, expect } from 'vitest';
 const g = globalThis as { window?: { location: { hostname: string } } };
 if (g.window === undefined) g.window = { location: { hostname: 'localhost' } };
 
-const { locatedError, methodHint, reservedNameHint } = await import('./eval.js');
+const { locatedError, methodHint, nearestName, reservedNameHint } = await import('./eval.js');
 
 /** Compile and run `code` the way the sandbox does, returning what it threw. */
 function runAndCatch(code: string, names: string[] = []): unknown {
@@ -152,6 +152,13 @@ describe('a name gobo already uses explains itself', () => {
     expect(clashOf('const red = () => {}')).toContain('myRed');
   });
 
+  it('calls a colour a colour rather than something to call', () => {
+    const error = clashOf("const red = slider('red')");
+    expect(error).toContain("gobo's colours");
+    expect(error).toContain('wash.color(red)');
+    expect(error).not.toContain('red(…)');
+  });
+
   it('leaves a redeclaration of the user own name alone', () => {
     // Not one of gobo's names, so there is nothing to explain and the engine's
     // own message is already the whole answer.
@@ -230,5 +237,45 @@ describe('a method a light does not have', () => {
     );
     expect(error).toMatch(/^line 2: /);
     expect(error).toContain('.mono(');
+  });
+});
+
+/**
+ * A typo mid-set. The engine's message says the name is wrong and stops; the
+ * scene wants the name it meant.
+ */
+describe('a misspelt name', () => {
+  const GLOBALS = ['sine', 'cosine', 'fixture', 'mini', 'red'];
+  const METHODS = ['color', 'dim', 'slow', 'fast', 'range', 'strobe'];
+
+  it('offers the method it was probably meant to be', () => {
+    expect(methodHint('wash.colr is not a function', GLOBALS, METHODS))
+      .toBe('wash.colr is not a function. Did you mean wash.color(…)?');
+  });
+
+  it('reads a chained pattern as the receiver', () => {
+    expect(methodHint('sine(...).slwo is not a function', GLOBALS, METHODS))
+      .toContain('Did you mean sine(...).slow(…)?');
+  });
+
+  it('offers the function a bare name was probably meant to be', () => {
+    expect(methodHint('sinee is not defined', GLOBALS)).toBe('sinee is not defined. Did you mean sine?');
+    expect(methodHint('Fixture is not defined', GLOBALS)).toContain('Did you mean fixture?');
+  });
+
+  it('says nothing when nothing is close', () => {
+    expect(methodHint('wash is not defined', GLOBALS)).toBe('wash is not defined');
+    expect(methodHint('wash.sparkle is not a function', GLOBALS, METHODS)).toBe('wash.sparkle is not a function');
+  });
+
+  it('is strict with short names', () => {
+    expect(nearestName('dm', ['dim'])).toBe('dim');
+    expect(nearestName('fst', ['dim'])).toBeNull();
+    expect(nearestName('rnge', ['range'])).toBe('range');
+  });
+
+  it('keeps the more specific answers ahead of a spelling', () => {
+    // .dim on a strip is a real method elsewhere, and the strip answer wins.
+    expect(methodHint('wash.dim is not a function', GLOBALS, METHODS)).toContain('.mono(');
   });
 });

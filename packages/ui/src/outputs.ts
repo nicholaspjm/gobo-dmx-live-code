@@ -20,13 +20,16 @@ import {
   isMidiSupported,
   getUsbDroppedFrames,
   getConnectorInfo,
+  getConnectorNetworks,
   getDirectUrl,
   getOutputConfig,
   isConnected,
   isDirectConnected,
   isUsbConnected,
   isUsbDmxSupported,
+  onNetwork,
   type ConnectorNotice,
+  type LocalNetwork,
 } from '@gobo/core';
 import { PANEL_OPEN_EVENT } from './panel.js';
 import { BLOCKED_BY_BROWSER, browserBlocksConnector, servedLocally } from './browser-access.js';
@@ -205,6 +208,8 @@ export interface OutputVerdict {
   badge: string;
   /** One line saying why, or what is already true. */
   reason: string;
+  /** The reason is a problem with the scene rather than a missing piece. */
+  warn?: boolean;
 }
 
 /** Can this output be used right now, and why not. */
@@ -265,10 +270,20 @@ export function outputVerdict(id: OutputId): OutputVerdict {
   // three UDP outputs because a page cannot send those packets, and mock()
   // because the printing happens inside the connector.
   if (isBridgeConnected()) {
+    const host = id === 'artnet' ? currentArtnetHost() : null;
+    const problem = host === null ? null : artnetTargetProblem(host, getConnectorNetworks());
+    if (host !== null && problem !== null) {
+      return {
+        ready: false,
+        badge: isLoopback(host) ? 'this computer only' : 'check the address',
+        reason: problem,
+        warn: true,
+      };
+    }
     return {
       ready: true,
       badge: 'works here',
-      reason: 'Something on this computer is listening, so these frames go out.',
+      reason: 'The connector is running, so this goes out as soon as a scene uses it.',
     };
   }
   if (isDesktopBuild()) {
@@ -445,6 +460,51 @@ export function blockedOutputMessage(output: string): string {
     + 'ctrl+enter again. For a USB DMX box instead, open the outputs panel and pick usb.';
 }
 
+// ─── Where Art-Net is going ──────────────────────────────────────────────────
+
+/** The call each output's "add to scene" button writes. Art-Net has its own list. */
+const DEFAULT_CALL: Partial<Record<OutputId, string>> = {
+  usb: 'usb()',
+  td: 'td()',
+  sacn: 'sacn()',
+  osc: 'osc()',
+  mock: 'mock()',
+};
+
+function isLoopback(host: string): boolean {
+  return host === 'localhost' || host === '::1' || host.startsWith('127.');
+}
+
+/** The host the scene on air sends Art-Net to, or null when it is not sending Art-Net. */
+function currentArtnetHost(): string | null {
+  const out = getOutputConfig();
+  const c = out?.config as { mode?: unknown; artnet?: { host?: unknown } } | undefined;
+  if (c?.mode !== 'artnet') return null;
+  return typeof c.artnet?.host === 'string' ? c.artnet.host : '127.0.0.1';
+}
+
+/**
+ * What is wrong with where the scene sends Art-Net, or null when nothing can
+ * be seen to be. Each of these fails in silence on the wire: the frames are
+ * sent, the socket reports success, and the rig stays dark.
+ */
+export function artnetTargetProblem(host: string, networks: readonly LocalNetwork[]): string | null {
+  if (isLoopback(host)) {
+    return `This scene sends to ${host}, which is this computer only. That is right for a visualiser or `
+      + 'TouchDesigner here, and nothing reaches a node on the network.';
+  }
+  if (networks.some((n) => n.address === host)) {
+    return `${host} is this computer's own address, so nothing reaches the rig. Send to the node's `
+      + 'address, or to the whole network with the line below.';
+  }
+  if (networks.length > 0 && /^\d+\.\d+\.\d+\.\d+$/.test(host) && !networks.some((n) => onNetwork(host, n))) {
+    const mine = networks.map((n) => n.address).join(' and ');
+    return `This computer is not on the same network as ${host}, so nothing reaches it: it is ${mine}. `
+      + 'Plug into the lighting network, or give this computer an address on it.';
+  }
+  return null;
+}
+
 // ─── Panel ───────────────────────────────────────────────────────────────────
 
 export interface OutputsPanel {
@@ -465,8 +525,55 @@ export function mountOutputsPanel(opts: {
   /** Whether this page is the one currently on screen. */
   isOpen: () => boolean;
   onUsbRequest: () => void;
+  /** Put an output call into the scene. The scene still runs on ctrl+enter. */
+  onUseCode?: (code: string) => void;
 }): OutputsPanel {
-  const { bodyEl, isOpen, onUsbRequest } = opts;
+  const { bodyEl, isOpen, onUsbRequest, onUseCode } = opts;
+
+  function useButton(code: string): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'scene-action';
+    b.textContent = 'add to scene';
+    b.title = `Write ${code} into the scene. Ctrl+enter runs it.`;
+    b.addEventListener('click', () => onUseCode?.(code));
+    return b;
+  }
+
+  /**
+   * The Art-Net lines that reach this computer's networks. Only the connector
+   * can see the network, so there is nothing to offer without one.
+   */
+  function renderArtnetTargets(): HTMLElement | null {
+    if (!isBridgeConnected()) return null;
+    const networks = getConnectorNetworks();
+    if (networks.length === 0) return null;
+    const host = currentArtnetHost();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'artnet-targets';
+    const intro = document.createElement('p');
+    intro.className = 'output-plain';
+    intro.textContent = networks.length === 1
+      ? 'This computer is on one network. This line reaches every node on it:'
+      : 'This computer is on these networks. Each line reaches every node on one:';
+    wrap.appendChild(intro);
+    for (const n of networks) {
+      const code = `artnet('${n.broadcast}')`;
+      const line = document.createElement('div');
+      line.className = 'artnet-target';
+      const pre = document.createElement('code');
+      pre.className = 'connector-how-code';
+      pre.textContent = code;
+      const me = document.createElement('span');
+      me.className = 'artnet-target-me';
+      me.textContent = `you are ${n.address}`;
+      line.append(pre, me);
+      if (onUseCode && host !== n.broadcast) line.appendChild(useButton(code));
+      wrap.appendChild(line);
+    }
+    return wrap;
+  }
 
   // Drawn from scratch each time it comes into view: every badge on it is a
   // live verdict about hardware, and a stale one is the whole failure this
@@ -679,7 +786,7 @@ export function mountOutputsPanel(opts: {
       plain.textContent = info.plain;
 
       const reason = document.createElement('p');
-      reason.className = 'output-reason';
+      reason.className = verdict.warn ? 'output-reason output-warn' : 'output-reason';
       reason.textContent = verdict.reason;
 
       row.append(head, plain, reason);
@@ -693,6 +800,18 @@ export function mountOutputsPanel(opts: {
         action.textContent = 'choose an interface';
         action.addEventListener('click', onUsbRequest);
         row.appendChild(action);
+      }
+
+      if (info.id === 'artnet') {
+        const targets = renderArtnetTargets();
+        if (targets) row.appendChild(targets);
+      } else if (onUseCode && info.id !== current) {
+        // td() is how the page reaches TouchDesigner, so it is offered before
+        // it works; usb() needs an interface chosen first, and the rest need
+        // something listening.
+        const code = DEFAULT_CALL[info.id];
+        const offer = info.id === 'td' || verdict.ready;
+        if (code && offer) row.appendChild(useButton(code));
       }
 
       list.appendChild(row);

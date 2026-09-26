@@ -176,6 +176,12 @@ Vite dev server to the network as well; without it that is loopback-only too.
   `--allow-origin`.
 - **A scene you run can still repoint the output.** That is the scene-privilege model above,
   reached through the page, not a way around the connector's checks.
+- **An accepted page learns this computer's network addresses.** From 0.5.3 the connector's
+  first message lists its IPv4 addresses, netmasks and broadcast addresses
+  (`packages/bridge/src/networks.ts`), so the outputs panel can offer the `artnet()` line that
+  reaches the rig and say when a scene sends somewhere this computer cannot reach. It goes
+  only to a page that passed the checks above, and gobo keeps it in the page: it is not
+  stored, and not included in a problem report.
 - **Browsers add their own gate for the hosted page.** Chrome asks before a public website
   may reach programs on your computer. Allowing gobo that is a decision about gobo's origin,
   and it applies to every page there.

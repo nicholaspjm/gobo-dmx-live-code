@@ -146,3 +146,15 @@ describe('fixture() patch failures', () => {
     expect(() => fixture(0, 'no-such-fixture')).toThrow(/Unknown fixture "no-such-fixture"/);
   });
 });
+
+describe('fixture() written the wrong way', () => {
+  it('says when the address and the kind are swapped', () => {
+    expect(() => (fixture as unknown as (a: unknown, b: unknown) => unknown)('rgb', 1))
+      .toThrow(/other way round.*fixture\(1, "rgb"\)/);
+  });
+
+  it('asks for the kind when it is left out', () => {
+    expect(() => (fixture as unknown as (a: unknown) => unknown)(1))
+      .toThrow(/needs the kind of light as well, as in fixture\(1, 'rgb'\)/);
+  });
+});

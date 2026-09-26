@@ -6,6 +6,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+
+- **The outputs panel says where to send Art-Net.** The connector tells the page
+  which networks this computer is on, and the `artnet()` card lists the line that
+  reaches every node on each, with a button that writes it into the scene. The
+  card, and the status line after a run, now say when a scene sends to this
+  computer only, to this computer's own address, or to a network it is not on.
+  Each of those used to run clean and light nothing.
+- **"add to scene" on every output card**, which writes that output's call into
+  the scene, replacing the scene's own output line if it has one. It does not
+  run it: ctrl+enter still does.
+- **Syntax errors say which line**, and the line a failed run names is tinted
+  until it is edited or a run succeeds.
+- **"Did you mean…?"** for a misspelt function or method: `sinee`, `wash.colr`,
+  `sine().slwo`.
+- **The sim labels each light with its name in the scene** (`wash`, `strb`)
+  where the address is written as numbers, rather than its kind.
+- **A "four pars and a strobe" example**: a small real rig with built-in fixture
+  types only.
+- **`usb()` and `td()` in autocomplete and hover help.**
+- **`--help` for the connector.**
+
+### Fixed
+
+- `rig.color('red')` on a group now says colours go without quotes, as a single
+  fixture already did, instead of asking for r, g and b.
+- `fixture('rgb', 1)` and `fixture(1)` say what is wrong with them instead of
+  reporting an unknown fixture called "1" or "undefined".
+- `setBPM('140')` sets 140 rather than being ignored.
+- Declaring a colour's name, as in `const amber = slider('amber')`, no longer
+  suggests calling `amber(…)`. The docs example that did exactly that is renamed.
+- The "language tour" and "four-colour bar" examples say to swap their alternate
+  lines in rather than uncomment them, since uncommenting left them overwritten,
+  and three movement lines in the bar demo had half their code commented out.
+- Autocomplete no longer offers `ctrl+shift+enter` as code to insert.
+- README: the keyboard shortcuts table was split by a paragraph; latency and mock
+  logging figures were stale. The TouchDesigner guide gave universe 1 for `ch()`
+  and only mentioned `npm run dev`.
+
 ## [0.5.2] - 2026-09-26
 
 > **Replace your connector one last time.** From this version it replaces

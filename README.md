@@ -35,7 +35,7 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 - Output to Art-Net 4, sACN (E1.31), OSC, a USB DMX interface over WebSerial with nothing installed, TouchDesigner directly, or mock
 - One working scene, autosaved to the browser as you type
 - A share link that carries the whole scene, no server involved
-- Three bundled demo scenes, on the examples tab of the docs
+- Four bundled demo scenes, on the examples tab of the docs, from two lines to a small real rig
 - Built-in, bundled public, saved and session fixtures on one fixtures tab, with JSON import/export
 - One panel behind the ☰ button: docs, fixtures, log, outputs, settings — plus hover help and autocomplete in the editor
 - Thirteen themes, named after the lights they look like. `tungsten` (warm charcoal / terracotta) by default, through `bastardAmber`, `cyclorama`, `blackout`, `glowtape` and `surprisePink`
@@ -284,13 +284,13 @@ anything else in this version.
 | `Ctrl+.` | Stop. Blackout by default, `freeze` if set that way in settings. A second press blacks out either way |
 | `Ctrl+Space` | Stop, as an alias that also preempts the autocomplete popup |
 | `Ctrl+Shift+Enter` | Evaluate only the edits inside the selection, or the block around the cursor |
-
-Turning on **ctrl+enter runs the block** in settings swaps those last two over, so the plain
-chord takes the block and the shifted one takes the document.
 | `Ctrl+Shift+F` | Format the buffer |
 | `Alt+1`…`Alt+9` | Run that cue, when the scene calls `cue()` |
 | `T` | Tap tempo (ignored while typing in the editor or any input) |
 | `Alt+M` | Zen mode: hide the top bar, sim panel and level strip. Clicking the mark does the same |
+
+Turning on **ctrl+enter runs the block** in settings swaps `Ctrl+Enter` and `Ctrl+Shift+Enter`
+over, so the plain chord takes the block and the shifted one takes the document.
 
 ---
 
@@ -343,7 +343,7 @@ Visualizer (rAF, 30 fps, read-only snapshot)   +   WS sender (wall-clock throttl
 - **Going dark.** Idle all-zero universes are skipped to save UDP bandwidth. When a universe goes from live to all-zero, exactly one trailing zero-frame is sent so downstream fixtures latch off; Art-Net and sACN receivers otherwise hold the last value indefinitely ([websocket.ts](packages/core/src/websocket.ts)).
 - **Per-tick user errors are swallowed.** A broken pattern doesn't kill the clock; that channel outputs zero until you fix it ([scheduler.ts](packages/core/src/scheduler.ts)).
 - **Bridge reconnect.** Two seconds after a close, doubling to a thirty-second ceiling, and back to two the moment a scene picks an output that needs it. Sends are dropped while disconnected ([websocket.ts](packages/core/src/websocket.ts)).
-- **Latency floor.** One clock tick (~16 ms) + up to one send interval (~16 ms at 60 Hz) + WS hop + UDP hop. The bridge is stateless: each incoming WS message triggers an immediate UDP send, with no coalescing ([bridge/index.ts](packages/bridge/src/index.ts)).
+- **Latency floor.** One clock tick (~16 ms) + up to one send interval (25 ms at the default 40 Hz) + WS hop + UDP hop. The bridge is stateless: each incoming WS message triggers an immediate UDP send, with no coalescing ([bridge/index.ts](packages/bridge/src/index.ts)).
 - **Inline pattern widgets** hook the same `onTick` the DMX loop uses rather than a separate rAF, so their visuals stay phase-locked with the lights ([inline-viz.ts](packages/ui/src/inline-viz.ts)). The 512-bar visualizer runs its own rAF loop over a read-only snapshot with light exponential smoothing, so the on-screen strip never contends with the DMX path ([visualizer.ts](packages/ui/src/visualizer.ts)).
 
 ### Output protocols
@@ -355,7 +355,7 @@ The bridge is stateless: one WebSocket frame in, one UDP send out. Wire cadence 
 | Art-Net | 530-byte ArtDmx (`OpOutput 0x5000`) | UDP to the configured host, port 6454; unicast or a broadcast address, your choice | Full 512-channel payload each frame |
 | sACN (E1.31) | 638-byte E1.31 packet | UDP multicast `239.255.<hi>.<lo>`, port 5568 | Random CID per bridge process, source name `gobo`; one sequence counter shared across universes |
 | OSC | `/gobo/<uni>/<ch>` float | UDP unicast | Only channels that are non-zero, plus one zero per channel transitioning off |
-| Mock | n/a | n/a | Logs the non-zero channels of every 7th frame |
+| Mock | n/a | n/a | Logs the non-zero channels about twice a second (`mock.logIntervalFrames`) |
 
 ### Fixtures
 

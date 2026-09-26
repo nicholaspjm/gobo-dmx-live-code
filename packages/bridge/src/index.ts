@@ -23,6 +23,7 @@ import { createFrameRouter } from './frames.js';
 import { isInsideRoot } from './serve-ui.js';
 import { oscPacketsFor } from './osc.js';
 import { connectorHello, CONNECTOR_VERSION } from './version.js';
+import { localNetworks } from './networks.js';
 import { bindAddresses, createPolicy, parseAccessArgs, printable } from './access.js';
 import { listenAll, type Listening, type Refusal } from './listen.js';
 import { cleanupOld, download, downloadPathFor, fetchLatest, planUpdate, swapInPlace } from './updater.js';
@@ -39,6 +40,24 @@ import { spawn, execFileSync } from 'child_process';
 // item.
 if (process.argv.includes('--version')) {
   console.log(CONNECTOR_VERSION);
+  process.exit(0);
+}
+
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  console.log(`gobo connector ${CONNECTOR_VERSION}
+Puts gobo's Art-Net, sACN and OSC on the network. Run it, then open gobo.
+
+  --no-open             do not open a browser
+  --no-install          do not add the login item that starts it with the computer
+  --uninstall           remove that login item
+  --no-update           do not replace itself when a new release comes out
+  --lan                 listen on every network interface, not just this computer
+  --allow-origin <url>  also accept pages from that site (repeatable)
+  --ui <dir>            also serve a built copy of the app from the same port
+  --config <path>       read startup config from a specific file
+  --version             print the version and stop
+
+https://github.com/nicholaspjm/gobo-dmx-live-code`);
   process.exit(0);
 }
 
@@ -905,7 +924,7 @@ wss.on('connection', (ws: WebSocket) => {
   // which is the answer it needs: silence means older than the build that
   // started saying. Sent after the error handler above is installed, so a client
   // that vanishes during the write cannot take the process with it.
-  ws.send(JSON.stringify(connectorHello(AUTO_UPDATE)), (err) => {
+  ws.send(JSON.stringify(connectorHello(AUTO_UPDATE, localNetworks(networkInterfaces()))), (err) => {
     // A callback rather than none, so a failed write lands here instead of on
     // the socket's shared error path. Nothing to do about it: the only page
     // this mattered to has gone.

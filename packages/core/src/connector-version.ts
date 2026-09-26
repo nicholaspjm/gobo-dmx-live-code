@@ -67,6 +67,44 @@ export interface ConnectorHello {
    * from every connector before 0.5.2, which is read as no.
    */
   updates: boolean;
+  /**
+   * The IPv4 networks the connector's computer is on, so the outputs panel
+   * can say which artnet() line reaches them. Empty from connectors before
+   * 0.5.3, which never said.
+   */
+  networks: LocalNetwork[];
+}
+
+export interface LocalNetwork {
+  /** The computer's own address on the network. */
+  address: string;
+  netmask: string;
+  /** Reaches every node on the network at once. */
+  broadcast: string;
+}
+
+const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+
+/** The networks from a hello, keeping only well-formed entries, and a few of them. */
+function readNetworks(raw: unknown): LocalNetwork[] {
+  if (!Array.isArray(raw)) return [];
+  const out: LocalNetwork[] = [];
+  for (const n of raw.slice(0, 8)) {
+    if (typeof n !== 'object' || n === null) continue;
+    const { address, netmask, broadcast } = n as Record<string, unknown>;
+    if (typeof address !== 'string' || typeof netmask !== 'string' || typeof broadcast !== 'string') continue;
+    if (!IPV4.test(address) || !IPV4.test(netmask) || !IPV4.test(broadcast)) continue;
+    out.push({ address, netmask, broadcast });
+  }
+  return out;
+}
+
+/** Whether `host` is an address on `net`. */
+export function onNetwork(host: string, net: LocalNetwork): boolean {
+  if (!IPV4.test(host)) return false;
+  const int = (ip: string): number => ip.split('.').reduce((acc, p) => ((acc << 8) | Number(p)) >>> 0, 0);
+  const mask = int(net.netmask);
+  return (int(host) & mask) === (int(net.address) & mask);
 }
 
 /**
@@ -96,7 +134,12 @@ export function parseConnectorMessage(raw: unknown): ConnectorHello | null {
   if (typeof msg.version !== 'string' || msg.version.trim() === '') return null;
   // Rebuilt rather than passed through, so whatever else rode along cannot end
   // up stored and later displayed.
-  return { type: 'hello', version: msg.version.trim(), updates: msg.updates === true };
+  return {
+    type: 'hello',
+    version: msg.version.trim(),
+    updates: msg.updates === true,
+    networks: readNetworks(msg.networks),
+  };
 }
 
 /**

@@ -1329,6 +1329,21 @@ export function fixture(
   fixtureId: string,
   universe = 0,
 ): FixtureInstance {
+  // The two arguments the other way round, or the type left out. Caught before
+  // the lookup, which would otherwise answer 'Unknown fixture "1"' about a
+  // number nobody meant as a name.
+  if (typeof startChannel === 'string' && typeof fixtureId === 'number') {
+    throw new Error(
+      `fixture(${JSON.stringify(startChannel)}, ${fixtureId}) has its arguments the other way round: `
+      + `the address comes first, as in fixture(${fixtureId}, ${JSON.stringify(startChannel)}).`,
+    );
+  }
+  if (fixtureId === undefined) {
+    throw new Error(
+      `fixture(${startChannel}) needs the kind of light as well, as in fixture(${startChannel}, 'rgb'). `
+      + 'The fixtures tab lists every kind.',
+    );
+  }
   const def = resolveFixture(fixtureId);
 
   // Patch-address guard, same contract as rgbStrip/rgbwStrip: a fixture that
@@ -3604,6 +3619,11 @@ export function group(...members: GroupMember[]): GroupInstance {
           throw new Error('group.color(): no member of this group has a colour channel.');
         }
         return;
+      }
+      // A quoted colour, as on a single fixture: without this it reached the
+      // arity check and came back asking for all three of r, g and b.
+      if (given.length === 1 && typeof given[0] === 'string') {
+        readColor(given, 'group.color()');
       }
       const [r, g, b] = channelValues(args.slice(0, 3), ['r', 'g', 'b'], 'group.color()');
       // Unlike a single role, a colour that lands on nothing is worth

@@ -28,6 +28,8 @@
  * fails if the two disagree.
  */
 
+import type { LocalNetwork } from './networks.js';
+
 /** Keep in step with packages/bridge/package.json. version.test.ts enforces it. */
 export const CONNECTOR_VERSION = '0.5.2';
 
@@ -46,8 +48,10 @@ export interface ConnectorHello {
   version: string;
   /** Whether this copy replaces itself when a release comes out (updater.ts). */
   updates: boolean;
+  /** The IPv4 networks this computer is on (networks.ts), for the outputs panel. */
+  networks: LocalNetwork[];
 }
 
-export function connectorHello(updates = false): ConnectorHello {
-  return { type: 'hello', version: CONNECTOR_VERSION, updates };
+export function connectorHello(updates = false, networks: LocalNetwork[] = []): ConnectorHello {
+  return { type: 'hello', version: CONNECTOR_VERSION, updates, networks };
 }

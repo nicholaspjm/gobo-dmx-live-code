@@ -394,3 +394,30 @@ export function describeLight(decl: LightDecl): LightInfo {
     case 'group':     return describeGroup(decl);
   }
 }
+
+/**
+ * The names a scene gave its lights, keyed by where each is patched
+ * (`universe:startChannel`), for labelling the sim.
+ *
+ * The sim is handed addresses, not names, so a rig of four pars read
+ * "dim-rgbw" four times over while the code said wash, key and back. Only a
+ * declaration whose address is written as plain numbers can be matched; a
+ * light made in a loop keeps its kind as its label. Two declarations on one
+ * address name neither, rather than guess.
+ */
+export function lightNamesByAddress(doc: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const clashed = new Set<string>();
+  for (const d of findLights(doc)) {
+    if (d.kind === 'group' || d.kind === 'screen') continue;
+    const start = /^\d+$/.test(d.args[0] ?? '') ? Number(d.args[0]) : null;
+    const uniArg = d.args[2];
+    const universe = uniArg === undefined ? 0 : /^\d+$/.test(uniArg) ? Number(uniArg) : null;
+    if (start === null || universe === null) continue;
+    const key = `${universe}:${start}`;
+    if (out.has(key)) clashed.add(key);
+    out.set(key, d.name);
+  }
+  for (const key of clashed) out.delete(key);
+  return out;
+}

@@ -111,8 +111,7 @@ The rest of the scripts:
 
 Tests live next to the source they cover. The root `vitest.config.ts` scopes the
 run to `packages/*/src/**/*.test.{ts,mts,js,mjs}`, so a test file anywhere else
-won't be picked up. Coverage is thin: `dmx.ts` and `fixture-validator.ts` only.
-More is welcome, especially anything pinning the timing path.
+won't be picked up. More is welcome, especially anything pinning the timing path.
 
 ---
 
@@ -141,8 +140,7 @@ path especially, and it's cheaper to disagree in an issue than in a 600-line dif
   before you open the PR.
 - If you change user-facing API surface (fixture methods, pattern chain methods,
   globals in the eval context), update `packages/ui/src/help-data.ts` in the same PR,
-  since autocomplete and hover help both read from it, plus `docs.ts` and the
-  `METHOD_NAMES` list in `code-highlight.ts` where relevant.
+  since autocomplete and hover help both read from it, plus `docs.ts` where relevant.
 
 ---
 
@@ -156,8 +154,8 @@ fixture, so say in the PR description what you tested against:
 - **Real hardware.** Name the node and protocol, e.g. "Enttec ODE Mk3, Art-Net
   unicast, 2 universes".
 - **No hardware.** Set `"mode": "mock"` in `packages/bridge/bridge.config.json` (or
-  call `mock()` in the editor) and the bridge prints the non-zero channels of every
-  seventh frame, which confirms frames are produced and channels land where you
+  call `mock()` in the editor) and the bridge prints the non-zero channels about
+  twice a second, which confirms frames are produced and channels land where you
   expect. `npm run bridge:selftest` covers the other half: it emits a known ramp
   directly, so you can point a capture or a node at it without the browser in the
   picture.

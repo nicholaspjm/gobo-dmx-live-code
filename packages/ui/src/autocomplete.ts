@@ -105,8 +105,10 @@ function toCompletion(e: HelpEntry): Completion {
   };
 }
 
+// Only names that can be typed as code: the reference also lists keys, such
+// as ctrl+shift+enter, and accepting one would write it into the scene.
 const commandCompletions: Completion[] = HELP_ENTRIES
-  .filter((e) => e.context === 'command')
+  .filter((e) => e.context === 'command' && /^[A-Za-z_$][\w$]*$/.test(e.label))
   .map(toCompletion);
 
 const patternMethods: Completion[] = HELP_ENTRIES

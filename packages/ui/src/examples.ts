@@ -38,13 +38,47 @@ export const EXAMPLES: Example[] = [
     // What a new browser opens on, so it is the whole first impression.
     //
     // Deliberately tiny, and deliberately the ordinary thing: patch a
-    // fixture, give a channel a pattern. That is the shape of every scene
+    // fixture, give a channel a pattern. The one extra comment is the way to
+    // real light, which is the next thing anyone asks. That is the shape of every scene
     // after it. No output call, so the first run cannot warn about a rig that
     // is not there, and the sim panel shows the result with nothing plugged
     // in. The fuller tour is one tab away.
     code: `// ctrl+enter to run · ctrl+space to stop · 'docs' for everything else
+// real lights: click the connection light, top right, and pick an output
 const wash = fixture(1, 'rgb')
 wash.color(sine().slow(2), 0, cosine().slow(2))
+`,
+  },
+  {
+    id: 'small-rig',
+    label: 'four pars and a strobe',
+    blurb: 'A small real rig: patch by address, a palette across a group, a chase, a strobe fill.',
+    // The shape most people's first real rig takes, with built-in fixture
+    // types only, so it runs against hardware with nothing defined. Every
+    // alternate is written to be swapped in for the line above it.
+    code: `// four pars and a strobe · the usual first rig
+// patch each light at the DMX address set on the fixture itself
+// artnet('2.255.255.255')   // pick your network in the outputs panel
+setBPM(124)
+
+const pars = [1, 6, 11, 16].map((ch) => fixture(ch, 'dim-rgbw'))
+const rig = group(...pars)
+const strb = fixture(21, 'strobe')
+
+// ── colour · a palette spreads across the group, one stop per light ──
+const warm = [amber, orange, red]
+rig.color(warm)
+// rig.color(red, amber, red, amber)
+// rig.color(mini('<red blue>'))                  // all change each bar
+
+// ── level · each light a quarter-bar behind the last ──────────────
+rig.each((p) => square().early(p).slow(2))
+// rig.each((p) => sine().early(p).slow(4))      // a smooth wave
+// rig.dim(mini('1 - - -').flash())               // all on the beat
+
+// ── strobe · a fill at the end of every bar, dark the rest of it ───
+strb.dim(mini('- - - [1 1 1 1]').flash())
+// strb.dim(mini('- - - -  - - - [1 1 1 1 1 1 1 1]').slow(2).flash()) // every other bar
 `,
   },
   {
@@ -117,6 +151,7 @@ const hueR = sine().slow(12).range(0, 1)
 const hueG = sine().early(1/3).slow(12).range(0, 1)
 const hueB = sine().early(2/3).slow(12).range(0, 1)
 
+// swap one of these in for the strip.each block below: it sets red too
 // strip.red(sine().slow(4).segment(8))              // stepped
 // strip.red(sine().slow(8).rangex(0.01, 1))         // fade the eye can see
 // strip.red(sine().slow(4).range(1, 0))             // inverted
@@ -198,8 +233,8 @@ bar.pixels.viz('strip')
 bar.dim(1)
 
 // ── LIVE ──────────────────────────────────────
-// uncomment one line or block and ctrl+enter to apply. each block is a
-// self-contained effect; the trailing comment is its label.
+// swap one line or block in for the solid white and ctrl+enter to apply.
+// each block is a self-contained effect; the trailing comment is its label.
 
 bar.pixels.fill(0, 0, 0, 1)                                          // solid white
 // bar.pixels.white(sine().slow(8).range(0.1, 1).glow())             // breathe
@@ -227,10 +262,10 @@ bar.pixels.fill(0, 0, 0, 1)                                          // solid wh
 
 // movement (stack on top of any pixel effect)
 // bar.direction(0.5); bar.speed(0)                                  // center
-// bar.direction(0); // bar.speed(0)                                  // left
-// bar.direction(1); // bar.speed(0)                                  // right
+// bar.direction(0); bar.speed(0)                                    // left
+// bar.direction(1); bar.speed(0)                                    // right
 // bar.direction(sine().slow(8)); bar.speed(0.6)                     // sweep
-// bar.direction(saw().slow(6)); // bar.speed(0.8)                     // spin
+// bar.direction(saw().slow(6)); bar.speed(0.8)                      // spin
 // bar.direction(sine().slow(1).range(0.4, 0.6)); bar.speed(0.5)     // wobble
 // bar.speed(0)                                                      // freeze
 `,

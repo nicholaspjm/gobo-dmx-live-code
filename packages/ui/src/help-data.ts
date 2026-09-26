@@ -332,6 +332,24 @@ export const HELP_ENTRIES: HelpEntry[] = [
     context: 'command',
     kind: 'function',
   },
+  {
+    label: 'usb',
+    signature: 'usb(universe?)',
+    description:
+      'Drive a USB DMX box (Enttec DMX USB Pro type) from the browser, nothing installed. Chrome or Edge. Pick the box once in the outputs panel first.',
+    example: 'usb()',
+    context: 'command',
+    kind: 'function',
+  },
+  {
+    label: 'td',
+    signature: "td(host = 'localhost', port = 9980)",
+    description:
+      'Send every frame straight to a TouchDesigner WebSocket DAT, nothing installed. TouchDesigner puts the Art-Net on the network.',
+    example: 'td()',
+    context: 'command',
+    kind: 'function',
+  },
 
   // ─── Clock ─────────────────────────────────────────────────────────────────
   {

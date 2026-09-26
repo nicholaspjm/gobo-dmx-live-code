@@ -23,12 +23,12 @@ describe('CONNECTOR_VERSION', () => {
 
 describe('connectorHello', () => {
   it('carries the version under a discriminating type', () => {
-    expect(connectorHello()).toEqual({ type: 'hello', version: CONNECTOR_VERSION, updates: false });
+    expect(connectorHello()).toEqual({ type: 'hello', version: CONNECTOR_VERSION, updates: false, networks: [] });
     expect(connectorHello(true).updates).toBe(true);
   });
 
   it('survives the JSON round trip the socket puts it through', () => {
     const sent = JSON.stringify(connectorHello());
-    expect(JSON.parse(sent)).toEqual({ type: 'hello', version: CONNECTOR_VERSION, updates: false });
+    expect(JSON.parse(sent)).toEqual({ type: 'hello', version: CONNECTOR_VERSION, updates: false, networks: [] });
   });
 });

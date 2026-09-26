@@ -41,6 +41,7 @@ import {
   APP_VERSION,
   onStatusChange,
   getOutputConfig,
+  getConnectorNetworks,
   getDirectUrl,
   isDirectConnected,
   onDirectStatusChange,
@@ -68,6 +69,7 @@ import {
 import { createEditor } from './editor.js';
 import { spliceEdits, paragraphAt, type Hunk } from './splice.js';
 import { showPending } from './pending-marks.js';
+import { showErrorLine } from './error-mark.js';
 import type { EditorView } from '@codemirror/view';
 import type { ChangeSet } from '@codemirror/state';
 import {
@@ -101,6 +103,8 @@ import type { EditorPrefs } from './editor.js';
 import { captureConsole, mountConsolePanel } from './console-log.js';
 import { tagLocations } from './mini-locations.js';
 import { applyTheme } from './themes.js';
+import { locateSyntaxError } from './syntax-line.js';
+import { lightNamesByAddress } from './declared-lights.js';
 import {
   mountOutputsPanel,
   connectionSummary,
@@ -112,6 +116,7 @@ import {
   RELEASES_URL,
   currentOutputId,
   isDesktopBuild,
+  artnetTargetProblem,
 } from './outputs.js';
 
 // Apply the persisted theme before the editor mounts and before any
@@ -233,6 +238,7 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
     }
   }
   if (result.success) {
+    showErrorLine(editorView, null);
     // This scene ran, so it is worth being able to get back to. See
     // rememberSceneInAddressBar.
     rememberSceneInAddressBar(toRun);
@@ -291,13 +297,16 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
     _refreshLibraryAfterEval();
     return true;
   } else {
-    const message = result.error ?? 'unknown error';
+    // A scene that does not parse never ran, so it has no line from the
+    // stack. The editor's parser finds one.
+    const message = locateSyntaxError(result.error ?? 'unknown error', toRun);
     // The bar is one line and clips, and the useful half of an error is
     // usually the end of it: the line number, the suggested rename, the name
     // of the channel. Sent to the console as well, which the log panel keeps
     // in full and timestamped, so nothing said here is only half-said.
     console.error(`[gobo] ${message}`);
     setStatus('error', message);
+    showErrorLine(editorView, message);
     return false;
   }
 }
@@ -395,11 +404,28 @@ function describeOutput(): { text: string; delivered: boolean } | null {
   };
   const mode = String(c.mode ?? 'unknown');
   let text = mode;
-  if (mode === 'artnet') text = `art-net ${c.artnet?.host ?? '?'}:${c.artnet?.port ?? 6454}`;
+  // artnet() with no address sends to this machine, which is right for a
+  // visualiser or TouchDesigner here and silent for a node on the network. The
+  // bare address reads as a destination either way, so the line says which.
+  if (mode === 'artnet') {
+    const host = c.artnet?.host ?? '?';
+    const port = c.artnet?.port ?? 6454;
+    if (isLoopbackHost(host)) {
+      text = `art-net to this computer only (${host}:${port}), artnet('node ip') for the rig`;
+    } else if (artnetTargetProblem(host, getConnectorNetworks()) !== null) {
+      text = `art-net ${host}:${port}, which this computer cannot reach: see outputs`;
+    } else {
+      text = `art-net ${host}:${port}`;
+    }
+  }
   else if (mode === 'osc') text = `osc ${c.osc?.host ?? '?'}:${c.osc?.port ?? 9000}`;
   else if (mode === 'sacn') text = `sacn base universe ${c.sacn?.universe ?? 1}`;
   else if (mode === 'mock') text = 'mock (console only)';
   return { text, delivered: out.delivered };
+}
+
+function isLoopbackHost(host: string): boolean {
+  return host === 'localhost' || host === '::1' || host.startsWith('127.');
 }
 
 function setStatus(kind: '' | 'ok' | 'error', msg: string, full?: string): void {
@@ -1365,6 +1391,10 @@ function rebuildSimPanel(): void {
     ? 'no fixtures in this scene'
     : 'nothing running · ctrl+enter to run';
 
+  // Labelled with the names the scene gave its lights where they can be
+  // matched by address, so the sim reads like the code. See declared-lights.ts.
+  const names = lightNamesByAddress(editorView.state.doc.toString());
+
   for (const fix of fixtures) {
     const unit = document.createElement('div');
     unit.className = 'fixture-unit';
@@ -1435,7 +1465,10 @@ function rebuildSimPanel(): void {
 
     const label = document.createElement('span');
     label.className = 'fixture-name';
-    label.textContent = fix.label;
+    const named = names.get(`${fix.universe}:${fix.patchChannel ?? fix.startChannel}`);
+    // An embedded strip keeps the part after the dot: bar · pixels.
+    const part = fix.patchChannel !== undefined ? fix.label.split(' · ').slice(1).join(' · ') : '';
+    label.textContent = named === undefined ? fix.label : part ? `${named} · ${part}` : named;
     unit.appendChild(label);
 
     simContainerEl.appendChild(unit);
@@ -1814,6 +1847,46 @@ function shortFilename(filename: string): string {
   if (dot <= 0) return short(filename);
   const base = filename.slice(0, dot);
   return base.length > 31 ? `${base.slice(0, 30)}…${filename.slice(dot)}` : filename;
+}
+
+// ─── Choosing an output from the panel ──────────────────────────────────────
+
+/** A live output call on a line of its own, trailing comment and all. */
+const OUTPUT_LINE = /^[ \t]*(?:artnet|sacn|osc|mock|usb|td)[ \t]*\(.*\)[ \t]*;?[ \t]*(?:\/\/.*)?$/m;
+
+/**
+ * Write an output call into the scene from the outputs panel.
+ *
+ * The output lives in the code, like everything else a scene does, so the
+ * panel writes the line rather than switching anything behind the scene's
+ * back. It replaces the scene's own output line if there is one, and otherwise
+ * goes in under the comments at the top. It does not run: that is still
+ * ctrl+enter, so nothing reaches the rig until the person says so.
+ */
+function useOutputCode(code: string): void {
+  const doc = editorView.state.doc;
+  const text = doc.toString();
+  const existing = OUTPUT_LINE.exec(text);
+  let from: number;
+  let to: number;
+  let insert: string;
+  if (existing) {
+    from = existing.index;
+    to = existing.index + existing[0].length;
+    insert = code;
+  } else {
+    let line = 1;
+    while (line <= doc.lines && /^\s*\/\//.test(doc.line(line).text)) line++;
+    from = to = line <= doc.lines ? doc.line(line).from : doc.length;
+    insert = `${code}\n`;
+  }
+  editorView.dispatch({
+    changes: { from, to, insert },
+    selection: { anchor: from + code.length },
+    scrollIntoView: true,
+  });
+  editorView.focus();
+  setStatus('', `${code} is in the scene · ctrl+enter to run it`);
 }
 
 // ─── Replacing the buffer ────────────────────────────────────────────────────
@@ -2196,6 +2269,7 @@ _outputsPanel = mountOutputsPanel({
   // Choosing a serial port needs a user gesture, and a click on the panel row
   // is one, so the row can share the top-bar button's handler.
   onUsbRequest: () => { void handleUsbButton(); },
+  onUseCode: useOutputCode,
 });
 
 _panel = mountPanel({

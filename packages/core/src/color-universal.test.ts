@@ -501,6 +501,16 @@ describe('a quoted colour name', () => {
       .toThrow(/"puce" is not a colour/);
   });
 
+  it('tells a group the same thing', () => {
+    define('quoted3', [
+      { offset: 0, name: 'red', type: 'color' },
+      { offset: 1, name: 'green', type: 'color' },
+      { offset: 2, name: 'blue', type: 'color' },
+    ]);
+    const rig = group(fixture(1, 'quoted3'), fixture(4, 'quoted3')) as unknown as { color(s: string): void };
+    expect(() => rig.color('red')).toThrow(/group\.color\(\): colours are written without quotes\. Use red rather than 'red'/);
+  });
+
   it('still sends a slot name to a colour wheel that has one', () => {
     // The branch above this must not swallow the documented wheel call.
     define('wheel', [

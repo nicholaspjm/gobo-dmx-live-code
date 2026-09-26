@@ -10,7 +10,7 @@
  * connector-version.ts for what arrives and what the page does about it.
  */
 
-import { parseConnectorMessage, type ConnectorReport } from './connector-version.js';
+import { parseConnectorMessage, type ConnectorReport, type LocalNetwork } from './connector-version.js';
 
 // The UI reaches this package through its index, which re-exports this file, so
 // the version helpers travel out with it. They are pure and hold no socket;
@@ -22,9 +22,12 @@ export {
   compareVersions,
   connectorAge,
   connectorNotice,
+  onNetwork,
   parseConnectorMessage,
 } from './connector-version.js';
-export type { ConnectorAge, ConnectorHello, ConnectorNotice, ConnectorReport } from './connector-version.js';
+export type {
+  ConnectorAge, ConnectorHello, ConnectorNotice, ConnectorReport, LocalNetwork,
+} from './connector-version.js';
 
 /**
  * Pick the bridge host:
@@ -105,6 +108,7 @@ let _loggedOutage = false;
  */
 let _connectorVersion: string | null = null;
 let _connectorUpdates = false;
+let _connectorNetworks: LocalNetwork[] = [];
 let _connectedAt = 0;
 let _helloTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -169,9 +173,18 @@ function announceConnector(): void {
   for (const fn of _onStatusChange) fn(_connected);
 }
 
+/**
+ * The networks the connector's computer is on, as it said in its hello. Empty
+ * when none is connected, or when it is older than the build that says.
+ */
+export function getConnectorNetworks(): LocalNetwork[] {
+  return _connected ? _connectorNetworks : [];
+}
+
 function forgetConnector(): void {
   _connectorVersion = null;
   _connectorUpdates = false;
+  _connectorNetworks = [];
   if (_helloTimer) {
     clearTimeout(_helloTimer);
     _helloTimer = null;
@@ -234,6 +247,7 @@ export function connectBridge(url = BRIDGE_URL): void {
     if (!msg) return;
     _connectorVersion = msg.version;
     _connectorUpdates = msg.updates;
+    _connectorNetworks = msg.networks;
     if (_helloTimer) {
       clearTimeout(_helloTimer);
       _helloTimer = null;

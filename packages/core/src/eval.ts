@@ -56,6 +56,10 @@ import {
   raiseImpliedDimmers,
   raiseImpliedEmitters,
   setStripEffectWaveforms,
+  findFixtureDef,
+  fixtureCommands,
+  stripCommands,
+  groupCommands,
 } from './fixtures.js';
 import { sendConfig, connectDirect, isBlockedAsMixedContent, isConnected } from './websocket.js';
 import { isUsbConnected, isUsbDmxSupported, setUsbUniverse } from './usb-dmx.js';
@@ -536,7 +540,10 @@ const sandboxOutputBindings: Record<string, unknown> = {
   mock: (): void => stageConfig(mockConfig()),
   td: (host?: string, port?: number): void => stageDirect(host, port),
   usb: (universe?: number): void => requireUsb(universe),
-  setBPM: (value: number): void => stageBPM(value),
+  // A quoted tempo, setBPM('140'), is read as the number it spells rather than
+  // dropped with the other garbage below.
+  setBPM: (value: number | string): void =>
+    stageBPM(typeof value === 'string' && value.trim() !== '' ? Number(value) : value as number),
 };
 
 /**
@@ -687,6 +694,15 @@ export function reservedNameHint(message: string, reserved: Iterable<string>): s
   // uses them for two different things: a light called strobe, and a look
   // called strobe. Neither suggestion fits both, so both are offered.
   const Title = `${name[0].toUpperCase()}${name.slice(1)}`;
+  // A colour is a value rather than something to call, so the advice above
+  // would send someone to write red(…), which fails in its own way.
+  if (name in COLORS) {
+    return (
+      `${message.replace(/\s*$/, '')}. "${name}" is already one of gobo's colours — `
+      + `wash.color(${name}) works in any scene — so this scene cannot declare it as well. `
+      + `Pick another name: my${Title}, or ${name}Level for a slider.`
+    );
+  }
   return (
     `${message.replace(/\s*$/, '')}. "${name}" is already one of gobo's own — you can call `
     + `${name}(…) in any scene — so this scene cannot declare it as well. Pick another name: `
@@ -1042,8 +1058,16 @@ const METHOD_HINTS: Record<string, string> = {
  * copy of it, so a function added to a scene's vocabulary is covered here the
  * day it is added.
  */
-export function methodHint(message: string, globals: Iterable<string>): string {
-  const m = /^(\w+)\.(\w+) is not a function$/.exec(message);
+export function methodHint(message: string, globals: Iterable<string>, methods: Iterable<string> = []): string {
+  // A name that is nothing at all, which under pressure is nearly always a
+  // typo: `sinee()` rather than `sine()`.
+  const undefinedName = /^(\w+) is not defined$/.exec(message);
+  if (undefinedName) {
+    const near = nearestName(undefinedName[1], globals);
+    return near ? `${message}. Did you mean ${near}?` : message;
+  }
+
+  const m = /^(.+)\.(\w+) is not a function$/.exec(message);
   if (!m) return message;
   const [, receiver, method] = m;
 
@@ -1078,11 +1102,97 @@ export function methodHint(message: string, globals: Iterable<string>): string {
       + `It is a value, so it goes inside a setter: ${where}.`
     );
   }
+
+  // Last, because every answer above is more specific than a spelling.
+  const near = nearestName(method, methods);
+  if (near) return `${message}. Did you mean ${receiver}.${near}(…)?`;
   return message;
 }
 
-export function locatedError(err: unknown, code: string, globals: Iterable<string> = []): string {
-  const message = methodHint(errorMessage(err), globals);
+/**
+ * The closest of `candidates` to a name that was mistyped, or null.
+ *
+ * Deliberately strict: one edit for a short name and two for a longer one, and
+ * a change of case counts as none. A guess that is wrong sends someone
+ * mid-set to the wrong function, which is worse than the plain message.
+ */
+export function nearestName(word: string, candidates: Iterable<string>): string | null {
+  const w = word.toLowerCase();
+  const limit = w.length <= 4 ? 1 : 2;
+  let best: string | null = null;
+  let bestDistance = limit + 1;
+  for (const c of candidates) {
+    if (c === word) continue;
+    const d = editDistance(w, c.toLowerCase(), bestDistance);
+    if (d < bestDistance) {
+      best = c;
+      bestDistance = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * Edit distance, giving up once it reaches `cap`. Two swapped letters count as
+ * one edit, because `slwo` is one slip of the fingers, not two.
+ */
+function editDistance(a: string, b: string, cap: number): number {
+  if (Math.abs(a.length - b.length) >= cap) return cap;
+  let before: number[] = [];
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let rowMin = i;
+    for (let j = 1; j <= b.length; j++) {
+      let v = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, before[j - 2] + 1);
+      row.push(v);
+      if (v < rowMin) rowMin = v;
+    }
+    if (rowMin >= cap) return cap;
+    before = prev;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+/**
+ * Every method name a scene can call on something: the pattern engine's, and
+ * each light's, including fixtures the scene defined itself. Read at the moment
+ * of the error, so a defineFixture() from this run is already in it.
+ */
+function knownMethodNames(): Set<string> {
+  const names = new Set<string>();
+  const add = (command: string): void => {
+    const name = /(\w+)(?:\(|$)/.exec(command)?.[1];
+    if (name) names.add(name);
+  };
+  if (_patternProto) {
+    for (const key of Object.getOwnPropertyNames(_patternProto)) {
+      if (key.startsWith('_') || key === 'constructor') continue;
+      try {
+        if (typeof _patternProto[key] === 'function') names.add(key);
+      } catch {
+        // A getter that throws on the bare prototype is not a method anyway.
+      }
+    }
+  }
+  for (const id of listFixtures()) {
+    const def = findFixtureDef(id);
+    if (def) fixtureCommands(def).forEach(add);
+  }
+  stripCommands('rgbw').forEach(add);
+  groupCommands().forEach(add);
+  return names;
+}
+
+export function locatedError(
+  err: unknown,
+  code: string,
+  globals: Iterable<string> = [],
+  methods: Iterable<string> = [],
+): string {
+  const message = methodHint(errorMessage(err), globals, methods);
   const line = sceneLine(err, code);
   return line === null ? message : `line ${line}: ${message}`;
 }
@@ -1236,7 +1346,7 @@ export function evalCode(code: string): EvalResult {
     impliedColour = raiseImpliedEmitters();
     result = { success: true };
   } catch (err) {
-    result = { success: false, error: locatedError(err, code, keys) };
+    result = { success: false, error: locatedError(err, code, keys, knownMethodNames()) };
   } finally {
     // Release ownership before anything else in this block, on both paths. A
     // stranded _activeBuffer would buffer every later artnet()/setBPM(), from

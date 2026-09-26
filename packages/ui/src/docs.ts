@@ -643,7 +643,7 @@ const DOCS: DocSection[] = [
         description:
           'min and max set the range, step quantises it (omit for continuous), and start is the opening position. A slider feeds a channel directly; it is a pattern, not a number, so it cannot be used as an argument to .fast() or arithmetic. Two sliders sharing a name throw, because they would share one position and fight over it.',
         example:
-          "const level = slider('level', 0, 1, { step: 0.05, start: 0.3 })\nspot.dim(level)\n\nconst amber = slider('amber')\nwash.white(amber)",
+          "const level = slider('level', 0, 1, { step: 0.05, start: 0.3 })\nspot.dim(level)\n\nconst warmth = slider('warmth')\nwash.white(warmth)",
       },
       {
         name: 'positions are kept',

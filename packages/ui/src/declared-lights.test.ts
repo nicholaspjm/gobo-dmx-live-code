@@ -15,6 +15,7 @@ import {
   lightNames,
   describeLight,
   formatChannelMap,
+  lightNamesByAddress,
 } from './declared-lights.js';
 
 describe('findLights', () => {
@@ -275,5 +276,28 @@ describe('the channel map', () => {
     expect(only('const s = rgbStrip(1, 12, 0, { columns: 4 })').channels).toEqual([]);
     expect(only('const room = screen(9)').channels).toEqual([]);
     expect(only('const rig = group(a, b)').channels).toEqual([]);
+  });
+});
+
+describe('lightNamesByAddress', () => {
+  it('keys each named light by where it is patched', () => {
+    const names = lightNamesByAddress([
+      "const wash = fixture(1, 'rgb')",
+      "const key = fixture(5, 'dim-rgbw', 1)",
+      'const strip = rgbStrip(7, 10)',
+    ].join('\n'));
+    expect(names.get('0:1')).toBe('wash');
+    expect(names.get('1:5')).toBe('key');
+    expect(names.get('0:7')).toBe('strip');
+  });
+
+  it('leaves out an address it cannot read, and one claimed twice', () => {
+    const names = lightNamesByAddress([
+      "const a = fixture(start, 'rgb')",
+      "const b = fixture(10, 'rgb')",
+      "const c = fixture(10, 'rgb')",
+      'const rig = group(b, c)',
+    ].join('\n'));
+    expect(names.size).toBe(0);
   });
 });
