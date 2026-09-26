@@ -263,6 +263,9 @@ export function uni(universe: number, channel: number, ...args: [PatternOrValue?
   const held = target.get(k);
   if (held !== undefined && !Object.is(held.value, value)) noteOverwrite(universe, channel);
   target.set(k, { universe, channel, value });
+  // A direct write is a colour (or a level) in its own right: whatever a level
+  // was scaling here before is gone. See levelOnColour.
+  _levelBase.delete(k);
 }
 
 // ─── A level on a colour ─────────────────────────────────────────────────────
@@ -306,6 +309,15 @@ export function scaledBy(held: PatternOrValue, level: PatternOrValue): PatternOr
  * to each (a white level, as before). Not counted as setting them twice: it
  * is one light's colour and intensity, not two looks fighting.
  */
+/**
+ * For each channel levelOnColour() has written in the scene being built: the
+ * colour it scaled, or null where it wrote a plain level. A second level on
+ * the same channels re-scales that colour rather than the first level, so it
+ * replaces the first the way a second write always has, instead of
+ * multiplying with it. Cleared when a scene or a captured look begins.
+ */
+const _levelBase = new Map<string, PatternOrValue | null>();
+
 export function levelOnColour(
   universe: number,
   channels: readonly number[],
@@ -315,14 +327,24 @@ export function levelOnColour(
   fill = channels.length,
 ): void {
   const target = _capture ?? _staging ?? _defs;
-  const held = channels.map((c) => target.get(key(universe, c))?.value);
-  if (held.every((h) => h === undefined)) {
-    channels.forEach((c, i) => uni(universe, c, i < fill ? value : 0));
+  // The colour under each channel: what a previous level scaled, if one did,
+  // or else what was written there directly.
+  const bases = channels.map((c) => {
+    const k = key(universe, c);
+    return _levelBase.has(k) ? _levelBase.get(k) : target.get(k)?.value;
+  });
+  if (bases.every((b) => b === undefined || b === null)) {
+    channels.forEach((c, i) => {
+      uni(universe, c, i < fill ? value : 0);
+      _levelBase.set(key(universe, c), null);
+    });
     return;
   }
   channels.forEach((c, i) => {
-    const h = held[i];
-    target.set(key(universe, c), { universe, channel: c, value: h === undefined ? 0 : scaledBy(h, value) });
+    const b = bases[i] ?? 0;
+    const k = key(universe, c);
+    target.set(k, { universe, channel: c, value: b === 0 ? 0 : scaledBy(b, value) });
+    _levelBase.set(k, b);
   });
 }
 
@@ -437,12 +459,14 @@ let _capture: Map<string, ChannelDef> | null = null;
 /** Send subsequent uni() writes to a map of their own. */
 export function beginCapture(): void {
   _capture = new Map();
+  _levelBase.clear();
 }
 
 /** Stop capturing and hand back what was written. */
 export function endCapture(): Map<string, ChannelDef> {
   const held = _capture ?? new Map<string, ChannelDef>();
   _capture = null;
+  _levelBase.clear();
   return held;
 }
 
@@ -455,6 +479,7 @@ export function endCapture(): Map<string, ChannelDef> {
  */
 export function abortCapture(): void {
   _capture = null;
+  _levelBase.clear();
 }
 
 /** The channel key for a def, so callers can merge maps without rebuilding it. */
@@ -479,6 +504,7 @@ export function channelKey(universe: number, channel: number): string {
 /** Buffer subsequent uni() writes into a scratch scene instead of the live one. */
 export function beginStaging(): void {
   _staging = new Map();
+  _levelBase.clear();
   // Collisions belong to the run being built, not to the one before it.
   _overwritten.clear();
 }

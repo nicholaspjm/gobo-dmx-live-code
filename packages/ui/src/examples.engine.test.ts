@@ -222,6 +222,18 @@ describe('a level over a colour', () => {
     expect(core.getUniverseBuffer(0)[2]).toBeLessThan(20);   // amber stays amber, just dimmer
   });
 
+  it('a second level replaces the first, over the same colour', () => {
+    run("const s = rgbStrip(1, 1)\ns.color(red)\ns.each(0.5)\ns.each(0.5)");
+    core.tick(0.1);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 3))).toEqual([128, 0, 0]);
+  });
+
+  it('a second level replaces a plain one too', () => {
+    run("const s = rgbStrip(1, 1)\ns.each(0.25)\ns.each(0.5)");
+    core.tick(0.1);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 3))).toEqual([128, 128, 128]);
+  });
+
   it('is white when no colour was set', () => {
     run("const s = rgbStrip(1, 1)\ns.each(0.5)");
     core.tick(0.1);
