@@ -171,6 +171,57 @@ function miniEdits(source: string): Edit[] {
   }));
 }
 
+/**
+ * Setters whose one argument is a level or a colour, where a quoted string is
+ * mini-notation (string-patterns.ts in core). Only these: a method that takes
+ * a plain name, .viz('strip') or .slots('color'), must be handed its string
+ * untouched, so this is a list of what is known to take a pattern rather than
+ * a guess at what does not.
+ */
+const PATTERN_SETTERS = [
+  'dim', 'red', 'green', 'blue', 'white', 'amber', 'uv', 'lime', 'cyan', 'color', 'mono', 'strobe',
+  'fill', 'pan', 'tilt', 'zoom', 'focus', 'speed', 'direction', 'struct', 'mask', 'velocity', 'gain',
+  'across', 'each',
+];
+const SETTER_WITH_STRING = new RegExp(`\\.(${PATTERN_SETTERS.join('|')})\\s*\\(`, 'g');
+
+/**
+ * `wash.dim('1 - 1 -')` becomes `wash.dim(m('1 - 1 -', offsetOfTheQuote))`, so
+ * a bare string gets the same live outline as mini('…'). Same rules as a mini
+ * call: one argument, a plain literal, no escapes.
+ */
+function setterStringEdits(source: string): Edit[] {
+  let stripped: string;
+  try {
+    stripped = stripNonCode(source).join('\n');
+  } catch {
+    return [];
+  }
+  const edits: Edit[] = [];
+  for (const match of stripped.matchAll(SETTER_WITH_STRING)) {
+    const open = (match.index ?? 0) + match[0].length - 1;
+    let i = open + 1;
+    while (i < source.length && (source[i] === ' ' || source[i] === '\t')) i++;
+    const q = source[i];
+    if (q !== "'" && q !== '"') continue;
+    const quote = i;
+    i++;
+    let closed = -1;
+    while (i < source.length) {
+      const c = source[i];
+      if (c === '\\' || c === '\n') break;
+      if (c === q) { closed = i; break; }
+      i++;
+    }
+    if (closed === -1) continue;
+    let j = closed + 1;
+    while (j < source.length && (source[j] === ' ' || source[j] === '\t')) j++;
+    if (source[j] !== ')') continue;
+    edits.push({ from: quote, to: closed + 1, text: `m(${source.slice(quote, closed + 1)}, ${quote})` });
+  }
+  return edits;
+}
+
 /** The pattern-level viz methods, which take no arguments of their own. */
 const VIZ_METHODS = new RegExp(`\\.(${PATTERN_VIZ_METHOD_NAMES.join('|')})\\s*\\(\\s*\\)`, 'g');
 
@@ -215,5 +266,5 @@ function vizEdits(source: string): Edit[] {
  * already shifted.
  */
 export function tagLocations(source: string): Rewritten {
-  return applyEdits(source, [...miniEdits(source), ...vizEdits(source)]);
+  return applyEdits(source, [...miniEdits(source), ...setterStringEdits(source), ...vizEdits(source)]);
 }

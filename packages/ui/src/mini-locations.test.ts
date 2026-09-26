@@ -93,3 +93,20 @@ describe("strudel's names for the inline visuals", () => {
     expect(out).toContain(`._scope(${src.indexOf('._scope')})`);
   });
 });
+
+describe('a bare string handed to a setter', () => {
+  it('is tagged like a mini call, so it gets the live outline', () => {
+    const src = "wash.dim('1 - 1 -')";
+    expect(tagLocations(src).code).toBe(`wash.dim(m('1 - 1 -', ${src.indexOf("'")}))`);
+  });
+
+  it('leaves a string that is a name, not a pattern, alone', () => {
+    const src = "wash.viz('color')\nhead.slots('color')\nconst w = fixture(1, 'rgb')";
+    expect(tagLocations(src).code).toBe(src);
+  });
+
+  it('leaves a call with more than the string in it alone', () => {
+    const src = "wash.set('dim', 0.5)";
+    expect(tagLocations(src).code).toBe(src);
+  });
+});

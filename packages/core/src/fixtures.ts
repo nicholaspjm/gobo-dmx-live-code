@@ -29,6 +29,7 @@ import {
   type PatternLike,
 } from './dmx.js';
 import { validateFixture } from './fixture-validator.js';
+import { stringPattern } from './string-patterns.js';
 import {
   kelvinToColor,
   readColor,
@@ -3543,6 +3544,11 @@ export type EachArg<R> = PatternLike | ((phase: number, i: number, count: number
  */
 function eachFunction<R>(arg: EachArg<R>, spread: number | undefined): (phase: number, i: number, count: number) => R {
   if (typeof arg === 'function') return arg;
+  // A quoted string is mini-notation, as everywhere a pattern is taken.
+  if (typeof arg === 'string') {
+    const parsed = stringPattern(arg, '.each()');
+    if (parsed !== null) arg = parsed as unknown as EachArg<R>;
+  }
   const pattern = arg as unknown as { early?: (t: number) => R };
   // A level or a colour is the same for every light, which is allowed: it is
   // what the group's own setters do, and each(0.5) reads as it should.
