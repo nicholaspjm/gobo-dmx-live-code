@@ -233,7 +233,7 @@ await sleep(3200);
 const target = await rectOf(`(() => {
   const walker = document.createTreeWalker(document.querySelector('.cm-content'), NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-    const i = n.textContent.indexOf('color(amber)');
+    const i = n.textContent.indexOf('amber');
     if (i === -1) continue;
     const line = n.parentElement.closest('.cm-line');
     const range = document.createRange();
@@ -256,7 +256,11 @@ await sleep(250);
 // Typed as a person would, closing brackets and all: the editor's own
 // bracket-closing steps over the ones typed after it.
 await type(EDIT_TO, 85);
-await sleep(700);
+await sleep(500);
+// A colour name leaves the completion list open; close it before the run so
+// the picture is of the code, not of the popup.
+await key('Escape', 'Escape', 27);
+await sleep(300);
 await key('Enter', 'Enter', 13, 2);
 await sleep(300);
 console.log(`[record] after the edit: ${await status()}`);
