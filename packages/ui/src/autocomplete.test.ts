@@ -22,7 +22,7 @@ import { keymap, type KeyBinding, type EditorView } from '@codemirror/view';
 import { acceptCompletion } from '@codemirror/autocomplete';
 import { indentWithTab } from '@codemirror/commands';
 import { defineFixture } from '@gobo/core/fixtures';
-import { goboAutocomplete, methodsAfter, rankFor } from './autocomplete.js';
+import { fixtureIdOptions, goboAutocomplete, methodsAfter, rankFor } from './autocomplete.js';
 
 /** Labels in the order they would be offered, best first. */
 function order(labels: string[], typed: string): string[] {
@@ -314,5 +314,14 @@ describe('what has been typed outranks what the light happens to have', () => {
   it('still leads with the light\'s verbs when nothing has been typed', () => {
     const first = offered(WASH, 'wash', '').slice(0, 6);
     expect(first).toContain('color');
+  });
+});
+
+describe('the kind of light inside fixture()', () => {
+  it('offers every registered fixture, with its size', () => {
+    const options = fixtureIdOptions();
+    const rgb = options.find((o) => o.label === 'rgb');
+    expect(rgb?.detail).toBe('3 ch');
+    expect(options.some((o) => o.label === 'moving-head-spot')).toBe(true);
   });
 });

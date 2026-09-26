@@ -34,6 +34,9 @@ import { syntaxTree } from '@codemirror/language';
 import { HELP_ENTRIES, type HelpEntry } from './help-data.js';
 import { findFunctions, functionSignature } from './declared-functions.js';
 import { describeLight, findLight, findLights } from './declared-lights.js';
+// The fixtures module on its own, as declared-lights.ts does: the package index
+// also carries the bridge client, which reads `window` at import time.
+import { findFixtureDef, listFixtures } from '@gobo/core/fixtures';
 
 // ─── Completion pools ────────────────────────────────────────────────────────
 // Derived from the shared help index so signatures/examples are authored once
@@ -273,7 +276,34 @@ export function methodsAfter(doc: string, receiver: string, typed: string): Comp
 
 // ─── Completion source ───────────────────────────────────────────────────────
 
+/**
+ * The kind of light, inside the quotes of fixture(1, '…').
+ *
+ * The one string in a scene whose every legal value is known, and the one
+ * that has to be spelled exactly: par-rgbw-7ch is not something to type from
+ * memory. Offers every fixture registered right now, built-in, public, saved
+ * and defined by the last run, with its full name and size beside it.
+ */
+export function fixtureIdOptions(): Completion[] {
+  return listFixtures().map((id) => {
+    const def = findFixtureDef(id);
+    return {
+      label: id,
+      type: 'enum',
+      detail: def ? `${def.channelCount} ch` : undefined,
+      info: def?.name,
+    };
+  });
+}
+
 function goboCompletions(context: CompletionContext): CompletionResult | null {
+  // Case 0: the second argument of fixture(), the one string worth completing.
+  const idMatch = context.matchBefore(/\bfixture\s*\(\s*[^,()'"`]*,\s*['"`][\w.-]*$/);
+  if (idMatch) {
+    const quote = idMatch.text.search(/['"`][\w.-]*$/);
+    return { from: idMatch.from + quote + 1, options: fixtureIdOptions(), validFor: /^[\w.-]*$/ };
+  }
+
   // Skip inside strings and comments. Typing "re" in a comment shouldn't
   // pop the whole API up.
   const tree = syntaxTree(context.state);

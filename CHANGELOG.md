@@ -15,6 +15,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   channel the scene is not already using, names never clash with the scene's
   own or with gobo's, and the lines are shown before they go in. It writes
   code and nothing else: ctrl+enter still runs it.
+- **Autocomplete for the kind of light** inside `fixture(1, '…')`: every fixture
+  gobo knows, with its size, so `par-rgbw-7ch` is picked rather than spelled.
+- **A word in a pattern where a level belongs is reported.** `mini('1 x 1')`, or
+  a colour name in a pattern handed to `.dim()`, left that step dark with
+  nothing said; the status bar now names the word and the channel.
 - **The desktop app says when a newer gobo is out.** It asks GitHub at most
   twice a day, and when there is a newer release it puts one link in the top
   bar, "0.5.4 is out", that opens the download page. It never downloads or
