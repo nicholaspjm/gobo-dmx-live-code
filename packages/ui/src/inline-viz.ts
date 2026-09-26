@@ -65,6 +65,7 @@ import {
   type PatternVizKind,
 } from '@gobo/core';
 import { stripNonCode, findCalls } from './source-scan.js';
+import { PATTERN_VIZ_METHOD_NAMES, patternVizKindOf } from '@gobo/core/pattern-viz';
 import { declaredLines } from './control-placement.js';
 import { openColorWheel, type ColorWheel } from './color-wheel.js';
 
@@ -1151,7 +1152,7 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   // editor, which has no offsets and wants none.
   _patternVizEntries.clear();
   const patEntries = getPatternVizEntries();
-  const patHits = findCalls(code, /\.(flash|glow|wave|roll|punchcard|spiral|spectrum)\s*\(/g);
+  const patHits = findCalls(code, new RegExp(`\\.(${PATTERN_VIZ_METHOD_NAMES.join('|')})\\s*\\(`, 'g'));
 
   // Untagged entries fall back to the zip, and must not consume a hit that a
   // tagged one would have wanted, so they walk the hits separately.
@@ -1166,7 +1167,7 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
       if (hit === undefined) continue;
       // Skip if the source kind and the registered kind disagree; that is
       // usually an identifier collision, not a real chain call.
-      if ((hit.match[1] as PatternVizKind) !== coreEntry.kind) continue;
+      if (patternVizKindOf(hit.match[1]) !== coreEntry.kind) continue;
       line = hit.line;
     }
     const lineObj = doc.line(line);

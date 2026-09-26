@@ -23,6 +23,8 @@
  */
 
 import { stripNonCode } from './source-scan.js';
+// The module on its own: the package index reads `window` at import time.
+import { PATTERN_VIZ_METHOD_NAMES } from '@gobo/core/pattern-viz';
 
 /** What a rewrite produced, or the original when nothing was touched. */
 export interface Rewritten {
@@ -170,7 +172,7 @@ function miniEdits(source: string): Edit[] {
 }
 
 /** The pattern-level viz methods, which take no arguments of their own. */
-const VIZ_METHODS = /\.(flash|glow|wave|roll|punchcard|spiral|spectrum)\s*\(\s*\)/g;
+const VIZ_METHODS = new RegExp(`\\.(${PATTERN_VIZ_METHOD_NAMES.join('|')})\\s*\\(\\s*\\)`, 'g');
 
 /**
  * `.glow()` becomes `.glow(offsetOfTheDot)`.

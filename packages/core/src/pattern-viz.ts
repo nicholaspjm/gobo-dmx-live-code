@@ -40,6 +40,35 @@ import type { PatternLike } from './dmx.js';
 export type PatternVizKind =
   | 'flash' | 'glow' | 'wave' | 'roll' | 'punchcard' | 'spiral' | 'spectrum';
 
+export const PATTERN_VIZ_KINDS: readonly PatternVizKind[] =
+  ['flash', 'glow', 'wave', 'roll', 'punchcard', 'spiral', 'spectrum'];
+
+/**
+ * Strudel's names for the same inline visuals, so a pattern pasted from its
+ * docs decorates rather than throwing. Strudel prefixes the inline forms with
+ * an underscore (._pianoroll()), and its pianoroll and scope are gobo's roll
+ * and wave. Each registers as the kind on the right.
+ */
+export const PATTERN_VIZ_ALIASES: Readonly<Record<string, PatternVizKind>> = {
+  pianoroll: 'roll',
+  _pianoroll: 'roll',
+  scope: 'wave',
+  _scope: 'wave',
+  _punchcard: 'punchcard',
+  _spiral: 'spiral',
+  _spectrum: 'spectrum',
+};
+
+/** The kind a viz method name registers as, or null if it is not one. */
+export function patternVizKindOf(name: string): PatternVizKind | null {
+  if ((PATTERN_VIZ_KINDS as readonly string[]).includes(name)) return name as PatternVizKind;
+  return PATTERN_VIZ_ALIASES[name] ?? null;
+}
+
+/** Every method name that registers a pattern viz, for source scanners. */
+export const PATTERN_VIZ_METHOD_NAMES: readonly string[] =
+  [...PATTERN_VIZ_KINDS, ...Object.keys(PATTERN_VIZ_ALIASES)];
+
 export interface PatternVizEntry {
   /** The pattern whose current value drives the decoration. */
   pattern: PatternLike;

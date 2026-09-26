@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { tagMiniLocations } from './mini-locations.js';
+import { tagLocations, tagMiniLocations } from './mini-locations.js';
 
 describe('tagMiniLocations', () => {
   it('renames the call, because mini() has no offset parameter', () => {
@@ -83,5 +83,13 @@ describe('tagMiniLocations', () => {
   it('changes nothing in a scene with no mini at all', () => {
     const src = "const wash = fixture(1, 'rgb')\nwash.color(red)";
     expect(tagMiniLocations(src)).toEqual({ code: src, tagged: 0 });
+  });
+});
+
+describe("strudel's names for the inline visuals", () => {
+  it('tags them with their offset the same way', () => {
+    const src = "wash.dim(sine._pianoroll())";
+    const out = tagLocations(src).code;
+    expect(out).toContain(`._pianoroll(${src.indexOf('._pianoroll')})`);
   });
 });

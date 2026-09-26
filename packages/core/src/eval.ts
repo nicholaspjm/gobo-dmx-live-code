@@ -64,7 +64,12 @@ import {
 import { sendConfig, connectDirect, isBlockedAsMixedContent, isConnected } from './websocket.js';
 import { isUsbConnected, isUsbDmxSupported, setUsbUniverse } from './usb-dmx.js';
 import { midiCC } from './midi-in.js';
-import { clearPatternVizRegistry, registerPatternViz } from './pattern-viz.js';
+import {
+  clearPatternVizRegistry,
+  registerPatternViz,
+  PATTERN_VIZ_METHOD_NAMES,
+  patternVizKindOf,
+} from './pattern-viz.js';
 import { registerCues, getSelectedCue } from './cues.js';
 import { screen, clearScreens } from './screen.js';
 import { slider, pick, clearControls, clearPickers } from './controls.js';
@@ -309,13 +314,17 @@ export async function initStrudel(): Promise<void> {
         // Each returns the pattern unchanged, so a decoration never alters
         // what reaches the wire and any number of them can be chained: two
         // calls put two widgets on the line.
-        for (const kind of ['flash', 'glow', 'wave', 'roll', 'punchcard', 'spiral', 'spectrum'] as const) {
+        for (const name of PATTERN_VIZ_METHOD_NAMES) {
+          const kind = patternVizKindOf(name);
+          if (kind === null) continue;
           // The optional argument is a source offset the editor writes in on
           // the way to eval, so a widget can be placed on the line the call
           // was written on rather than by counting call sites. Nothing else
           // passes it, and an absent one is not an error: the UI falls back to
           // counting. See pattern-viz.ts.
-          proto[kind] = function (this: PatternLike, at?: number) {
+          // Strudel's aliases can be handed an options object, which is read
+          // as no offset and otherwise ignored.
+          proto[name] = function (this: PatternLike, at?: number) {
             registerPatternViz(this, kind, typeof at === 'number' ? at : undefined);
             return this;
           };
