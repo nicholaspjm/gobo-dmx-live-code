@@ -222,7 +222,7 @@ describe('looks and mutes', () => {
   it('cue() above its looks says to move it below them', () => {
     const r = core.evalCode("const w = fixture(1, 'dim')\ncue(verse)\nverse: {\n  w.dim(1)\n}");
     expect(r.error).toMatch(/^line 2: /);
-    expect(r.error).toContain('move this line below');
+    expect(r.error).toContain('move this line below the verse: { … } block');
   });
 
   it('a regular expression in a look does not end it early', () => {

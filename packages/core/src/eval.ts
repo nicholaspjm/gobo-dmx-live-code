@@ -1328,7 +1328,12 @@ const MUSIC_NAMES: Record<string, string> = {
  * copy of it, so a function added to a scene's vocabulary is covered here the
  * day it is added.
  */
-export function methodHint(message: string, globals: Iterable<string>, methods: Iterable<string> = []): string {
+export function methodHint(
+  message: string,
+  globals: Iterable<string>,
+  methods: Iterable<string> = [],
+  looks: Iterable<string> = [],
+): string {
   // A name that is nothing at all, which under pressure is nearly always a
   // typo: `sinee()` rather than `sine()`.
   const undefinedName = /^(\w+) is not defined$/.exec(message);
@@ -1344,10 +1349,8 @@ export function methodHint(message: string, globals: Iterable<string>, methods: 
   const early = /^Cannot access '([\w$]+)' before initialization$/.exec(message);
   if (early) {
     const name = early[1];
-    return (
-      `${message}. ${name} is used above the line that makes it: move this line below `
-      + `${name}: { … } (or const ${name} = …), since a scene runs top to bottom.`
-    );
+    const where = new Set(looks).has(name) ? `the ${name}: { … } block` : `const ${name} = …`;
+    return `${message}. ${name} is used above the line that makes it: move this line below ${where}, since a scene runs top to bottom.`;
   }
 
   const m = /^(.+)\.(\w+) is not a function$/.exec(message);
@@ -1493,7 +1496,13 @@ export function locatedError(
   globals: Iterable<string> = [],
   methods: Iterable<string> = [],
 ): string {
-  const message = methodHint(errorMessage(err), globals, methods);
+  let looks: string[] = [];
+  try {
+    looks = rewriteLooks(code).looks;
+  } catch {
+    // The hint is worth less than the error it is attached to.
+  }
+  const message = methodHint(errorMessage(err), globals, methods, looks);
   const line = sceneLine(err, code);
   return line === null ? message : `line ${line}: ${message}`;
 }

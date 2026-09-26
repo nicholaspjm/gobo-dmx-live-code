@@ -196,9 +196,10 @@ describe('a method a light does not have', () => {
   });
 
   it('answers a name used above the line that makes it', () => {
-    const error = hint("Cannot access 'verse' before initialization");
-    expect(error).toContain('move this line below');
-    expect(error).toContain('verse: {');
+    const plain = hint("Cannot access 'wash' before initialization");
+    expect(plain).toContain('move this line below const wash = …');
+    const look = methodHint("Cannot access 'verse' before initialization", GLOBALS, [], ['verse']);
+    expect(look).toContain('move this line below the verse: { … } block');
   });
 
   it('answers .white on an rgb strip', () => {
