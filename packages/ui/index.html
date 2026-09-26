@@ -1062,6 +1062,14 @@
         gap: 6px;
       }
 
+      /* With no border on the buttons, keyboard focus needs a mark of its
+         own. focus-visible, so a mouse click does not leave a ring behind. */
+      button:focus-visible {
+        outline: 1px solid var(--accent2);
+        outline-offset: 2px;
+        border-radius: 3px;
+      }
+
       .scene-action {
         background: transparent;
         border: 1px solid transparent;
