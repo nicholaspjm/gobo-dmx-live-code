@@ -154,7 +154,7 @@ strb.strobe(mini(\`
 \`).slow(2).flash())
 
 // ── waveforms · sine cosine square saw rand, chained left to right ─
-// swap one of these in for the strip.each line below: it sets red too
+// swap one of these in for the two strip lines below
 // strip.red(sine.slow(4).segment(8))               // stepped
 // strip.red(sine.slow(8).rangex(0.01, 1))          // a fade the eye sees evenly
 // strip.red(sine.slow(4).range(1, 0))              // inverted
@@ -175,7 +175,8 @@ strb.strobe(mini(\`
 // strip.red(mini('1 1 1 1').settle(0.25))          // a flash per beat
 
 // ── per-pixel · .each(pattern): every pixel runs it, a step later ───
-strip.each(cosine.slow(2).range(-8, 1))
+strip.color(blue)
+strip.each(cosine.slow(2).range(-8, 1))           // the wave runs over the colour
 
 bar.pixels.rainbowChase()                         // colour along the pixels, prebuilt
 // bar.pixels.pixelGrid([[1,0,0,0], [0,0,1,0]]).repeat() // red/blue tile
