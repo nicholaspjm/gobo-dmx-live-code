@@ -40,9 +40,26 @@ let _entries: ControlEntry[] = [];
  */
 const _values = new Map<string, number>();
 
+/**
+ * Builds a live pattern from a reader, once the pattern engine has loaded:
+ * strudel's own signal(), so a slider is a pattern like any other and
+ * .range(), .mul() and a slider passed to .fast() all work. Without it (a
+ * headless test) a slider is a bare value source, which is all a channel needs.
+ */
+let _live: ((read: () => number) => PatternLike) | null = null;
+
+/** Called by eval.ts once strudel is ready. */
+export function setLiveSource(make: ((read: () => number) => PatternLike) | null): void {
+  _live = make;
+}
+
+/** How many sliders this run has declared strudel's way, for their names. */
+let _unnamed = 0;
+
 /** Forget the declarations. Values are kept. Called before each run. */
 export function clearControls(): void {
   _entries = [];
+  _unnamed = 0;
 }
 
 /** The controls the current scene declared, in the order it declared them. */
@@ -88,11 +105,23 @@ export function resetControls(): void {
  *   strb.strobe(mini('1*16').fast(rate))
  */
 export function slider(
-  name: string,
-  min = 0,
-  max = 1,
-  opts: { start?: number; step?: number } = {},
+  name: string | number,
+  min: number = 0,
+  max: number = 1,
+  opts: { start?: number; step?: number } | number = {},
 ): PatternLike {
+  // Strudel's form: slider(value, min, max, step), with no name. It is named
+  // by its place among the scene's unnamed sliders, "slider 1", "slider 2",
+  // which is also how the editor finds the line to put its handle on.
+  if (typeof name === 'number') {
+    const value = name;
+    const lo = arguments.length > 1 ? min : 0;
+    const hi = arguments.length > 2 ? max : 1;
+    const step = typeof opts === 'number' ? opts : 0;
+    _unnamed++;
+    return slider(`slider ${_unnamed}`, lo, hi, { start: value, step });
+  }
+  if (typeof opts === 'number') opts = { step: opts };
   checkOptions(opts as Record<string, unknown>, ['start', 'step'], 'slider()');
   if (typeof name !== 'string' || name.trim() === '') {
     throw new Error('slider: needs a name, which labels it and stores its position');
@@ -120,12 +149,14 @@ export function slider(
   // First sighting sets the position; later runs leave a moved control alone.
   if (!_values.has(name)) _values.set(name, initial);
 
+  // Read at query time, which is what makes dragging immediate: the tick
+  // asks for the value 60 times a second and gets whatever the handle is at
+  // right now.
+  const read = (): number => _values.get(name) ?? initial;
+  if (_live !== null) return _live(read);
   return {
-    // Read at query time, which is what makes dragging immediate: the tick
-    // asks for the value 60 times a second and gets whatever the handle is
-    // at right now.
     queryArc() {
-      return [{ value: _values.get(name) ?? initial }];
+      return [{ value: read() }];
     },
   };
 }

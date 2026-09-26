@@ -1056,10 +1056,10 @@ spot.white(mini('1 - - -').punch())`,
   },
   {
     label: 'slider',
-    signature: 'slider(name, min?, max?, opts?)',
+    signature: 'slider(value, min, max, step) · slider(name, min, max)',
     description:
-      'A value with a draggable handle at this point in the source. Moving it changes the light immediately, with nothing re-evaluated, and the position survives a re-run.',
-    example: "const level = slider('level')\nwash.dim(level)",
+      "A fader in the code: a draggable handle at this point in the source. Moving it changes the light immediately, with nothing re-evaluated, and the position survives a re-run. Written strudel's way, slider(0.5), it starts at that value; given a name first, the name labels it and keeps its position however the code around it moves. It is a pattern, so it chains and can be handed to a method: .range(), .mul(), .fast(slider(1, 1, 8)).",
+    example: "wash.dim(sine.slow(2).mul(slider(0.8)))           // a master on the wave\nstrb.dim(mini('1*4').fast(slider(1, 1, 8, 1)))     // strobe rate on a fader\nconst level = slider('level')",
     context: 'command',
     kind: 'function',
   },

@@ -22,6 +22,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   `.across(rand)` scatters. It is strudel's stereo `.pan()` with the lights as
   the speakers, and a pasted `.pan()` does the same (on a moving head, `.pan()`
   is still the head's pan channel).
+- **Sliders are patterns, and take strudel's form.** `slider(0.8)` starts a
+  fader at 0.8 (min, max and step can follow), named "slider 1", "slider 2" in
+  order, with its handle on its own line. Named sliders still work. Either
+  kind now chains (`.range()`, `.mul()`) and can be handed to a method, so
+  `.fast(slider(1, 1, 8))` puts a strobe's rate on a fader.
 - **`.jux(change)` splits the rig**: across a group the left half runs the
   pattern and the right half the changed copy, so `rig.dim(mini('1 - - -')
   .jux(rev))` mirrors a chase across the room. Strudel's jux did not survive a

@@ -132,6 +132,20 @@ describe('sound, ported to light', () => {
   });
 });
 
+describe('sliders', () => {
+  it("take strudel's form, slider(value, min, max), and are named in order", () => {
+    run("const w = fixture(1, 'dim')\nw.dim(slider(0.5))");
+    expect(at(0.1)).toBe(128);
+    expect(core.getControls().map((c) => c.name)).toEqual(['slider 1']);
+  });
+
+  it('are patterns, so they chain and can be handed to a method', () => {
+    run("const w = fixture(1, 'dim')\nconst x = fixture(2, 'dim')\nw.dim(slider('lvl', 0, 1, { start: 0.5 }).range(0.5, 1))\nx.dim(mini('1 0').fast(slider('rate', 1, 4, { start: 2 })))");
+    expect(at(0.1, 1)).toBe(191);
+    expect([at(0.1, 2), at(0.3, 2), at(0.6, 2), at(0.8, 2)]).toEqual([255, 0, 255, 0]);
+  });
+});
+
 describe('looks and mutes', () => {
   it('a named block is a look, and cue() switches on a pattern of their names', () => {
     run("const w = fixture(1, 'dim')\nverse: {\n  w.dim(0.2)\n}\nchorus: {\n  w.dim(1)\n}\ncue(verse, chorus, mini('<verse chorus>'))");

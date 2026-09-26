@@ -76,7 +76,7 @@ import {
 } from './pattern-viz.js';
 import { registerCues, getSelectedCue } from './cues.js';
 import { screen, clearScreens } from './screen.js';
-import { slider, pick, clearControls, clearPickers } from './controls.js';
+import { slider, pick, clearControls, clearPickers, setLiveSource } from './controls.js';
 
 // Strudel functions, loaded once via initStrudel()
 const _strudelCtx: Record<string, unknown> = {};
@@ -402,6 +402,17 @@ export async function initStrudel(): Promise<void> {
     // A quoted string anywhere a pattern or a colour is taken reads as
     // mini-notation, as in strudel. See string-patterns.ts.
     setStringPatternParser(_strudelCtx.mini as (s: string) => PatternLike);
+    // Sliders as real patterns, read live. See controls.ts.
+    // Read in its own guard: a module namespace can throw on an absent export
+    // rather than give undefined, and a missing extra must not take the whole
+    // engine down with it.
+    let signal: ((fn: () => number) => PatternLike) | undefined;
+    try {
+      signal = core.signal as typeof signal;
+    } catch {
+      signal = undefined;
+    }
+    setLiveSource(typeof signal === 'function' ? (read) => (signal as (fn: () => number) => PatternLike)(() => read()) : null);
 
     // Teach every Strudel Pattern `.flash() / .glow() / .wave()` via a one-time
     // prototype patch. Cheaper than wrapping every pattern in a Proxy, and the

@@ -1112,8 +1112,13 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   // Matched by name, not by position. See the note on refreshViz.
   const controls = getControls();
   const sliderLines = declaredLines(doc, code, /\bslider\s*\(/g);
+  // Strudel's slider(value, min, max) has no name. The run calls them "slider
+  // 1", "slider 2" in order, and they are found the same way here: the nth
+  // slider call whose first argument is a number.
+  const unnamedLines = findCalls(code, /\bslider\s*\(\s*-?[\d.]/g).map((hit) => hit.line);
   for (const control of controls) {
-    const line = sliderLines.get(control.name);
+    const nth = /^slider (\d+)$/.exec(control.name);
+    const line = sliderLines.get(control.name) ?? (nth ? unnamedLines[Number(nth[1]) - 1] : undefined);
     if (line === undefined) continue;   // not written as a plain literal here
     const lineObj = doc.line(line);
     ranges.push({
