@@ -755,8 +755,7 @@ export function reservedNameHint(message: string, reserved: Iterable<string>): s
   return (
     `${message.replace(/\s*$/, '')}. "${name}" is already one of gobo's own — you can call `
     + `${name}(…) in any scene — so this scene cannot declare it as well. Pick another name: `
-    + `my${Title} for a light, or ${name}Look for a look you call. `
-    + `Note that const and let clash where function ${name}(…) {…} does not.`
+    + `my${Title} for a light, or ${name}Look for a look, as in ${name}Look: { … }.`
   );
 }
 

@@ -140,12 +140,8 @@ describe('a name gobo already uses explains itself', () => {
     expect(error).toContain('strobeLook');
   });
 
-  it('mentions that a function declaration does not clash', () => {
-    // Verified behaviour, not a guess: const and let are lexical declarations
-    // and collide with a parameter name; a function declaration does not.
-    expect(clashOf('const flash = () => {}')).toContain('function flash');
-    expect(() => new Function(...NAMES, '"use strict";\nfunction flash() {}')).not.toThrow();
-    expect(() => new Function(...NAMES, '"use strict";\nvar flash = 1')).not.toThrow();
+  it('suggests a look name written as a block', () => {
+    expect(clashOf('const flash = () => {}')).toContain('flashLook: { … }');
   });
 
   it('covers a colour name, which is the other tempting look name', () => {
