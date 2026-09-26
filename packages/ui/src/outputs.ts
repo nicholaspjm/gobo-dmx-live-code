@@ -27,12 +27,11 @@ import {
   isDirectConnected,
   isUsbConnected,
   isUsbDmxSupported,
-  onNetwork,
   type ConnectorNotice,
-  type LocalNetwork,
 } from '@gobo/core';
 import { PANEL_OPEN_EVENT } from './panel.js';
 import { BLOCKED_BY_BROWSER, browserBlocksConnector, servedLocally } from './browser-access.js';
+import { artnetTargetProblem, isLoopbackHost } from './artnet-target.js';
 
 // ─── The table ───────────────────────────────────────────────────────────────
 
@@ -275,7 +274,7 @@ export function outputVerdict(id: OutputId): OutputVerdict {
     if (host !== null && problem !== null) {
       return {
         ready: false,
-        badge: isLoopback(host) ? 'this computer only' : 'check the address',
+        badge: isLoopbackHost(host) ? 'this computer only' : 'check the address',
         reason: problem,
         warn: true,
       };
@@ -481,38 +480,12 @@ const DEFAULT_CALL: Partial<Record<OutputId, string>> = {
   mock: 'mock()',
 };
 
-function isLoopback(host: string): boolean {
-  return host === 'localhost' || host === '::1' || host.startsWith('127.');
-}
-
 /** The host the scene on air sends Art-Net to, or null when it is not sending Art-Net. */
 function currentArtnetHost(): string | null {
   const out = getOutputConfig();
   const c = out?.config as { mode?: unknown; artnet?: { host?: unknown } } | undefined;
   if (c?.mode !== 'artnet') return null;
   return typeof c.artnet?.host === 'string' ? c.artnet.host : '127.0.0.1';
-}
-
-/**
- * What is wrong with where the scene sends Art-Net, or null when nothing can
- * be seen to be. Each of these fails in silence on the wire: the frames are
- * sent, the socket reports success, and the rig stays dark.
- */
-export function artnetTargetProblem(host: string, networks: readonly LocalNetwork[]): string | null {
-  if (isLoopback(host)) {
-    return `This scene sends to ${host}, which is this computer only. That is right for a visualiser or `
-      + 'TouchDesigner here, and nothing reaches a node on the network.';
-  }
-  if (networks.some((n) => n.address === host)) {
-    return `${host} is this computer's own address, so nothing reaches the rig. Send to the node's `
-      + 'address, or to the whole network with the line below.';
-  }
-  if (networks.length > 0 && /^\d+\.\d+\.\d+\.\d+$/.test(host) && !networks.some((n) => onNetwork(host, n))) {
-    const mine = networks.map((n) => n.address).join(' and ');
-    return `This computer is not on the same network as ${host}, so nothing reaches it: it is ${mine}. `
-      + 'Plug into the lighting network, or give this computer an address on it.';
-  }
-  return null;
 }
 
 // ─── Panel ───────────────────────────────────────────────────────────────────

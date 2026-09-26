@@ -118,8 +118,8 @@ import {
   RELEASES_URL,
   currentOutputId,
   isDesktopBuild,
-  artnetTargetProblem,
 } from './outputs.js';
+import { artnetTargetProblem, isLoopbackHost } from './artnet-target.js';
 
 // Apply the persisted theme before the editor mounts and before any
 // CSS-variable-dependent code runs. Otherwise the page flashes the default
@@ -424,10 +424,6 @@ function describeOutput(): { text: string; delivered: boolean } | null {
   else if (mode === 'sacn') text = `sacn base universe ${c.sacn?.universe ?? 1}`;
   else if (mode === 'mock') text = 'mock (console only)';
   return { text, delivered: out.delivered };
-}
-
-function isLoopbackHost(host: string): boolean {
-  return host === 'localhost' || host === '::1' || host.startsWith('127.');
 }
 
 function setStatus(kind: '' | 'ok' | 'error', msg: string, full?: string): void {
