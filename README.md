@@ -27,7 +27,9 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 ## What it does
 
 - `Ctrl+Enter` runs the code, and it takes effect on the next tick
-- `sine`, `cosine`, `square`, `saw`, `rand` and full mini-notation, via Strudel
+- Strudel's language as Strudel writes it: bare signals (`sine.slow(4)`), quoted mini-notation (`wash.dim('1 - 1 -')`), curried changes (`.every(4, fast(2))`), labelled blocks, `_` to mute, with no JavaScript functions to write
+- Strudel's music ideas ported to light: per-step fades (`.fadeIn`, `.settle`, `.fadeOut`, and Strudel's `.attack`/`.release` reading the same), palettes where Strudel has scales (`.palette(warm)`), a position across a group where it has stereo pan (`.across(saw)`), and looks you switch between where it has labelled patterns (`verse: { … }`, `cue(verse, chorus)`)
+- Chases without code: `rig.each(mini('1 - - -').fadeOut(2))` runs a pattern on every light, each a step later
 - 512 channels per universe, multiple universes via `uni()`
 - A 512-bar channel strip and a fixture simulation, drawn at 30 fps
 - Built-in fixture profiles for RGB, RGBW, moving heads and strobes, and custom definitions
