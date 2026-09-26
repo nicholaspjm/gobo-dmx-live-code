@@ -1243,8 +1243,13 @@ export function evalCode(code: string): EvalResult {
      * One gobo cycle is one bar of four beats, so cycles per second times
      * four times sixty is the tempo setBPM already takes.
      */
-    setcps: (cps: number) => setBPM(cps * 4 * 60),
-    setcpm: (cpm: number) => setBPM(cpm * 4),
+    //
+    // Through stageBPM like setBPM, so the tempo belongs to the run's
+    // transaction: a scene that calls setcps() and then fails on a later line
+    // leaves the tempo where it was. Calling the scheduler directly changed it
+    // anyway. Number() so a quoted value reads as the number it spells.
+    setcps: (cps: number | string) => stageBPM(Number(cps) * 4 * 60),
+    setcpm: (cpm: number | string) => stageBPM(Number(cpm) * 4),
     // Fixture system
     fixture,
     defineFixture,

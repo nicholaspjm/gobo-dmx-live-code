@@ -316,6 +316,17 @@ describe('setBPM is part of the transaction', () => {
     expect(h.getBPM()).toBe(400);
   });
 
+  it('keeps setcps and setcpm inside the run, so a failed scene leaves the tempo alone', async () => {
+    const h = await readyHarness();
+    expect(h.evalCode('setBPM(100)').success).toBe(true);
+    expect(h.evalCode("setcps(0.7); undefinedThing()").success).toBe(false);
+    expect(h.getBPM()).toBe(100);
+    expect(h.evalCode('setcpm(30)').success).toBe(true);
+    expect(h.getBPM()).toBe(120);
+    expect(h.evalCode('setcps(0.5)').success).toBe(true);
+    expect(h.getBPM()).toBe(120);
+  });
+
   it('reads a quoted tempo as the number it spells', async () => {
     const h = await readyHarness();
     expect(h.evalCode("setBPM('140')").success).toBe(true);
