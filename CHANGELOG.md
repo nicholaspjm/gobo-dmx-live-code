@@ -20,11 +20,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - **A word in a pattern where a level belongs is reported.** `mini('1 x 1')`, or
   a colour name in a pattern handed to `.dim()`, left that step dark with
   nothing said; the status bar now names the word and the channel.
+- **Strudel code runs as written in more places.** Signals work without
+  brackets (`sine.slow(4)`, as strudel writes them, as well as `sine()`),
+  Alt+Enter and Alt+. run and stop as they do in strudel, `.velocity()` folds
+  into the level like `gain`, and strudel's names for the inline visuals
+  (`._pianoroll()`, `._scope()`, `._punchcard()`, …) draw gobo's.
 - **The desktop app says when a newer gobo is out.** It asks GitHub at most
   twice a day, and when there is a newer release it puts one link in the top
   bar, "0.5.4 is out", that opens the download page. It never downloads or
   installs anything itself, and once the link is followed it is not offered
   again for that version.
+
+### Changed
+
+- In the desktop app and a local `npm start`, the outputs panel no longer
+  talks about a connector beside the page: the sender is the gobo that served
+  it, and the panel says so.
+- The log panel leaves out strudel's own load banner, which gobo repeats in
+  its own words a line later.
+- Borderless buttons get a focus ring when reached from the keyboard.
+
+### Fixed
+
+- **Alt+1…9 picks a cue on a Mac.** It read the character the key types, and
+  option+1 types ¡, so the shortcut did nothing on macOS.
+- **`setcps()` and `setcpm()` no longer change the tempo of a scene that then
+  fails.** They skipped the run's all-or-nothing change.
+- The art-net check no longer calls `255.255.255.255`, the all-networks
+  broadcast, a network this computer is not on.
 
 ## [0.5.3] - 2026-09-26
 

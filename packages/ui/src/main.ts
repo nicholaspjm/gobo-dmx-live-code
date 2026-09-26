@@ -513,9 +513,14 @@ document.addEventListener('keydown', (e) => {
   // bare digit is a number you are typing into a scene, and alt+digit is not
   // bound to anything in the editor. preventDefault matters on macOS, where
   // alt+1 would otherwise insert a character.
-  if (e.altKey && !e.ctrlKey && !e.metaKey && /^[1-9]$/.test(e.key)) {
+  //
+  // The digit is read off `code` as well as `key`: on a Mac, option+1 types ¡,
+  // so `key` is never "1" there and the shortcut did nothing on the platform
+  // most likely to be running a show.
+  const cueDigit = /^Digit([1-9])$/.exec(e.code)?.[1] ?? (/^[1-9]$/.test(e.key) ? e.key : null);
+  if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && cueDigit !== null) {
     e.preventDefault();
-    selectCueIndex(Number(e.key));
+    selectCueIndex(Number(cueDigit));
     return;
   }
   // Ctrl+Shift+F formats the current buffer via prettier (lazy-loaded).
@@ -748,8 +753,11 @@ onCueChange((_name, previous) => {
 // editor's own keymap never sees.
 document.addEventListener('keydown', (e) => {
   // Literal Ctrl, matching the editor's 'Ctrl-' bindings rather than 'Mod-':
-  // on a Mac these are ctrl, not cmd, and cmd+enter must stay free.
-  if (!e.ctrlKey || e.metaKey || e.altKey) return;
+  // on a Mac these are ctrl, not cmd, and cmd+enter must stay free. Alt as
+  // well, for strudel's Alt+Enter and Alt+., but never both: Windows sends
+  // ctrl+alt for AltGr, which types characters.
+  const alt = e.altKey && !e.ctrlKey;
+  if (e.metaKey || (!e.ctrlKey && !alt) || (e.ctrlKey && e.altKey)) return;
 
   if (e.key === 'Enter') {
     // Inside the editor, its keymap owns both Enter chords, including which
@@ -772,8 +780,12 @@ document.addEventListener('keydown', (e) => {
   }
 
   // Space is read off `code` as well, because a keyboard layout can put a
-  // different character on that key.
-  if (e.key !== '.' && e.key !== ' ' && e.code !== 'Space') return;
+  // different character on that key, and so is the period, which option
+  // turns into ≥ on a Mac. Alt+Space is not a stop: it is the window menu on
+  // Windows and a non-breaking space on a Mac.
+  const period = e.key === '.' || e.code === 'Period';
+  const space = e.key === ' ' || e.code === 'Space';
+  if (!period && (alt || !space)) return;
   e.preventDefault();
   e.stopPropagation();
   runStop();

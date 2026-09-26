@@ -1842,8 +1842,8 @@ const DOCS: DocSection[] = [
     entries: [
       {
         name: 'Ctrl+Enter',
-        signature: 'Ctrl+Enter',
-        description: 'Evaluate the whole editor. Clears previous patterns first. Settings has a switch that swaps this with Ctrl+Shift+Enter, so the plain chord takes the block instead.',
+        signature: 'Ctrl+Enter  ·  Alt+Enter',
+        description: 'Evaluate the whole editor. Clears previous patterns first. Settings has a switch that swaps this with Ctrl+Shift+Enter, so the plain chord takes the block instead. Alt+Enter does the same, as it does in strudel.',
       },
       {
         name: 'Ctrl+Shift+Enter',
@@ -1852,8 +1852,8 @@ const DOCS: DocSection[] = [
       },
       {
         name: 'Ctrl+.',
-        signature: 'Ctrl+.',
-        description: 'Zero all channels and pause the scheduler.',
+        signature: 'Ctrl+.  ·  Alt+.',
+        description: 'Zero all channels and pause the scheduler. Alt+. does the same, as it does in strudel.',
       },
       {
         name: 'Ctrl+Space',

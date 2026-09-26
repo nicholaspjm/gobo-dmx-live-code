@@ -282,8 +282,8 @@ anything else in this version.
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+Enter` | Evaluate the whole document |
-| `Ctrl+.` | Stop. Blackout by default, `freeze` if set that way in settings. A second press blacks out either way |
+| `Ctrl+Enter` or `Alt+Enter` | Evaluate the whole document |
+| `Ctrl+.` or `Alt+.` | Stop. Blackout by default, `freeze` if set that way in settings. A second press blacks out either way |
 | `Ctrl+Space` | Stop, as an alias that also preempts the autocomplete popup |
 | `Ctrl+Shift+Enter` | Evaluate only the edits inside the selection, or the block around the cursor |
 | `Ctrl+Shift+F` | Format the buffer |

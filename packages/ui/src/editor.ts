@@ -169,8 +169,28 @@ export function createEditor(
           return true;
         },
       },
+      // Strudel's own pair, alongside gobo's: Alt+Enter runs and Alt+. stops,
+      // so a hand that learned them there does not have to relearn them here.
+      {
+        key: 'Alt-Enter',
+        run(view) {
+          if (current.blockEval && onEvalBlock) {
+            onEvalBlock(view);
+            return true;
+          }
+          onEval(view.state.doc.toString());
+          return true;
+        },
+      },
       {
         key: 'Ctrl-.',
+        run() {
+          onStop();
+          return true;
+        },
+      },
+      {
+        key: 'Alt-.',
         run() {
           onStop();
           return true;
