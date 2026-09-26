@@ -37,6 +37,7 @@ import { describeLight, findLight, findLights } from './declared-lights.js';
 // The fixtures module on its own, as declared-lights.ts does: the package index
 // also carries the bridge client, which reads `window` at import time.
 import { findFixtureDef, listFixtures } from '@gobo/core/fixtures';
+import { rewriteLooks } from '@gobo/core/looks';
 
 // ─── Completion pools ────────────────────────────────────────────────────────
 // Derived from the shared help index so signatures/examples are authored once
@@ -369,9 +370,19 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
       info: 'A function this scene declares.',
     }));
 
+  // Looks this scene names as blocks, verse: { … }, which cue() takes.
+  let lookOptions: Completion[] = [];
+  try {
+    lookOptions = rewriteLooks(doc).looks
+      .filter((name) => !declaredHere.has(name))
+      .map((name) => ({ label: name, type: 'function', detail: 'look', info: 'A look this scene names. cue() switches to it.' }));
+  } catch {
+    // The scan walks user text; a scene worth completing is worth more than this.
+  }
+
   return {
     from: wordMatch.from,
-    options: rankFor([...commandCompletions, ...lightOptions, ...functionOptions], wordMatch.text),
+    options: rankFor([...commandCompletions, ...lightOptions, ...functionOptions, ...lookOptions], wordMatch.text),
   };
 }
 
