@@ -144,7 +144,8 @@ or upgrade reaches anything else:
   a connection at all.
 - **The `Origin` of a WebSocket**, which a web page cannot forge. Accepted: pages served
   from this computer's loopback on any port (`npm start`, the desktop app, `npm run dev`,
-  `vite preview`), the hosted app at `https://nicholaspjm.github.io`, and any origin named
+  `vite preview`), the hosted app at `https://gobolive.cc` (and, for now, its former address
+  `https://nicholaspjm.github.io`), and any origin named
   with `--allow-origin`. Refused: every other site, `null` (what a sandboxed iframe or a
   `file://` page sends, and what a hostile page can arrange for itself), browser extensions,
   and anything that is not an http(s) origin.
@@ -169,11 +170,12 @@ Vite dev server to the network as well; without it that is loopback-only too.
 - **No authentication.** A program running on this computer can connect without an
   `Origin` header and is let through. Refusing it would protect nothing: a program already
   running here can send UDP to your rig itself.
-- **The hosted origin is the whole of `nicholaspjm.github.io`.** An `Origin` carries no path,
-  so any page published under that account's GitHub Pages is accepted, not only this one.
-  They are all under the maintainer's control; a fork that hosts its own build changes
-  `HOSTED_APP` in `packages/bridge/src/index.ts`, or its users start the connector with
-  `--allow-origin`.
+- **The former hosted origin is the whole of `nicholaspjm.github.io`.** The app moved to
+  `gobolive.cc` in 0.5.3 and the old address redirects there, but the connector still
+  accepts it so a tab opened before the move keeps working. An `Origin` carries no path, so
+  that is any page published under that account's GitHub Pages, all under the maintainer's
+  control. A later release drops it. A fork that hosts its own build changes `HOSTED_APP` in
+  `packages/bridge/src/index.ts`, or its users start the connector with `--allow-origin`.
 - **A scene you run can still repoint the output.** That is the scene-privilege model above,
   reached through the page, not a way around the connector's checks.
 - **An accepted page learns this computer's network addresses.** From 0.5.3 the connector's

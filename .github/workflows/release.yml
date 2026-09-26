@@ -165,7 +165,7 @@ jobs:
 
             ## Which download
 
-            **None, to start.** [The website](https://nicholaspjm.github.io/gobo-dmx-live-code/)
+            **None, to start.** [The website](https://gobolive.cc/)
             runs the editor, the simulator and share links with nothing
             installed, and drives a USB DMX interface (Chrome or Edge) and
             TouchDesigner from the page.

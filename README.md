@@ -18,7 +18,7 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 
 ## The hosted build
 
-**[Open gobo in your browser](https://nicholaspjm.github.io/gobo-dmx-live-code/)**. No install required.
+**[Open gobo in your browser](https://gobolive.cc/)**. No install required.
 
 > The web version runs the full editor and visualizer. A USB DMX interface and TouchDesigner are driven from the page with nothing installed; Art-Net, sACN and OSC need the connector running on your machine. Both routes are below.
 
@@ -63,7 +63,7 @@ running in the background once you close it, and nothing for the browser to allo
 
 ### The website
 
-Open the [live link](https://nicholaspjm.github.io/gobo-dmx-live-code/) and start coding. The
+Open the [live link](https://gobolive.cc/) and start coding. The
 editor, visualizer, fixture sim and share links need no output at all, and two outputs reach
 real fixtures from the page as it stands:
 
@@ -416,7 +416,7 @@ Full setup for both: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
 | Rig stuck on its last colour after commenting a pattern out | The single zero-frame sent when a universe goes dark was lost, because the bridge was disconnected on that frame | Reconnect, then `Ctrl+.` to re-send zeros |
 | Wrong fixtures respond, everything off by one | DMX is 1-based: `ch(1, …)` is channel 1, `fixture(start, id)` covers `start` … `start + channelCount - 1` | Check the fixture's address and channel count; address 1 is gobo's channel 1, not 0 |
 | sACN lands on the wrong universe | `sacn(universe, priority)`'s first arg doesn't steer output. The bridge multicasts every universe it receives to `239.255.<hi>.<lo>` | Set the universe with `uni()` or the fixture universe arg. Priority (default 100) is the arg that counts; receivers arbitrate by it |
-| Hosted https page can't reach a bridge on another machine | From `github.io` the page always dials `ws://localhost:3001`. Browsers allow loopback from https, but block `ws://` to any other host | Run the bridge on the browser's machine, or run gobo on that machine with `npm start -- --lan` and open it at `http://<its address>:3001` |
+| Hosted https page can't reach a bridge on another machine | From `gobolive.cc` the page always dials `ws://localhost:3001`. Browsers allow loopback from https, but block `ws://` to any other host | Run the bridge on the browser's machine, or run gobo on that machine with `npm start -- --lan` and open it at `http://<its address>:3001` |
 | Nothing arrives in TouchDesigner | Bridge still in Art-Net or mock mode, or the `OSC In CHOP` port doesn't match `osc(host, port)` | See [docs/touchdesigner.md](docs/touchdesigner.md); only channels you drive are transmitted |
 | Stutter, or a saturated network | Send rate too high for the link | Drop **send rate** to 30 Hz in settings |
 | A share link opens gobo but loads no scene | The link was truncated in transit. Chat apps and mail clients cut long URLs, and half a payload cannot be decoded | Re-send it as a link, not as text that wraps, or use **copy the code instead** in the share dialog and send the text |

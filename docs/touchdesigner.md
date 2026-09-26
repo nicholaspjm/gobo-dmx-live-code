@@ -78,7 +78,7 @@ The bridge sends one 530-byte ArtDmx packet per universe per frame on port 6454.
 
 `td()` opens a WebSocket from the browser straight to a TouchDesigner WebSocket
 DAT. gobo's bridge is not involved, so this works from
-https://nicholaspjm.github.io/gobo-dmx-live-code/ on any machine that already
+https://gobolive.cc/ on any machine that already
 has TouchDesigner open. TD receives the frames and puts Art-Net on the wire.
 
 ```js

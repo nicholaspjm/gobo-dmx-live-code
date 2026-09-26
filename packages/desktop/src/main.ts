@@ -28,7 +28,7 @@ const BRIDGE_PORT = 3001;
 const APP_URL = `http://localhost:${BRIDGE_PORT}`;
 
 /** Where the app lives for someone who wants to keep using their connector. */
-const HOSTED_APP = 'https://nicholaspjm.github.io/gobo-dmx-live-code/';
+const HOSTED_APP = 'https://gobolive.cc/';
 
 /** How long to let the bridge come up before calling it a failure. */
 const READY_TIMEOUT_MS = 15000;

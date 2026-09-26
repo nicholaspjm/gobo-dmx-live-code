@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-09-26
+
+> **gobo has moved to [gobolive.cc](https://gobolive.cc/).** The old address
+> redirects there. This connector accepts pages from both; older ones only
+> know the old address, so a downloaded connector updates itself to this one,
+> and a Homebrew copy wants `brew upgrade gobo-connector`. Share links from the
+> old address still open. A scene only autosaved in the browser does not come
+> across, because browsers keep that per address.
+
 ### Added
 
 - **The outputs panel says where to send Art-Net.** The connector tells the page
@@ -783,6 +792,7 @@ First public release. There was never a published 0.1.0. Everything below landed
 - The sim panel was hard-coded to one scene's channel layout and showed ghost fixtures after a scene switch. It is now rebuilt from the fixtures registered during the last eval. Its "off" state also reads the theme background instead of a hardcoded colour, so blackout looks dark on every theme.
 - The `ultratronics 11` template called `spot.dim()` on an RGBW fixture that has no dimmer channel, throwing on every run. The instrument palette was remapped onto discrete colour channels. The fixed version is the one in the **examples** menu; a copy you saved under the old scene model still holds the broken call, so re-load the example if you kept one.
 
+[0.5.3]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.3
 [0.5.2]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.2
 [0.5.1]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.1
 [0.5.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.0

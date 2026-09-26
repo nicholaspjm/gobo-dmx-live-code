@@ -49,7 +49,8 @@ describe('what it leaves out', () => {
 describe('how it is being run', () => {
   it('tells the routes apart', () => {
     expect(routeName({ desktop: true, hostname: 'localhost', port: '3001' })).toBe('the desktop app');
-    expect(routeName({ desktop: false, hostname: 'nicholaspjm.github.io', port: '' })).toBe('the website');
+    expect(routeName({ desktop: false, hostname: 'gobolive.cc', port: '' })).toBe('the website');
+    expect(routeName({ desktop: false, hostname: 'nicholaspjm.github.io', port: '' })).toBe('the website, at its old address');
     expect(routeName({ desktop: false, hostname: 'localhost', port: '3001' })).toBe('npm start, on localhost:3001');
     expect(routeName({ desktop: false, hostname: '127.0.0.1', port: '3000' })).toBe('npm run dev');
     expect(routeName({ desktop: false, hostname: '[::1]', port: '4173' })).toBe('a local copy on port 4173');
@@ -57,6 +58,7 @@ describe('how it is being run', () => {
 
   it('does not take a lookalike host for the website', () => {
     expect(routeName({ desktop: false, hostname: 'nicholaspjm.github.io.example', port: '' })).toBe('a copy served from another address');
+    expect(routeName({ desktop: false, hostname: 'gobolive.cc.example', port: '' })).toBe('a copy served from another address');
   });
 });
 

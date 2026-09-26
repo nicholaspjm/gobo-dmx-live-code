@@ -93,7 +93,7 @@ class GoboConnector < Formula
       Or run it in a terminal for this session only:
         gobo-connector
       Then open the app and press ctrl+enter:
-        https://nicholaspjm.github.io/gobo-dmx-live-code/
+        https://gobolive.cc/
       Chrome asks before a website may reach a program on your computer.
       When it asks about gobo, allow it.
 

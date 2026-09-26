@@ -55,7 +55,7 @@ afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('whether the browser is what blocks the connector', () => {
   it('is blocked for the hosted site when the permission is denied', async () => {
-    const { mod } = await load({ hostname: 'nicholaspjm.github.io', answers: { 'loopback-network': 'denied' } });
+    const { mod } = await load({ hostname: 'gobolive.cc', answers: { 'loopback-network': 'denied' } });
     expect(mod.browserBlocksConnector()).toBe(true);
   });
 
@@ -77,24 +77,24 @@ describe('whether the browser is what blocks the connector', () => {
 
   it('is not blocked while the browser is still going to ask, or has said yes', async () => {
     for (const state of ['prompt', 'granted']) {
-      const { mod } = await load({ hostname: 'nicholaspjm.github.io', answers: { 'loopback-network': state } });
+      const { mod } = await load({ hostname: 'gobolive.cc', answers: { 'loopback-network': state } });
       expect(mod.browserBlocksConnector(), state).toBe(false);
     }
   });
 
   it('says nothing in a browser that has no such permission', async () => {
-    const { mod } = await load({ hostname: 'nicholaspjm.github.io', answers: {} });
+    const { mod } = await load({ hostname: 'gobolive.cc', answers: {} });
     expect(mod.getLocalAccess()).toBe('unknown');
     expect(mod.browserBlocksConnector()).toBe(false);
   });
 
   it('falls back to the older umbrella name', async () => {
-    const { mod } = await load({ hostname: 'nicholaspjm.github.io', answers: { 'local-network-access': 'denied' } });
+    const { mod } = await load({ hostname: 'gobolive.cc', answers: { 'local-network-access': 'denied' } });
     expect(mod.getLocalAccess()).toBe('denied');
   });
 
   it('hears the answer change, which is the moment to reconnect', async () => {
-    const { mod, fakes } = await load({ hostname: 'nicholaspjm.github.io', answers: { 'loopback-network': 'denied' } });
+    const { mod, fakes } = await load({ hostname: 'gobolive.cc', answers: { 'loopback-network': 'denied' } });
     const heard: string[] = [];
     mod.onLocalAccessChange((s) => heard.push(s));
     fakes.get('loopback-network')?.change('granted');

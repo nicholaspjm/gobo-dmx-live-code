@@ -23,7 +23,7 @@ import {
   printable,
 } from './access.js';
 
-const HOSTED = 'https://nicholaspjm.github.io/gobo-dmx-live-code/';
+const HOSTED = 'https://gobolive.cc/';
 
 const local = createPolicy({ lan: false, hostedApp: HOSTED });
 
@@ -141,7 +141,7 @@ describe('the Origin check', () => {
     for (const origin of [
       'https://attacker.example',
       'http://attacker.example:3001',
-      'https://nicholaspjm.github.io.attacker.example',
+      'https://gobolive.cc.attacker.example',
       'http://localhost.attacker.example:3000',
     ]) {
       expect(checkOrigin(origin, local).ok, origin).toBe(false);
@@ -159,8 +159,8 @@ describe('the Origin check', () => {
   });
 
   it('accepts the hosted app, and only over https', () => {
-    expect(checkOrigin('https://nicholaspjm.github.io', local).ok).toBe(true);
-    expect(checkOrigin('http://nicholaspjm.github.io', local).ok).toBe(false);
+    expect(checkOrigin('https://gobolive.cc', local).ok).toBe(true);
+    expect(checkOrigin('http://gobolive.cc', local).ok).toBe(false);
   });
 
   it('accepts a page served from this computer on any port', () => {
@@ -200,7 +200,7 @@ describe('an upgrade takes both', () => {
   });
 
   it('accepts gobo in each of the places it runs from', () => {
-    expect(checkUpgrade({ host: 'localhost:3001', origin: 'https://nicholaspjm.github.io' }, local).ok).toBe(true);
+    expect(checkUpgrade({ host: 'localhost:3001', origin: 'https://gobolive.cc' }, local).ok).toBe(true);
     expect(checkUpgrade({ host: 'localhost:3001', origin: 'http://localhost:3001' }, local).ok).toBe(true);
     expect(checkUpgrade({ host: '127.0.0.1:3001', origin: 'http://127.0.0.1:3000' }, local).ok).toBe(true);
     expect(checkUpgrade({ host: '192.168.1.20:3001', origin: 'http://192.168.1.20:3000' }, lan).ok).toBe(true);

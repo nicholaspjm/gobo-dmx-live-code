@@ -1,6 +1,6 @@
 {
   "name": "gobo-connector",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Sends DMX from the gobo browser app to Art-Net, sACN or OSC. A browser cannot open a UDP socket, so this does that part.",
   "keywords": [
     "dmx",
@@ -13,7 +13,7 @@
     "stage-lighting",
     "gobo"
   ],
-  "homepage": "https://nicholaspjm.github.io/gobo-dmx-live-code/",
+  "homepage": "https://gobolive.cc/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nicholaspjm/gobo-dmx-live-code.git",

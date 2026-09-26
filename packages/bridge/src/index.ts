@@ -965,7 +965,14 @@ const PORT = 3001;
  * one site on the internet whose pages may connect, which is why a fork that
  * hosts its own build changes this line and nothing else.
  */
-const HOSTED_APP = 'https://nicholaspjm.github.io/gobo-dmx-live-code/';
+const HOSTED_APP = 'https://gobolive.cc/';
+
+/**
+ * Where the app lived before gobolive.cc. It redirects there now, so no page
+ * is served from it, but a copy of the app still open in a tab from before the
+ * move is, and it is allowed until a later release drops it.
+ */
+const FORMER_HOSTED_APP = 'https://nicholaspjm.github.io';
 
 // ─── Who may connect ─────────────────────────────────────────────────────────
 // Loopback only and gobo's own pages only, unless the operator says otherwise
@@ -997,7 +1004,7 @@ function ownHosts(): ReadonlySet<string> {
 const accessPolicy = createPolicy({
   lan: accessArgs.lan,
   hostedApp: HOSTED_APP,
-  extraOrigins: accessArgs.extraOrigins,
+  extraOrigins: [FORMER_HOSTED_APP, ...accessArgs.extraOrigins],
   ownHosts,
 });
 

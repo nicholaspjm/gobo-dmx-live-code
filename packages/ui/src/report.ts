@@ -81,7 +81,8 @@ export function systemName(ua: string, platform?: string): string {
 export function routeName(opts: { desktop: boolean; hostname: string; port: string }): string {
   if (opts.desktop) return 'the desktop app';
   const local = opts.hostname === 'localhost' || opts.hostname === '127.0.0.1' || opts.hostname === '[::1]';
-  if (/(^|\.)nicholaspjm\.github\.io$/.test(opts.hostname)) return 'the website';
+  if (opts.hostname === 'gobolive.cc' || opts.hostname === 'www.gobolive.cc') return 'the website';
+  if (/(^|\.)nicholaspjm\.github\.io$/.test(opts.hostname)) return 'the website, at its old address';
   if (local && opts.port === '3001') return 'npm start, on localhost:3001';
   if (local && opts.port === '3000') return 'npm run dev';
   if (local) return `a local copy on port ${opts.port || '80'}`;

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? '/gobo-dmx-live-code/' : '/',
+  base: '/',
   server: {
     port: 3000,
     // This computer only unless asked, the same rule the connector follows. It

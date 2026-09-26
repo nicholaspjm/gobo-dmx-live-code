@@ -28,7 +28,7 @@ beforeAll(async () => {
     // port 0 would each get a different port.
     port: 0,
     addresses: ['127.0.0.1'],
-    policy: createPolicy({ lan: false, hostedApp: 'https://nicholaspjm.github.io/gobo-dmx-live-code/' }),
+    policy: createPolicy({ lan: false, hostedApp: 'https://gobolive.cc/' }),
     wss,
     onRequest: (_req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -81,7 +81,7 @@ function get(host: string): Promise<number> {
 
 describe('the connector, knocked on', () => {
   it('opens for gobo on the hosted site', async () => {
-    expect(await knock({ origin: 'https://nicholaspjm.github.io' })).toBe('open');
+    expect(await knock({ origin: 'https://gobolive.cc' })).toBe('open');
   });
 
   it('opens for a page served from this computer', async () => {

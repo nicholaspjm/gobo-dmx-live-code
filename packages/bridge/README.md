@@ -1,6 +1,6 @@
 # gobo-connector
 
-Sends DMX from the [gobo](https://nicholaspjm.github.io/gobo-dmx-live-code/)
+Sends DMX from the [gobo](https://gobolive.cc/)
 browser app to real fixtures over Art-Net, sACN (E1.31) or OSC.
 
 A browser cannot open a UDP socket, so it cannot speak Art-Net itself. This is
@@ -12,7 +12,7 @@ the piece that can. Run it, open the app, and output works.
 npx gobo-connector@latest
 ```
 
-Then open https://nicholaspjm.github.io/gobo-dmx-live-code/ and press
+Then open https://gobolive.cc/ and press
 `ctrl+enter`. Chrome asks before a website may reach a program on your
 computer; allow it for gobo. Nothing is installed and nothing starts at login.
 
