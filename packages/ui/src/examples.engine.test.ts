@@ -277,6 +277,16 @@ describe('what the review found', () => {
     expect(at(0.1)).toBe(51);
   });
 
+  it('a fade keeps where across() put each step', () => {
+    run("const ls = [1, 2, 3, 4].map((c) => fixture(c, 'dim'))\ngroup(...ls).dim(mini('1*4').across(mini('0 0.33 0.66 1')).fadeOut(0.5))");
+    core.tick(0.1);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 4))).toEqual([255, 0, 0, 0]);
+    core.tick(0.8);
+    const late = Array.from(core.getUniverseBuffer(0).slice(0, 4));
+    expect(late[3]).toBe(255);
+    expect(late[0]).toBe(0);
+  });
+
   it('a quoted raw DMX number keeps its meaning', () => {
     run("ch(1, '128')");
     expect(at(0.1)).toBe(128);

@@ -1179,3 +1179,23 @@ describe('fixture channel mapping', () => {
     expect(Array.from(buf.slice(0, 6))).toEqual([255, 255, 255, 255, 255, 0]);
   });
 });
+
+describe('one pattern on several channels', () => {
+  it('is asked once a tick, and every channel gets the answer', () => {
+    let asked = 0;
+    const shared: PatternLike = {
+      queryArc() {
+        asked++;
+        return [{ value: 0.5 }];
+      },
+    };
+    uni(1, 1, shared);
+    uni(1, 2, shared);
+    uni(1, 3, shared);
+    tick(0);
+    expect(asked).toBe(1);
+    expect(Array.from(getUniverseBuffer(1).slice(0, 3))).toEqual([128, 128, 128]);
+    tick(0.5);
+    expect(asked).toBe(2);
+  });
+});

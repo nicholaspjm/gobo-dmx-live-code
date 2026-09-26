@@ -169,14 +169,41 @@ export function fade(kit: StrudelKit, pattern: unknown, shape: Shape): unknown {
         bestHap = hap;
       }
     }
-    return best === null ? [] : [new Hap(undefined, span, best, bestHap.context)];
+    if (best === null) return [];
+    // The step's own fields ride along with the faded level (a position from
+    // .across(), a side from .jux()), so a group still places it. gain and
+    // velocity are already folded into the level, so they go.
+    const v = bestHap.value;
+    let value: unknown = best;
+    if (v !== null && typeof v === 'object') {
+      const { gain: _gain, velocity: _velocity, ...rest } = v as Record<string, unknown>;
+      value = { ...rest, value: best };
+    }
+    return [new Hap(undefined, span, value, bestHap.context)];
   };
+
+  // The last answer, for the same instant asked again: the red, green and
+  // blue of one pixel all ask, and the look back is the expensive part.
+  let memoBegin = NaN;
+  let memoEnd = NaN;
+  let memoBpm = NaN;
+  let memo: unknown[] = [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const faded = new Pattern((state: any) => {
     const begin = state.span.begin.valueOf();
     const end = state.span.end.valueOf();
-    if (end - begin <= SAMPLE_CYCLES) return sampleAt(state, begin, state.span);
+    const bpm = getBPM();
+    if (begin === memoBegin && end === memoEnd && bpm === memoBpm) return memo;
+    memoBegin = begin;
+    memoEnd = end;
+    memoBpm = bpm;
+    memo = end - begin <= SAMPLE_CYCLES ? sampleAt(state, begin, state.span) : sampleSpan(state, begin, end);
+    return memo;
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function sampleSpan(state: any, begin: number, end: number): unknown[] {
     // A wide query (a punchcard or roll drawing a whole cycle) gets one sample
     // per slice, so the picture shows the fades rather than one flat block.
     const out: unknown[] = [];
@@ -185,7 +212,7 @@ export function fade(kit: StrudelKit, pattern: unknown, shape: Shape): unknown {
       out.push(...sampleAt(state, b, new TimeSpan(Fraction(b), Fraction(e))));
     }
     return out;
-  });
+  }
   (faded as Faded)[SOURCE] = { source, shape: merged };
   return faded;
 }

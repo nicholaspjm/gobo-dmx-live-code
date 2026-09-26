@@ -865,9 +865,21 @@ export function clearDefs(): void {
  * caller still ships it. If the frame never shipped, the rig would hold its last
  * look with no indication anything is wrong.
  */
+/**
+ * Levels already resolved this tick, by the pattern that produced them.
+ *
+ * One pattern often drives several channels: a colour strip given a level
+ * writes the same value to red, green and blue of every pixel, and a group
+ * hands one value to every member. Asking it once per tick rather than once
+ * per channel is a third of the work on a strip. Reused and cleared, so the
+ * tick allocates nothing for it.
+ */
+const _resolved = new Map<object, number>();
+
 export function tick(cyclePos: number): void {
   // Zero all universe buffers
   for (const buf of _universes.values()) buf.fill(0);
+  _resolved.clear();
   // Which tokens are live is a fact about this tick and no other.
   if (_collectLocations) _activeLocations.length = 0;
 
@@ -890,7 +902,10 @@ export function tick(cyclePos: number): void {
       // closure is created and nothing is allocated on the happy path; this
       // runs for every driven channel 60 times a second.
       try {
-        if (isPattern(value)) {
+        const known = _resolved.get(value as object);
+        if (known !== undefined) {
+          floatVal = known;
+        } else if (isPattern(value)) {
           // Query a thin arc so we get the instantaneous value
           const haps = value.queryArc(cyclePos, cyclePos + 0.0001);
           // Highest takes precedence, the merge every lighting desk uses. A
@@ -911,6 +926,9 @@ export function tick(cyclePos: number): void {
             // string up at once.
             if (_collectLocations && v !== null && v > 0) collectLocations(haps[i]);
           }
+          // Only a query that answered is remembered: one that threw is asked
+          // again by the next channel, which reports its own failure.
+          _resolved.set(value as object, floatVal);
         }
       } catch (err) {
         floatVal = 0;
