@@ -1272,8 +1272,8 @@ const FACTORY_NAMES = new Set([
 const METHOD_HINTS: Record<string, string> = {
   dim:
     '.dim() drives a dimmer channel, and a colour strip has none: its brightness is '
-    + 'the colour itself. .mono(v) puts every emitter at one level, and .color(c) takes '
-    + 'a pattern, so .color(red.mul(sine)) fades a colour.',
+    + 'the colour itself. .mono(v) puts every emitter at one level, and a level over a '
+    + 'colour scales it: .color(red), then .each(sine.slow(4)) fades the red.',
   brightness: 'brightness is spelled .dim() on a fixture with a dimmer, and .mono(v) on a colour strip.',
   intensity: 'intensity is spelled .dim() on a fixture with a dimmer, and .mono(v) on a colour strip.',
   level: 'a level is .dim() on a fixture with a dimmer, and .mono(v) on a colour strip.',
@@ -1328,6 +1328,17 @@ export function methodHint(message: string, globals: Iterable<string>, methods: 
     if (music) return `${message}. ${music}`;
     const near = nearestName(undefinedName[1], globals);
     return near ? `${message}. Did you mean ${near}?` : message;
+  }
+
+  // A name used above the line that makes it. With looks this is nearly
+  // always cue(verse) written before the verse: { … } block it picks.
+  const early = /^Cannot access '([\w$]+)' before initialization$/.exec(message);
+  if (early) {
+    const name = early[1];
+    return (
+      `${message}. ${name} is used above the line that makes it: move this line below `
+      + `${name}: { … } (or const ${name} = …), since a scene runs top to bottom.`
+    );
   }
 
   const m = /^(.+)\.(\w+) is not a function$/.exec(message);

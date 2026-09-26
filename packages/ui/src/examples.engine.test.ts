@@ -199,6 +199,27 @@ describe('looks and mutes', () => {
     expect(at(0.1, 2)).toBe(255);
   });
 
+  it('cue() above its looks says to move it below them', () => {
+    const r = core.evalCode("const w = fixture(1, 'dim')\ncue(verse)\nverse: {\n  w.dim(1)\n}");
+    expect(r.error).toMatch(/^line 2: /);
+    expect(r.error).toContain('move this line below');
+  });
+
+  it('a regular expression in a look does not end it early', () => {
+    run("const w = fixture(1, 'dim')\nverse: {\n  const ok = /[{]/.test('{')\n  w.dim(ok ? 1 : 0)\n}\ncue(verse)");
+    expect(at(0.1)).toBe(255);
+  });
+
+  it('break leaves a look early', () => {
+    run("const w = fixture(1, 'dim')\nverse: {\n  w.dim(0.2)\n  break verse\n  w.dim(1)\n}\ncue(verse)");
+    expect(at(0.1)).toBe(51);
+  });
+
+  it('a muted declaration still parses', () => {
+    run("const w = fixture(1, 'dim')\n_$: const level = 1\nw.dim(0.2)");
+    expect(at(0.1)).toBe(51);
+  });
+
   it('an error inside a look names its line on screen', () => {
     const r = core.evalCode("const w = fixture(1, 'rgb')\nverse: {\n  w.colr(blue)\n}\ncue(verse)\nverse()");
     expect(r.error).toMatch(/^line 3: /);
@@ -232,6 +253,16 @@ describe('a level over a colour', () => {
     run("const s = rgbStrip(1, 1)\ns.each(0.25)\ns.each(0.5)");
     core.tick(0.1);
     expect(Array.from(core.getUniverseBuffer(0).slice(0, 3))).toEqual([128, 128, 128]);
+  });
+
+  it("is what the hint for .dim on a strip says to write", () => {
+    const hint = core.evalCode("const s = rgbStrip(1, 1)\ns.dim(0.5)").error ?? '';
+    expect(hint).toContain('.color(red), then .each(sine.slow(4))');
+    run("const s = rgbStrip(1, 1)\ns.color(red)\ns.each(sine.slow(4))");
+    core.tick(0.5);
+    const [r, g, b] = core.getUniverseBuffer(0).slice(0, 3);
+    expect(r).toBeGreaterThan(0);
+    expect(g + b).toBe(0);
   });
 
   it('is white when no colour was set', () => {

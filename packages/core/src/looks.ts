@@ -72,6 +72,10 @@ function topLevelStarts(code: string): number[] {
       i = skipString(code, i);
       continue;
     }
+    if (c === '/' && opensRegex(code, i)) {
+      i = skipRegex(code, i);
+      continue;
+    }
     if (c === '(' || c === '[' || c === '{') depth++;
     else if (c === ')' || c === ']' || c === '}') {
       depth = Math.max(0, depth - 1);
@@ -112,6 +116,49 @@ function skipString(code: string, i: number): number {
   return j;
 }
 
+const REGEX_AFTER_WORD = new Set(['return', 'typeof', 'case', 'do', 'else', 'in', 'of', 'new', 'delete', 'void', 'throw', 'yield', 'await']);
+
+/**
+ * Whether a `/` at `i` opens a regular expression rather than dividing: it
+ * does where a value is expected, after an operator, an opening bracket, a
+ * comma, the start of the scene or a word like return.
+ */
+function opensRegex(code: string, i: number): boolean {
+  let j = i - 1;
+  while (j >= 0 && /\s/.test(code[j])) j--;
+  if (j < 0) return true;
+  const c = code[j];
+  if ('(,=:[!&|?{};+-*%<>~^'.includes(c)) return true;
+  if (!IDENT.test(c)) return false;
+  let k = j;
+  while (k >= 0 && IDENT.test(code[k])) k--;
+  return REGEX_AFTER_WORD.has(code.slice(k + 1, j + 1));
+}
+
+/** The index just past the regular expression that opens at `i`. */
+function skipRegex(code: string, i: number): number {
+  let j = i + 1;
+  let inClass = false;
+  while (j < code.length) {
+    const c = code[j];
+    if (c === '\\') {
+      j += 2;
+      continue;
+    }
+    if (c === '\n') return j;
+    if (inClass) {
+      if (c === ']') inClass = false;
+    } else if (c === '[') inClass = true;
+    else if (c === '/') {
+      j++;
+      while (j < code.length && IDENT.test(code[j])) j++;
+      return j;
+    }
+    j++;
+  }
+  return j;
+}
+
 /** The index of the `}` that closes the `{` at `open`, or -1. */
 function matchingBrace(code: string, open: number): number {
   let depth = 0;
@@ -130,6 +177,10 @@ function matchingBrace(code: string, open: number): number {
     }
     if (c === '"' || c === "'" || c === '`') {
       i = skipString(code, i);
+      continue;
+    }
+    if (c === '/' && opensRegex(code, i)) {
+      i = skipRegex(code, i);
       continue;
     }
     if (c === '{') depth++;
@@ -195,6 +246,11 @@ export function rewriteLooks(code: string): LookRewrite {
       const bare = name.replace(/^_+|_+$/g, '');
       const declare = code[body] === '{' && /^[A-Za-z][\w]*$/.test(bare) ? `const ${bare} = null; ` : '';
       edits.push({ from: start, to: colon + 1, text: `${declare}if (0)` });
+      // `if (0) const x = 1` is not JavaScript, but `if (0) var x = 1` is: the
+      // muted line still names x, as nothing, and a later use of it goes on
+      // parsing.
+      const decl = /^(const|let)\b/.exec(code.slice(body, body + 6));
+      if (decl) edits.push({ from: body, to: body + decl[1].length, text: 'var' });
       const blockEnd = code[body] === '{' ? matchingBrace(code, body) : -1;
       const lineEnd = code.indexOf('\n', body);
       muted.push({ from: start, to: blockEnd !== -1 ? blockEnd + 1 : lineEnd === -1 ? code.length : lineEnd });
@@ -207,6 +263,12 @@ export function rewriteLooks(code: string): LookRewrite {
     if (close === -1) continue;
     edits.push({ from: start, to: colon + 1, text: `const ${name} = function ${name}()` });
     edits.push({ from: close + 1, to: close + 1, text: ';' });
+    // `break verse` leaves the block early, which in a function is return.
+    const breakOut = new RegExp(`\\bbreak\\s+${name.replace(/\$/g, '\\$')}\\b`, 'g');
+    for (const m of code.slice(body, close).matchAll(breakOut)) {
+      const at = body + (m.index ?? 0);
+      edits.push({ from: at, to: at + m[0].length, text: 'return' });
+    }
     looks.push(name);
     labels.push({ name, from: start, to: end });
   }

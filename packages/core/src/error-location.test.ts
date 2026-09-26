@@ -195,6 +195,12 @@ describe('a method a light does not have', () => {
     expect(error).toContain('the colour itself');
   });
 
+  it('answers a name used above the line that makes it', () => {
+    const error = hint("Cannot access 'verse' before initialization");
+    expect(error).toContain('move this line below');
+    expect(error).toContain('verse: {');
+  });
+
   it('answers .white on an rgb strip', () => {
     expect(hint('wash.white is not a function')).toContain('.mono(');
   });

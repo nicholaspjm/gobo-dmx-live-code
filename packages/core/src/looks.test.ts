@@ -83,4 +83,30 @@ describe('what is left alone', () => {
     const src = 'const x = a\n  ? b\n  : c';
     expect(rewriteLooks(src).code).toBe(src);
   });
+
+  it('a brace inside a regular expression', () => {
+    const src = "verse: {\n  const re = /[{]/\n  wash.red(1)\n}\ncue(verse)";
+    const out = rewriteLooks(src);
+    expect(out.looks).toEqual(['verse']);
+    expect(out.code).toContain('wash.red(1)\n};\ncue(verse)');
+  });
+
+  it('a slash that divides, which is not a regular expression', () => {
+    const src = 'verse: {\n  wash.dim(a / 2)\n}';
+    expect(rewriteLooks(src).code).toBe('const verse = function verse() {\n  wash.dim(a / 2)\n};');
+  });
+});
+
+describe('what still parses', () => {
+  it('a muted declaration', () => {
+    const out = rewriteLooks('_$: const x = 1\nx');
+    expect(out.code).toBe('if (0) var x = 1\nx');
+    expect(() => new Function(out.code)).not.toThrow();
+  });
+
+  it('break out of a look, which becomes return', () => {
+    const out = rewriteLooks('verse: {\n  if (a) break verse\n  b()\n}');
+    expect(out.code).toBe('const verse = function verse() {\n  if (a) return\n  b()\n};');
+    expect(() => new Function('a', 'b', out.code)).not.toThrow();
+  });
 });
