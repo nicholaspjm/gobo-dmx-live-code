@@ -8,6 +8,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Added
 
+gobo now reads the way strudel does, and strudel's ideas about sound are
+ported to light rather than borrowed as words: a note's envelope is a step's
+fade, a stereo position is a place along the rig, a scale is a palette, the
+global transform is a grand master, and a labelled block is a look.
+
+- **Strudel code runs as written in more places.** Signals work without
+  brackets (`sine.slow(4)`, as strudel writes them, as well as `sine()`),
+  Alt+Enter and Alt+. run and stop as they do in strudel, `.velocity()` folds
+  into the level like `gain`, strudel's underscore spellings of the visuals
+  gobo shares with it (`._scope()`, `._punchcard()`, `._spiral()`) draw gobo's,
+  and `seq`, `arrange`, `xfade`, `mouseX`/`mouseY` and the bipolar signals are
+  bound. Strudel's words for sound (`s`, `note`, `n`, `._pianoroll()`) are
+  answered in lighting terms rather than aliased: a light has levels, not
+  notes, so the error says what the lighting form is.
+- **A quoted string is a pattern**, as in strudel, anywhere a level or a colour
+  is taken: `wash.dim('1 - 1 -')`, `wash.color('<red blue>')`,
+  `sine.struct('1 - 1 1')`. `wash.color('red')` works where it used to be an
+  error, and a word that is not a colour is still named on the run. To chain
+  onto a pattern (`.fast(2)`, `.fadeOut(1)`), start it with `mini('…')`.
+- **Changes as values**, the way strudel curries them: `.every(4, fast(2))`,
+  `.chunk(4, mul(0.2))`, `.off(0.25, mul(0.4))`, `register('punch', range(-4,
+  1))`. fast, slow, early, late, rev, mul, add, range and the rest are bound
+  at the top level.
+- **Looks are named blocks, and an underscore mutes**, as strudel writes them:
+  `verse: { wash.color(blue) }`, `cue(verse, chorus)`, and `_verse:` or `_$:`
+  keeps a block or a line in view without running it. The old
+  `cue({ verse, chorus })` with functions still works.
 - **Fades per step.** `.fadeIn(beats)` brings each step of a pattern up,
   `.fadeOut(beats)` lets it keep glowing after the step ends, and
   `.settle(beats, level)` drops each hit to a held level, or to nothing, which
@@ -16,20 +43,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   strudel's own `.attack()`, `.decay()`, `.sustain()`, `.release()` and
   `.adsr('a:d:s:r')` now do the same thing in seconds, where they used to
   attach a setting no light read.
+- **`each(pattern)`**: every light in a group, or pixel on a strip, runs the
+  pattern a step later than the one before, as a desk's phase spread, so
+  `rig.each(sine)` is a wave along the rig and `rig.each(mini('1 - - -')
+  .fadeOut(2))` a chase with tails, with no function to write. `eachXY(pattern,
+  across, down)` does the same over a grid.
+- **A chase over a colour keeps the colour.** On a colour strip or a par with
+  no dimmer, `strip.color(red)` then `strip.each(mini('1 - - -').fadeOut(2))`
+  is a red chase, as on a desk where colour and intensity are separate. It
+  used to come out white, with a note that the red had been overwritten. With
+  no colour set, a level is still white.
 - **`.across(position)` places a step across a group**: 0 is the first light
   in the group, 1 the last, and a position between two is shared between them.
   `rig.dim(mini('1*8').across(saw))` walks one light along the rig;
   `.across(rand)` scatters. It is strudel's stereo `.pan()` with the lights as
   the speakers, and a pasted `.pan()` does the same (on a moving head, `.pan()`
   is still the head's pan channel).
-- **Look names are marked and muted code is dimmed** in the editor, from the
-  same reading of the source that runs it, so what is grey is exactly what is
-  skipped.
-- **A chase over a colour keeps the colour.** On a colour strip or a par with
-  no dimmer, `strip.color(red)` then `strip.each(mini('1 - - -').fadeOut(2))`
-  is a red chase, as on a desk where colour and intensity are separate. It
-  used to come out white, with a note that the red had been overwritten. With
-  no colour set, a level is still white.
+- **`.jux(change)` splits the rig**: across a group the left half runs the
+  pattern and the right half the changed copy, so `rig.dim(mini('1 - - -')
+  .jux(rev))` mirrors a chase across the room. Strudel's jux did not survive a
+  plain level; this is its right speaker as the right half of the lights.
+- **`.palette(colours)`**: numbers pick colours, 0 the first, wrapping past the
+  end and blending between two, so `mini('<0 1 2>').palette(warm)` steps
+  through a palette a bar at a time and `saw.slow(8).mul(3).palette(warm)`
+  sweeps through it. Strudel's `.scale()` picks notes; a lighting palette is
+  the scale a look picks from.
 - **`all(change)` is a grand master.** Strudel's all() changes every pattern
   playing; here it changes every channel that makes light, after the rest of
   the scene, so `all(mul(slider(1)))` puts the whole rig's brightness on one
@@ -41,33 +79,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   order, with its handle on its own line. Named sliders still work. Either
   kind now chains (`.range()`, `.mul()`) and can be handed to a method, so
   `.fast(slider(1, 1, 8))` puts a strobe's rate on a fader.
-- **`.jux(change)` splits the rig**: across a group the left half runs the
-  pattern and the right half the changed copy, so `rig.dim(mini('1 - - -')
-  .jux(rev))` mirrors a chase across the room. Strudel's jux did not survive a
-  plain level; this is its right speaker as the right half of the lights.
-- **`.palette(colours)`**: numbers pick colours, 0 the first, wrapping past the
-  end and blending between two, so `mini('<0 1 2>').palette(warm)` steps
-  through a palette a bar at a time and `saw.slow(8).mul(3).palette(warm)`
-  sweeps through it. Strudel's `.scale()` picks notes; a lighting palette is
-  the scale a look picks from.
-- **A quoted string is a pattern**, as in strudel, anywhere a level or a colour
-  is taken: `wash.dim('1 - 1 -')`, `wash.color('<red blue>')`,
-  `sine.struct('1 - 1 1')`. `wash.color('red')` works where it used to be an
-  error, and a word that is not a colour is still named on the run. To chain
-  onto a pattern (`.fast(2)`, `.fadeOut(1)`), start it with `mini('…')`.
-- **Looks are named blocks, and an underscore mutes**, as strudel writes them:
-  `verse: { wash.color(blue) }`, `cue(verse, chorus)`, and `_verse:` or `_$:`
-  keeps a block or a line in view without running it. The old
-  `cue({ verse, chorus })` with functions still works.
-- **`each(pattern)`**: every light in a group, or pixel on a strip, runs the
-  pattern a step later than the one before, as a desk's phase spread, so
-  `rig.each(sine)` is a wave along the rig and `rig.each(mini('1 - - -')
-  .fadeOut(2))` a chase with tails, with no function to write. `eachXY(pattern,
-  across, down)` does the same over a grid.
-- **Changes as values**, the way strudel curries them: `.every(4, fast(2))`,
-  `.chunk(4, mul(0.2))`, `.off(0.25, mul(0.4))`, `register('punch', range(-4,
-  1))`. fast, slow, early, late, rev, mul, add, range and the rest are bound
-  at the top level.
+- **Look names are marked and muted code is dimmed** in the editor, from the
+  same reading of the source that runs it, so what is grey is exactly what is
+  skipped.
+- **Autocomplete for the kind of light** inside `fixture(1, '…')`: every fixture
+  gobo knows, with its size, so `par-rgbw-7ch` is picked rather than spelled.
+- **A word in a pattern where a level belongs is reported.** `mini('1 x 1')`, or
+  a colour name in a pattern handed to `.dim()`, left that step dark with
+  nothing said; the status bar now names the word and the channel.
 - **Patch a rig from the fixtures tab.** Every fixture has "add to rig": say how
   many, the address set on the first one, the universe and a name, and it
   writes one `const par1 = fixture(…)` line per light, stepped by the fixture's
@@ -75,20 +94,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   channel the scene is not already using, names never clash with the scene's
   own or with gobo's, and the lines are shown before they go in. It writes
   code and nothing else: ctrl+enter still runs it.
-- **Autocomplete for the kind of light** inside `fixture(1, '…')`: every fixture
-  gobo knows, with its size, so `par-rgbw-7ch` is picked rather than spelled.
-- **A word in a pattern where a level belongs is reported.** `mini('1 x 1')`, or
-  a colour name in a pattern handed to `.dim()`, left that step dark with
-  nothing said; the status bar now names the word and the channel.
-- **Strudel code runs as written in more places.** Signals work without
-  brackets (`sine.slow(4)`, as strudel writes them, as well as `sine()`),
-  Alt+Enter and Alt+. run and stop as they do in strudel, `.velocity()` folds
-  into the level like `gain`, strudel's underscore spellings of the visuals
-  gobo shares with it (`._scope()`, `._punchcard()`, `._spiral()`) draw gobo's,
-  and `seq`, `arrange`, `xfade`, `mouseX`/`mouseY` and the bipolar signals are
-  bound. Strudel's words for sound (`s`, `note`, `n`, `._pianoroll()`) are
-  answered in lighting terms rather than aliased: a light has levels, not
-  notes, so the error says what the lighting form is.
 - **The desktop app says when a newer gobo is out.** It asks GitHub at most
   twice a day, and when there is a newer release it puts one link in the top
   bar, "0.5.4 is out", that opens the download page. It never downloads or
