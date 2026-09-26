@@ -1863,7 +1863,7 @@ const DOCS: DocSection[] = [
       {
         name: 'Alt+M',
         signature: 'Alt+M',
-        description: 'Zen mode: hides the top bar, the sim panel and the level strip, leaving the code. Clicking the mark at the top left does the same. The same key brings everything back, and the status bar says so while it is on. Not remembered across a reload.',
+        description: 'Minimal view: tucks away the top bar, the sim panel and the level strip, leaving the code. They are a hover away: the top bar comes back while the pointer is at the top edge, the sim and level strip while it is on the status bar. Clicking the mark at the top left does the same as the key. The same key brings everything back, and the status bar says so while it is on. Not remembered across a reload.',
       },
       {
         name: 'Ctrl+Shift+F',

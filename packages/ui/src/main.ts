@@ -2326,16 +2326,17 @@ onSettingsChange((s) => {
 // "Defined this session" section as save-able.
 const _refreshLibraryAfterEval = (): void => libraryPanel.refresh();
 
-// ─── Zen mode ────────────────────────────────────────────────────────────────
+// ─── Minimal view ────────────────────────────────────────────────────────────
 // One key takes away everything that is not the code: the top bar, the sim
 // panel and the level strip. The screen lights stay, because a scene using
 // screen() is aiming at them and they are output rather than furniture, and so
 // does the status bar, which is where a pattern error turns up mid-set.
 //
-// Called "zen mode" because that is what it is called in strudel, and someone
-// arriving from there should not have to discover that gobo's word for it is
-// "performance view". Three ways in, for the same reason: alt+m, the button in
+// Strudel calls this zen mode; gobo calls it minimal view, which says what it
+// is to someone who has not met strudel. Three ways in: alt+m, the button in
 // the bar, and clicking the mark on the left, which is strudel's own gesture.
+// What it hides is tucked away rather than removed, and comes back on hover
+// (the CSS in index.html), so nothing is out of reach while it is on.
 //
 // Bound on the document, not in the editor's keymap. A CodeMirror keymap only
 // fires while the editor has focus, which is how the stop shortcut once ended
@@ -2379,8 +2380,8 @@ function setZenMode(on: boolean): void {
   // it is the way out, so forgetting the key does not strand anyone.
   zenExitEl.hidden = !on;
   if (!on) return;
-  // The panel opens from a button in the top bar, so one left open would be
-  // unreachable as well as uncloseable once the bar is gone.
+  // A panel left open would sit over the code this view is for. It is a
+  // hover away: the button that opens it is in the tucked-away top bar.
   _panel?.close();
   // Whatever had focus may have just become display:none, which drops focus to
   // the body. The code is the only thing left to type into.
@@ -2462,7 +2463,7 @@ initStrudel().then(() => {
   // whichever order the network decides, and its message, that the code on
   // screen came from a link, says more than the generic hint.
   if (!_openedFromLink) {
-    setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop  ·  alt+m for zen mode');
+    setStatus('', 'ctrl+enter to run  ·  ctrl+space / ctrl+. to stop  ·  alt+m for minimal view');
   }
 });
 

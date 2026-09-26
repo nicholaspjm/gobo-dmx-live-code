@@ -28,6 +28,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - **`usb()` and `td()` in autocomplete and hover help.**
 - **`--help` for the connector.**
 
+### Changed
+
+- **Zen mode is now minimal view**, and what it hides is a hover away rather
+  than gone: the top bar slides back in at the top edge of the window, and the
+  sim and level strip rise from the status bar. alt+m and a click on the mark
+  still toggle it, and the settings that choose what it hides are unchanged.
+- **Buttons are their text or icon, with no border round them.** Colour still
+  says hover, on and done.
+
 ### Fixed
 
 - `rig.color('red')` on a group now says colours go without quotes, as a single

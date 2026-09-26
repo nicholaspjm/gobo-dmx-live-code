@@ -287,7 +287,7 @@ anything else in this version.
 | `Ctrl+Shift+F` | Format the buffer |
 | `Alt+1`…`Alt+9` | Run that cue, when the scene calls `cue()` |
 | `T` | Tap tempo (ignored while typing in the editor or any input) |
-| `Alt+M` | Zen mode: hide the top bar, sim panel and level strip. Clicking the mark does the same |
+| `Alt+M` | Minimal view: tuck away the top bar, sim panel and level strip. Hover the top edge for the bar, or the status bar for the sim. Clicking the mark does the same |
 
 Turning on **ctrl+enter runs the block** in settings swaps `Ctrl+Enter` and `Ctrl+Shift+Enter`
 over, so the plain chord takes the block and the shifted one takes the document.

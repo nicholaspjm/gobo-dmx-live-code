@@ -117,6 +117,17 @@ export const goboTheme = EditorView.theme(
       color: v('text-muted'),
       cursor: 'pointer',
     },
+    // The find panel's buttons match the rest of the app: text, no box.
+    '.cm-panel.cm-search .cm-button': {
+      backgroundImage: 'none',
+      backgroundColor: 'transparent',
+      border: '1px solid transparent',
+      color: v('text-muted'),
+      cursor: 'pointer',
+    },
+    '.cm-panel.cm-search .cm-button:hover': {
+      color: v('text'),
+    },
     // Every other hit while you type, so a search reads as a shape down the
     // document rather than one jump at a time. The .cm-searchMatch rules this
     // pairs with were written further down long before search was installed.

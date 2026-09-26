@@ -108,7 +108,7 @@
         flex-shrink: 0;
       }
 
-      /* A button, not a label: clicking the mark is the way into zen mode.
+      /* A button, not a label: clicking the mark is the way into minimal view.
          Styled back down to text, because it should read as the logo and
          reward being tried rather than advertise itself as a control. */
       .wordmark {
@@ -170,7 +170,7 @@
         height: 21px;
         padding: 0;
         background: transparent;
-        border: 1px solid var(--border);
+        border: 1px solid transparent;
         border-radius: 3px;
         color: var(--text-muted);
         font: inherit;
@@ -181,13 +181,11 @@
       }
       .transport-btn:hover {
         color: var(--text);
-        border-color: var(--accent2);
       }
       /* Lit while the scheduler is running, so the pair doubles as the answer
          to "is anything going out right now". */
       .transport-btn.live {
         color: var(--accent);
-        border-color: var(--accent);
       }
 
       /* The bar is one row of a fixed height, so anything that wraps inside it
@@ -220,20 +218,23 @@
       }
 
       /* A phone. Below 750px the row stops fitting, and the bar clips rather
-         than wraps, so what fell off the end was share, zen and the menu: the
-         one button that reaches the docs, the settings and the log. What gives
+         than wraps, so what fell off the end was share, minimal view and the
+         menu: the one button that reaches the docs, the settings and the log. What gives
          way instead is what a phone can live without — the tempo nudges, the
-         cycle bar and the connection light's words — and run, stop, the tempo
-         itself, share, zen and the menu stay. The light keeps its dot, and
-         tapping it still opens the outputs tab. */
+         cycle bar, the connection light's words and the "view" in "minimal
+         view" — and run, stop, the tempo itself, share, minimal and the menu
+         stay. The light keeps its dot, and tapping it still opens the outputs
+         tab. */
       @media (max-width: 749px) {
         .topbar { padding: 0 10px; }
-        .topbar-right { gap: 10px; }
+        .topbar-right { gap: 8px; }
+        .topbar .scene-action { padding: 3px 5px; }
         #bpm-halve,
         #bpm-double,
         #bpm-resync,
         .cycle-bar,
-        #ws-label { display: none; }
+        #ws-label,
+        .zen-toggle-more { display: none; }
       }
 
       /* The smallest phones still about, 320px wide. What is left above needs
@@ -285,7 +286,7 @@
       .bpm-tap,
       .bpm-btn {
         background: transparent;
-        border: 1px solid var(--border);
+        border: 1px solid transparent;
         color: var(--text-muted);
         font: inherit;
         font-size: 10px;
@@ -299,7 +300,6 @@
       .bpm-tap:hover,
       .bpm-btn:hover {
         color: var(--text);
-        border-color: var(--accent2);
       }
       .bpm-tap.flash {
         color: var(--accent);
@@ -351,12 +351,10 @@
       .ws-status:hover,
       .ws-status:focus-visible {
         color: var(--text);
-        border-color: var(--border);
       }
 
       .ws-status.active {
         color: var(--accent);
-        border-color: var(--accent);
       }
 
       /* Shown only while the scene's output needs a program on this machine and
@@ -606,8 +604,8 @@
         font: inherit;
         font-size: 11px;
         color: var(--text-muted);
-        background: var(--bg);
-        border: 1px solid var(--border);
+        background: transparent;
+        border: 1px solid transparent;
         border-radius: 3px;
         padding: 2px 8px;
         cursor: pointer;
@@ -629,7 +627,6 @@
       .cue-chip.live {
         color: var(--bg);
         background: var(--accent);
-        border-color: var(--accent);
         font-weight: 700;
       }
 
@@ -854,7 +851,7 @@
       .log-clear,
       .log-report {
         background: none;
-        border: 1px solid var(--border);
+        border: 1px solid transparent;
         color: var(--text-muted);
         font: inherit;
         font-size: 11px;
@@ -863,7 +860,7 @@
       }
 
       .log-clear:hover,
-      .log-report:hover { color: var(--text); border-color: var(--text-muted); }
+      .log-report:hover { color: var(--text); }
 
       .log-list {
         display: flex;
@@ -958,24 +955,69 @@
         color: var(--sage);
       }
 
-      /* Zen mode. The class goes on <body> so one rule takes out the chrome,
-         rather than main.ts reaching for each element. The screen lights are
-         deliberately left alone: a scene using screen() is aiming at them, so
-         they are output, not furniture. */
-      /* Each piece is hidden by its own class rather than by the mode, so the
-         settings decide what zen mode does and the mode stays one switch. */
-      body.zen-hide-chrome .topbar,
+      /* Minimal view. The class goes on <body> so one rule takes out the
+         chrome, rather than main.ts reaching for each element. The screen
+         lights are deliberately left alone: a scene using screen() is aiming
+         at them, so they are output, not furniture.
+         Each piece is hidden by its own class rather than by the mode, so the
+         settings decide what the view does and the mode stays one switch. */
       body.zen-hide-chrome .divider,
-      body.zen-hide-sim .fixture-panel,
-      body.zen-hide-levels .viz-strip,
-      body.zen-hide-cues .cue-bar {
+      body.zen-hide-cues .cue-bar,
+      body.zen-hide-sim:not(.zen-hide-levels) .fixture-panel,
+      body.zen-hide-levels:not(.zen-hide-sim) .viz-strip {
         display: none;
       }
 
-      /* The sim and the level strip share a wrapper. Hide it only when both of
-         them are gone, or an empty bar is left behind. */
+      /* Hidden is tucked away, not gone: the top bar comes back while the
+         pointer is at the top edge, and the sim and level strip while it is
+         on the status bar. Out of the layout either way, so the code gets the
+         whole window. The short delay before they go again is so a pointer
+         that overshoots on the way to a button does not lose it. */
+      body.zen-hide-chrome .topbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 90;
+        transform: translateY(-100%);
+        transition: transform 0.15s ease 0.3s;
+      }
+      /* The strip along the top edge that catches the pointer while the bar
+         is away. Part of the bar, so hovering it is hovering the bar. */
+      body.zen-hide-chrome .topbar::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 100%;
+        height: 8px;
+      }
+      body.zen-hide-chrome .topbar:hover,
+      body.zen-hide-chrome .topbar:focus-within {
+        transform: none;
+        transition-delay: 0s;
+      }
+
+      /* The sim and the level strip share a wrapper, which slides up from
+         behind the status bar when both are hidden. */
       body.zen-hide-sim.zen-hide-levels .viz-wrap {
-        display: none;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 26px;
+        z-index: 90;
+        border-top: 1px solid var(--border);
+        transform: translateY(calc(100% + 26px));
+        transition: transform 0.15s ease 0.3s;
+      }
+      body.zen-hide-sim.zen-hide-levels .viz-wrap:hover,
+      body.zen-hide-sim.zen-hide-levels:has(.statusbar:hover) .viz-wrap {
+        transform: none;
+        transition-delay: 0s;
+      }
+      body.zen-mode .statusbar {
+        position: relative;
+        z-index: 91;
       }
 
       /* For a projected screen: the code on black, with nothing behind it. */
@@ -986,15 +1028,15 @@
         background: #000 !important;
       }
 
-      /* The way out of zen mode, and the only thing on screen that says which
+      /* The way out of minimal view, and the only thing on screen that says which
          mode this is. It lives in the status bar because that is the one strip
-         zen mode keeps, and it is drawn in the accent so it is not mistaken for
+         minimal view keeps, and it is drawn in the accent so it is not mistaken for
          status text. */
       .zen-exit {
         margin-left: auto;
         padding: 1px 8px;
         background: transparent;
-        border: 1px solid var(--accent);
+        border: 1px solid transparent;
         border-radius: 3px;
         color: var(--accent);
         font: inherit;
@@ -1022,7 +1064,7 @@
 
       .scene-action {
         background: transparent;
-        border: 1px solid var(--border);
+        border: 1px solid transparent;
         color: var(--text-muted);
         font: inherit;
         font-size: 11px;
@@ -1035,18 +1077,15 @@
       }
       .scene-action:hover {
         color: var(--text);
-        border-color: var(--accent2);
       }
       .scene-action.active {
         color: var(--accent);
-        border-color: var(--accent);
       }
       /* Momentary "copied" state on the share button. Green rather than the
          accent, because it reports that something happened rather than that a
          mode is on, and the two should not look alike. */
       .scene-action.copied {
         color: var(--sage);
-        border-color: var(--sage);
       }
 
       /* Examples menu: a popover under its button. The wrapper is the
@@ -1211,10 +1250,12 @@
 
       /* Docs toggle button */
       .docs-toggle {
+        white-space: nowrap;
         background: transparent;
-        border: 1px solid var(--border);
+        border: 1px solid transparent;
         color: var(--text-muted);
-        padding: 3px 10px;
+        /* No box to fill, so only enough room to be an easy target. */
+        padding: 3px 6px;
         font: inherit;
         font-size: 11px;
         letter-spacing: 0.06em;
@@ -1226,12 +1267,10 @@
 
       .docs-toggle:hover {
         color: var(--text);
-        border-color: var(--accent2);
       }
 
       .docs-toggle.active {
         color: var(--accent);
-        border-color: var(--accent);
       }
 
       /* Icon-only variant, the panel button. Same border and hover treatment
@@ -1728,7 +1767,7 @@
       }
       .settings-reset {
         background: transparent;
-        border: 1px solid var(--border);
+        border: 1px solid transparent;
         color: var(--text-muted);
         padding: 6px 12px;
         font: inherit;
@@ -1741,7 +1780,6 @@
       }
       .settings-reset:hover {
         color: var(--accent);
-        border-color: var(--accent);
       }
 
       /* Search bar, sticky at the top of the scrollable body */
@@ -1780,7 +1818,7 @@
       .doc-search-clear {
         display: none;
         background: transparent;
-        border: 1px solid var(--border);
+        border: 1px solid transparent;
         color: var(--text-muted);
         font-size: 14px;
         line-height: 1;
@@ -1793,7 +1831,6 @@
 
       .doc-search-clear:hover {
         color: var(--text);
-        border-color: var(--accent2);
       }
 
       .doc-search-clear.visible {
@@ -2119,7 +2156,7 @@
       }
       .lib-action {
         background: transparent;
-        border: 1px solid var(--border);
+        border: 1px solid transparent;
         color: var(--text-muted);
         font: inherit;
         font-size: 11px;
@@ -2132,18 +2169,15 @@
       }
       .lib-action:hover {
         color: var(--text);
-        border-color: var(--accent2);
       }
       .lib-action.lib-primary {
         color: var(--accent);
-        border-color: var(--accent);
       }
       .lib-action.lib-primary:hover {
         background: rgba(196, 114, 74, 0.12);
       }
       .lib-action.lib-danger:hover {
         color: var(--error);
-        border-color: var(--error);
       }
 
       .lib-banner {
@@ -2682,10 +2716,10 @@
   <body>
     <div id="app">
       <header class="topbar">
-        <!-- The mark is the way into zen mode, which is where strudel puts
+        <!-- The mark is the way into minimal view, which is where strudel puts
              the same gesture. It is a button so the keyboard can reach it;
              the CSS takes it back to looking like the logo. -->
-        <button type="button" class="wordmark" id="wordmark" title="zen mode (alt+m)" aria-pressed="false"><span class="wordmark-ramp" aria-hidden="true">█▓▒░</span><span class="wordmark-word">gobo</span></button>
+        <button type="button" class="wordmark" id="wordmark" title="minimal view (alt+m)" aria-pressed="false"><span class="wordmark-ramp" aria-hidden="true">█▓▒░</span><span class="wordmark-word">gobo</span></button>
         <div class="topbar-right">
           <div class="transport">
             <button type="button" class="transport-btn" id="transport-run" title="run the scene (ctrl+enter)" aria-label="run">▶</button>
@@ -2767,7 +2801,7 @@
           <!-- Choosing a USB interface lives in the outputs panel, next to the
                other five outputs, rather than as a button of its own up here.
                Reached by clicking the connection light. -->
-          <button type="button" class="docs-toggle" id="zen-toggle" title="zen mode: hide everything but the code (alt+m, or click the mark on the left)" aria-pressed="false">zen</button>
+          <button type="button" class="docs-toggle" id="zen-toggle" title="minimal view: just the code, with the bars a hover away (alt+m, or click the mark on the left)" aria-pressed="false">minimal<span class="zen-toggle-more"> view</span></button>
           <!-- The panel, all of it. Four buttons used to stand here; what
                they opened is now five tabs behind this one. -->
           <button type="button" class="docs-toggle panel-toggle" id="panel-toggle" title="docs, fixtures, log, outputs and settings" aria-label="panel" aria-expanded="false" aria-controls="panel">
@@ -2878,10 +2912,10 @@
         <!-- The app's only error channel. role="status" makes it a live region, so a
            screen reader hears an eval error instead of it appearing silently. -->
         <span id="eval-status" role="status" aria-live="polite">ctrl+enter to run  ·  ctrl+. to stop</span>
-        <!-- On screen only in zen mode, where the top bar is gone. It names
+        <!-- On screen only in minimal view, where the top bar is tucked away. It names
              the mode and the key, and clicking it is the way back, so
              forgetting the key cannot strand anyone in there. -->
-        <button type="button" class="zen-exit" id="zen-exit" hidden>zen mode · exit (alt+m)</button>
+        <button type="button" class="zen-exit" id="zen-exit" title="the controls are still there: move to the top edge for the bar, or onto this line for the sim" hidden>minimal view · exit (alt+m)</button>
       </div>
     </div>
 

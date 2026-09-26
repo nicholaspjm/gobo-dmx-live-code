@@ -448,17 +448,17 @@ export function mountSettingsPanel(opts: {
           ]),
         })}
 
-        ${section('zen mode')}
+        ${section('minimal view')}
         ${row({
           key: 'zenHideChrome',
           label: 'hide the top bar',
-          hint: 'what alt+m, the zen button and a click on the mark hide. the mode is one switch; these decide what it does.',
+          hint: 'what alt+m, the minimal view button and a click on the mark tuck away. the view is one switch; these decide what it does. the top bar comes back while the pointer is at the top edge.',
           control: toggle('zenHideChrome', s.zenHideChrome),
         })}
         ${row({
           key: 'zenHideSim',
           label: 'hide the sim',
-          hint: 'the fixture simulation under the editor.',
+          hint: 'the fixture simulation under the editor. with the level strip also hidden, both come back while the pointer is on the status bar.',
           control: toggle('zenHideSim', s.zenHideSim),
         })}
         ${row({
