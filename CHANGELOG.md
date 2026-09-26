@@ -43,6 +43,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - The log panel leaves out strudel's own load banner, which gobo repeats in
   its own words a line later.
 - Borderless buttons get a focus ring when reached from the keyboard.
+- The widgets beside the code (colour swatches, meters, strips, waves and the
+  colour picker's swatch) lose their borders, as the buttons did: the tinted
+  ground sets them apart.
 
 ### Fixed
 

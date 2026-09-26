@@ -1472,7 +1472,8 @@
         width: 22px;
         height: 14px;
         padding: 0;
-        border: 1px solid var(--border);
+        /* The swatch is the colour, with nothing drawn round it. */
+        border: none;
         border-radius: 3px;
         cursor: pointer;
       }
@@ -2620,7 +2621,8 @@
         gap: 3px;
         margin-left: 12px;
         padding: 2px 5px;
-        border: 1px solid var(--border);
+        /* No border, like every button: the tinted ground is what sets a
+           widget apart from the code beside it. */
         border-radius: 3px;
         background: rgba(0, 0, 0, 0.22);
         vertical-align: middle;
@@ -2760,7 +2762,6 @@
         display: inline-block;
         margin-left: 10px;
         padding: 1px 3px;
-        border: 1px solid var(--border);
         border-radius: 2px;
         background: rgba(0, 0, 0, 0.22);
         vertical-align: middle;
