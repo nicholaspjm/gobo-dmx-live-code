@@ -137,6 +137,22 @@ export function slider(
   return declareSlider(name, name, min, max, opts);
 }
 
+/**
+ * slider() stamped with where it is written: `slider.at(offset)(0.5)`. The
+ * editor rewrites a strudel-form slider(0.5) into this before a run (see
+ * mini-locations.ts), so the handle can be placed on exactly the call that
+ * made it, whatever order the scene's calls run in. A named slider is keyed
+ * by its name already and ignores the offset.
+ */
+slider.at = function at(offset: number) {
+  return function sliderAt(first: string | number, ...rest: unknown[]): PatternLike {
+    if (typeof first !== 'number') return (slider as (...a: unknown[]) => PatternLike)(first, ...rest);
+    const [min, max, step] = rest as [number | undefined, number | undefined, number | undefined];
+    const label = `slider@${offset}`;
+    return declareSlider(label, `${label}@${first}`, min ?? 0, max ?? 1, { start: first, step: typeof step === 'number' ? step : 0 });
+  };
+};
+
 function declareSlider(
   name: string,
   key: string,

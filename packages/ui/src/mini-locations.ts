@@ -222,6 +222,27 @@ function setterStringEdits(source: string): Edit[] {
   return edits;
 }
 
+/**
+ * `slider(0.5, …)` becomes `slider.at(offsetOfTheName)(0.5, …)`: strudel's
+ * unnamed slider, stamped with where it is written, so its handle lands on
+ * this call and no other. A named slider, slider('level'), is left alone.
+ */
+function sliderEdits(source: string): Edit[] {
+  let stripped: string;
+  try {
+    stripped = stripNonCode(source).join('\n');
+  } catch {
+    return [];
+  }
+  const edits: Edit[] = [];
+  for (const match of stripped.matchAll(/(^|[^.\w$])slider\s*\(\s*(?=[-\d.])/g)) {
+    const nameStart = (match.index ?? 0) + match[1].length;
+    const open = stripped.indexOf('(', nameStart);
+    edits.push({ from: nameStart, to: open + 1, text: `slider.at(${nameStart})(` });
+  }
+  return edits;
+}
+
 /** The pattern-level viz methods, which take no arguments of their own. */
 const VIZ_METHODS = new RegExp(`\\.(${PATTERN_VIZ_METHOD_NAMES.join('|')})\\s*\\(\\s*\\)`, 'g');
 
@@ -266,5 +287,5 @@ function vizEdits(source: string): Edit[] {
  * already shifted.
  */
 export function tagLocations(source: string): Rewritten {
-  return applyEdits(source, [...miniEdits(source), ...setterStringEdits(source), ...vizEdits(source)]);
+  return applyEdits(source, [...miniEdits(source), ...setterStringEdits(source), ...sliderEdits(source), ...vizEdits(source)]);
 }

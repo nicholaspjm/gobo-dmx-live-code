@@ -155,3 +155,18 @@ describe('a control survives the scene being re-run', () => {
     expect(getControlValue('level')).toBeNull();
   });
 });
+
+describe("an unnamed slider stamped with where it is written", () => {
+  it('is named by that place, whatever order the calls run in', () => {
+    slider.at(40)(0.2);
+    slider.at(12)(0.5, 0, 2, 0.1);
+    expect(getControls().map((c) => c.name)).toEqual(['slider@40', 'slider@12']);
+    expect(getControlValue('slider@12')).toBe(0.5);
+    expect(getControls()[1]).toMatchObject({ min: 0, max: 2, step: 0.1 });
+  });
+
+  it('hands a named slider through as it was', () => {
+    slider.at(3)('level', 0, 1, { start: 0.25 });
+    expect(getControlValue('level')).toBe(0.25);
+  });
+});

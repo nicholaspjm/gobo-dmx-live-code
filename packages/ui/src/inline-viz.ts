@@ -444,7 +444,8 @@ class SliderWidget extends WidgetType {
 
     const label = document.createElement('span');
     label.className = 'gobo-slider-name';
-    label.textContent = name;
+    // An unnamed slider is known by where it is written; it reads as "slider".
+    label.textContent = /^slider@\d+$/.test(name) ? 'slider' : name;
 
     span.append(label, input, readout);
     this.input = input;
@@ -1118,7 +1119,11 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   const unnamedLines = findCalls(code, /\bslider\s*\(\s*-?[\d.]/g).map((hit) => hit.line);
   for (const control of controls) {
     const nth = /^slider (\d+)$/.exec(control.name);
-    const line = sliderLines.get(control.name) ?? (nth ? unnamedLines[Number(nth[1]) - 1] : undefined);
+    // Stamped by the editor with where it is written (see mini-locations.ts).
+    const at = /^slider@(\d+)$/.exec(control.name);
+    const line = at && Number(at[1]) <= doc.length
+      ? doc.lineAt(Number(at[1])).number
+      : sliderLines.get(control.name) ?? (nth ? unnamedLines[Number(nth[1]) - 1] : undefined);
     if (line === undefined) continue;   // not written as a plain literal here
     const lineObj = doc.line(line);
     ranges.push({
