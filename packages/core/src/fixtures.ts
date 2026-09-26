@@ -3521,7 +3521,7 @@ export function groupCommands(): string[] {
  * In strudel `.pan(x)` puts a sound between the left speaker (0) and the right
  * (1). Across a group the lights are the speakers: a step panned to 0 lands on
  * the first, 1 on the last, and a position between two lights is shared
- * between them, so `rig.dim(mini('1*8').pan(saw))` walks one light along the
+ * between them, so `rig.dim(mini('1*8').across(saw))` walks one light along the
  * rig and a slow pan sweeps it smoothly rather than jumping.
  *
  * Steps with no pan reach every light as before. The wrapper reads each value

@@ -16,11 +16,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   strudel's own `.attack()`, `.decay()`, `.sustain()`, `.release()` and
   `.adsr('a:d:s:r')` now do the same thing in seconds, where they used to
   attach a setting no light read.
-- **`.pan()` places a step across a group.** Strudel's stereo position, with
-  the lights as the speakers: 0 is the first light in the group, 1 the last,
-  and a position between two is shared between them. `rig.dim(mini('1*8')
-  .pan(saw))` walks one light along the rig; `.pan(rand)` scatters. On a
-  single light it changes nothing.
+- **`.across(position)` places a step across a group**: 0 is the first light
+  in the group, 1 the last, and a position between two is shared between them.
+  `rig.dim(mini('1*8').across(saw))` walks one light along the rig;
+  `.across(rand)` scatters. It is strudel's stereo `.pan()` with the lights as
+  the speakers, and a pasted `.pan()` does the same (on a moving head, `.pan()`
+  is still the head's pan channel).
 - **Patch a rig from the fixtures tab.** Every fixture has "add to rig": say how
   many, the address set on the first one, the universe and a name, and it
   writes one `const par1 = fixture(…)` line per light, stepped by the fixture's

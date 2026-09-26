@@ -205,11 +205,11 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'method',
   },
   {
-    label: 'pan',
-    signature: '.pan(position) => Pattern',
+    label: 'across',
+    signature: '.across(position)',
     description:
-      "Where across a group each step lands: 0 the first light, 1 the last, and a position between two lights shared between them. Strudel's stereo pan, with the lights as the speakers. A pattern of positions places every step on its own, so .pan(saw) walks along the rig and .pan(rand) scatters.",
-    example: "rig.dim(mini('1*8').pan(saw))              // one light walks the rig\nrig.dim(mini('1*16').pan(rand).fadeOut(1))  // sparkle with tails",
+      "Where across a group each step lands: 0 the first light, 1 the last, and a position between two lights shared between them. A pattern of positions places every step on its own, so .across(saw) walks along the rig and .across(rand) scatters. Strudel calls this .pan(), its stereo position with the lights as the speakers, and a pasted .pan() does the same; on a moving head .pan() is the head's own pan channel.",
+    example: "rig.dim(mini('1*8').across(saw))               // one light walks the rig\nrig.dim(mini('1*16').across(rand).fadeOut(1))  // sparkle with tails",
     context: 'pattern-method',
     kind: 'method',
   },

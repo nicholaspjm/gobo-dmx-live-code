@@ -233,4 +233,14 @@ export function installFades(kit: StrudelKit, proto: any): void {
   proto.adsr = function (this: unknown, spec: unknown) {
     return fade(kit, this, parseAdsr(spec));
   };
+  // Position across a group, in lighting words. It rides on strudel's pan
+  // control, which the group reads (fixtures.ts, placeAcross), so the two are
+  // one thing; pan keeps its strudel name for pasted code, and across is the
+  // one a lighting scene uses, since pan on a moving head means the head.
+  if (typeof proto.pan === 'function') {
+    const pan = proto.pan;
+    proto.across = function (this: unknown, position: unknown) {
+      return pan.call(this, position);
+    };
+  }
 }
