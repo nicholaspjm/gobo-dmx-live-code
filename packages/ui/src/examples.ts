@@ -249,30 +249,30 @@ bar.dim(1)
 // each block is a self-contained effect; the trailing comment is its label.
 
 bar.pixels.fill(0, 0, 0, 1)                                          // solid white
-// bar.pixels.white(sine.slow(8).range(0.1, 1).glow())             // breathe
+// bar.pixels.white(sine.slow(8).range(0.1, 1).glow())               // breathe
 // bar.pixels.white(mini('1 - - -').range(-15, 1).flash())           // pulse
 // bar.pixels.white(mini('1 - 1 -').range(-15, 1).flash())           // double
 
 // walk: a fade that passes through each pixel in turn. The last number is
 // how far apart the pixels run; lower the -7 for a wider band.
 // bar.pixels.each(cosine.slow(2).range(-7, 1), 2)                   // walk
-// bar.pixels.each(mini('1 - - - - - - -').fadeOut(2))                // chase with tails
+// bar.pixels.each(mini('1 - - - - - - -').fadeOut(2))               // chase with tails
 
 // bar.pixels.rainbowChase({ cycles: 2, width: 0.14 })               // rainbow
 
 // bar.pixels.pixelGrid([[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0], [0,0,1,0]]).hold() // half red, half blue
 
-// bar.pixels.pixelGrid([[1,0,0,0], [0,0,1,0]]).repeat()              // red/blue tile
-// bar.pixels.pixelGrid([[1,0,0,0], [0,1,0,0], [0,0,1,0]]).mirror()   // r/g/b symmetry
-// bar.pixels.pixelGrid([[1,1,0,0]]).hold()                           // yellow hold
+// bar.pixels.pixelGrid([[1,0,0,0], [0,0,1,0]]).repeat()             // red/blue tile
+// bar.pixels.pixelGrid([[1,0,0,0], [0,1,0,0], [0,0,1,0]]).mirror()  // r/g/b symmetry
+// bar.pixels.pixelGrid([[1,1,0,0]]).hold()                          // yellow hold
 
 // movement (stack on top of any pixel effect)
 // bar.direction(0.5); bar.speed(0)                                  // center
 // bar.direction(0); bar.speed(0)                                    // left
 // bar.direction(1); bar.speed(0)                                    // right
-// bar.direction(sine.slow(8)); bar.speed(0.6)                     // sweep
-// bar.direction(saw.slow(6)); bar.speed(0.8)                      // spin
-// bar.direction(sine.slow(1).range(0.4, 0.6)); bar.speed(0.5)     // wobble
+// bar.direction(sine.slow(8)); bar.speed(0.6)                       // sweep
+// bar.direction(saw.slow(6)); bar.speed(0.8)                        // spin
+// bar.direction(sine.slow(1).range(0.4, 0.6)); bar.speed(0.5)       // wobble
 // bar.speed(0)                                                      // freeze
 `,
   },
