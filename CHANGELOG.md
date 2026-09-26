@@ -22,6 +22,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   `.across(rand)` scatters. It is strudel's stereo `.pan()` with the lights as
   the speakers, and a pasted `.pan()` does the same (on a moving head, `.pan()`
   is still the head's pan channel).
+- **`.palette(colours)`**: numbers pick colours, 0 the first, wrapping past the
+  end and blending between two, so `mini('<0 1 2>').palette(warm)` steps
+  through a palette a bar at a time and `saw.slow(8).mul(3).palette(warm)`
+  sweeps through it. Strudel's `.scale()` picks notes; a lighting palette is
+  the scale a look picks from.
 - **A quoted string is a pattern**, as in strudel, anywhere a level or a colour
   is taken: `wash.dim('1 - 1 -')`, `wash.color('<red blue>')`,
   `sine.struct('1 - 1 1')`. `wash.color('red')` works where it used to be an

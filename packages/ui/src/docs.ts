@@ -404,6 +404,13 @@ const DOCS: DocSection[] = [
         example: "wash.dim('1 [1 1] - 0.5')\nwash.color('<red amber blue>')",
       },
       {
+        name: 'scales → palettes',
+        signature: "n('0 2 4').scale('C:major')  →  mini('0 1 2').palette(warm)",
+        description:
+          "A scale is the set of notes a melody picks from; a palette is the set of colours a look picks from. .palette() turns numbers into its colours, wrapping past the end as a scale wraps into the next octave, and blending between two for a number in between.",
+        example: "const warm = [amber, orange, red]\nwash.color(mini('<0 1 2>').palette(warm))\nwash.color(saw.slow(8).mul(3).palette('red amber white'))",
+      },
+      {
         name: 'gain, velocity → level',
         signature: '.gain(x)  ·  .velocity(x)',
         description:

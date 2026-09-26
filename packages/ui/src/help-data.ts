@@ -205,6 +205,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'method',
   },
   {
+    label: 'palette',
+    signature: '.palette(colours)',
+    description:
+      "Numbers pick colours: 0 the first in the palette, 1 the next, wrapping past the end, and a number between two blends them. Strudel's .scale() turns numbers into notes; this turns them into the colours a designer picks from. The result goes to .color() or .fill(). A list, [red, amber, white], or a string of names, 'red amber white'.",
+    example: "wash.color(mini('<0 1 2>').palette(warm))          // one colour a bar\nwash.color(saw.slow(8).mul(3).palette(warm))      // a slow sweep through them",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
     label: 'across',
     signature: '.across(position)',
     description:

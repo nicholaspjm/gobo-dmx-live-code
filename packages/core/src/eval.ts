@@ -38,9 +38,10 @@ import {
   dim,
   rgb,
   hushDefs,
+  levelOf,
   type PatternLike,
 } from './dmx.js';
-import { COLORS, mix } from './colors.js';
+import { COLORS, colorFromToken, mix, toColorValue, type Color } from './colors.js';
 import { setBPM } from './scheduler.js';
 import { installFades } from './envelope.js';
 import { rewriteLooks } from './looks.js';
@@ -97,6 +98,47 @@ let _strudelError: string | null = null;
 // the prototype each call.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _patternProto: any = null;
+
+/**
+ * Strudel's scales, ported to light: `.palette(colours)`.
+ *
+ * In strudel `n('0 2 4').scale('C:major')` turns numbers into the notes of a
+ * scale. A light has no notes, but it has colours, and a palette is the scale
+ * a lighting designer picks from. So here the numbers pick colours: 0 is the
+ * first in the palette, 1 the next, and past the end it wraps, as a scale
+ * wraps into the next octave. A number between two blends them, so a signal
+ * sweeps smoothly through the palette. The result is a colour pattern, for
+ * .color() or .fill().
+ *
+ *   wash.color(mini('<0 1 2>').palette(warm))      one colour a bar
+ *   wash.color(saw.slow(8).mul(3).palette(warm))   a slow sweep through them
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function installPalette(proto: any): void {
+  proto.palette = function (this: { fmap(fn: (v: unknown) => unknown): unknown }, stops: unknown) {
+    // A string of colour names is a palette too, the way strudel names a
+    // scale in a string: .palette('red amber white').
+    const list0 = typeof stops === 'string'
+      ? stops.split(/[\s,]+/).filter(Boolean).map((w) => colorFromToken(w, '.palette()'))
+      : stops;
+    const colours = Array.isArray(list0) ? list0.map((c) => toColorValue(c)) : [];
+    if (colours.length === 0 || colours.some((c) => c === null)) {
+      throw new Error(
+        '.palette() takes a list of colours to pick from, as in .palette([red, amber, white]) or a palette of '
+        + 'your own: const warm = [amber, orange, red], then .palette(warm).',
+      );
+    }
+    const list = colours as Color[];
+    const at = (i: number): Color => list[((i % list.length) + list.length) % list.length];
+    return this.fmap((v: unknown) => {
+      const n = levelOf(v);
+      if (n === null) return v;
+      const whole = Math.floor(n);
+      const t = n - whole;
+      return t === 0 ? at(whole) : mix(at(whole), at(whole + 1), t);
+    });
+  };
+}
 
 /** Call once (async) before first eval to load @strudel/core waveforms. */
 export async function initStrudel(): Promise<void> {
@@ -364,6 +406,7 @@ export async function initStrudel(): Promise<void> {
       // Per-step fades, and strudel's envelope names reading as light. See
       // envelope.ts.
       if (proto) installFades({ Pattern: core.Pattern, Hap: core.Hap, TimeSpan: core.TimeSpan, Fraction: core.Fraction }, proto);
+      if (proto) installPalette(proto);
     } catch {
       // Strudel's internals changed shape, or sample failed. Audio reactives
       // still get viz methods attached directly.
