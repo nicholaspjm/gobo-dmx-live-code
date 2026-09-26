@@ -46,7 +46,7 @@ export const EXAMPLES: Example[] = [
     code: `// ctrl+enter to run · ctrl+space to stop · 'docs' for everything else
 // real lights: click the connection light, top right, and pick an output
 const wash = fixture(1, 'rgb')
-wash.color(sine().slow(2), 0, cosine().slow(2))
+wash.color(sine.slow(2), 0, cosine.slow(2))
 `,
   },
   {
@@ -61,20 +61,24 @@ wash.color(sine().slow(2), 0, cosine().slow(2))
 // artnet('2.255.255.255')   // pick your network in the outputs panel
 setBPM(124)
 
-const pars = [1, 6, 11, 16].map((ch) => fixture(ch, 'dim-rgbw'))
-const rig = group(...pars)
+const par1 = fixture(1, 'dim-rgbw')
+const par2 = fixture(6, 'dim-rgbw')
+const par3 = fixture(11, 'dim-rgbw')
+const par4 = fixture(16, 'dim-rgbw')
+const pars = group(par1, par2, par3, par4)
 const strb = fixture(21, 'strobe')
 
 // ── colour · a palette spreads across the group, one stop per light ──
 const warm = [amber, orange, red]
-rig.color(warm)
-// rig.color(red, amber, red, amber)
-// rig.color(mini('<red blue>'))                  // all change each bar
+pars.color(warm)
+// pars.color(red, amber, red, amber)
+// pars.color(mini('<red blue>'))                // all change each bar
 
-// ── level · each light a quarter-bar behind the last ──────────────
-rig.each((p) => square().early(p).slow(2))
-// rig.each((p) => sine().early(p).slow(4))      // a smooth wave
-// rig.dim(mini('1 - - -').flash())               // all on the beat
+// ── chase · every light runs it, each a step behind the last ───────
+pars.each(mini('1 - - -').fadeOut(2))
+// pars.each(sine.slow(4), 4)                     // a smooth wave
+// pars.dim(mini('1*8').across(saw))              // one light walks the rig
+// pars.dim(mini('1 1 1 1').settle(0.5))          // all flash on the beat
 
 // ── strobe · a fill at the end of every bar, dark the rest of it ───
 strb.dim(mini('- - - [1 1 1 1]').flash())
@@ -147,51 +151,55 @@ strb.strobe(mini(\`
 \`).slow(2).flash())
 
 // ── waveforms · sine cosine square saw rand, chained left to right ─
-const hueR = sine().slow(12).range(0, 1)
-const hueG = sine().early(1/3).slow(12).range(0, 1)
-const hueB = sine().early(2/3).slow(12).range(0, 1)
+// swap one of these in for the strip.each line below: it sets red too
+// strip.red(sine.slow(4).segment(8))               // stepped
+// strip.red(sine.slow(8).rangex(0.01, 1))          // a fade the eye sees evenly
+// strip.red(sine.slow(4).range(1, 0))              // inverted
+// strip.red(sine.slow(2).mask(mini('1 1 - -')))    // gated, keeps running
+// strip.red(sine.slow(4).struct(mini('1 - 1 -')))  // rhythm from elsewhere
+// strip.red(sine.mul(mini('1 0.25')))              // one pattern scales another
+// strip.red(mini('1 0.6 0.3 0').iter(4))           // rotates a step each bar
+// strip.red(mini('1 0.6 0.3 0').palindrome())      // there and back
+// strip.red(mini('1 0.6 0.3 0').linger(0.25))      // stutter on beat one
+// strip.red(mini('1 - 1 -').every(4, fast(2)))     // doubles every 4th bar
+// strip.red(mini('1 1 1 1').chunk(4, mul(0.2)))    // dip travels across
+// strip.red(mini('1 0.5').ply(mini('<1 2 4 8>')))  // subdivides per bar
+// strip.red(mini('1*8').swingBy(1/3, 2))           // stops marching
 
-// swap one of these in for the strip.each block below: it sets red too
-// strip.red(sine().slow(4).segment(8))              // stepped
-// strip.red(sine().slow(8).rangex(0.01, 1))         // fade the eye can see
-// strip.red(sine().slow(4).range(1, 0))             // inverted
-// strip.red(sine().slow(2).mask(mini('1 1 - -')))   // gated, keeps running
-// strip.red(sine().slow(4).struct(mini('1 - 1 -'))) // rhythm from elsewhere
-// strip.red(sine().mul(mini('1 0.25')))             // one pattern scales another
-// strip.red(mini('1 0.6 0.3 0').iter(4))            // rotates a step each bar
-// strip.red(mini('1 0.6 0.3 0').palindrome())       // there and back
-// strip.red(mini('1 0.6 0.3 0').linger(0.25))       // stutter on beat one
-// strip.red(mini('1 - 1 -').every(4, p => p.fast(2))) // doubles every 4th bar
-// strip.red(mini('1 1 1 1').chunk(4, p => p.mul(0.2))) // dip travels across
-// strip.red(mini('1 0.5').ply(mini('<1 2 4 8>')))   // subdivides per bar
-// strip.red(mini('1*8').swingBy(1/3, 2))            // stops marching
+// ── fades · every step comes up, settles and goes out ──────────────
+// strip.red(mini('1 - 1 -').fadeIn(0.5))           // swells in
+// strip.red(mini('1 - - -').fadeOut(2))            // glows after the hit
+// strip.red(mini('1 1 1 1').settle(0.25))          // a flash per beat
 
-// ── per-pixel · .each(fn) per pixel, phase is i / count ────────────
-strip.each((phase) => {
-  const bright = cosine().early(phase).slow(2).range(-8, 1)
-  return [bright.mul(hueR), bright.mul(hueG), bright.mul(hueB)]
-})
+// ── per-pixel · .each(pattern): every pixel runs it, a step later ───
+strip.each(cosine.slow(2).range(-8, 1))
 
-bar.pixels.rainbowChase()                         // the same, prebuilt
+bar.pixels.rainbowChase()                         // colour along the pixels, prebuilt
 // bar.pixels.pixelGrid([[1,0,0,0], [0,0,1,0]]).repeat() // red/blue tile
 // bar.pixels.pixel(0, 1, 0, 0, 0)                      // one pixel, red (rgbw)
 
 // ── group · a fixture counts once, a strip once per pixel ──────────
 const rig = group(wash, strip, bar.pixels)
-// rig.each(p => cosine().early(p).slow(4).range(-6, 1)) // one sweep, whole rig
+// rig.each(cosine.slow(4).range(-6, 1), 4)       // one sweep, whole rig
+// rig.mono(mini('1*16').across(rand).fadeOut(1))  // sparkle with tails
 // rig.color(1, 0, 0)
 // rig.red()
 // rig.off()
 
 // ── layering · brightest wins, so a layer adds without erasing ─────
-bar.pixels.white(mini('1 - - -').range(-15, 1).off(0.25, p => p.mul(0.35)))
-// bar.pixels.white(mini('1 - - -').range(-15, 1)
-//   .echoWith(4, 0.125, (p, i) => p.mul(1 / (i + 1)))) // decaying tail
-// bar.pixels.white(stack(mini('1 - - -'), sine().slow(8).mul(0.2)))
+bar.pixels.white(mini('1 - - -').range(-15, 1).off(0.25, mul(0.35)))
+// bar.pixels.white(mini('1 - - -').echo(4, 0.125, 0.5)) // repeats, each dimmer
+// bar.pixels.white(stack(mini('1 - - -'), sine.slow(8).mul(0.2)))
 
 // ── movement ───────────────────────────────────────────────────────
-bar.direction(sine().slow(8)); bar.speed(0.6)     // sweep
-// bar.direction(saw().slow(6)); bar.speed(0.8)   // spin
+bar.direction(sine.slow(8)); bar.speed(0.6)       // sweep
+// bar.direction(saw.slow(6)); bar.speed(0.8)     // spin
+
+// ── looks · a named block; alt+1 / alt+2 or the chips pick one ─────
+// swap these in for the wash lines at the top, where mini sets the colour
+// verse: { wash.color(blue) }
+// chorus: { wash.color(red) }
+// cue(verse, chorus)
 // bar.speed(0)                                   // freeze
 `,
   },
@@ -237,24 +245,18 @@ bar.dim(1)
 // each block is a self-contained effect; the trailing comment is its label.
 
 bar.pixels.fill(0, 0, 0, 1)                                          // solid white
-// bar.pixels.white(sine().slow(8).range(0.1, 1).glow())             // breathe
+// bar.pixels.white(sine.slow(8).range(0.1, 1).glow())             // breathe
 // bar.pixels.white(mini('1 - - -').range(-15, 1).flash())           // pulse
 // bar.pixels.white(mini('1 - 1 -').range(-15, 1).flash())           // double
 
-// walk: fade through each pixel in sequence.
-// raise speed for faster passes; raise narrow for tighter fade.
-// const speed = 2, narrow = 7
-// for (let i = 0; i < bar.pixels.pixelCount; i++) {
-//   const fade = cosine().slow(speed).early(i / bar.pixels.pixelCount).range(-narrow, 1)
-//   bar.pixels.pixel(i, fade)
-// }
+// walk: a fade that passes through each pixel in turn. The last number is
+// how far apart the pixels run; lower the -7 for a wider band.
+// bar.pixels.each(cosine.slow(2).range(-7, 1), 2)                   // walk
+// bar.pixels.each(mini('1 - - - - - - -').fadeOut(2))                // chase with tails
 
 // bar.pixels.rainbowChase({ cycles: 2, width: 0.14 })               // rainbow
 
-// split: half red / half blue
-// for (let i = 0; i < bar.pixels.pixelCount; i++) {
-//   bar.pixels.pixel(i, i < 4 ? 1 : 0, 0, i < 4 ? 0 : 1, 0)
-// }
+// bar.pixels.pixelGrid([[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0], [0,0,1,0]]).hold() // half red, half blue
 
 // bar.pixels.pixelGrid([[1,0,0,0], [0,0,1,0]]).repeat()              // red/blue tile
 // bar.pixels.pixelGrid([[1,0,0,0], [0,1,0,0], [0,0,1,0]]).mirror()   // r/g/b symmetry
@@ -264,9 +266,9 @@ bar.pixels.fill(0, 0, 0, 1)                                          // solid wh
 // bar.direction(0.5); bar.speed(0)                                  // center
 // bar.direction(0); bar.speed(0)                                    // left
 // bar.direction(1); bar.speed(0)                                    // right
-// bar.direction(sine().slow(8)); bar.speed(0.6)                     // sweep
-// bar.direction(saw().slow(6)); bar.speed(0.8)                      // spin
-// bar.direction(sine().slow(1).range(0.4, 0.6)); bar.speed(0.5)     // wobble
+// bar.direction(sine.slow(8)); bar.speed(0.6)                     // sweep
+// bar.direction(saw.slow(6)); bar.speed(0.8)                      // spin
+// bar.direction(sine.slow(1).range(0.4, 0.6)); bar.speed(0.5)     // wobble
 // bar.speed(0)                                                      // freeze
 `,
   },

@@ -3719,7 +3719,7 @@ export function group(...members: GroupMember[]): GroupInstance {
       // Every emitter of every member at one level, so a mixed rig comes up
       // as one white wash whatever each light is made of.
       const level = channelValue(v, 'group.mono()');
-      for (const cell of cells) cell.all(level);
+      cells.forEach((cell, i) => cell.all(placeAcross(level, i, cells.length)));
     },
 
     temp(kelvin) {
