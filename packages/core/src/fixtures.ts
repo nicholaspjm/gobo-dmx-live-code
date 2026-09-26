@@ -42,6 +42,8 @@ import {
   isColor,
   isPalette,
   toColorValue,
+  colorPattern,
+  colorFromToken,
   checkOptions,
   type Color,
   type ColorComponent,
@@ -1063,7 +1065,38 @@ function resolveSlots(
  * colour would clamp it to 1 and turn full red into almost nothing.
  */
 function spreadIfColor(result: unknown): unknown {
-  return isColor(result) ? [result.r, result.g, result.b] : result;
+  if (isColor(result)) return [result.r, result.g, result.b];
+  // A pattern of colours, as each(mini('<red blue>')) or a .palette() gives:
+  // a colour chase rather than a level one, so it goes to the colour channels.
+  // Read by looking at what the pattern holds over its first cycle, the way
+  // colorPattern checks its tokens; a pattern of numbers stays a level.
+  if (isPatternLike(result) && carriesColour(result)) {
+    const c = colorPattern(result as Parameters<typeof colorPattern>[0], '.each()');
+    return [c.r, c.g, c.b];
+  }
+  return result;
+}
+
+/** Whether a pattern's values over its first cycle are colours rather than levels. */
+function carriesColour(pattern: unknown): boolean {
+  try {
+    const haps = (pattern as { queryArc(b: number, e: number): Array<{ value: unknown }> }).queryArc(0, 1);
+    for (const h of haps.slice(0, 8)) {
+      const v = h.value;
+      if (toColorValue(v) !== null) return true;
+      if (typeof v === 'string' && /^[a-z]+$/i.test(v)) {
+        try {
+          colorFromToken(v, '.each()');
+          return true;
+        } catch {
+          // A word that is not a colour: left to the level path, which names it.
+        }
+      }
+    }
+  } catch {
+    // A pattern that throws when asked is the tick's to report, not this.
+  }
+  return false;
 }
 
 /**

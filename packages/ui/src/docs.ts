@@ -588,6 +588,13 @@ export const DOCS: DocSection[] = [
         example: "pars.color(amber)\npars.each(mini('1 - - -').fadeOut(2))        // a chase with tails\npars.each(sine.slow(4), 4)                   // a slow wave",
       },
       {
+        name: 'a colour chase',
+        signature: ".each('<red amber blue>') · .each(pattern.palette(warm))",
+        description:
+          "A pattern of colours instead of levels chases the colour: every light takes the colour the pattern has, a step later than the one before. A palette rolls along a strip the same way.",
+        example: "pars.each('<red amber blue>')                     // each light a bar behind\nstrip.each(saw.slow(4).mul(3).palette(warm), 2)  // a palette rolling along",
+      },
+      {
         name: 'where along the rig: .across',
         signature: '.across(position)',
         description:

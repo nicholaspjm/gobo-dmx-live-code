@@ -229,6 +229,20 @@ describe('a level over a colour', () => {
   });
 });
 
+describe('a colour chase', () => {
+  it('each() of a pattern of colours puts them on the lights a step apart', () => {
+    run("const a = fixture(1, 'rgb')\nconst b = fixture(4, 'rgb')\ngroup(a, b).each('<red blue>')");
+    core.tick(0.6);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 6))).toEqual([255, 0, 0, 0, 0, 255]);
+  });
+
+  it('rolls a palette along a strip', () => {
+    run("const s = rgbStrip(1, 2)\ns.each(mini('<0 1>').palette([red, green]))");
+    core.tick(0.6);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 6))).toEqual([255, 0, 0, 0, 255, 0]);
+  });
+});
+
 describe('each() with a pattern', () => {
   it('is the function form with the same phase spread', () => {
     const rig = "const a = fixture(1, 'dim')\nconst b = fixture(2, 'dim')\nconst c = fixture(3, 'dim')\nconst d = fixture(4, 'dim')\nconst rig = group(a, b, c, d)\n";

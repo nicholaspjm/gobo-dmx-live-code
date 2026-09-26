@@ -48,6 +48,9 @@ global transform is a grand master, and a labelled block is a look.
   `rig.each(sine)` is a wave along the rig and `rig.each(mini('1 - - -')
   .fadeOut(2))` a chase with tails, with no function to write. `eachXY(pattern,
   across, down)` does the same over a grid.
+- **A colour chase is `.each()` of colours**: `pars.each('<red amber blue>')`
+  puts each colour on the lights a step apart, and
+  `strip.each(saw.slow(4).mul(3).palette(warm))` rolls a palette along a strip.
 - **A chase over a colour keeps the colour.** On a colour strip or a par with
   no dimmer, `strip.color(red)` then `strip.each(mini('1 - - -').fadeOut(2))`
   is a red chase, as on a desk where colour and intensity are separate. It
