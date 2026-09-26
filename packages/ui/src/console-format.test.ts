@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatArgs } from './console-log.js';
+import { formatArgs, isLogNoise } from './console-log.js';
 
 describe('formatArgs', () => {
   it('drops a %c directive and the style that goes with it', () => {
@@ -40,5 +40,13 @@ describe('formatArgs', () => {
 
   it('does not treat a percent in ordinary text as a directive', () => {
     expect(formatArgs(['dimmer at 50% of full'])).toBe('dimmer at 50% of full');
+  });
+});
+
+describe('what the log leaves out', () => {
+  it("drops strudel's load banner, which gobo says again in its own words", () => {
+    expect(isLogNoise('🌀 @strudel/core loaded 🌀')).toBe(true);
+    expect(isLogNoise('[gobo] strudel core loaded')).toBe(false);
+    expect(isLogNoise('🌀 something else 🌀')).toBe(false);
   });
 });

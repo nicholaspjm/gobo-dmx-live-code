@@ -127,6 +127,16 @@ let _captured = false;
  * exactly what it showed before. Guarded against being called twice, which
  * would wrap the wrapper and double every line.
  */
+/**
+ * Lines the log panel leaves out. Strudel announces itself with a banner the
+ * moment it loads, and gobo already says the same thing in its own words a
+ * line later, so the panel showed it twice on every start. The browser's own
+ * console still gets both.
+ */
+export function isLogNoise(line: string): boolean {
+  return /^🌀 @strudel\/\w+ loaded 🌀$/.test(line.trim());
+}
+
 export function captureConsole(): void {
   if (_captured) return;
   _captured = true;
@@ -135,7 +145,8 @@ export function captureConsole(): void {
     console[kind] = (...args: unknown[]): void => {
       original(...args);
       try {
-        addLog(kind, formatArgs(args));
+        const line = formatArgs(args);
+        if (!isLogNoise(line)) addLog(kind, line);
       } catch {
         // Recording a line must never be the reason a scene fails. The real
         // console already has it.
