@@ -54,6 +54,20 @@ mac:
   target:
     - dmg
     - zip
+  # Ad-hoc signed: a signature with no certificate behind it. There is no Apple
+  # Developer ID here, and without one electron-builder skips signing entirely,
+  # which on Apple Silicon is worse than it sounds. It modifies the Electron
+  # binary it starts from, so that binary's own seal no longer matches, and
+  # codesign --verify fails with "code has no resources but signature indicates
+  # they must be present". A downloaded app in that state is reported as
+  # damaged, with Move to Trash as the only offer. Signed ad hoc, it is merely
+  # from an unidentified developer, which System Settings lets you open.
+  #
+  # Hardened runtime off because ad hoc has no team, and the hardened runtime's
+  # library validation would refuse Electron's own frameworks for not sharing
+  # one. Notarisation would need it on; notarisation needs a Developer ID too.
+  identity: '-'
+  hardenedRuntime: false
 
 linux:
   category: AudioVideo

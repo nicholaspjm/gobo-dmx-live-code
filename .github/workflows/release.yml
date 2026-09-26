@@ -119,8 +119,10 @@ jobs:
       - run: npm ci
       - run: npm run desktop:package
         env:
-          # Nothing here is signed, and electron-builder should not go looking
-          # for a certificate or try to notarise.
+          # There is no certificate to find, so electron-builder should not go
+          # looking for one or try to notarise. The macOS app is still signed ad
+          # hoc, by identity '-' in electron-builder.yml, which is what keeps it
+          # from being reported as damaged; see the comment there.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: List what was built
         shell: bash
@@ -146,36 +148,72 @@ jobs:
           files: dl/*
           generate_release_notes: true
           body: |
-            ## Running a rig from the hosted app
+            **gobo is in public beta.** It works end to end, and it will still
+            have rough edges. When you find one, please say:
+            [report a problem](https://github.com/nicholaspjm/gobo-dmx-live-code/issues/new/choose),
+            or ask in [Discussions](https://github.com/nicholaspjm/gobo-dmx-live-code/discussions).
+            The log tab in the app has a button that fills in your versions for you.
 
-            A browser cannot open a UDP socket, so Art-Net and sACN need one
-            small native program. Download the connector for your system, run
-            it, then open
-            https://nicholaspjm.github.io/gobo-dmx-live-code/ and press
-            ctrl+enter. Nothing else to install.
+            ## Which download
 
-            | System | File |
+            **None, to start.** [The website](https://nicholaspjm.github.io/gobo-dmx-live-code/)
+            runs the editor, the simulator and share links with nothing
+            installed, and drives a USB DMX interface (Chrome or Edge) and
+            TouchDesigner from the page.
+
+            **For Art-Net, sACN or OSC, run gobo locally.** A web page cannot
+            send network packets, so something native has to. The desktop app
+            is the editor and the sender in one window: nothing to connect, and
+            nothing for the browser to allow.
+
+            | System | Desktop app |
             |---|---|
+            | macOS, Apple Silicon | the `.dmg` |
+            | Windows | the `Setup` `.exe` |
+            | Linux | the `.AppImage` |
+
+            From a copy of the repository, `npm start` is the same thing.
+
+            **Or keep using the website and add the connector**, one small
+            program that starts with your computer and sends what the page
+            gives it:
+
+            | System | Connector |
+            |---|---|
+            | macOS, Apple Silicon | `gobo-connector-macos` |
             | Windows | `gobo-connector-windows.exe` |
-            | macOS | `gobo-connector-macos` |
             | Linux | `gobo-connector-linux` |
 
-            Or install the desktop app, which is the connector and the editor
-            in one window: `gobo Setup <version>.exe` on Windows, the `.dmg` on
-            macOS, the `.AppImage` on Linux.
+            On macOS or Linux, Homebrew installs it without any of the
+            warnings below:
 
-            The binaries are unsigned, so Windows SmartScreen and macOS
-            Gatekeeper will warn on first run. On macOS you may need
-            `chmod +x gobo-connector-macos` and to allow it under Privacy and
-            Security.
+            ```
+            brew tap nicholaspjm/gobo https://github.com/nicholaspjm/gobo-dmx-live-code
+            brew install gobo-connector
+            brew services start gobo-connector
+            ```
 
-            The two `.tar.gz` files are the same macOS and Linux binaries with
-            the execute bit intact, which is what the Homebrew formula in
-            `Formula/gobo-connector.rb` installs. A browser download of the
-            bare file is what loses that bit, hence the `chmod` above.
+            Chrome asks before a website may reach a program on your computer.
+            When it asks about gobo, allow it. If you said no, the outputs tab
+            in the app says so and how to change it.
 
-            A USB DMX interface needs no download: pick it with the `usb()`
-            output from the browser.
+            ## The first time you open a download
+
+            Nothing here is signed with an Apple or Microsoft certificate, so
+            your system will say it cannot check who made it.
+
+            - **macOS:** open it once and let it be refused, then go to System
+              Settings, Privacy & Security, and choose Open Anyway. For the
+              connector, a browser download also loses the execute bit:
+              `chmod +x gobo-connector-macos` first. If Open Anyway does not
+              appear for it, `xattr -d com.apple.quarantine gobo-connector-macos`
+              clears the flag the browser set, or use Homebrew.
+            - **Windows:** SmartScreen says "Windows protected your PC". Choose
+              More info, then Run anyway.
+            - **Linux:** `chmod +x` the file, then run it.
+
+            The two `.tar.gz` files are the macOS and Linux connectors with the
+            execute bit intact, which is what the Homebrew formula installs.
 
   formula:
     # Point the Homebrew formula at the release that just went out.
