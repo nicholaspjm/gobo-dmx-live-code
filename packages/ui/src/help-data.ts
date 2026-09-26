@@ -48,7 +48,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'red',
     signature: 'red: Color',
-    description: 'The colour red, as an r,g,b mix of 1, 0, 0. Written without quotes.',
+    description: 'The colour red, as an r,g,b mix of 1, 0, 0. Written bare, or quoted as mini-notation where a pattern of colours is wanted.',
     example: 'wash.pixels.chase(red)',
     context: 'command',
     kind: 'variable',
@@ -56,7 +56,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'orange',
     signature: 'orange: Color',
-    description: 'The colour orange, as an r,g,b mix of 1, 0.35, 0. Written without quotes.',
+    description: 'The colour orange, as an r,g,b mix of 1, 0.35, 0. Written bare, or quoted as mini-notation where a pattern of colours is wanted.',
     example: 'wash.pixels.chase(orange)',
     context: 'command',
     kind: 'variable',
@@ -64,7 +64,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'amber',
     signature: 'amber: Color',
-    description: 'The colour amber, as an r,g,b mix of 1, 0.55, 0.1. Written without quotes.',
+    description: 'The colour amber, as an r,g,b mix of 1, 0.55, 0.1. Written bare, or quoted as mini-notation where a pattern of colours is wanted.',
     example: 'wash.pixels.chase(amber)',
     context: 'command',
     kind: 'variable',
@@ -72,7 +72,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'yellow',
     signature: 'yellow: Color',
-    description: 'The colour yellow, as an r,g,b mix of 1, 1, 0. Written without quotes.',
+    description: 'The colour yellow, as an r,g,b mix of 1, 1, 0. Written bare, or quoted as mini-notation where a pattern of colours is wanted.',
     example: 'wash.pixels.chase(yellow)',
     context: 'command',
     kind: 'variable',
@@ -80,7 +80,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'green',
     signature: 'green: Color',
-    description: 'The colour green, as an r,g,b mix of 0, 1, 0. Written without quotes.',
+    description: 'The colour green, as an r,g,b mix of 0, 1, 0. Written bare, or quoted as mini-notation where a pattern of colours is wanted.',
     example: 'wash.pixels.chase(green)',
     context: 'command',
     kind: 'variable',
@@ -88,7 +88,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'cyan',
     signature: 'cyan: Color',
-    description: 'The colour cyan, as an r,g,b mix of 0, 1, 1. Written without quotes.',
+    description: 'The colour cyan, as an r,g,b mix of 0, 1, 1. Written bare, or quoted as mini-notation where a pattern of colours is wanted.',
     example: 'wash.pixels.chase(cyan)',
     context: 'command',
     kind: 'variable',
@@ -96,7 +96,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'blue',
     signature: 'blue: Color',
-    description: 'The colour blue, as an r,g,b mix of 0, 0, 1. Written without quotes.',
+    description: 'The colour blue, as an r,g,b mix of 0, 0, 1. Written bare, or quoted as mini-notation where a pattern of colours is wanted.',
     example: 'wash.pixels.chase(blue)',
     context: 'command',
     kind: 'variable',
@@ -104,7 +104,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'purple',
     signature: 'purple: Color',
-    description: 'The colour purple, as an r,g,b mix of 0.5, 0, 1. Written without quotes.',
+    description: 'The colour purple, as an r,g,b mix of 0.5, 0, 1. Written bare, or quoted as mini-notation where a pattern of colours is wanted.',
     example: 'wash.pixels.chase(purple)',
     context: 'command',
     kind: 'variable',
@@ -112,7 +112,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'magenta',
     signature: 'magenta: Color',
-    description: 'The colour magenta, as an r,g,b mix of 1, 0, 1. Written without quotes.',
+    description: 'The colour magenta, as an r,g,b mix of 1, 0, 1. Written bare, or quoted as mini-notation where a pattern of colours is wanted.',
     example: 'wash.pixels.chase(magenta)',
     context: 'command',
     kind: 'variable',
@@ -120,7 +120,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'pink',
     signature: 'pink: Color',
-    description: 'The colour pink, as an r,g,b mix of 1, 0.35, 0.6. Written without quotes.',
+    description: 'The colour pink, as an r,g,b mix of 1, 0.35, 0.6. Written bare, or quoted as mini-notation where a pattern of colours is wanted.',
     example: 'wash.pixels.chase(pink)',
     context: 'command',
     kind: 'variable',
@@ -128,7 +128,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'white',
     signature: 'white: Color',
-    description: 'The colour white, as an r,g,b mix of 1, 1, 1. Written without quotes. Leaves a dedicated white emitter alone; use .full() to light every emitter.',
+    description: 'The colour white, as an r,g,b mix of 1, 1, 1. Written bare, or quoted as mini-notation where a pattern of colours is wanted. Leaves a dedicated white emitter alone; use .full() to light every emitter.',
     example: 'wash.pixels.chase(white)',
     context: 'command',
     kind: 'variable',
@@ -1149,7 +1149,7 @@ spot.white(mini('1 - - -').punch())`,
     signature: '.color(color) | .color(stop, stop, …) | .color(palette) | .color(r, g, b [, w])',
     description:
       'Set R / G / B (and optionally W) in one call, on a fixture, a group or a strip alike. Takes a colour by name '
-      + 'without quotes, a pattern of colour tokens, or the components. Channels absent on the fixture are skipped '
+      + 'bare or in quotes as mini-notation (\'<red blue>\'), a pattern of colour tokens, or the components. Channels absent on the fixture are skipped '
       + 'silently, so the same line works on rgb / rgbw / dim-rgbw / moving heads. A channel counts as a colour when '
       + 'it is named red / green / blue / white in any case and with any trailing number, or spelled r / g / b / w '
       + "and declared type: 'color'. Several colours are a run: it spreads across whatever positions the light has, "
@@ -1422,8 +1422,8 @@ strip.each(rand.range(-3, 1), 3.7)              // sparkle`,
     label: 'chase',
     signature: '.chase(color | palette, { cycles?, width?, waves?, reverse?, down?, early? })',
     description:
-      'A band of colour travelling along the strip, endlessly. No callback: this is the plain way to get a moving light. '
-      + 'Colour by name without quotes (red, blue, amber...), three numbers 0 to 1, or a palette, whose stops spread '
+      'A band of colour travelling along the strip, endlessly: the plain way to get a moving light. '
+      + 'Colour by name (red, blue, amber...), three numbers 0 to 1, or a palette, whose stops spread '
       + 'along the strip so the band runs over a gradient. Under .down() the stops re-sample onto the rows instead of '
       + 'the columns. A pattern of colour tokens changes the whole band in time rather than across space. '
       + 'On an RGBW strip .chase() leaves the dedicated white channel where the scene put it, the same as .fill(). '

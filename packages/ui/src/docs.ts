@@ -548,7 +548,7 @@ const DOCS: DocSection[] = [
     category: 'patterns',
     title: 'looks you can switch between',
     blurb:
-      "One file is one performance, and a look inside it is a function you wrote. cue() is how you change which one is live without editing the file, with a chip under the editor, a key, or a button on a controller.",
+      "One file is one performance, and a look inside it is a block with a name, verse: { … }, like a cue on a desk. cue() is how you change which one is live without editing the file, with a chip under the editor, a key, or a button on a controller.",
     entries: [
       {
         name: 'cue',
@@ -1098,12 +1098,12 @@ const DOCS: DocSection[] = [
         name: 'colours',
         signature: 'red · orange · amber · yellow · green · cyan · blue · purple · magenta · pink · white',
         description:
-          'A colour is a value, written without quotes. Two ways to say one: a predefined name from this list, or a mix of three numbers from 0 to 1. Both reach every call that takes a colour. A quoted colour is refused, and the message names the identifier to use. Note that white here is the r,g,b mix; on a fixture with a dedicated white emitter, use .full() to light every emitter. Slot names on a wheel stay quoted, because they are the manufacturer\'s labels for mechanical positions rather than colours you can mix.',
+          'A colour is a value. Two ways to say one: a predefined name from this list, or a mix of three numbers from 0 to 1. Both reach every call that takes a colour. In quotes a name is mini-notation, as in strudel, so \'red\' is red and \'<red blue>\' changes each bar; a word that is not a colour is named when the scene runs. Note that white here is the r,g,b mix; on a fixture with a dedicated white emitter, use .full() to light every emitter. Slot names on a wheel stay quoted, because they are the manufacturer\'s labels for mechanical positions rather than colours you can mix.',
         example: 'wash.pixels.chase(red)\nwash.color(1, 0.4, 0)\nwash.pixels.chase(1, 0.4, 0, { cycles: 2 })',
       },
       {
         name: '.stut · .linger · .when',
-        signature: '.stut(n, feedback, time) · .linger(fraction) · .when(test, fn)',
+        signature: '.stut(n, feedback, time) · .linger(fraction) · .when(pattern, change)',
         description:
           'Three that come from strudel\'s Pattern. .stut repeats n times, each quieter than the last, which is an echo that decays. .linger repeats the first fraction of a cycle for the whole cycle, a hold or a stutter. .when applies a transformation only on cycles where its test passes, so a scene can change every fourth bar without a second pattern.',
         example:
@@ -1136,7 +1136,7 @@ const DOCS: DocSection[] = [
         name: '.chase',
         signature: 'strip.chase(color, { cycles?, width?, waves?, reverse?, down?, early? })',
         description:
-          'A band of colour travelling along the strip. Colour by name without quotes, or three numbers 0 to 1. A quoted colour is refused, and the message names the identifier to use. Options: cycles is how long one lap takes (4 by default, bigger is slower), width is how much is lit at once (0 to 1), waves puts more than one crest on at a time, reverse sends it the other way, down runs it along the rows of a grid, early starts it that many cycles ahead. Each option also has a verb: .slow(n), .fast(n), .early(n), .late(n), .reverse(), .down(), .width(n) and .waves(n), in any order. A single-channel strip has no colour to name, so it takes options alone.',
+          'A band of colour travelling along the strip. Colour by name, or three numbers 0 to 1. Options: cycles is how long one lap takes (4 by default, bigger is slower), width is how much is lit at once (0 to 1), waves puts more than one crest on at a time, reverse sends it the other way, down runs it along the rows of a grid, early starts it that many cycles ahead. Each option also has a verb: .slow(n), .fast(n), .early(n), .late(n), .reverse(), .down(), .width(n) and .waves(n), in any order. A single-channel strip has no colour to name, so it takes options alone.',
         example:
           'wash.pixels.chase(red)\nwash.pixels.chase(blue, { cycles: 2, width: 0.2 })\nwash.pixels.chase(1, 0.4, 0, { reverse: true })\ncells.chase({ waves: 2 })',
       },
@@ -1177,7 +1177,7 @@ const DOCS: DocSection[] = [
         name: 'a colour is a value',
         signature: 'wash.color(red)  ·  wash.color(1, 0.4, 0)',
         description:
-          "Two ways to write a colour and only two: one of the eleven predefined names, written without quotes, or three numbers from 0 to 1. A name is an identifier, so a misspelling is a scene error at the point you typed it rather than a light that reads dark; a quoted colour is refused, and the message names the identifier to write instead. Either form is one value, and every call that takes a colour takes both, so a colour can be lifted into a const and reused.",
+          "Two ways to write a colour: one of the eleven predefined names, or three numbers from 0 to 1. A bare name is an identifier, so a misspelling is a scene error at the point you typed it rather than a light that reads dark; in quotes it is mini-notation, and a word that is not a colour is named when the scene runs. Either form is one value, and every call that takes a colour takes both, so a colour can be lifted into a const and reused.",
         example:
           "wash.color(red)\nwash.color(1, 0.4, 0)\n\nconst house = amber\nwash.color(house)\nstrip.fill(house)",
       },
@@ -1644,7 +1644,7 @@ const DOCS: DocSection[] = [
         name: '.echoWith(n, t, fn)',
         signature: 'pat.echoWith(times, time, change)',
         description:
-          'n copies, each shifted a further t cycles, each passed through the callback with its index. A decaying tail in one line. The plain .echo(n, time, fade) and .stut() work too, for the simple case: each repeat comes back dimmer by the fade.',
+          'n copies, each a further t cycles later, with the change applied once more to each: mul(0.5) halves every repeat. A decaying tail in one line. The plain .echo(n, time, fade) and .stut() work too, for the simple case: each repeat comes back dimmer by the fade.',
         example:
           "wash.red(mini('1 - - -').echoWith(4, 0.125, mul(0.5)))   // each repeat half the last",
       },
@@ -1909,7 +1909,7 @@ const DOCS: DocSection[] = [
         name: 'anything else',
         signature: "wash.red('1')",
         description:
-          'Rejected, with the channel named. A quoted number, a signal that was never called (sine rather than sine), NaN and null each stop the evaluation, and the rig keeps running whatever it had.',
+          'Rejected, with the channel named. A function that was never called (flash rather than flash()), NaN and null each stop the evaluation, and the rig keeps running whatever it had. A quoted string is mini-notation, so \'1\' is simply full.',
       },
     ],
   },

@@ -367,7 +367,7 @@ A fixture profile is an ordered list of `{offset, name, type}` channel descripto
 
 `group(...)` puts fixtures, strips and a fixture's `.pixels` behind the same setters, so one line covers a mixed rig. A fixture counts as one element however many channels it has and a strip counts one per pixel, which is what `.each(pattern)` walks: `group(washA, washB, bar.pixels).each(sine.slow(4), 4)` runs the wave on every element a step later than the last, one phase ramp across the lot, in the order written. A role only some members have is applied to those; a role no member has throws rather than doing nothing.
 
-Every channel write goes through one function ([dmx.ts](packages/core/src/dmx.ts)), which is where the value contract lives. An omitted value means full, so `wash.red()` is red on. Anything that is not a finite number or a pattern is rejected with the channel named: a quoted number, a signal that was never called, `null`, `NaN`. All of those used to be stored and read as 0 on every tick, which showed as a scene running green with the light off.
+Every channel write goes through one function ([dmx.ts](packages/core/src/dmx.ts)), which is where the value contract lives. An omitted value means full, so `wash.red()` is red on. A quoted string is mini-notation, as in Strudel. Anything else that is not a finite number or a pattern is rejected with the channel named: a function that was never called, `null`, `NaN`. All of those used to be stored and read as 0 on every tick, which showed as a scene running green with the light off.
 
 ---
 
