@@ -81,14 +81,26 @@ function delay(ms: number): Promise<void> {
  * the readiness wait below is still the backstop.
  */
 function portIsFree(port: number): Promise<boolean> {
-  return new Promise((done) => {
-    const probe = createServer();
-    probe.once('error', () => done(false));
-    probe.once('listening', () => probe.close(() => done(true)));
-    // No host, matching the bridge, which listens on every interface. Probing
-    // only 127.0.0.1 would miss a clash with something bound to 0.0.0.0.
-    probe.listen(port);
+  // The same two addresses the bridge binds (bindAddresses in the bridge's
+  // access.ts): both loopbacks, never every interface, since this build does
+  // not pass --lan. Probing only one would miss a clash on the other, and the
+  // bridge treats a clash on either as fatal.
+  const probe = (host: string): Promise<'free' | 'taken' | 'absent'> => new Promise((done) => {
+    const server = createServer();
+    server.once('error', (err: NodeJS.ErrnoException) => {
+      // No IPv6 on this machine means no ::1 to clash on, which the bridge
+      // forgives too.
+      done(host === '::1' && err.code !== 'EADDRINUSE' ? 'absent' : 'taken');
+    });
+    server.once('listening', () => server.close(() => done('free')));
+    server.listen(port, host);
   });
+  return (async () => {
+    for (const host of ['127.0.0.1', '::1']) {
+      if (await probe(host) === 'taken') return false;
+    }
+    return true;
+  })();
 }
 
 /** One request against the bridge's HTTP server; any answer counts as up. */

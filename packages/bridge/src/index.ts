@@ -2,7 +2,8 @@
  * gobo bridge: a WebSocket server that routes DMX universe data to
  * Art-Net UDP, sACN E1.31, OSC, or mock (console log).
  *
- * Listens on ws://localhost:3001
+ * Listens on ws://localhost:3001, on this machine's loopback only unless it is
+ * started with --lan, and only for pages that are gobo's own. See access.ts.
  * Config: bridge.config.json, read from this package's own directory (NOT the
  * process working directory) and overridden at runtime by config messages from
  * the editor's artnet() / sacn() / osc() / mock() calls.
@@ -15,18 +16,20 @@
  * process.
  */
 
-import { createServer, type IncomingMessage, type ServerResponse } from 'http';
+import type { IncomingMessage, ServerResponse } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createSocket, Socket } from 'dgram';
 import { createFrameRouter } from './frames.js';
 import { isInsideRoot } from './serve-ui.js';
 import { oscPacketsFor } from './osc.js';
 import { connectorHello } from './version.js';
+import { bindAddresses, createPolicy, parseAccessArgs, printable } from './access.js';
+import { listenAll, type Refusal } from './listen.js';
 import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { resolve, dirname, basename, sep } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
-import { networkInterfaces, homedir } from 'os';
+import { networkInterfaces, homedir, hostname } from 'os';
 import { spawn } from 'child_process';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -827,23 +830,20 @@ function serveUi(req: IncomingMessage, res: ServerResponse): void {
   }
 }
 
-const httpServer = createServer((req, res) => {
+function handleHttp(req: IncomingMessage, res: ServerResponse): void {
   if (UI_DIR) {
     serveUi(req, res);
     return;
   }
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('gobo bridge running');
-});
+}
 
-let listening = false;
-
-const wss = new WebSocketServer({ server: httpServer });
+// noServer: listen.ts owns the HTTP servers and hands over only the upgrades
+// that passed the access checks.
+const wss = new WebSocketServer({ noServer: true });
 
 wss.on('error', (err) => {
-  // Until the server is up this is only the HTTP server's own error re-emitted,
-  // and the handler below says the same thing in terms someone can act on.
-  if (!listening) return;
   console.error(`[bridge] WebSocket server error ${(err as NodeJS.ErrnoException).code ?? 'error'}: ${err.message}`);
 });
 
@@ -894,20 +894,80 @@ wss.on('connection', (ws: WebSocket) => {
 
 const PORT = 3001;
 
-// Failing to listen is unrecoverable: there is nothing for the editor to
-// connect to. Print one line and exit rather than throwing a stack trace.
-// Errors after the server is up are survivable and must not stop output.
-httpServer.on('error', (err: NodeJS.ErrnoException) => {
-  if (!listening) {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`[bridge] port ${PORT} is already in use. Another bridge is probably running; close it, then start this one.`);
-    } else {
-      console.error(`[bridge] could not listen on port ${PORT}, ${err.code ?? 'error'}: ${err.message}`);
+/**
+ * Where the app lives when the connector is not serving a local copy. Also the
+ * one site on the internet whose pages may connect, which is why a fork that
+ * hosts its own build changes this line and nothing else.
+ */
+const HOSTED_APP = 'https://nicholaspjm.github.io/gobo-dmx-live-code/';
+
+// ─── Who may connect ─────────────────────────────────────────────────────────
+// Loopback only and gobo's own pages only, unless the operator says otherwise
+// with --lan or --allow-origin. The reasoning is at the top of access.ts.
+
+const accessArgs = parseAccessArgs(process.argv);
+
+/**
+ * This machine's own addresses and names, for LAN mode. Read on each use: a
+ * connector can run for days, and a DHCP lease can change under it.
+ */
+function ownHosts(): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const addrs of Object.values(networkInterfaces())) {
+    for (const a of addrs ?? []) {
+      // A link-local IPv6 address carries its interface as %en0, which no Host
+      // header or origin ever does.
+      names.add(a.address.toLowerCase().replace(/%.*$/, ''));
     }
-    process.exit(1);
   }
-  console.error(`[bridge] HTTP server error ${err.code ?? 'error'}: ${err.message}`);
+  const own = hostname().toLowerCase().replace(/\.$/, '');
+  if (own !== '') {
+    names.add(own);
+    names.add(own.endsWith('.local') ? own.slice(0, -'.local'.length) : `${own}.local`);
+  }
+  return names;
+}
+
+const accessPolicy = createPolicy({
+  lan: accessArgs.lan,
+  hostedApp: HOSTED_APP,
+  extraOrigins: accessArgs.extraOrigins,
+  ownHosts,
 });
+
+/**
+ * Say once, per page, that it was turned away.
+ *
+ * Once rather than per attempt, because a page that is refused retries, and a
+ * log that repeats the same line every two seconds hides everything else in it.
+ * Capped, because what is being remembered is chosen by whoever is knocking.
+ */
+const REFUSALS_REMEMBERED = 50;
+const _refusalsSeen = new Set<string>();
+
+function logRefusal(req: IncomingMessage, refusal: Refusal): void {
+  const origin = req.headers.origin;
+  const who = origin === undefined ? `a request for ${req.headers.host ?? 'no host'}`
+    : origin === 'null' ? 'a page with no origin ("null")'
+    : `a page from ${origin}`;
+  const key = `${refusal.during} ${refusal.check} ${who}`;
+  if (_refusalsSeen.has(key)) return;
+  if (_refusalsSeen.size >= REFUSALS_REMEMBERED) {
+    if (_refusalsSeen.size === REFUSALS_REMEMBERED) {
+      _refusalsSeen.add('(limit)');
+      console.warn('[bridge] refused more connections than it will list; further ones are not logged.');
+    }
+    return;
+  }
+  _refusalsSeen.add(key);
+  console.warn(`[bridge] refused ${printable(who)}: ${refusal.reason}.`);
+  // Only where allowing the origin would actually let it in. A Host refusal is
+  // DNS rebinding or a misaddressed request, and no flag should be offered for
+  // that.
+  if (refusal.check === 'origin' && origin !== undefined && origin !== 'null') {
+    console.warn(`[bridge] if that page is yours, start the connector with --allow-origin ${printable(origin)}`);
+  }
+}
 
 // ─── Self install (packaged connector only) ──────────────────────────────────
 //
@@ -1008,9 +1068,50 @@ if (PACKAGED && process.argv.includes('--uninstall')) {
   process.exit(0);
 }
 
-httpServer.listen(PORT, () => {
-  listening = true;
+/** What to say about who can reach this connector, once it is listening. */
+function describeAccess(bound: string[]): void {
+  if (accessArgs.lan) {
+    console.warn(`[bridge] --lan: listening on ${bound.join(', ')}, port ${PORT}.`);
+    console.warn('[bridge] web pages still have to be gobo\'s own, but any program on this network can connect');
+    console.warn('[bridge] and drive the rig. Use it on a network you trust, and leave it off otherwise.');
+  } else {
+    console.log('[bridge] this computer only. Start with --lan to let other devices on the network connect.');
+  }
+  for (const bad of accessArgs.invalid) {
+    console.warn(`[bridge] ignoring --allow-origin ${printable(bad)}: an origin looks like https://example.com`);
+  }
+  if (accessArgs.extraOrigins.length > 0) {
+    console.log(`[bridge] also accepting pages from ${accessArgs.extraOrigins.map((o) => printable(o)).join(', ')}`);
+  }
+}
+
+// Failing to listen is unrecoverable: there is nothing for the editor to
+// connect to. Print one line and exit rather than throwing a stack trace.
+// Errors after the server is up are survivable and must not stop output.
+function cannotListen(err: NodeJS.ErrnoException): never {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[bridge] port ${PORT} is already in use. Another bridge is probably running; close it, then start this one.`);
+  } else {
+    console.error(`[bridge] could not listen on port ${PORT}, ${err.code ?? 'error'}: ${err.message}`);
+  }
+  process.exit(1);
+}
+
+listenAll({
+  port: PORT,
+  addresses: bindAddresses(accessArgs.lan),
+  policy: accessPolicy,
+  wss,
+  onRequest: handleHttp,
+  onRefused: logRefusal,
+}).then(({ servers, bound }) => {
+  for (const server of servers) {
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      console.error(`[bridge] HTTP server error ${err.code ?? 'error'}: ${err.message}`);
+    });
+  }
   console.log(`[bridge] WebSocket server on ws://localhost:${PORT}`);
+  describeAccess(bound);
   console.log(`[bridge] output: ${describeOutput()}`);
   warnIfSendingToSelf();
 
@@ -1040,10 +1141,8 @@ httpServer.listen(PORT, () => {
     console.log(`[gobo] ${HOSTED_APP}`);
     if (!process.argv.includes('--no-open')) openBrowser(HOSTED_APP);
   }
-});
+}, cannotListen);
 
-/** Where the app lives when the connector is not serving a local copy. */
-const HOSTED_APP = 'https://nicholaspjm.github.io/gobo-dmx-live-code/';
 
 /** Open the default browser. Best effort: a failure here is not worth exiting
  *  over, since the URL has already been printed. */
