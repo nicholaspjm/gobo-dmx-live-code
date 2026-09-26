@@ -8,7 +8,7 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 
 [![Licence: AGPL v3](https://img.shields.io/badge/Licence-AGPL%20v3-blue.svg)](LICENSE)
 
-![gobo editor, visualizer and fixture sim running a pattern](docs/media/demo.gif)
+![A scene running in gobo and edited live: the strip's rainbow chase is swapped for a red and amber one and re-run with ctrl+enter, and the sim follows](docs/media/demo.gif)
 
 ---
 
