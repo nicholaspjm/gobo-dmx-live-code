@@ -105,6 +105,7 @@ import { tagLocations } from './mini-locations.js';
 import { applyTheme } from './themes.js';
 import { locateSyntaxError } from './syntax-line.js';
 import { lightNamesByAddress } from './declared-lights.js';
+import { mountAppUpdate } from './app-update.js';
 import {
   mountOutputsPanel,
   connectionSummary,
@@ -2416,6 +2417,16 @@ wordmarkEl.addEventListener('click', () => setZenMode(!_zenMode));
 // localStorage library is restored next so a user-pinned version of a public
 // id (if any) wins.
 registerPublicFixtures();
+
+// The desktop app is the one copy of gobo nothing updates, so it asks GitHub
+// whether a newer one is out and says so in the top bar. See app-update.ts.
+if (isDesktopBuild()) {
+  const desktopVersion = (globalThis as { gobo?: { version?: string } }).gobo?.version ?? 'unknown';
+  void mountAppUpdate({
+    button: document.getElementById('app-update') as HTMLButtonElement,
+    current: desktopVersion,
+  });
+}
 restoreLibraryFixtures();
 
 // Resolve the connection light once at boot. The markup ships reading

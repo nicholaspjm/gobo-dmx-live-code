@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+
+- **The desktop app says when a newer gobo is out.** It asks GitHub at most
+  twice a day, and when there is a newer release it puts one link in the top
+  bar, "0.5.4 is out", that opens the download page. It never downloads or
+  installs anything itself, and once the link is followed it is not offered
+  again for that version.
+
 ## [0.5.3] - 2026-09-26
 
 > **gobo has moved to [gobolive.cc](https://gobolive.cc/).** The old address

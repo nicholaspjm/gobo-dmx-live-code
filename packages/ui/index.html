@@ -1084,6 +1084,14 @@
       /* Momentary "copied" state on the share button. Green rather than the
          accent, because it reports that something happened rather than that a
          mode is on, and the two should not look alike. */
+      /* The one thing in the top bar that is news rather than a control, so it
+         takes the accent. */
+      .scene-action.app-update {
+        color: var(--accent);
+      }
+      .scene-action.app-update[hidden] {
+        display: none;
+      }
       .scene-action.copied {
         color: var(--sage);
       }
@@ -2786,6 +2794,9 @@
                  The scene has no name either. There is one working buffer, it
                  is the document on screen, and nothing else exists for a name
                  to tell it apart from. -->
+            <!-- Desktop app only, and only when a newer release is out. See
+                 app-update.ts. -->
+            <button type="button" class="scene-action app-update" id="app-update" hidden></button>
             <button type="button" class="scene-action" id="scene-share" title="copy a link containing this whole scene">share</button>
             <!-- No stop button. Stopping is ctrl+. / cmd+. (or ctrl+space),
                  handled at the document so it fires wherever focus happens to

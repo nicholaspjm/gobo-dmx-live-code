@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./fixtures": "./src/fixtures.ts"
+    "./fixtures": "./src/fixtures.ts",
+    "./connector-version": "./src/connector-version.ts"
   },
   "dependencies": {
     "@strudel/core": "^1.0.0",
