@@ -29,6 +29,8 @@ export interface ControlEntry {
   initial: number;
   /** Rounding step, or 0 for continuous. */
   step: number;
+  /** Where its position is stored, when that is not its name. See slider(). */
+  key?: string;
 }
 
 /** Declared by the current scene, in source order. */
@@ -56,12 +58,10 @@ export function setLiveSource(make: ((read: () => number) => PatternLike) | null
 /** How many sliders this run has declared strudel's way, for their names. */
 let _unnamed = 0;
 
-/**
- * The value each strudel-form slider was written with, last run. For those the
- * number in the code is the position, as in strudel, so editing it moves the
- * handle; a dragged position is kept only while the code says the same.
- */
-const _written = new Map<string, number>();
+/** Where a declared control's position is stored: its key, or its name. */
+function storeKeyOf(name: string): string {
+  return _entries.find((e) => e.name === name)?.key ?? name;
+}
 
 /** Forget the declarations. Values are kept. Called before each run. */
 export function clearControls(): void {
@@ -76,7 +76,7 @@ export function getControls(): readonly ControlEntry[] {
 
 /** Current position of a named control, or null if it has none. */
 export function getControlValue(name: string): number | null {
-  const v = _values.get(name);
+  const v = _values.get(storeKeyOf(name));
   return v === undefined ? null : v;
 }
 
@@ -89,7 +89,7 @@ export function setControlValue(name: string, value: number): void {
   const entry = _entries.find((e) => e.name === name);
   const min = entry?.min ?? 0;
   const max = entry?.max ?? 1;
-  _values.set(name, Math.max(min, Math.min(max, value)));
+  _values.set(storeKeyOf(name), Math.max(min, Math.min(max, value)));
 }
 
 /** Forget every stored position. For a deliberate reset, not for a re-run. */
@@ -126,12 +126,24 @@ export function slider(
     const hi = arguments.length > 2 ? max : 1;
     const step = typeof opts === 'number' ? opts : 0;
     _unnamed++;
-    const label = `slider ${_unnamed}`;
-    if (_written.get(label) !== value) _values.delete(label);
-    _written.set(label, value);
-    return slider(label, lo, hi, { start: value, step });
+    // Stored under the number written as well as the label: for these the
+    // number in the code is the position, as in strudel, so editing it starts
+    // the handle there, while a dragged position lasts as long as the code
+    // says the same. Nothing is deleted, so a run that fails leaves the scene
+    // still playing reading exactly what it read before.
+    return declareSlider(`slider ${_unnamed}`, `slider ${_unnamed}@${value}`, lo, hi, { start: value, step });
   }
   if (typeof opts === 'number') opts = { step: opts };
+  return declareSlider(name, name, min, max, opts);
+}
+
+function declareSlider(
+  name: string,
+  key: string,
+  min: number,
+  max: number,
+  opts: { start?: number; step?: number },
+): PatternLike {
   checkOptions(opts as Record<string, unknown>, ['start', 'step'], 'slider()');
   if (typeof name !== 'string' || name.trim() === '') {
     throw new Error('slider: needs a name, which labels it and stores its position');
@@ -155,14 +167,14 @@ export function slider(
   }
 
   const initial = Math.max(min, Math.min(max, opts.start ?? min));
-  _entries.push({ name, min, max, initial, step });
+  _entries.push(key === name ? { name, min, max, initial, step } : { name, min, max, initial, step, key });
   // First sighting sets the position; later runs leave a moved control alone.
-  if (!_values.has(name)) _values.set(name, initial);
+  if (!_values.has(key)) _values.set(key, initial);
 
   // Read at query time, which is what makes dragging immediate: the tick
   // asks for the value 60 times a second and gets whatever the handle is at
   // right now.
-  const read = (): number => _values.get(name) ?? initial;
+  const read = (): number => _values.get(key) ?? initial;
   if (_live !== null) return _live(read);
   return {
     queryArc() {

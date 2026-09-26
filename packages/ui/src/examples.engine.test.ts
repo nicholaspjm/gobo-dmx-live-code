@@ -170,6 +170,15 @@ describe('sliders', () => {
     expect(core.getControls().map((c) => c.name)).toEqual(['slider 1']);
   });
 
+  it('move when the number written in the code changes, and a failed run moves nothing', () => {
+    run("const w = fixture(1, 'dim')\nw.dim(slider(0.5))");
+    expect(at(0.1)).toBe(128);
+    expect(core.evalCode("const w = fixture(1, 'dim')\nw.dim(slider(0.9))\nnotAThing()").success).toBe(false);
+    expect(at(0.1)).toBe(128);
+    run("const w = fixture(1, 'dim')\nw.dim(slider(0.9))");
+    expect(at(0.1)).toBe(230);
+  });
+
   it('are patterns, so they chain and can be handed to a method', () => {
     run("const w = fixture(1, 'dim')\nconst x = fixture(2, 'dim')\nw.dim(slider('lvl', 0, 1, { start: 0.5 }).range(0.5, 1))\nx.dim(mini('1 0').fast(slider('rate', 1, 4, { start: 2 })))");
     expect(at(0.1, 1)).toBe(191);
