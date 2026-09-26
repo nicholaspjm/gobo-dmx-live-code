@@ -905,7 +905,7 @@ const HOSTED_APP = 'https://nicholaspjm.github.io/gobo-dmx-live-code/';
 // Loopback only and gobo's own pages only, unless the operator says otherwise
 // with --lan or --allow-origin. The reasoning is at the top of access.ts.
 
-const accessArgs = parseAccessArgs(process.argv);
+const accessArgs = parseAccessArgs(process.argv, process.env);
 
 /**
  * This machine's own addresses and names, for LAN mode. Read on each use: a
@@ -1075,7 +1075,7 @@ function describeAccess(bound: string[]): void {
     console.warn('[bridge] web pages still have to be gobo\'s own, but any program on this network can connect');
     console.warn('[bridge] and drive the rig. Use it on a network you trust, and leave it off otherwise.');
   } else {
-    console.log('[bridge] this computer only. Start with --lan to let other devices on the network connect.');
+    console.log('[bridge] this computer only. Start with --lan (or GOBO_LAN=1) to let other devices on the network connect.');
   }
   for (const bad of accessArgs.invalid) {
     console.warn(`[bridge] ignoring --allow-origin ${printable(bad)}: an origin looks like https://example.com`);

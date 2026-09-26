@@ -82,9 +82,19 @@ export function bindAddresses(lan: boolean): (string | undefined)[] {
  * that is not an http(s) origin is reported rather than dropped silently: a
  * mistyped origin means a page that cannot connect, and the log line is the
  * only place anyone will look.
+ *
+ * GOBO_LAN=1 in the environment is the same as --lan. It exists because a flag
+ * does not survive the trip through nested npm scripts: `npm run dev:bridge --
+ * --lan` hands --lan to npm, which takes it as one of its own settings, and the
+ * connector starts loopback-only without a word. An environment variable
+ * reaches every process underneath, which is also what lets one switch open up
+ * the dev server and the connector together.
  */
-export function parseAccessArgs(argv: readonly string[]): AccessOptions {
-  const lan = argv.includes('--lan');
+export function parseAccessArgs(
+  argv: readonly string[],
+  env: Readonly<Record<string, string | undefined>> = {},
+): AccessOptions {
+  const lan = argv.includes('--lan') || /^(1|true|yes)$/i.test(env.GOBO_LAN ?? '');
   const extraOrigins: string[] = [];
   const invalid: string[] = [];
   for (let i = 0; i < argv.length; i++) {

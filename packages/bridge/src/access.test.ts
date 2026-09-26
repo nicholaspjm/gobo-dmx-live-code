@@ -61,6 +61,13 @@ describe('the flags', () => {
     expect(args.invalid).toEqual(['someone.github.io', 'ftp://x.example']);
   });
 
+  it('takes GOBO_LAN from the environment, which survives nested npm scripts where a flag does not', () => {
+    expect(parseAccessArgs([], { GOBO_LAN: '1' }).lan).toBe(true);
+    expect(parseAccessArgs([], { GOBO_LAN: 'true' }).lan).toBe(true);
+    expect(parseAccessArgs([], { GOBO_LAN: '0' }).lan).toBe(false);
+    expect(parseAccessArgs([], {}).lan).toBe(false);
+  });
+
   it('does not swallow the next flag when --allow-origin has no value', () => {
     const args = parseAccessArgs(['--allow-origin', '--lan']);
     expect(args.lan).toBe(true);

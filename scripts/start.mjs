@@ -33,6 +33,9 @@ if (args.includes('--help')) {
   npm start                  build if needed, serve the app, open a browser
   npm start -- --no-open     do not open a browser
   npm start -- --rebuild     rebuild the UI first
+  npm start -- --lan         let phones and tablets on this network open it too
+  npm start -- --allow-origin https://example.com
+                             also accept a copy of gobo hosted there
 
 Development with hot reload: npm run dev
 `);
@@ -97,11 +100,22 @@ if (args.includes('--rebuild') || !bridgeBuilt || bridgeStale) {
 
 // Hand the bridge its flags, then run it in THIS process rather than spawning
 // a child, so there is exactly one process to start and to stop.
+// --lan and --allow-origin are the bridge's, and pass straight through. This
+// list is rebuilt rather than forwarded whole, so a flag not named here never
+// reaches the bridge: `npm start -- --lan` used to start a loopback-only
+// connector without a word.
+const passThrough = [];
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--lan') passThrough.push('--lan');
+  if (args[i] === '--allow-origin' && args[i + 1] !== undefined) passThrough.push('--allow-origin', args[++i]);
+}
+
 process.argv = [
   process.argv[0],
   bridgeEntry,
   '--ui', uiDist,
   ...(args.includes('--no-open') ? [] : ['--open']),
+  ...passThrough,
 ];
 
 console.log('[gobo] starting');
