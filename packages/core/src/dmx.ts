@@ -21,6 +21,8 @@
  * them; see the query-failure section below.
  */
 
+import { stringPattern } from './string-patterns.js';
+
 export interface PatternLike {
   queryArc(begin: number, end: number): Array<{ value: unknown }>;
 }
@@ -111,6 +113,11 @@ export function channelValue(args: readonly unknown[], what: string): PatternOrV
   // The predicate's narrowing does not survive the assignment above, hence
   // the cast; the guard is what establishes it.
   if (looksLikePattern) return v as PatternLike;
+  // A string is mini-notation, as in strudel. See string-patterns.ts.
+  if (typeof v === 'string') {
+    const parsed = stringPattern(v, what);
+    if (parsed !== null) return parsed;
+  }
 
   throw new Error(
     `${what}: expected a level (0-1, or 1-255 for a raw DMX value) or a pattern, got ${describeValue(v)}.${valueHint(v)}`,

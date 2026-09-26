@@ -1515,12 +1515,11 @@ export function fixture(
       // through it. A fixture fell past this to the component path instead and
       // complained about arity: "needs all 3 of r, g, b (got 1)", which is
       // true, and no help at all to someone who has just typed a colour.
-      if (args.length === 1 && typeof args[0] === 'string') {
-        readColor(args, `Fixture "${def.name}".color()`);
-      }
+      // A quoted colour is mini-notation, as in strudel, so it reads the same as
+      // a pattern of colour names: `wash.color('red')`, `wash.color('<red blue>')`.
       // A pattern of colour names on a fixture with no wheel: one colour that
       // changes with the pattern, so `wash.color(mini('r - g - b'))` works.
-      if (args.length === 1 && isPatternLike(args[0])) {
+      if (args.length === 1 && (typeof args[0] === 'string' || isPatternLike(args[0]))) {
         const c = readColor(args, `Fixture "${def.name}".color()`);
         inst.color(c.r as PatternOrValue, c.g as PatternOrValue, c.b as PatternOrValue);
         return;
@@ -3709,7 +3708,10 @@ export function group(...members: GroupMember[]): GroupInstance {
       // Widened deliberately: the signature names the arities a scene should
       // write, and a scene can still hand over anything at all.
       const given = args as readonly unknown[];
-      if (everyArgIsColour(given) || (given.length === 1 && (isPalette(given[0]) || isPatternLike(given[0])))) {
+      if (
+        everyArgIsColour(given)
+        || (given.length === 1 && (isPalette(given[0]) || isPatternLike(given[0]) || typeof given[0] === 'string'))
+      ) {
         const run = readColorRun(given, cells.length, 'group.color()');
         let painted = 0;
         cells.forEach((cell, i) => {
@@ -3724,11 +3726,6 @@ export function group(...members: GroupMember[]): GroupInstance {
           throw new Error('group.color(): no member of this group has a colour channel.');
         }
         return;
-      }
-      // A quoted colour, as on a single fixture: without this it reached the
-      // arity check and came back asking for all three of r, g and b.
-      if (given.length === 1 && typeof given[0] === 'string') {
-        readColor(given, 'group.color()');
       }
       const [r, g, b] = channelValues(args.slice(0, 3), ['r', 'g', 'b'], 'group.color()');
       // Unlike a single role, a colour that lands on nothing is worth

@@ -22,6 +22,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   `.across(rand)` scatters. It is strudel's stereo `.pan()` with the lights as
   the speakers, and a pasted `.pan()` does the same (on a moving head, `.pan()`
   is still the head's pan channel).
+- **A quoted string is a pattern**, as in strudel, anywhere a level or a colour
+  is taken: `wash.dim('1 - 1 -')`, `wash.color('<red blue>')`,
+  `sine.struct('1 - 1 1')`. `wash.color('red')` works where it used to be an
+  error, and a word that is not a colour is still named on the run. To chain
+  onto a pattern (`.fast(2)`, `.fadeOut(1)`), start it with `mini('…')`.
+- **Looks are named blocks, and an underscore mutes**, as strudel writes them:
+  `verse: { wash.color(blue) }`, `cue(verse, chorus)`, and `_verse:` or `_$:`
+  keeps a block or a line in view without running it. The old
+  `cue({ verse, chorus })` with functions still works.
+- **`each(pattern)`**: every light in a group, or pixel on a strip, runs the
+  pattern a step later than the one before, as a desk's phase spread, so
+  `rig.each(sine)` is a wave along the rig and `rig.each(mini('1 - - -')
+  .fadeOut(2))` a chase with tails, with no function to write. `eachXY(pattern,
+  across, down)` does the same over a grid.
+- **Changes as values**, the way strudel curries them: `.every(4, fast(2))`,
+  `.chunk(4, mul(0.2))`, `.off(0.25, mul(0.4))`, `register('punch', range(-4,
+  1))`. fast, slow, early, late, rev, mul, add, range and the rest are bound
+  at the top level.
 - **Patch a rig from the fixtures tab.** Every fixture has "add to rig": say how
   many, the address set on the first one, the universe and a name, and it
   writes one `const par1 = fixture(…)` line per light, stepped by the fixture's

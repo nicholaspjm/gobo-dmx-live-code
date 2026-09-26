@@ -549,16 +549,16 @@ describe('readColorStops', () => {
   });
 
   it('refuses a quoted word that is not a colour, and lists the ones that are', () => {
+    // A quoted string is mini-notation now, so the message no longer asks for
+    // the quotes to go: it names the word and the colours there are.
     expect(messageOf(() => readColorStops(['puce'], '.chase()'))).toBe(
-      `.chase(): "puce" is not a colour. Write one of ${NAME_LIST} without quotes, ` +
-      'or give three numbers from 0 to 1.',
+      `.chase(): "puce" is not a colour. Write one of ${NAME_LIST}, or a prefix that names only one of them.`,
     );
     // This rung looks the token up in the same table, so it needs the same
     // guard: 'constructor' is a property of every object and not a colour, and
     // reading it through the prototype chain sent the wrong message of the two.
     expect(messageOf(() => readColorStops(['constructor'], '.chase()'))).toBe(
-      `.chase(): "constructor" is not a colour. Write one of ${NAME_LIST} without quotes, ` +
-      'or give three numbers from 0 to 1.',
+      `.chase(): "constructor" is not a colour. Write one of ${NAME_LIST}, or a prefix that names only one of them.`,
     );
   });
 

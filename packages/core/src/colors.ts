@@ -19,6 +19,7 @@
  */
 
 import { levelOf } from './dmx.js';
+import { stringPattern } from './string-patterns.js';
 
 /**
  * A colour, as an r/g/b mix with each component 0 to 1.
@@ -464,6 +465,17 @@ function levelsOf(c: Color, begin: number, end: number): readonly [number, numbe
  */
 export function readColorStops(args: readonly unknown[], what: string): Color[] {
   const first = args[0];
+
+  // One string is mini-notation, as in strudel: '<red blue>' is a colour that
+  // changes each bar, and 'red' is red. Every word in it is checked now, so a
+  // misspelt colour is an error on the run rather than a dark step later.
+  if (typeof first === 'string' && args.length === 1) {
+    // colorFromToken throws the useful message for a word it cannot read,
+    // including a short form that could be two colours.
+    for (const word of first.match(/[A-Za-z]+/g) ?? []) colorFromToken(word, what);
+    const parsed = stringPattern(first, what);
+    if (parsed !== null) return [colorPattern(parsed, what)];
+  }
 
   if (typeof first === 'string') {
     const known = namedColor(first.trim().toLowerCase());

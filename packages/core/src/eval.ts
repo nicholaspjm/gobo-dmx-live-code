@@ -44,6 +44,7 @@ import { COLORS, mix } from './colors.js';
 import { setBPM } from './scheduler.js';
 import { installFades } from './envelope.js';
 import { rewriteLooks } from './looks.js';
+import { setStringPatternParser } from './string-patterns.js';
 import {
   fixture,
   defineFixture,
@@ -327,6 +328,9 @@ export async function initStrudel(): Promise<void> {
       _strudelCtx.mini = shim;
       _strudelCtx.m = shim;
     }
+    // A quoted string anywhere a pattern or a colour is taken reads as
+    // mini-notation, as in strudel. See string-patterns.ts.
+    setStringPatternParser(_strudelCtx.mini as (s: string) => PatternLike);
 
     // Teach every Strudel Pattern `.flash() / .glow() / .wave()` via a one-time
     // prototype patch. Cheaper than wrapping every pattern in a Proxy, and the
