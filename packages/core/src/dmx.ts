@@ -506,6 +506,28 @@ function resetQueryFailures(): void {
  * escape the loop and cost the whole frame, which is the hole this function
  * exists to close, so the whole body runs under a guard.
  */
+/**
+ * A word in a pattern where a level belongs: mini('1 x 1'), or a colour name
+ * in a pattern handed to a dimmer. Strudel keeps it as the string it was, and
+ * a string is no level, so that step went dark with nothing said. It is
+ * reported the way a throwing pattern is, once per channel, on the status bar.
+ *
+ * The existing entry is checked first so the message, and the Error, are made
+ * once rather than on every tick the word comes round.
+ */
+function recordWordHap(def: ChannelDef, word: string): void {
+  const existing = _queryFailures.get(key(def.universe, def.channel));
+  if (existing !== undefined) {
+    existing.ticks++;
+    return;
+  }
+  const shown = word.length > 24 ? `${word.slice(0, 24)}…` : word;
+  recordQueryFailure(def, new Error(
+    `"${shown}" in a pattern is not a level, so that step is dark. A level is a number from 0 to 1, `
+    + 'a rest is - or ~, and a colour name goes to .color().',
+  ));
+}
+
 function recordQueryFailure(def: ChannelDef, err: unknown): void {
   try {
     const k = key(def.universe, def.channel);
@@ -765,7 +787,9 @@ export function tick(cyclePos: number): void {
           // wire. Brightest-wins is also what makes layering safe to build up:
           // adding a layer can raise a channel but never darken one.
           for (let i = 0; i < haps.length; i++) {
-            const v = levelOf(haps[i].value);
+            const raw = haps[i].value;
+            const v = levelOf(raw);
+            if (typeof raw === 'string') recordWordHap(def, raw);
             if (v !== null && v > floatVal) floatVal = v;
             // Only a hap that is actually lighting something. A token
             // sitting at zero is in the pattern but is not what anyone

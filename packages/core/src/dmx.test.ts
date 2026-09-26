@@ -894,6 +894,26 @@ describe('pattern query failures', () => {
     expect(failures[0].ticks).toBe(60);
   });
 
+  it('reports a word where a level belongs, once, and still lights the numbers', () => {
+    // What mini('1 x 1') yields: the x comes through as the string it was.
+    let step = 0;
+    const words: PatternLike = {
+      queryArc() {
+        step++;
+        return [{ value: step % 2 === 0 ? 'x' : 1 }];
+      },
+    };
+    uni(1, 1, words);
+    for (let i = 0; i < 10; i++) tick(i / 10);
+
+    const failures = getQueryFailures();
+    expect(failures).toHaveLength(1);
+    expect(failures[0].message).toContain('"x" in a pattern is not a level');
+    expect(errSpy).toHaveBeenCalledTimes(1);
+    tick(0.95);
+    expect([0, 255]).toContain(getUniverseBuffer(1)[0]);
+  });
+
   it('bumps the change counter only when a new channel starts failing', () => {
     uni(1, 1, throwingPattern());
     const before = getQueryFailureGeneration();
