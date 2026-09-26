@@ -241,6 +241,14 @@ describe('clamping', () => {
     expect(getUniverseBuffer(1)[1]).toBe(64);
   });
 
+  it('folds velocity in the same way, and with gain', () => {
+    uni(1, 1, stubPattern({ value: 1, velocity: 0.5 }));
+    uni(1, 2, stubPattern({ value: 1, gain: 0.5, velocity: 0.5 }));
+    tick(0);
+    expect(getUniverseBuffer(1)[0]).toBe(128);
+    expect(getUniverseBuffer(1)[1]).toBe(64);
+  });
+
   it('ignores parameters that describe sound rather than level', () => {
     uni(1, 1, stubPattern({ value: 1, speed: 4, pan: 0.2, room: 0.9 }));
     tick(0);

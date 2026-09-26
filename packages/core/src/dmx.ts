@@ -597,8 +597,13 @@ export function levelOf(v: unknown): number | null {
   if (v === null || typeof v !== 'object') return null;
   const inner = (v as { value?: unknown }).value;
   if (typeof inner !== 'number') return null;
-  const gain = (v as { gain?: unknown }).gain;
-  return typeof gain === 'number' ? inner * gain : inner;
+  // velocity folds in the same way: strudel users reach for .velocity() to
+  // accent a step, and it is a level by another name.
+  const { gain, velocity } = v as { gain?: unknown; velocity?: unknown };
+  let level = inner;
+  if (typeof gain === 'number') level *= gain;
+  if (typeof velocity === 'number') level *= velocity;
+  return level;
 }
 
 // ─── Which bit of the source is live ─────────────────────────────────────────

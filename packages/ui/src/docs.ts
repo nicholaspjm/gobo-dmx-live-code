@@ -1689,7 +1689,7 @@ const DOCS: DocSection[] = [
         name: 'what a pattern about sound does here',
         signature: "sine().gain(0.5)  ·  .room(…)  ·  .s('bd')",
         description:
-          'Patterns copied from strudel work, because gobo runs strudel\'s own engine under strudel\'s names. Many of those methods describe sound. What happens is decided where a value reaches a channel: a plain number is the level, and a wrapped value is unwrapped so the level underneath still drives the light instead of reading as nothing. gain is kept, because gain is amplitude and amplitude is level. It multiplies, which is what makes .stut() and .echo() decay instead of repeating at full. speed, pan, room, crush, note and the sample name are ignored. Nothing errors, so a pasted pattern runs.',
+          'Patterns copied from strudel work, because gobo runs strudel\'s own engine under strudel\'s names. Many of those methods describe sound. What happens is decided where a value reaches a channel: a plain number is the level, and a wrapped value is unwrapped so the level underneath still drives the light instead of reading as nothing. gain is kept, because gain is amplitude and amplitude is level, and so is velocity, which is how strudel accents a step. Both multiply, which is what makes .stut() and .echo() decay instead of repeating at full. speed, pan, room, crush, note and the sample name are ignored. Nothing errors, so a pasted pattern runs.',
         example: "wash.dim(flash().stut(4, 0.6, 0.125))   // gain folds in: the repeats decay\nwash.red(sine().gain(0.5))              // half level\nwash.red(sine().room(0.8))              // room ignored, sine drives it",
       },
       {
