@@ -43,6 +43,7 @@ import {
 import { COLORS, mix } from './colors.js';
 import { setBPM } from './scheduler.js';
 import { installFades } from './envelope.js';
+import { rewriteLooks } from './looks.js';
 import {
   fixture,
   defineFixture,
@@ -875,22 +876,24 @@ function sceneLine(err: unknown, code: string): number | null {
  * Returns the name it ran, which is worth having for a console.log during a
  * rehearsal and costs nothing.
  */
-function cue(looks: Record<string, unknown>, selector?: unknown): string | null {
-  if (looks === null || typeof looks !== 'object' || Array.isArray(looks)) {
+function cue(...args: unknown[]): string | null {
+  const [given, selector] = cueArgs(args);
+  if (given === null || typeof given !== 'object' || Array.isArray(given)) {
     throw new Error(
-      'cue(): give it a set of looks, as in cue({ verse, chorus }). '
-      + 'Each one is a function you wrote.',
+      'cue(): give it the looks to choose between, as in cue(verse, chorus), where each is a block '
+      + 'with a name: verse: { wash.color(blue) }.',
     );
   }
+  const looks = given as Record<string, unknown>;
   const names = Object.keys(looks);
   if (names.length === 0) {
-    throw new Error('cue(): needs at least one look, as in cue({ verse, chorus }).');
+    throw new Error('cue(): needs at least one look, as in cue(verse, chorus).');
   }
   for (const name of names) {
     if (typeof looks[name] !== 'function') {
       throw new Error(
-        `cue(): "${name}" is not a function. A look is something you can call, as in `
-        + `const ${name} = () => { wash.color(blue) }.`,
+        `cue(): "${name}" is not a look. A look is a block with a name, as in `
+        + `${name}: { wash.color(blue) }.`,
       );
     }
   }
@@ -900,6 +903,36 @@ function cue(looks: Record<string, unknown>, selector?: unknown): string | null 
   if (selected === null) return null;
   (looks[selected] as () => void)();
   return selected;
+}
+
+/**
+ * cue()'s arguments as looks and a selector, in either spelling.
+ *
+ * cue(verse, chorus) passes the looks themselves, named by the blocks that
+ * made them (looks.ts); a selector, if there is one, comes after them. The
+ * original cue({ verse, chorus }, selector) still works. A signal is a
+ * callable pattern (sine), so a function that is also a pattern is the
+ * selector, not a look.
+ */
+function cueArgs(args: unknown[]): [unknown, unknown] {
+  const isLook = (v: unknown): v is (() => void) =>
+    typeof v === 'function' && typeof (v as { queryArc?: unknown }).queryArc !== 'function';
+  if (!isLook(args[0])) return [args[0], args[1]];
+  const looks: Record<string, unknown> = {};
+  let k = 0;
+  for (; k < args.length && isLook(args[k]); k++) {
+    const look = args[k] as () => void;
+    const name = look.name;
+    if (!name) {
+      throw new Error('cue(): a look needs a name. Write it as a block, verse: { wash.color(blue) }, and pass verse.');
+    }
+    if (name in looks) throw new Error(`cue(): "${name}" is given twice.`);
+    looks[name] = look;
+  }
+  if (args.length > k + 1) {
+    throw new Error('cue(): the looks come first and the one thing after them is what chooses, as in cue(verse, chorus, mini(\'<verse chorus>\')).');
+  }
+  return [looks, args[k]];
 }
 
 /**
@@ -1371,7 +1404,9 @@ export function evalCode(code: string): EvalResult {
   try {
     // new Function is intentional: this is the eval sandbox
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    fn = new Function(...keys, `"use strict";\n${code}`) as (...args: unknown[]) => unknown;
+    // Labelled blocks become looks and _labels mute, before anything else
+    // reads the code. See looks.ts.
+    fn = new Function(...keys, `"use strict";\n${rewriteLooks(code).code}`) as (...args: unknown[]) => unknown;
   } catch (err) {
     return { success: false, error: reservedNameHint(errorMessage(err), keys) };
   }
