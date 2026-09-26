@@ -15,7 +15,7 @@
  * Windows, macOS and Linux.
  */
 
-import { mkdirSync, copyFileSync, writeFileSync, rmSync, existsSync, statSync } from 'node:fs';
+import { mkdirSync, copyFileSync, writeFileSync, rmSync, existsSync, statSync, chmodSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { build } from 'esbuild';
 import { join, dirname } from 'node:path';
@@ -68,9 +68,30 @@ writeFileSync(join(work, 'sea-config.json'), JSON.stringify({
 execFileSync(process.execPath, ['--experimental-sea-config', join(work, 'sea-config.json')], { stdio: 'inherit' });
 
 // 3. Copy the running node binary, then inject.
+//
+// Only a node that is the whole runtime in one file can become a single
+// executable. Homebrew builds node as a small launcher linked against a shared
+// libnode, so copying it copies a few kilobytes that cannot run on their own,
+// and the result used to sit in release/ looking like a connector. Say so
+// instead. The official builds from nodejs.org, and the one CI installs, are
+// whole; anything under 20 MB is not.
+const nodeSize = statSync(process.execPath).size;
+if (nodeSize < 20 * 1024 * 1024) {
+  console.error(
+    `[package] ${process.execPath} is ${(nodeSize / 1024).toFixed(0)} kB, a launcher for a shared `
+    + 'library rather than the whole runtime (Homebrew builds node this way), so it cannot be '
+    + 'made into a single executable. Run this with the official build from nodejs.org, as CI does.',
+  );
+  process.exit(1);
+}
 const target = join(out, exeName);
 console.log(`[package] building ${exeName}`);
+// A node binary is often installed read-only, and its copy inherits that, so
+// the second run could not overwrite the first and postject could not write
+// into either. Made writable on both sides of the copy.
+if (existsSync(target)) chmodSync(target, 0o755);
 copyFileSync(process.execPath, target);
+chmodSync(target, 0o755);
 
 const postject = join(root, 'node_modules', 'postject', 'dist', 'cli.js');
 const injectArgs = [
