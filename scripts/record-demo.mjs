@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Record docs/media/demo.gif and docs/media/screenshot.png from the real app.
+ * Record docs/media/demo.gif, docs/media/screenshot.png and the link preview,
+ * packages/ui/public/og.png, from the real app.
  *
  * The README's GIF is the first thing anyone sees of gobo, and the last one
  * went a whole release showing a top bar that no longer existed, because
@@ -268,6 +269,18 @@ await sleep(1200);
 const still = await send('Page.captureScreenshot', { format: 'png' });
 writeFileSync(join(root, 'docs', 'media', 'screenshot.png'), Buffer.from(still.data, 'base64'));
 
+// ─── The link preview ────────────────────────────────────────────────────────
+// What a chat app shows when someone pastes the link, and the image to upload
+// as the repository's social preview. 1280 by 640 is GitHub's own recommended
+// size, and close enough to the 1.91:1 the Open Graph cards use. Captured at 2x
+// and scaled down, so the code in it is sharp rather than aliased.
+
+await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 640, deviceScaleFactor: 2, mobile: false });
+await sleep(1200);
+const preview = await send('Page.captureScreenshot', { format: 'png' });
+const previewRaw = join(frameDir, 'og-2x.png');
+writeFileSync(previewRaw, Buffer.from(preview.data, 'base64'));
+
 cdp.close();
 stopAll();
 
@@ -301,6 +314,13 @@ await new Promise((done, fail) => {
   ], { stdio: 'inherit' });
   ff.on('exit', (code) => (code === 0 ? done() : fail(new Error(`ffmpeg exited ${code}`))));
 });
+
+const og = join(root, 'packages', 'ui', 'public', 'og.png');
+await new Promise((done, fail) => {
+  const ff = spawn('ffmpeg', ['-loglevel', 'error', '-y', '-i', previewRaw, '-vf', 'scale=1280:640:flags=lanczos', og], { stdio: 'inherit' });
+  ff.on('exit', (code) => (code === 0 ? done() : fail(new Error(`ffmpeg exited ${code}`))));
+});
+console.log(`[record] ${og}: ${(statSync(og).size / 1024).toFixed(0)} kB`);
 
 rmSync(frameDir, { recursive: true, force: true });
 rmSync(profile, { recursive: true, force: true });

@@ -219,6 +219,29 @@
         .wordmark { display: none; }
       }
 
+      /* A phone. Below 750px the row stops fitting, and the bar clips rather
+         than wraps, so what fell off the end was share, zen and the menu: the
+         one button that reaches the docs, the settings and the log. What gives
+         way instead is what a phone can live without — the tempo nudges, the
+         cycle bar and the connection light's words — and run, stop, the tempo
+         itself, share, zen and the menu stay. The light keeps its dot, and
+         tapping it still opens the outputs tab. */
+      @media (max-width: 749px) {
+        .topbar { padding: 0 10px; }
+        .topbar-right { gap: 10px; }
+        #bpm-halve,
+        #bpm-double,
+        #bpm-resync,
+        .cycle-bar,
+        #ws-label { display: none; }
+      }
+
+      /* The smallest phones still about, 320px wide. What is left above needs
+         357px, and tap tempo is the next thing a phone can do without. */
+      @media (max-width: 359px) {
+        #bpm-tap { display: none; }
+      }
+
       .bpm-display {
         color: var(--text-muted);
         font-size: 12px;

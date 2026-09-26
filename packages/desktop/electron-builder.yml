@@ -19,8 +19,9 @@ directories:
   output: ../../release/desktop
   buildResources: build
 
-# The same four-pointed spark the browser tab uses, so the app and the page
-# read as one thing. Generated at 1024px; electron-builder derives the rest.
+# The same four-bar ramp the browser tab and the wordmark use, so the app and
+# the page read as one thing. Drawn from the favicon's own shapes on the app's
+# background colour, at 1024px; electron-builder derives the rest.
 icon: build/icon.png
 
 files:
