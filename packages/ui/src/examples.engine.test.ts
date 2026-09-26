@@ -110,6 +110,14 @@ describe('sound, ported to light', () => {
     expect(Array.from(core.getUniverseBuffer(0).slice(0, 3))).toEqual([0, 255, 0]);
   });
 
+  it('jux runs the pattern on the left half and the changed copy on the right', () => {
+    run("const ls = [1, 2, 3, 4].map((c) => fixture(c, 'dim'))\ngroup(...ls).dim(mini('1 - - -').jux(rev))");
+    core.tick(0.1);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 4))).toEqual([255, 255, 0, 0]);
+    core.tick(0.8);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 4))).toEqual([0, 0, 255, 255]);
+  });
+
   it('palette turns numbers into the colours of a palette', () => {
     run("const w = fixture(1, 'rgb')\nw.color(mini('0 1').palette([red, blue]))");
     core.tick(0.1);

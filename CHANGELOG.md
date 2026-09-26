@@ -22,6 +22,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   `.across(rand)` scatters. It is strudel's stereo `.pan()` with the lights as
   the speakers, and a pasted `.pan()` does the same (on a moving head, `.pan()`
   is still the head's pan channel).
+- **`.jux(change)` splits the rig**: across a group the left half runs the
+  pattern and the right half the changed copy, so `rig.dim(mini('1 - - -')
+  .jux(rev))` mirrors a chase across the room. Strudel's jux did not survive a
+  plain level; this is its right speaker as the right half of the lights.
 - **`.palette(colours)`**: numbers pick colours, 0 the first, wrapping past the
   end and blending between two, so `mini('<0 1 2>').palette(warm)` steps
   through a palette a bar at a time and `saw.slow(8).mul(3).palette(warm)`

@@ -214,6 +214,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'method',
   },
   {
+    label: 'jux',
+    signature: '.jux(change)',
+    description:
+      "Split the rig: across a group the left half runs the pattern and the right half runs it changed. Strudel's jux puts a changed copy in the right speaker; here the lights are the speakers. On one light both land on it and the brighter wins.",
+    example: "rig.dim(mini('1 - - -').jux(rev))       // a chase mirrored across the room\nrig.dim(mini('1 - 1 -').jux(fast(2)))   // right half double time",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
     label: 'across',
     signature: '.across(position)',
     description:

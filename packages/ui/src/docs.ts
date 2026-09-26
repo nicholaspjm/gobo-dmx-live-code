@@ -432,6 +432,13 @@ const DOCS: DocSection[] = [
         example: "pars.dim(mini('1*8').across(saw))   // one light walks the rig",
       },
       {
+        name: 'jux → the two halves of a rig',
+        signature: '.jux(change)',
+        description:
+          "strudel's jux plays a changed copy in the right speaker. Across a group, the left half of the lights runs the pattern and the right half runs the change, so a chase can mirror across the room.",
+        example: "pars.dim(mini('1 - - -').jux(rev))",
+      },
+      {
         name: '$: and labels → looks',
         signature: 'verse: { … }  ·  cue(verse, chorus)  ·  _verse:',
         description:

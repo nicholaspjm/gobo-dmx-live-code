@@ -3617,6 +3617,15 @@ function placeAcross(value: PatternOrValue, index: number, count: number): Patte
   return p.fmap((v: unknown) => {
     if (v === null || typeof v !== 'object') return v;
     const pan = (v as { pan?: unknown }).pan;
+    // A side from .jux(): the left half of the group takes side 0 and the
+    // right half side 1; with an odd count the middle light is in both.
+    const side = (v as { side?: unknown }).side;
+    if ((typeof pan !== 'number' || !Number.isFinite(pan)) && (side === 0 || side === 1)) {
+      const middle = (count - 1) / 2;
+      const inHalf = side === 0 ? index <= middle : index >= middle;
+      const gain = (v as { gain?: unknown }).gain;
+      return { ...(v as object), gain: (typeof gain === 'number' ? gain : 1) * (inHalf ? 1 : 0) };
+    }
     if (typeof pan !== 'number' || !Number.isFinite(pan)) return v;
     const at = Math.max(0, Math.min(1, pan)) * (count - 1);
     const share = Math.max(0, 1 - Math.abs(index - at));

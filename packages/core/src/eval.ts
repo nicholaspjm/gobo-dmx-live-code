@@ -140,6 +140,35 @@ function installPalette(proto: any): void {
   };
 }
 
+/**
+ * Strudel's jux, ported from two speakers to two halves of a rig.
+ *
+ * `.jux(change)` plays the pattern in the left speaker and a changed copy in
+ * the right. Across a group the lights are the speakers, so the left half of
+ * the group runs the pattern and the right half runs it changed:
+ * `rig.dim(mini('1 - 1 -').jux(rev))` mirrors a chase across the room. On a
+ * single light both copies land on it and the brighter wins.
+ *
+ * Replaced rather than left as strudel's, because strudel's copies the value
+ * into an object of sound controls and a plain level does not survive it.
+ * juxBy's width has no meaning for two halves, so it is the same move.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function installJux(proto: any, stack: (...pats: unknown[]) => unknown): void {
+  const sided = (side: number) => (v: unknown): unknown =>
+    v !== null && typeof v === 'object' ? { ...(v as object), side } : { value: v, side };
+  const jux = function (this: { fmap(fn: (v: unknown) => unknown): unknown }, change: unknown) {
+    if (typeof change !== 'function') {
+      throw new Error('.jux() takes a change for the right half, as in .jux(rev) or .jux(fast(2)).');
+    }
+    return stack(this.fmap(sided(0)), (change(this) as { fmap(fn: (v: unknown) => unknown): unknown }).fmap(sided(1)));
+  };
+  proto.jux = jux;
+  proto.juxBy = function (this: unknown, _width: unknown, change: unknown) {
+    return jux.call(this as { fmap(fn: (v: unknown) => unknown): unknown }, change);
+  };
+}
+
 /** Call once (async) before first eval to load @strudel/core waveforms. */
 export async function initStrudel(): Promise<void> {
   if (_strudelState === 'ready') return;
@@ -407,6 +436,7 @@ export async function initStrudel(): Promise<void> {
       // envelope.ts.
       if (proto) installFades({ Pattern: core.Pattern, Hap: core.Hap, TimeSpan: core.TimeSpan, Fraction: core.Fraction }, proto);
       if (proto) installPalette(proto);
+      if (proto) installJux(proto, core.stack as (...pats: unknown[]) => unknown);
     } catch {
       // Strudel's internals changed shape, or sample failed. Audio reactives
       // still get viz methods attached directly.
