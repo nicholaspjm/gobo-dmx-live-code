@@ -252,6 +252,37 @@ describe('a colour chase', () => {
   });
 });
 
+describe('what the review found', () => {
+  it('each(sine) spreads, as each(sine.slow(1)) does', () => {
+    const rig = "const ls = [1, 2, 3, 4].map((c) => fixture(c, 'dim'))\nconst rig = group(...ls)\n";
+    run(`${rig}rig.each(sine)`);
+    core.tick(0.3);
+    const bare = Array.from(core.getUniverseBuffer(0).slice(0, 4));
+    core.clearDefs();
+    run(`${rig}rig.each(sine.slow(1))`);
+    core.tick(0.3);
+    expect(bare).toEqual(Array.from(core.getUniverseBuffer(0).slice(0, 4)));
+    expect(new Set(bare).size).toBeGreaterThan(1);
+  });
+
+  it('a bare signal in a cued look lights, and a quoted selector chooses', () => {
+    run("const w = fixture(1, 'dim')\nverse: {\n  w.dim(square)\n}\nchorus: {\n  w.dim(1)\n}\ncue(verse, chorus, '<verse chorus>')");
+    expect(at(0.1)).toBe(0);     // the verse's square, low in the first half of the bar
+    expect(at(0.6)).toBe(255);   // and high in the second
+    expect(at(1.1)).toBe(255);   // the chorus, bar 1
+  });
+
+  it('muting a look that cue() names leaves it out rather than breaking the scene', () => {
+    run("const w = fixture(1, 'dim')\nverse: {\n  w.dim(0.2)\n}\n_chorus: {\n  w.dim(1)\n}\ncue(verse, chorus)");
+    expect(at(0.1)).toBe(51);
+  });
+
+  it('a quoted raw DMX number keeps its meaning', () => {
+    run("ch(1, '128')");
+    expect(at(0.1)).toBe(128);
+  });
+});
+
 describe('each() with a pattern', () => {
   it('is the function form with the same phase spread', () => {
     const rig = "const a = fixture(1, 'dim')\nconst b = fixture(2, 'dim')\nconst c = fixture(3, 'dim')\nconst d = fixture(4, 'dim')\nconst rig = group(a, b, c, d)\n";

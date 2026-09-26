@@ -286,7 +286,6 @@ describe('invalid values', () => {
     ['NaN',              NaN,                          'finite number'],
     ['null',             null,                         'got null'],
     ['undefined',        undefined,                    'got undefined'],
-    ['a quoted number',  '1',                          'Drop the quotes: 1'],
     ['mini notation',    '1 0 1 0',                    'mini("1 0 1 0")'],
     ['an uncalled function', () => 0,                  'call it, as in flash()'],
     ['a plain object',   {},                           'got an object'],
@@ -297,9 +296,18 @@ describe('invalid values', () => {
   });
 
   it('names the channel the operator wrote, not the one uni() saw', () => {
-    expect(() => ch(7, bad('1'))).toThrow('ch(7)');
-    expect(() => dim(7, bad('1'))).toThrow('dim(7)');
-    expect(() => uni(2, 7, bad('1'))).toThrow('uni(2, 7)');
+    expect(() => ch(7, bad(NaN))).toThrow('ch(7)');
+    expect(() => dim(7, bad(NaN))).toThrow('dim(7)');
+    expect(() => uni(2, 7, bad(NaN))).toThrow('uni(2, 7)');
+  });
+
+  it('reads a quoted number as that number, raw DMX included', () => {
+    // A quoted string is mini-notation now, as in strudel, and a quoted
+    // number is the plainest case of it: the number it spells.
+    uni(1, 1, bad('1'));
+    uni(1, 2, bad('128'));
+    tick(0);
+    expect(Array.from(getUniverseBuffer(1).slice(0, 2))).toEqual([255, 128]);
   });
 
   it('leaves the live scene untouched when a write is rejected', () => {

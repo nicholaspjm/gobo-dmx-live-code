@@ -113,6 +113,10 @@ export function channelValue(args: readonly unknown[], what: string): PatternOrV
   // The predicate's narrowing does not survive the assignment above, hence
   // the cast; the guard is what establishes it.
   if (looksLikePattern) return v as PatternLike;
+  // A quoted number keeps its number's meaning, raw DMX above 1 included:
+  // ch(1, '128') is half, as ch(1, 128) is. Read as mini-notation it would be
+  // a pattern value of 128, which clamps to full.
+  if (typeof v === 'string' && /^\s*-?(\d+\.?\d*|\.\d+)\s*$/.test(v)) return Number(v);
   // A string is mini-notation, as in strudel. See string-patterns.ts.
   if (typeof v === 'string') {
     const parsed = stringPattern(v, what);

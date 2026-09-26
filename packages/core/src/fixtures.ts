@@ -3594,7 +3594,9 @@ export type EachArg<R> = PatternLike | ((phase: number, i: number, count: number
  * the position and the index, is kept for what a pattern cannot express.
  */
 function eachFunction<R>(arg: EachArg<R>, spread: number | undefined): (phase: number, i: number, count: number) => R {
-  if (typeof arg === 'function') return arg;
+  // A bare signal (sine) is a function that is also a pattern: it takes the
+  // pattern path, so rig.each(sine) spreads like rig.each(sine.slow(1)).
+  if (typeof arg === 'function' && typeof (arg as { queryArc?: unknown }).queryArc !== 'function') return arg;
   // A quoted string is mini-notation, as everywhere a pattern is taken.
   if (typeof arg === 'string') {
     const parsed = stringPattern(arg, '.each()');
@@ -3606,7 +3608,7 @@ function eachFunction<R>(arg: EachArg<R>, spread: number | undefined): (phase: n
   if (typeof arg === 'number' || (pattern !== null && typeof pattern === 'object' && typeof pattern.early !== 'function' && !Array.isArray(arg))) {
     return () => arg as unknown as R;
   }
-  if (pattern === null || typeof pattern !== 'object' || typeof pattern.early !== 'function') {
+  if (pattern === null || (typeof pattern !== 'object' && typeof pattern !== 'function') || typeof pattern.early !== 'function') {
     throw new Error(
       ".each() takes a pattern, which every light runs a step later than the one before, as in "
       + "rig.each(sine) or rig.each(mini('1 - - -').fadeOut(2)).",
@@ -3635,9 +3637,11 @@ function eachXYFunction<R>(
   spreadX: number | undefined,
   spreadY: number | undefined,
 ): (x: number, y: number, w: number, h: number) => R {
-  if (typeof arg === 'function') return arg;
+  // A bare signal (sine) is a function that is also a pattern: it takes the
+  // pattern path, so rig.each(sine) spreads like rig.each(sine.slow(1)).
+  if (typeof arg === 'function' && typeof (arg as { queryArc?: unknown }).queryArc !== 'function') return arg;
   const pattern = arg as unknown as { early?: (t: number) => R };
-  if (pattern === null || typeof pattern !== 'object' || typeof pattern.early !== 'function') {
+  if (pattern === null || (typeof pattern !== 'object' && typeof pattern !== 'function') || typeof pattern.early !== 'function') {
     throw new Error(".eachXY() takes a pattern, which runs across the grid, as in grid.eachXY(sine) or grid.eachXY(sine, 0, 1) to run it down.");
   }
   const sx = spreadX ?? 1;

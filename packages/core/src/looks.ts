@@ -188,7 +188,13 @@ export function rewriteLooks(code: string): LookRewrite {
     const body = skipGap(code, colon + 1);
 
     if (isMuteLabel(name)) {
-      edits.push({ from: start, to: colon + 1, text: 'if (0)' });
+      // A muted look still has a name, so cue(verse, chorus) goes on working
+      // with _chorus: muted: the name is declared, as nothing, and cue()
+      // leaves it out. A muted line ($:, or a label on one statement) has no
+      // look to declare.
+      const bare = name.replace(/^_+|_+$/g, '');
+      const declare = code[body] === '{' && /^[A-Za-z][\w]*$/.test(bare) ? `const ${bare} = null; ` : '';
+      edits.push({ from: start, to: colon + 1, text: `${declare}if (0)` });
       const blockEnd = code[body] === '{' ? matchingBrace(code, body) : -1;
       const lineEnd = code.indexOf('\n', body);
       muted.push({ from: start, to: blockEnd !== -1 ? blockEnd + 1 : lineEnd === -1 ? code.length : lineEnd });

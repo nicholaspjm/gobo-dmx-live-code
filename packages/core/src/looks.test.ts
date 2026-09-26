@@ -31,7 +31,8 @@ describe('a named block is a look', () => {
 
 describe('an underscore mutes', () => {
   it("mutes a block, strudel's _name", () => {
-    expect(rewriteLooks('_verse: {\n  wash.red(1)\n}').code).toBe('if (0) {\n  wash.red(1)\n}');
+    // Still declared, as nothing, so cue(verse, …) goes on working.
+    expect(rewriteLooks('_verse: {\n  wash.red(1)\n}').code).toBe('const verse = null; if (0) {\n  wash.red(1)\n}');
   });
 
   it("mutes one line, strudel's _$", () => {
@@ -39,7 +40,7 @@ describe('an underscore mutes', () => {
   });
 
   it('mutes with a trailing underscore too', () => {
-    expect(rewriteLooks('verse_: { a() }').code).toBe('if (0) { a() }');
+    expect(rewriteLooks('verse_: { a() }').code).toBe('const verse = null; if (0) { a() }');
   });
 
   it('knows which labels mute', () => {

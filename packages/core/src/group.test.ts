@@ -208,9 +208,7 @@ describe('cases that cannot work say so', () => {
   });
 
   it('rejects a bad value with the group named', () => {
-    expect(() => group(fixture(1, 'rgb')).red('1' as unknown as number)).toThrow(
-      /group\.red\(\).*Drop the quotes/s,
-    );
+    expect(() => group(fixture(1, 'rgb')).red(NaN)).toThrow(/group\.red\(\).*finite/s);
   });
 });
 

@@ -47,7 +47,7 @@ import { COLORS, colorFromToken, mix, toColorValue, type Color } from './colors.
 import { setBPM } from './scheduler.js';
 import { installFades } from './envelope.js';
 import { rewriteLooks } from './looks.js';
-import { setStringPatternParser } from './string-patterns.js';
+import { setStringPatternParser, stringPattern } from './string-patterns.js';
 import {
   fixture,
   defineFixture,
@@ -1048,7 +1048,11 @@ function cue(...args: unknown[]): string | null {
     }
   }
   registerCues(names, selector !== undefined);
-  if (selector !== undefined) return cueBySelector(looks, names, selector);
+  // A quoted selector is mini-notation, as a string is everywhere else,
+  // unless it is simply the name of one of the looks.
+  let chooser = selector;
+  if (typeof chooser === 'string' && !(chooser in looks)) chooser = stringPattern(chooser, 'cue()') ?? chooser;
+  if (chooser !== undefined) return cueBySelector(looks, names, chooser);
   const selected = getSelectedCue();
   if (selected === null) return null;
   (looks[selected] as () => void)();
@@ -1064,7 +1068,9 @@ function cue(...args: unknown[]): string | null {
  * callable pattern (sine), so a function that is also a pattern is the
  * selector, not a look.
  */
-function cueArgs(args: unknown[]): [unknown, unknown] {
+function cueArgs(given: unknown[]): [unknown, unknown] {
+  // A muted look (_chorus: { … }) is declared as null: left out, not an error.
+  const args = given.filter((a) => a !== null);
   const isLook = (v: unknown): v is (() => void) =>
     typeof v === 'function' && typeof (v as { queryArc?: unknown }).queryArc !== 'function';
   if (!isLook(args[0])) return [args[0], args[1]];
@@ -1167,7 +1173,9 @@ function cueBySelector(
 
 /** Whether a captured value is a pattern to be queried rather than a number. */
 function isQueryable(value: unknown): value is PatternLike {
-  return typeof value === 'object' && value !== null
+  // A bare signal (sine) is a function that is also a pattern, so the type of
+  // the value is not the test: having queryArc is.
+  return (typeof value === 'object' || typeof value === 'function') && value !== null
     && typeof (value as PatternLike).queryArc === 'function';
 }
 

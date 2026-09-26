@@ -514,10 +514,14 @@ document.addEventListener('keydown', (e) => {
   // bound to anything in the editor. preventDefault matters on macOS, where
   // alt+1 would otherwise insert a character.
   //
-  // The digit is read off `code` as well as `key`: on a Mac, option+1 types ¡,
-  // so `key` is never "1" there and the shortcut did nothing on the platform
-  // most likely to be running a show.
-  const cueDigit = /^Digit([1-9])$/.exec(e.code)?.[1] ?? (/^[1-9]$/.test(e.key) ? e.key : null);
+  // On a US Mac, option+1 types ¡, so `key` is never "1" there and the
+  // shortcut did nothing on the platform most likely to be running a show.
+  // Those nine characters are read as their digits. Nothing else is: on a
+  // German, Nordic or French Mac, option+5 to 9 type [ ] { } |, which a scene
+  // needs, and taking the physical key would stop anyone typing a brace.
+  const US_MAC_OPTION_DIGITS = '¡™£¢∞§¶•ª';
+  const macDigit = US_MAC_OPTION_DIGITS.indexOf(e.key);
+  const cueDigit = /^[1-9]$/.test(e.key) ? e.key : macDigit >= 0 ? String(macDigit + 1) : null;
   if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && cueDigit !== null) {
     e.preventDefault();
     selectCueIndex(Number(cueDigit));
@@ -783,7 +787,9 @@ document.addEventListener('keydown', (e) => {
   // different character on that key, and so is the period, which option
   // turns into ≥ on a Mac. Alt+Space is not a stop: it is the window menu on
   // Windows and a non-breaking space on a Mac.
-  const period = e.key === '.' || e.code === 'Period';
+  // Option+. types ≥ on a US Mac. The physical key is not used: on other
+  // layouts it types something a scene may need.
+  const period = e.key === '.' || (alt && e.key === '≥');
   const space = e.key === ' ' || e.code === 'Space';
   if (!period && (alt || !space)) return;
   e.preventDefault();
