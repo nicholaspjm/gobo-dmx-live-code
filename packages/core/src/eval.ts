@@ -101,15 +101,27 @@ export async function initStrudel(): Promise<void> {
     // Dynamic import keeps build working even if strudel isn't installed yet
     const core = await import('@strudel/core');
 
-    // Wrap each waveform: if it's already a function → use directly.
-    // If it's a Pattern instance → wrap in a factory (() => pattern).
-    // This ensures user code can call sine(), cosine(), etc.
+    // Strudel's signals are patterns, written bare: sine.slow(4). gobo has
+    // always written them called: sine().slow(4). Both have to work, because
+    // every gobo scene and doc uses the second and every strudel example the
+    // first, and a pattern pasted from strudel's docs failing on its first
+    // word ("sine.slow is not a function") is the worst first impression the
+    // two can make of each other.
+    //
+    // So each signal becomes a callable pattern: a function that returns the
+    // pattern, whose prototype IS the pattern. Calling it gives the pattern;
+    // reading anything off it (.slow, .range, .queryArc) reads through to the
+    // pattern, so the bare name is usable anywhere a pattern is, including as
+    // a channel's value. An arrow function, because a plain function would
+    // carry a `prototype` property of its own in front of the pattern's.
     function wrap(exported: unknown): (...args: unknown[]) => PatternLike {
       if (typeof exported === 'function') {
         return exported as (...args: unknown[]) => PatternLike;
       }
-      // Pattern instance: make it callable
-      return () => exported as PatternLike;
+      const pattern = exported as PatternLike;
+      const signal = (): PatternLike => pattern;
+      Object.setPrototypeOf(signal, pattern as object);
+      return signal;
     }
 
     _strudelCtx.sine = wrap(core.sine);

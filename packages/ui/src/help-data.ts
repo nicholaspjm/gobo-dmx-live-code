@@ -365,7 +365,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'sine',
     signature: 'sine() => Pattern',
-    description: 'Sine waveform 0..1. One full cycle per pattern cycle, which is one bar of four beats, so .fast(4) gives one per beat.',
+    description: 'Sine waveform 0..1. One full cycle per pattern cycle, which is one bar of four beats, so .fast(4) gives one per beat. Strudel writes signals without the brackets, sine.slow(4), and that works too, for every signal.',
     example: 'wash.red(sine().slow(4).range(0.2, 1))',
     context: 'command',
     kind: 'function',
