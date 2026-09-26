@@ -104,6 +104,7 @@ The rest of the scripts:
 | `npm run dev:ui` / `npm run dev:bridge` | either half on its own |
 | `npm run build` | UI production bundle → `dist/` (what Pages deploys) |
 | `npm run preview` | serve that bundle locally |
+| `npm run bump -- 0.6.0` | set the version in all eight places it is written (five package.json files, the lockfile, `APP_VERSION`, `CONNECTOR_VERSION`). No commit, no tag; the changelog section is still yours to write |
 | `npm run record:demo` | re-record `docs/media/demo.gif` and `screenshot.png` from the current build, with headless Chrome and ffmpeg. Do it before a release that changes what the app looks like |
 | `npm run bridge:build` / `npm run bridge:start` | compile the bridge with `tsc`, then run it from `dist` |
 | `npm run bridge:selftest` | send a known ramp straight to the wire, bypassing browser and bridge; `--help` for options |
