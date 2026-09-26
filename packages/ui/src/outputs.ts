@@ -445,6 +445,16 @@ export const WHY_BROWSER_CANNOT =
   + 'on the network by itself. That is a rule every browser enforces, not something gobo can '
   + 'switch off.';
 
+/**
+ * The intro when gobo itself is running on this computer: the desktop app,
+ * npm start or npm run dev. The sender is already here, so the general intro's
+ * talk of a connector beside the page would send someone looking for a
+ * program they do not need.
+ */
+export const PANEL_INTRO_LOCAL =
+  'Where your light goes. gobo is running on this computer, so every output below works from here '
+  + 'with nothing else to start: Art-Net, sACN and OSC go straight out on the network.';
+
 export const PANEL_INTRO =
   'Where your light goes. usb() and td() work in this browser. The rest send network packets, '
   + 'which a page cannot do, so something has to run on this computer: the connector beside this '
@@ -627,9 +637,15 @@ export function mountOutputsPanel(opts: {
 
     const what = document.createElement('p');
     what.className = 'connector-status-what';
+    // Only the standalone connector starts with the computer. Served locally,
+    // the sender is the program that served this page, which someone started.
+    const local = isDesktopBuild() || servedLocally();
     what.textContent = up
-      ? 'Listening for frames and putting Art-Net, sACN or OSC on the network. It starts with '
-        + 'your computer, which is why you may not remember running it.'
+      ? local
+        ? 'Listening for frames and putting Art-Net, sACN or OSC on the network. It is part of the '
+          + 'gobo that served this page, so it runs for as long as that does.'
+        : 'Listening for frames and putting Art-Net, sACN or OSC on the network. It starts with '
+          + 'your computer, which is why you may not remember running it.'
       : blocked ? BLOCKED_BY_BROWSER
       : 'Art-Net, sACN and OSC need it. usb() and td() work without it.';
     box.append(head, what);
@@ -746,7 +762,7 @@ export function mountOutputsPanel(opts: {
 
     const intro = document.createElement('p');
     intro.className = 'outputs-intro';
-    intro.textContent = PANEL_INTRO;
+    intro.textContent = isDesktopBuild() || servedLocally() ? PANEL_INTRO_LOCAL : PANEL_INTRO;
     bodyEl.appendChild(intro);
 
     bodyEl.appendChild(renderConnectorStatus());
