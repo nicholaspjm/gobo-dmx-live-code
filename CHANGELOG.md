@@ -8,6 +8,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Added
 
+- **Fades per step.** `.fadeIn(beats)` brings each step of a pattern up,
+  `.fadeOut(beats)` lets it keep glowing after the step ends, and
+  `.settle(beats, level)` drops each hit to a held level, or to nothing, which
+  makes every step a flash. A chase gets its tail: `rig.each((p) => mini('1 - -
+  -').early(p).fadeOut(2))`. This is strudel's note envelope ported to light, so
+  strudel's own `.attack()`, `.decay()`, `.sustain()`, `.release()` and
+  `.adsr('a:d:s:r')` now do the same thing in seconds, where they used to
+  attach a setting no light read.
 - **Patch a rig from the fixtures tab.** Every fixture has "add to rig": say how
   many, the address set on the first one, the universe and a name, and it
   writes one `const par1 = fixture(…)` line per light, stepped by the fixture's

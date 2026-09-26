@@ -178,6 +178,33 @@ export const HELP_ENTRIES: HelpEntry[] = [
 
   // ─── From strudel, spelled as strudel spells them ──────────────────────────
   {
+    label: 'fadeIn',
+    signature: '.fadeIn(beats) => Pattern',
+    description:
+      'Each step comes up over this many beats instead of snapping on: the fade in a desk gives every step of a chase. Strudel calls it attack, in seconds, and .attack() does the same here.',
+    example: "rig.dim(mini('1 - 1 -').fadeIn(0.5))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'fadeOut',
+    signature: '.fadeOut(beats) => Pattern',
+    description:
+      'Each step keeps glowing for this many beats after it ends, going out as the next one comes up: the tail that makes a chase look like one. Strudel calls it release, in seconds, and .release() does the same here.',
+    example: "rig.each((p) => mini('1 - - -').early(p).fadeOut(2))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'settle',
+    signature: '.settle(beats, level = 0) => Pattern',
+    description:
+      'Each step hits full and falls to `level` over this many beats, then holds there while the step lasts. With no level every step is a flash. Strudel spells it decay and sustain; .decay() and .sustain() do the same here, and .adsr("a:d:s:r") sets all four in seconds.',
+    example: "strb.dim(mini('1 1 1 1').settle(0.25))        // a flash per beat\nwash.dim(mini('1 - 1 -').settle(0.5, 0.3))   // hit, then hold at 30%",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
     label: 'stut',
     signature: '.stut(n, feedback, time)',
     description: 'Repeat n times, each quieter than the last: an echo that decays. The trail effect, already built in.',

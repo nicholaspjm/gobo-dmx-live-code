@@ -42,6 +42,7 @@ import {
 } from './dmx.js';
 import { COLORS, mix } from './colors.js';
 import { setBPM } from './scheduler.js';
+import { installFades } from './envelope.js';
 import {
   fixture,
   defineFixture,
@@ -347,6 +348,9 @@ export async function initStrudel(): Promise<void> {
       }
       // Stash the prototype for register() (further down) to extend on demand.
       _patternProto = proto;
+      // Per-step fades, and strudel's envelope names reading as light. See
+      // envelope.ts.
+      if (proto) installFades({ Pattern: core.Pattern, Hap: core.Hap, TimeSpan: core.TimeSpan, Fraction: core.Fraction }, proto);
     } catch {
       // Strudel's internals changed shape, or sample failed. Audio reactives
       // still get viz methods attached directly.
@@ -1077,7 +1081,7 @@ const METHOD_HINTS: Record<string, string> = {
   white:
     '.white() drives a dedicated white emitter, which an rgb strip does not have. '
     + '.mono(v) is white on one: all three emitters at the same level.',
-  fade: 'there is no .fade(): a fade is a pattern, as in .dim(sine().slow(4)).',
+  fade: 'there is no .fade(): .fadeIn(beats) brings each step up, .fadeOut(beats) lets it glow after it ends, and a slow swell is a pattern, as in .dim(sine.slow(4)).',
   play: 'a scene has no .play(). Ctrl+Enter runs it and Ctrl+. stops it.',
   // Strudel names that describe music. The lighting word is offered instead
   // of an alias, so the code a scene keeps says what it does to light.
