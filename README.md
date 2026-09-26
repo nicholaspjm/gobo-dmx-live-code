@@ -2,6 +2,10 @@
 
 **Live-code DMX lighting in your browser.**
 
+> **Public beta.** It works end to end and it still has rough edges. When you find one,
+> [report it](https://github.com/nicholaspjm/gobo-dmx-live-code/issues/new/choose): the
+> **report a problem** button in the app's log tab fills in your versions for you.
+
 Write pattern code, watch it on a 512-channel visualizer, and send it to real hardware over a USB DMX interface, TouchDesigner, Art-Net or sACN.
 
 The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and cycle syntax used for live-coding music, wired up to DMX universes instead of audio.

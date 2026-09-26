@@ -6,6 +6,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-26
+
+> **The public beta.** gobo works end to end, the website needs nothing
+> installed, and a network rig needs one download or `npm start`. It will still
+> have rough edges; the log tab has a **report a problem** button that fills in
+> your versions, and [Discussions](https://github.com/nicholaspjm/gobo-dmx-live-code/discussions)
+> is open.
+>
+> **Replace your connector.** Every connector before this one listened on every
+> network interface and took a WebSocket from any web page, so any site open in
+> your browser, and anything on the same network, could drive your rig through
+> it and repoint its output. This one answers this computer only, and only
+> gobo's own pages. When the app finds an older connector it says so, and why.
+
+### Security
+
+- **The connector answers this computer, and gobo's own pages.** It listens on
+  `127.0.0.1` and `::1` rather than every interface. A WebSocket is accepted
+  from pages served from this computer, from the hosted app, and from any site
+  named with `--allow-origin`, and refused from everywhere else with a `403`
+  and one line in its log saying why. Every request's `Host` must be an address
+  or `localhost`, which is the defence against DNS rebinding, where a page on an
+  attacker's name points that name at your machine and then talks to "its own"
+  origin. `--lan`, or `GOBO_LAN=1`, opens it to other devices on the network
+  when you want that; web pages are still checked.
+- **The dev server is on localhost too.** Vite listened on `0.0.0.0`, which put
+  it and the source it serves on every network the machine joined.
+  `GOBO_LAN=1 npm run dev` opens it and the connector together.
+- **The app stopped telling people to `npx gobo-connector`.** The package is not
+  on npm, so the instruction handed the name, and everyone who followed it, to
+  whoever published it first.
+- **Security reports work.** SECURITY.md sent them to private vulnerability
+  reporting, which was switched off on the repository. It is on, and the policy
+  is rewritten: it described a provenance banner, scene names and scene files
+  that no longer exist, and a connector open to everything that no longer is.
+
 ### Added
 
 - **Run and stop are buttons.** Both keys still work and are still how anyone
@@ -32,7 +68,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   document. Off by default: the document is the safer thing for the main chord
   to mean.
 
+- **The app says when the browser is what blocks the connector.** Chrome now
+  asks before a website may reach a program on your computer. Until you allow
+  it, the hosted page's socket fails inside the browser before anything reaches
+  the connector, which looks exactly like no connector at all, so the app used
+  to offer a download to someone who had it running. It asks the browser
+  instead, and the banner, the status bar and the outputs tab say which it is
+  and what to do; allowing it reconnects straight away.
+
+- **Report a problem.** A button in the log tab opens a bug report with the
+  version, the route, the browser, the system and the output already filled
+  in, and nothing that belongs to you: not the scene, not the log, not the
+  output's address. The repository has issue forms for bugs and ideas, and
+  Discussions for everything else.
+
+- **`npm run record:demo`** re-records the README's GIF and screenshot from the
+  current build, so the next one does not go stale for a release.
+
 ### Changed
+
+- **Run it locally is the route for a network rig.** The README, the in-app
+  docs and the outputs tab lead with it now: the desktop app, or `npm start`
+  from a checkout, is one program that serves the app and sends the output,
+  with nothing to connect and nothing for the browser to allow. The outputs tab
+  offers the desktop download, which it had been claiming did not exist since
+  the first one shipped, and Homebrew, whose formula has worked since 0.4.0.
+
+- **The macOS app is signed ad hoc.** Without a certificate it was not signed
+  at all, and on Apple Silicon a downloaded copy was reported as damaged, with
+  Move to Trash as the only offer. Now it is from an unidentified developer,
+  which System Settings will open; the README and the release notes say where.
+
+- **Themes work out their own contrast.** The surface, border, line highlight
+  and code background of each of the thirteen themes are derived from its
+  background and text colours rather than picked by hand, and the gutter is set
+  apart by that contrast instead of a border line.
+
+- **The mark is a beam edge.** Four block characters stepping from solid to
+  nearly nothing, in the editor's own font, with the same four steps as the tab
+  icon. On a narrow window the word goes first and the ramp after it, and
+  clicking it is one way into zen mode.
+
+- **The reference and the outputs tab say less.** Both were cut down to what a
+  reader needs at the moment they open them.
 
 - **One panel with tabs, instead of five panels with five buttons.** The
   reference, the fixtures, the log, the outputs and the settings are one
@@ -62,6 +140,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   document on screen, and no second one exists for a name to tell it apart
   from. Links written by 0.4.x carry a name and still open; it is read past.
 
+### Removed
+
+- **Save and open.** 0.4.0 had both, as buttons and as `Ctrl+S`. A scene is text,
+  and the place to keep text is wherever you already keep it: **share** puts a
+  link carrying the whole scene on the clipboard, and **copy the code instead**,
+  in the same dialog, puts the text there. The unsaved-work dot went with them,
+  since with no file to compare against it would be lit on every buffer.
+
 ### Fixed
 
 - **"x.y is not a function" now says what to write.** Three different mistakes
@@ -81,8 +167,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   was a setting both paths did the same thing and nothing could tell them
   apart.
 
-- **The README and the autosave hint both offered `Ctrl+S` to save a scene to a
-  file.** That key has not been bound since save was removed in 0.4.0.
+- **The outputs tab offered a download of the program serving it.** A page from
+  `npm start` or the desktop app no longer offers the connector it is already
+  running.
+
+- **The docs had drifted from the code.** Homebrew was described as not working
+  when it did, and its own caveats promised a login item that the connector
+  deliberately never makes under Homebrew. The send rate was given as 30 / 60 /
+  120 Hz, default 60, when it is 25 / 30 / 40 / 44, default 40. Reconnection was
+  "every 2 s" when it backs off to thirty. A too-long link was answered with
+  "send a saved `.js` file". Each one now says what the app does.
 
 ## [0.4.0] - 2026-09-19
 
@@ -604,6 +698,7 @@ First public release. There was never a published 0.1.0. Everything below landed
 - The sim panel was hard-coded to one scene's channel layout and showed ghost fixtures after a scene switch. It is now rebuilt from the fixtures registered during the last eval. Its "off" state also reads the theme background instead of a hardcoded colour, so blackout looks dark on every theme.
 - The `ultratronics 11` template called `spot.dim()` on an RGBW fixture that has no dimmer channel, throwing on every run. The instrument palette was remapped onto discrete colour channels. The fixed version is the one in the **examples** menu; a copy you saved under the old scene model still holds the broken call, so re-load the example if you kept one.
 
+[0.5.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.0
 [0.4.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.4.0
 [0.3.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.3.0
 [0.2.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.2.0

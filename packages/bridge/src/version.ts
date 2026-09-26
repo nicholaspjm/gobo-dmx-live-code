@@ -29,7 +29,7 @@
  */
 
 /** Keep in step with packages/bridge/package.json. version.test.ts enforces it. */
-export const CONNECTOR_VERSION = '0.4.0';
+export const CONNECTOR_VERSION = '0.5.0';
 
 /**
  * What the connector says to a page the moment it connects.
