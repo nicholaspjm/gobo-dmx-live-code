@@ -1,6 +1,6 @@
 {
   "name": "gobo-desktop",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Desktop build of gobo: the editor and the bridge in one app, so Art-Net, sACN, OSC and mock work with nothing else installed.",
   "type": "module",

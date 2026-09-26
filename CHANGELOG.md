@@ -6,6 +6,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-26
+
+### Fixed
+
+- **gobo works on a phone.** The top bar overflowed and clipped, so share, zen
+  and the menu, and with it the docs, the settings and the log, were off the end
+  of the screen. On a narrow screen the tempo nudges, the cycle bar and the
+  connection light's words now give way instead, and tap tempo too on the
+  smallest phones. Run, stop and the tempo stay, which is what makes a phone
+  usable at all with no ctrl+enter to press.
+- **The desktop app's icon** was still the four-pointed spark that the new mark
+  replaced in 0.5.0. It is the four-bar ramp now, the same as the tab icon.
+- **The link preview** a chat app shows for the site was a screenshot from
+  August, with save, open and the old mark in it. It is the current app.
+
 ## [0.5.0] - 2026-09-26
 
 > **The public beta.** gobo works end to end, the website needs nothing
@@ -698,6 +713,7 @@ First public release. There was never a published 0.1.0. Everything below landed
 - The sim panel was hard-coded to one scene's channel layout and showed ghost fixtures after a scene switch. It is now rebuilt from the fixtures registered during the last eval. Its "off" state also reads the theme background instead of a hardcoded colour, so blackout looks dark on every theme.
 - The `ultratronics 11` template called `spot.dim()` on an RGBW fixture that has no dimmer channel, throwing on every run. The instrument palette was remapped onto discrete colour channels. The fixed version is the one in the **examples** menu; a copy you saved under the old scene model still holds the broken call, so re-load the example if you kept one.
 
+[0.5.1]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.1
 [0.5.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.0
 [0.4.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.4.0
 [0.3.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.3.0
