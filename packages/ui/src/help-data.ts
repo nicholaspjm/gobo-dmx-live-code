@@ -214,6 +214,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'method',
   },
   {
+    label: 'fan',
+    signature: '.fan(width)',
+    description:
+      'Spread a group out around the value: the first light width/2 below it, the last width/2 above, the way a desk fans a row of heads out from a centre. The centre can move, so the fan moves with it. On a dimmer it grades the brightness across the rig.',
+    example: "heads.pan(sine.slow(8).range(0.3, 0.7).fan(0.4))   // a fan that sweeps\nheads.tilt(mini('0.5').fan(0.2))                  // held still\npars.dim(mini('0.6').fan(0.8))                    // brighter along the rig",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
     label: 'jux',
     signature: '.jux(change)',
     description:

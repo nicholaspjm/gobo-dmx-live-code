@@ -166,6 +166,15 @@ function installJux(proto: any, stack: (...pats: unknown[]) => unknown): void {
     return stack(this.fmap(sided(0)), (change(this) as { fmap(fn: (v: unknown) => unknown): unknown }).fmap(sided(1)));
   };
   proto.jux = jux;
+  // A fan, as a desk spreads a row of heads out around a centre. The group
+  // reads it (fixtures.ts, placeAcross); on one light it changes nothing.
+  proto.fan = function (this: { fmap(fn: (v: unknown) => unknown): unknown }, width: unknown) {
+    const w = typeof width === 'string' && width.trim() !== '' ? Number(width) : width;
+    if (typeof w !== 'number' || !Number.isFinite(w)) {
+      throw new Error('.fan() takes how wide to spread across the group, as in heads.pan(sine.slow(8).fan(0.4)), or heads.pan(mini(\'0.5\').fan(0.4)) to hold still.');
+    }
+    return this.fmap((v: unknown) => (v !== null && typeof v === 'object' ? { ...(v as object), fan: w } : { value: v, fan: w }));
+  };
   proto.juxBy = function (this: unknown, _width: unknown, change: unknown) {
     return jux.call(this as { fmap(fn: (v: unknown) => unknown): unknown }, change);
   };

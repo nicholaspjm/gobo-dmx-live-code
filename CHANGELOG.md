@@ -62,6 +62,10 @@ global transform is a grand master, and a labelled block is a look.
   `.across(rand)` scatters. It is strudel's stereo `.pan()` with the lights as
   the speakers, and a pasted `.pan()` does the same (on a moving head, `.pan()`
   is still the head's pan channel).
+- **`.fan(width)` spreads a group out around a value**, as a desk fans a row
+  of heads from a centre: `heads.pan(sine.slow(8).range(0.3, 0.7).fan(0.4))`.
+  Groups gained `.pan()` and `.tilt()` for it. On a dimmer it grades brightness
+  along the rig.
 - **`.jux(change)` splits the rig**: across a group the left half runs the
   pattern and the right half the changed copy, so `rig.dim(mini('1 - - -')
   .jux(rev))` mirrors a chase across the room. Strudel's jux did not survive a

@@ -602,6 +602,12 @@ export const DOCS: DocSection[] = [
         example: "pars.dim(mini('1*8').across(saw))               // one light walks the rig\npars.dim(mini('1*16').across(rand).fadeOut(1)) // sparkle with tails",
       },
       {
+        name: 'fan the heads: .fan',
+        signature: 'heads.pan(pattern.fan(width))',
+        description: 'A group of heads spread out around a centre position, which can move. On a dimmer it grades the brightness along the rig instead.',
+        example: "const heads = group(head1, head2, head3, head4)\nheads.pan(sine.slow(8).range(0.3, 0.7).fan(0.4))\nheads.tilt(mini('0.5').fan(0.2))",
+      },
+      {
         name: 'split the rig: .jux',
         signature: '.jux(change)',
         description: 'The left half of a group runs the pattern and the right half runs it changed.',

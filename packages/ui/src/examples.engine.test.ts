@@ -229,6 +229,15 @@ describe('a level over a colour', () => {
   });
 });
 
+describe('a fan', () => {
+  it('spreads a group of heads out around a centre', () => {
+    run("const a = fixture(1, 'moving-head-basic')\nconst b = fixture(9, 'moving-head-basic')\nconst c = fixture(17, 'moving-head-basic')\ngroup(a, b, c).pan(mini('0.5').fan(0.4))");
+    core.tick(0.1);
+    const buf = core.getUniverseBuffer(0);
+    expect([buf[0], buf[8], buf[16]]).toEqual([77, 128, 179]);
+  });
+});
+
 describe('a colour chase', () => {
   it('each() of a pattern of colours puts them on the lights a step apart', () => {
     run("const a = fixture(1, 'rgb')\nconst b = fixture(4, 'rgb')\ngroup(a, b).each('<red blue>')");

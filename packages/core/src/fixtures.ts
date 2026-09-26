@@ -3517,6 +3517,10 @@ export interface GroupInstance {
   white(...v: [PatternOrValue?]): void;
   /** Set the dimmer on everything that has one. Omit the value for full. */
   dim(...v: [PatternOrValue?]): void;
+  /** Pan every head that has it. .fan(width) on the value spreads them out. */
+  pan(...v: [PatternOrValue?]): void;
+  /** Tilt every head that has it. */
+  tilt(...v: [PatternOrValue?]): void;
 
   /**
    * Set r/g/b (and optionally w) across the group, skipping roles a given
@@ -3567,7 +3571,7 @@ export interface GroupInstance {
  */
 export function groupCommands(): string[] {
   return [
-    'red(v)', 'green(v)', 'blue(v)', 'white(v)', 'dim(v)',
+    'red(v)', 'green(v)', 'blue(v)', 'white(v)', 'dim(v)', 'pan(v)', 'tilt(v)',
     'color(r,g,b)', 'mono(v)', 'temp(k)', 'set(role, v)', 'each(fn)', 'full()', 'off()', 'size',
   ];
 }
@@ -3663,6 +3667,14 @@ function placeAcross(value: PatternOrValue, index: number, count: number): Patte
   if (typeof p.fmap !== 'function') return value;
   return p.fmap((v: unknown) => {
     if (v === null || typeof v !== 'object') return v;
+    // A fan from .fan(width): the group spreads the value around itself, the
+    // first light width/2 below it and the last width/2 above, the way a desk
+    // fans a row of heads out from a centre.
+    const fan = (v as { fan?: unknown }).fan;
+    if (typeof fan === 'number' && Number.isFinite(fan)) {
+      const level = levelOf(v) ?? 0;
+      return level + (index / (count - 1) - 0.5) * fan;
+    }
     const pan = (v as { pan?: unknown }).pan;
     // A side from .jux(): the left half of the group takes side 0 and the
     // right half side 1; with an odd count the middle light is in both.
@@ -3759,6 +3771,8 @@ export function group(...members: GroupMember[]): GroupInstance {
     blue: roleSetter('blue'),
     white: roleSetter('white'),
     dim: roleSetter('dim'),
+    pan: roleSetter('pan'),
+    tilt: roleSetter('tilt'),
 
     color(...args) {
       // A colour, a palette, or a pattern of colour names. A run of stops
