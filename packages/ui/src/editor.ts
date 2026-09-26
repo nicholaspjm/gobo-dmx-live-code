@@ -27,6 +27,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } f
 import { liveTokens } from './live-tokens.js';
 import { pendingMarks } from './pending-marks.js';
 import { errorMark } from './error-mark.js';
+import { lookMarks } from './look-marks.js';
 import { EditorState, Prec, Compartment } from '@codemirror/state';
 import type { ChangeSet, Extension } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
@@ -239,6 +240,8 @@ export function createEditor(
       pendingMarks(),
       // Tints the line a failed run names. See error-mark.ts.
       errorMark(),
+      // Look names marked and muted blocks dimmed. See look-marks.ts.
+      lookMarks,
       indentOnInput(),
       // Everything switchable. The compartments sit here, in the order the
       // fixed extensions used to, so turning one on puts it back where it was

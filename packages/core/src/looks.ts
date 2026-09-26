@@ -163,6 +163,10 @@ export interface LookRewrite {
   code: string;
   /** The looks the scene declared, in order. */
   looks: string[];
+  /** Where each look's name is written, for the editor to mark. */
+  labels: Array<{ name: string; from: number; to: number }>;
+  /** What each mute covers, label to end of block or line, for the editor to dim. */
+  muted: Array<{ from: number; to: number }>;
 }
 
 /** Rewrite top-level labelled blocks into looks, and muted labels into if (0). */
@@ -170,6 +174,8 @@ export function rewriteLooks(code: string): LookRewrite {
   type Edit = { from: number; to: number; text: string };
   const edits: Edit[] = [];
   const looks: string[] = [];
+  const labels: LookRewrite['labels'] = [];
+  const muted: LookRewrite['muted'] = [];
 
   for (const start of topLevelStarts(code)) {
     if (!IDENT_START.test(code[start])) continue;
@@ -183,6 +189,9 @@ export function rewriteLooks(code: string): LookRewrite {
 
     if (isMuteLabel(name)) {
       edits.push({ from: start, to: colon + 1, text: 'if (0)' });
+      const blockEnd = code[body] === '{' ? matchingBrace(code, body) : -1;
+      const lineEnd = code.indexOf('\n', body);
+      muted.push({ from: start, to: blockEnd !== -1 ? blockEnd + 1 : lineEnd === -1 ? code.length : lineEnd });
       continue;
     }
     // A look needs a block, and a name a person would give one. `$:` and a
@@ -193,11 +202,12 @@ export function rewriteLooks(code: string): LookRewrite {
     edits.push({ from: start, to: colon + 1, text: `const ${name} = function ${name}()` });
     edits.push({ from: close + 1, to: close + 1, text: ';' });
     looks.push(name);
+    labels.push({ name, from: start, to: end });
   }
 
-  if (edits.length === 0) return { code, looks };
+  if (edits.length === 0) return { code, looks, labels, muted };
   edits.sort((a, b) => b.from - a.from);
   let out = code;
   for (const e of edits) out = out.slice(0, e.from) + e.text + out.slice(e.to);
-  return { code: out, looks };
+  return { code: out, looks, labels, muted };
 }

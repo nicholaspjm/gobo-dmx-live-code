@@ -51,6 +51,18 @@ describe('an underscore mutes', () => {
   });
 });
 
+describe('what the editor marks', () => {
+  it('reports where each look is named and what each mute covers', () => {
+    const src = 'verse: {\n  a()\n}\n_chorus: {\n  b()\n}\n_$: c()';
+    const out = rewriteLooks(src);
+    expect(out.labels).toEqual([{ name: 'verse', from: 0, to: 5 }]);
+    expect(out.muted).toEqual([
+      { from: src.indexOf('_chorus'), to: src.indexOf('}\n_$') + 1 },
+      { from: src.indexOf('_$'), to: src.length },
+    ]);
+  });
+});
+
 describe('what is left alone', () => {
   it('object keys, and labels inside a block', () => {
     const src = "defineFixture('bar', {\n  name: 'Bar',\n})\nconst o = { verse: { a: 1 } }";

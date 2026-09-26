@@ -22,6 +22,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   `.across(rand)` scatters. It is strudel's stereo `.pan()` with the lights as
   the speakers, and a pasted `.pan()` does the same (on a moving head, `.pan()`
   is still the head's pan channel).
+- **Look names are marked and muted code is dimmed** in the editor, from the
+  same reading of the source that runs it, so what is grey is exactly what is
+  skipped.
 - **A chase over a colour keeps the colour.** On a colour strip or a par with
   no dimmer, `strip.color(red)` then `strip.each(mini('1 - - -').fadeOut(2))`
   is a red chase, as on a desk where colour and intensity are separate. It
