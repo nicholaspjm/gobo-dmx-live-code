@@ -1079,6 +1079,28 @@ const METHOD_HINTS: Record<string, string> = {
     + '.mono(v) is white on one: all three emitters at the same level.',
   fade: 'there is no .fade(): a fade is a pattern, as in .dim(sine().slow(4)).',
   play: 'a scene has no .play(). Ctrl+Enter runs it and Ctrl+. stops it.',
+  // Strudel names that describe music. The lighting word is offered instead
+  // of an alias, so the code a scene keeps says what it does to light.
+  pianoroll: "a lighting channel has levels, not notes, so gobo calls this .roll(): the level drawn across the cycle, beside the line.",
+  _pianoroll: "a lighting channel has levels, not notes, so gobo calls this .roll(): the level drawn across the cycle, beside the line.",
+  _pitchwheel: 'a lighting channel has no pitch. .spiral() draws the level around the cycle, which is the closest picture.',
+  s: 'there are no samples to play: a channel takes a level. wash.dim(mini(\'1 - 1 -\')) is the lighting form of a drum pattern.',
+  note: 'a channel takes a level from 0 to 1 rather than a note. .range(0, 1) maps a pattern into it.',
+};
+
+/**
+ * Strudel's names for sound, which a scene pasted from its docs starts with and
+ * which have no meaning for a light. Answered in lighting terms rather than
+ * bound: an alias would let a scene keep saying `note` about a dimmer, and
+ * the spelling-suggestion fallback would offer something unrelated (`s` is one
+ * letter from `m`).
+ */
+const MUSIC_NAMES: Record<string, string> = {
+  s: 's() plays a sound, and a light has none to play. A channel takes a level: wash.dim(mini(\'1 - 1 -\')) is the lighting form of a drum pattern.',
+  sound: 'sound() plays a sample, and a light has none to play. A channel takes a level: wash.dim(mini(\'1 - 1 -\')).',
+  note: 'note() is a pitch, and a light has none. A channel takes a level from 0 to 1: mini(\'0 0.5 1\'), or .range(0, 1) on any pattern.',
+  n: 'n() picks notes from a scale, and a light has none. A channel takes a level from 0 to 1: mini(\'0 0.5 1\').',
+  samples: 'samples() loads sounds, which a light does not use. Fixtures are what a scene loads: fixture(1, \'rgb\'), or defineFixture() for your own.',
 };
 
 /**
@@ -1099,6 +1121,8 @@ export function methodHint(message: string, globals: Iterable<string>, methods: 
   // typo: `sinee()` rather than `sine()`.
   const undefinedName = /^(\w+) is not defined$/.exec(message);
   if (undefinedName) {
+    const music = MUSIC_NAMES[undefinedName[1]];
+    if (music) return `${message}. ${music}`;
     const near = nearestName(undefinedName[1], globals);
     return near ? `${message}. Did you mean ${near}?` : message;
   }

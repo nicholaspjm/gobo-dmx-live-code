@@ -23,8 +23,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - **Strudel code runs as written in more places.** Signals work without
   brackets (`sine.slow(4)`, as strudel writes them, as well as `sine()`),
   Alt+Enter and Alt+. run and stop as they do in strudel, `.velocity()` folds
-  into the level like `gain`, and strudel's names for the inline visuals
-  (`._pianoroll()`, `._scope()`, `._punchcard()`, …) draw gobo's.
+  into the level like `gain`, strudel's underscore spellings of the visuals
+  gobo shares with it (`._scope()`, `._punchcard()`, `._spiral()`) draw gobo's,
+  and `seq`, `arrange`, `xfade`, `mouseX`/`mouseY` and the bipolar signals are
+  bound. Strudel's words for sound (`s`, `note`, `n`, `._pianoroll()`) are
+  answered in lighting terms rather than aliased: a light has levels, not
+  notes, so the error says what the lighting form is.
 - **The desktop app says when a newer gobo is out.** It asks GitHub at most
   twice a day, and when there is a newer release it puts one link in the top
   bar, "0.5.4 is out", that opens the download page. It never downloads or

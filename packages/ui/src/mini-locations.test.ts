@@ -88,8 +88,8 @@ describe('tagMiniLocations', () => {
 
 describe("strudel's names for the inline visuals", () => {
   it('tags them with their offset the same way', () => {
-    const src = "wash.dim(sine._pianoroll())";
+    const src = "wash.dim(sine._scope())";
     const out = tagLocations(src).code;
-    expect(out).toContain(`._pianoroll(${src.indexOf('._pianoroll')})`);
+    expect(out).toContain(`._scope(${src.indexOf('._scope')})`);
   });
 });

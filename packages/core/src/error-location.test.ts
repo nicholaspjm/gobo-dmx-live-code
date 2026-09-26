@@ -279,3 +279,16 @@ describe('a misspelt name', () => {
     expect(methodHint('wash.dim is not a function', GLOBALS, METHODS)).toContain('.mono(');
   });
 });
+
+describe("strudel's words for sound", () => {
+  it('answers them in lighting terms rather than guessing a spelling', () => {
+    const s = methodHint('s is not defined', ['m', 'mini', 'sine']);
+    expect(s).toContain('a light has none to play');
+    expect(s).not.toContain('Did you mean');
+    expect(methodHint('note is not defined', [])).toContain('a light has none');
+  });
+
+  it('points a pasted pianoroll at the lighting picture', () => {
+    expect(methodHint('sine(...)._pianoroll is not a function', [], ['roll'])).toContain('.roll()');
+  });
+});

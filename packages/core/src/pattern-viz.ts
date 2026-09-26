@@ -44,14 +44,17 @@ export const PATTERN_VIZ_KINDS: readonly PatternVizKind[] =
   ['flash', 'glow', 'wave', 'roll', 'punchcard', 'spiral', 'spectrum'];
 
 /**
- * Strudel's names for the same inline visuals, so a pattern pasted from its
- * docs decorates rather than throwing. Strudel prefixes the inline forms with
- * an underscore (._pianoroll()), and its pianoroll and scope are gobo's roll
- * and wave. Each registers as the kind on the right.
+ * Strudel's spellings of the inline visuals gobo already has under the same
+ * word, so a pattern pasted from its docs decorates rather than throwing.
+ * Strudel marks the inline form with a leading underscore, and calls a wave
+ * a scope.
+ *
+ * Only names that mean the same thing for light as for sound. Strudel's
+ * pianoroll is deliberately not one: there are no pitches on a lighting
+ * channel, and gobo's own picture of the same thing is .roll(), which
+ * eval.ts's method hints point a pasted ._pianoroll() at.
  */
 export const PATTERN_VIZ_ALIASES: Readonly<Record<string, PatternVizKind>> = {
-  pianoroll: 'roll',
-  _pianoroll: 'roll',
   scope: 'wave',
   _scope: 'wave',
   _punchcard: 'punchcard',
