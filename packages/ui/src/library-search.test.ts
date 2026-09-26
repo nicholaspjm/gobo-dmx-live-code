@@ -33,6 +33,8 @@ vi.mock('@gobo/core', () => ({
   isEmitterChannel: () => false,
   defineFixtureSource: () => '',
   BUILT_IN_FIXTURES: {},
+  COLOR_NAMES: [],
+  findFixtureDef: () => undefined,
 }));
 vi.mock('./public-fixtures.js', () => ({ getPublicFixtures: () => [] }));
 
