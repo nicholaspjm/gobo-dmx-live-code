@@ -170,7 +170,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'adsr',
     signature: 'adsr(attack, decay, sustain, release) => Pattern',
-    description: 'An envelope to multiply onto any effect, once per cycle. Fractions of a cycle, spelled as a synth spells them.',
+    description: 'A cue-style fade shape to multiply onto any effect, once per cycle: fade up (attack), drop to a hold level (decay, sustain), fade out (release). Times are fractions of a cycle.',
     example: 'wash.dim(flicker().mul(adsr(0.1, 0.1, 0.7, 0.2)))',
     context: 'command',
     kind: 'function',

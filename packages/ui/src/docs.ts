@@ -1282,13 +1282,13 @@ const DOCS: DocSection[] = [
     category: 'patterns',
     title: 'sequencing',
     blurb:
-      "Step sequencing via mini-notation. Each string plays through one scheduler cycle (= 4 beats at default BPM); tokens split the time equally. '-' and '~' are silence. Use one anywhere a channel setter expects a pattern; one mini call per channel gives the classic drum-grid. Supports subdivisions [a b], repeats *N, speed /N, and alternation <a b c>.",
+      "Step sequencing via mini-notation. Each string plays through one scheduler cycle (= 4 beats at default BPM); tokens split the time equally. '-' and '~' are silence. Use one anywhere a channel setter expects a pattern; one mini call per channel gives a step grid, the way a chase is laid out on a desk. Supports subdivisions [a b], repeats *N, speed /N, and alternation <a b c>.",
     entries: [
       {
         name: 'mini',
         signature: "mini('1 - 0.5 -')",
         description:
-          "Parse mini-notation into a Pattern<number>. Each space-separated token is one step; tokens split one scheduler cycle equally. Numeric tokens ('1', '0.5', '0') pass through as values, which gives per-step brightness. Non-numeric tokens ('bd', 'sd') become string events; the DMX pipeline treats unknown ones as 0. Aliased as m(). Returns a regular Pattern, so .slow / .fast / .range / .glow / .flash all chain afterward.",
+          "Parse mini-notation into a Pattern<number>. Each space-separated token is one step; tokens split one scheduler cycle equally. Numeric tokens ('1', '0.5', '0') are levels, which gives per-step brightness. A word is not a level: on a dimmer that step stays dark and the status bar names the word. Colour names go to .color(), as in wash.color(mini('<red blue>')). Aliased as m(). Returns a regular Pattern, so .slow / .fast / .range / .glow / .flash all chain afterward.",
         example:
           "spot.dim(mini('1 - 1 -'))\nwash.red(mini('1 0.5 0 0.5'))\nstrb.strobe(m('1 - 1 -').flash())",
       },
@@ -1303,7 +1303,7 @@ const DOCS: DocSection[] = [
         name: 'subdivisions',
         signature: "[a b c]",
         description:
-          "Wrap tokens in brackets to compress them into the time of ONE outer slot. [a b] plays at 2× the outer step rate, [a b c d] at 4×. Nest freely. Same idea as the drum-grid notation in live-coding sequencers, adapted for light values.",
+          "Wrap tokens in brackets to compress them into the time of ONE outer slot. [a b] plays at 2× the outer step rate, [a b c d] at 4×. Nest freely. A fill, in chase terms: the steps inside the brackets share one step's time.",
         example:
           "wash.red(mini('1 [1 1] 1 -'))          // 5 hits per cycle\nstrb.strobe(mini('- [1 1 1 1] - [1 1 1 1]'))  // bursts on 2 and 4",
       },
@@ -1386,7 +1386,7 @@ const DOCS: DocSection[] = [
           "wash.red(mini('1 - - -, 0.3 0.3 0.3 0.3 0.3 0.3'))   // accent over a bed",
       },
       {
-        name: 'drum grid',
+        name: 'step grid',
         signature: "one mini() per channel, same length",
         description:
           'Split the same 16-step rhythm across R/G/B/W, or across several fixtures. Match the bar count between strings and group tokens in fours so the columns line up. The starter example has a live version on the wash fixture.',
@@ -1566,7 +1566,7 @@ const DOCS: DocSection[] = [
         name: '.echoWith(n, t, fn)',
         signature: 'pat.echoWith(times, time, (p, i) => …)',
         description:
-          'n copies, each shifted a further t cycles, each passed through the callback with its index. A decaying tail in one line. (The plain echo() is an audio effect and produces nothing on a DMX channel; this is the one to use.)',
+          'n copies, each shifted a further t cycles, each passed through the callback with its index. A decaying tail in one line. The plain .echo(n, time, fade) and .stut() work too, for the simple case: each repeat comes back dimmer by the fade.',
         example:
           "wash.red(mini('1 - - -').echoWith(4, 0.125, (p, i) => p.mul(1 / (i + 1))))",
       },
