@@ -6,6 +6,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-09-26
+
+> **Replace your connector one last time.** From this version it replaces
+> itself when a release comes out, so this is the last download by hand. A
+> Homebrew copy is still updated with `brew upgrade gobo-connector`.
+
 ### Added
 
 - **The connector keeps itself up to date.** When a release comes out, the
@@ -729,6 +735,7 @@ First public release. There was never a published 0.1.0. Everything below landed
 - The sim panel was hard-coded to one scene's channel layout and showed ghost fixtures after a scene switch. It is now rebuilt from the fixtures registered during the last eval. Its "off" state also reads the theme background instead of a hardcoded colour, so blackout looks dark on every theme.
 - The `ultratronics 11` template called `spot.dim()` on an RGBW fixture that has no dimmer channel, throwing on every run. The instrument palette was remapped onto discrete colour channels. The fixed version is the one in the **examples** menu; a copy you saved under the old scene model still holds the broken call, so re-load the example if you kept one.
 
+[0.5.2]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.2
 [0.5.1]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.1
 [0.5.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.0
 [0.4.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.4.0

@@ -53,6 +53,15 @@ jobs:
           sleep 5
           curl -sf --max-time 5 http://localhost:3001/ > /dev/null && echo "connector responded" || (echo "connector did not respond"; exit 1)
           kill $PID
+
+          # The self-updater runs a freshly downloaded connector with --version
+          # and refuses it unless it names the version it was meant to be. If
+          # the executable ever answered with node's own version instead, every
+          # update would be refused and nobody would know, so it is checked here
+          # on each system.
+          SAID=$(./release/${{ matrix.artifact }} --version | tr -d '\r')
+          WANT=$(node -p "require('./packages/bridge/package.json').version")
+          [ "$SAID" = "$WANT" ] && echo "--version says $SAID" || (echo "--version said '$SAID', expected $WANT"; exit 1)
       - name: Pack the archive the formula installs
         if: matrix.tarball != ''
         shell: bash
@@ -184,8 +193,9 @@ jobs:
             | Windows | `gobo-connector-windows.exe` |
             | Linux | `gobo-connector-linux` |
 
-            On macOS or Linux, Homebrew installs it without any of the
-            warnings below:
+            With Node installed, `npx gobo-connector@latest` runs it with
+            nothing to download or allow. On macOS or Linux, Homebrew installs
+            it without any of the warnings below:
 
             ```
             brew tap nicholaspjm/gobo https://github.com/nicholaspjm/gobo-dmx-live-code

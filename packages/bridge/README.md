@@ -8,10 +8,17 @@ the piece that can. Run it, open the app, and output works.
 
 ## Use it
 
-Download the one for your system from
-[Releases](https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest)
-and run it once; it sets itself to start when you log in. Or, on an Apple
-Silicon Mac or x86_64 Linux:
+```bash
+npx gobo-connector@latest
+```
+
+Then open https://nicholaspjm.github.io/gobo-dmx-live-code/ and press
+`ctrl+enter`. Chrome asks before a website may reach a program on your
+computer; allow it for gobo. Nothing is installed and nothing starts at login.
+
+For one that starts with your computer, download it from
+[Releases](https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest),
+or on an Apple Silicon Mac or x86_64 Linux:
 
 ```bash
 brew tap nicholaspjm/gobo https://github.com/nicholaspjm/gobo-dmx-live-code
@@ -19,13 +26,8 @@ brew install gobo-connector
 brew services start gobo-connector
 ```
 
-Then open https://nicholaspjm.github.io/gobo-dmx-live-code/ and press
-`ctrl+enter`. Chrome asks before a website may reach a program on your
-computer; allow it for gobo.
-
-It is not published to npm, so there is no `npx` route. If you have a copy of
-the repository, `npm start` there runs this and serves the app from one
-process, which is simpler than either.
+Simpler still, if you have a copy of the repository: `npm start` there runs
+this and serves the app from one process.
 
 Pick the output from your scene, not from here:
 

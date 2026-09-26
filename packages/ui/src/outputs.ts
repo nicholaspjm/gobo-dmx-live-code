@@ -568,9 +568,9 @@ export function mountOutputsPanel(opts: {
     summary.append(icon, document.createTextNode('how do I start it?'));
     wrap.appendChild(summary);
 
-    // No npx route. The package is not on npm, and an instruction to npx a
-    // name nobody has published hands that name, and everyone who follows the
-    // instruction, to whoever publishes it first.
+    // npx only since the package was published under this project's own
+    // account. Before that, an instruction to npx the name would have handed it,
+    // and everyone who followed the instruction, to whoever published it first.
     const routes: Array<{ title: string; body: string; code?: string }> = [
       {
         title: 'or skip it: run gobo locally',
@@ -596,6 +596,11 @@ export function mountOutputsPanel(opts: {
         code: 'brew tap nicholaspjm/gobo https://github.com/nicholaspjm/gobo-dmx-live-code\n'
           + 'brew install gobo-connector\n'
           + 'brew services start gobo-connector',
+      },
+      {
+        title: 'with Node',
+        body: 'Runs the latest one without installing anything, until you close the terminal.',
+        code: 'npx gobo-connector@latest',
       },
     ];
 

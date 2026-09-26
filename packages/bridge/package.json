@@ -1,6 +1,6 @@
 {
   "name": "gobo-connector",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Sends DMX from the gobo browser app to Art-Net, sACN or OSC. A browser cannot open a UDP socket, so this does that part.",
   "keywords": [
     "dmx",

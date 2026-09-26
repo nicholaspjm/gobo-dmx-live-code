@@ -119,6 +119,9 @@ brew install gobo-connector
 brew services start gobo-connector
 ```
 
+With Node installed, `npx gobo-connector@latest` runs the latest one without installing
+anything. It runs until you close the terminal, and nothing starts at login.
+
 **Chrome asks before a website may reach a program on your computer**, and the connector is
 one. When it asks about gobo, allow it. If you blocked it, the outputs tab in the app says so;
 change it from the icon beside the address, under local network access. Running gobo locally
