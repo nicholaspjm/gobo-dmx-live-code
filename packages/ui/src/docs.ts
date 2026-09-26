@@ -116,7 +116,7 @@ export const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'gobo',
     blurb:
-      'Live DMX coding in the browser. JavaScript patterns drive real fixtures: a USB DMX box, TouchDesigner, Art-Net or sACN hardware, or nothing but the simulation. Ctrl+Enter runs your code, Ctrl+. stops. Hover a fixture in the sim panel for its live channel values.',
+      'Live DMX coding in the browser, in strudel\'s pattern language. Patterns drive real fixtures: a USB DMX box, TouchDesigner, Art-Net or sACN hardware, or nothing but the simulation. Ctrl+Enter runs your code, Ctrl+. stops. Hover a fixture in the sim panel for its live channel values.',
     entries: [],
   },
   {
@@ -132,7 +132,9 @@ export const DOCS: DocSection[] = [
     entries: [
       { name: 'pick an output',   signature: 'usb · td · artnet · sacn · osc · mock',  description: '', tabLink: 'output' },
       { name: 'define fixtures',  signature: 'fixture · rgbStrip · defineFixture',     description: '', tabLink: 'fixtures' },
-      { name: 'write patterns',   signature: 'sine · cosine · square · saw · chains',  description: '', tabLink: 'patterns' },
+      { name: 'write patterns',   signature: "sine · '1 - 1 -' · .slow · .every",       description: '', tabLink: 'patterns' },
+      { name: 'chases and fades', signature: '.each · .fadeOut · .across · all',       description: '', tabLink: 'patterns' },
+      { name: 'looks',            signature: 'verse: { … } · cue(verse, chorus)',       description: '', tabLink: 'patterns' },
       { name: 'inline viz',       signature: ".viz · .flash · .glow · .wave",          description: '', tabLink: 'viz' },
       { name: 'low-level DMX',    signature: 'ch · uni · dim · rgb',                   description: '', tabLink: 'reference' },
     ],
@@ -554,6 +556,63 @@ export const DOCS: DocSection[] = [
         signature: 'pick(name) vs .pick(list)',
         description:
           "Worth knowing because it is a collision rather than a coincidence. Bare pick('warm') is gobo's colour wheel, a control with a swatch beside it. Chained .pick([…]) is strudel's chooser, described above. The dot tells them apart, and the chained form is the one strudel's own documentation uses.",
+      },
+    ],
+  },
+
+  {
+    category: 'patterns',
+    title: 'chases and fades',
+    blurb:
+      "What a desk's effects engine does, written as patterns. A pattern on a channel is a bump button until it is given a fade; a group runs it on every light, each a step later; and one fader can scale the lot. Everything here is a pattern, so it chains and stacks with the rest.",
+    entries: [
+      {
+        name: '.fadeIn · .fadeOut',
+        signature: '.fadeIn(beats) · .fadeOut(beats)',
+        description:
+          'How long each step takes to come up, and how long it keeps glowing after it ends. In beats, so they follow the tempo. A fade out is the tail that makes a chase look like one: the light the chase has left is still going out as the next comes up.',
+        example: "wash.dim(mini('1 - 1 -').fadeIn(0.5))       // swells in\nwash.dim(mini('1 - - -').fadeOut(2))        // glows after the hit",
+      },
+      {
+        name: '.settle',
+        signature: '.settle(beats, level = 0)',
+        description:
+          'Each step hits full and falls to a level over this many beats, then holds there while the step lasts. With no level every step is a flash, which is how a strobe that has no strobe channel is played.',
+        example: "strb.dim(mini('1 1 1 1').settle(0.25))          // a flash per beat\nwash.dim(mini('1 - 1 -').settle(0.5, 0.3))     // hit, then hold at 30%",
+      },
+      {
+        name: 'a chase: .each(pattern)',
+        signature: 'group.each(pattern, spread = 1)',
+        description:
+          "Every light in the group runs the pattern, each a step later than the one before: a phase spread. The steps add up to spread cycles across the group. Set a colour first and the chase runs in it.",
+        example: "pars.color(amber)\npars.each(mini('1 - - -').fadeOut(2))        // a chase with tails\npars.each(sine.slow(4), 4)                   // a slow wave",
+      },
+      {
+        name: 'where along the rig: .across',
+        signature: '.across(position)',
+        description:
+          'Places each step at a position along a group, 0 the first light and 1 the last, shared between neighbours in between. A pattern of positions moves it.',
+        example: "pars.dim(mini('1*8').across(saw))               // one light walks the rig\npars.dim(mini('1*16').across(rand).fadeOut(1)) // sparkle with tails",
+      },
+      {
+        name: 'split the rig: .jux',
+        signature: '.jux(change)',
+        description: 'The left half of a group runs the pattern and the right half runs it changed.',
+        example: "pars.dim(mini('1 - - -').jux(rev))              // mirrored across the room",
+      },
+      {
+        name: 'colours from a palette: .palette',
+        signature: '.palette(colours)',
+        description:
+          'Numbers pick colours: 0 the first, wrapping past the end, blending between two. The result goes to .color().',
+        example: "const warm = [amber, orange, red]\nwash.color(mini('<0 1 2>').palette(warm))   // one colour a bar",
+      },
+      {
+        name: 'the grand master: all',
+        signature: 'all(change)',
+        description:
+          'A change for every light at once, after the rest of the scene. all(mul(slider(1))) is a grand master fader: it scales the dimmers, or the colour where there is no dimmer, and never moves a head.',
+        example: 'all(mul(slider(1)))',
       },
     ],
   },
