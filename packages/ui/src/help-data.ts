@@ -1324,11 +1324,9 @@ rig.color(warm)             // a palette across the members of a group`,
     label: 'pixel',
     signature: '.pixel(i, brightness) | .pixel(i, r, g, b [, w])',
     description:
-      'Set one pixel on a strip. One value = monochrome (R = G = B; W = 0 on RGBW), the usual form in chase loops. Three or four values = full colour control.',
-    example: `for (let i = 0; i < strip.pixelCount; i++) {
-  const fade = cosine.early(i/strip.pixelCount).slow(2).range(-7, 1)
-  strip.pixel(i, fade)
-}`,
+      'Set one pixel on a strip. One value = monochrome (R = G = B; W = 0 on RGBW). Three or four values = full colour control. For every pixel at once, .each() is the chase.',
+    example: `strip.pixel(0, 1, 0, 0)          // the first pixel red
+strip.pixel(9, sine.slow(2))     // the tenth, breathing white`,
     context: 'fixture-method',
     kind: 'method',
   },
@@ -1491,7 +1489,7 @@ bar.pixels.chase(warm, { cycles: 2 }).down()     // stops onto the rows`,
     label: 'pixelCount',
     signature: '.pixelCount: number',
     description: 'Number of pixels on a strip. For nested strips, use `.pixels.pixelCount`.',
-    example: 'for (let i = 0; i < strip.pixelCount; i++) { … }',
+    example: 'strip.pixelCount   // 10, for rgbStrip(1, 10)',
     context: 'property',
     kind: 'property',
   },

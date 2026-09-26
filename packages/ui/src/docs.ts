@@ -92,7 +92,7 @@ const DOC_TABS: Array<{ id: DocCategory; label: string }> = [
 
 const DEFAULT_TAB: DocCategory = 'welcome';
 
-const DOCS: DocSection[] = [
+export const DOCS: DocSection[] = [
   // ─── examples ───────────────────────────────────────────────────────────
   // Built from the bundled scenes rather than written out, so a scene added
   // or removed in examples.ts appears or disappears here with no second edit.
@@ -323,7 +323,7 @@ const DOCS: DocSection[] = [
         description:
           'Variable-length RGB pixel strip. Each pixel = 3 channels (R,G,B) laid out contiguously, so 40 pixels = 120 channels. Returns an object with .fill(), .pixel(i, r, g, b), .red(), .green(), .blue(), plus .pixelCount / .channelCount / .startChannel.',
         example:
-          "const strip = rgbStrip(1, 40)\nstrip.fill(sine.slow(4), 0, cosine.slow(4))\n\n// per-pixel chase\nfor (let i = 0; i < strip.pixelCount; i++) {\n  strip.pixel(i, sine.slow(4).add(i/strip.pixelCount), 0, 0)\n}",
+          "const strip = rgbStrip(1, 40)\nstrip.fill(sine.slow(4), 0, cosine.slow(4))\n\n// a red chase along it, one pixel a step behind the last\nstrip.color(red)\nstrip.each(sine.slow(4), 4)",
       },
       {
         name: 'rgbwStrip',
@@ -1163,12 +1163,12 @@ const DOCS: DocSection[] = [
           "strip.rainbowChase()\nstrip.rainbowChase({ cycles: 0.5, width: 0.06 })   // fast, tight band\nbar.pixels.rainbowChase({ waves: 2, hue: 4 })          // two crests, quicker hue",
       },
       {
-        name: 'manual chase',
-        signature: 'for (let i = 0; i < strip.pixelCount; i++) strip.pixel(i, …)',
+        name: 'a chase of your own',
+        signature: 'strip.color(c) · strip.each(pattern)',
         description:
-          "Any chase can be written inline with a for-loop, which gives finer control than the built-in helper. Walk each pixel index i, compute its phase offset (i/pixelCount), and call strip.pixel(i, r, g, b [, w]) with patterns whose time is shifted by that phase. The starter example uses this form on the universe-0 strip.",
+          "Any chase the built-in helpers do not cover is a colour and a level pattern. Set the colour, then hand .each() the pattern: every pixel runs it a step later than the one before, in that colour. The pattern is the whole of the chase, so anything that makes a pattern shapes it: a fade, a hit with a tail, a sparkle.",
         example:
-          "for (let i = 0; i < strip.pixelCount; i++) {\n  const phase = i / strip.pixelCount\n  const bright = cosine.early(phase).slow(2).range(-8, 1)\n  strip.pixel(i, bright.mul(hueR), bright.mul(hueG), bright.mul(hueB))\n}",
+          "strip.color(blue)\nstrip.each(cosine.slow(2).range(-8, 1))       // a wave\n\nstrip.color(amber)\nstrip.each(mini('1 - - -').fadeOut(2))        // a chase with tails",
       },
       {
         name: '.pixelGrid',
