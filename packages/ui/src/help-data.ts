@@ -505,6 +505,50 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'function',
   },
   {
+    label: 'mouseX',
+    signature: 'mouseX · mouseY => Pattern',
+    description:
+      'Where the pointer is across the window, 0 at the left or top and 1 at the right or bottom, read live. Two of them make an XY pad for a moving head.',
+    example: 'head.pan(mouseX)\nhead.tilt(mouseY)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'mouseY',
+    signature: 'mouseY => Pattern',
+    description: 'The pointer down the window, 0 at the top and 1 at the bottom. See mouseX.',
+    example: 'head.tilt(mouseY)',
+    context: 'command',
+    kind: 'variable',
+  },
+  {
+    label: 'seq',
+    signature: 'seq(a, b, c, …) => Pattern',
+    description:
+      "One cycle split evenly between the values, one after another: the same as sequence(), under the name strudel uses. seq(1, 0, 0.5, 0) is a four-step level pattern.",
+    example: 'wash.dim(seq(1, 0, 0.5, 0))',
+    context: 'command',
+    kind: 'function',
+  },
+  {
+    label: 'arrange',
+    signature: 'arrange([cycles, pattern], …) => Pattern',
+    description:
+      'Lay patterns end to end, each for so many cycles (bars): the running order of a song, written as code. It loops when it reaches the end.',
+    example: "wash.dim(arrange([8, mini('1 - 1 -')], [8, sine.fast(2)]))",
+    context: 'command',
+    kind: 'function',
+  },
+  {
+    label: 'xfade',
+    signature: 'xfade(a, position, b) => Pattern',
+    description:
+      'A crossfade between two patterns: position 0 is all a, 1 is all b, and anything between mixes them. Give it a slider for a crossfader in code.',
+    example: "wash.dim(xfade(mini('1 - 1 -'), slider('xf'), sine))",
+    context: 'command',
+    kind: 'function',
+  },
+  {
     label: 'perlin',
     signature: 'perlin() => Pattern',
     description:

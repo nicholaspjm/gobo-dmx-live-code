@@ -249,6 +249,17 @@ export async function initStrudel(): Promise<void> {
       // strudel's chooser. The method is the form strudel's own docs use.
       'pickmod', 'pickF', 'pickmodF', 'pickOut', 'pickRestart', 'pickReset',
       'pickSqueeze', 'inhabit', 'squeeze',
+      // More of strudel's own vocabulary, so pasted code runs. seq is strudel's
+      // usual spelling of sequence; arrange lays out a set; xfade crossfades
+      // two patterns. The bipolar signals run -1..1, which a level channel
+      // clamps at 0, and are here for paste rather than for dimmers. mouseX and
+      // mouseY follow the pointer across the window, 0..1: an XY pad for a
+      // moving head. Names a scene is likely to use for its own variables (n,
+      // s, note, ref, time, seed) are left out, because binding one would stop
+      // every scene that declares it.
+      'seq', 'arrange', 'xfade', 'randrun', 'wchooseCycles', 'keyDown',
+      'sine2', 'cosine2', 'saw2', 'square2', 'tri2', 'isaw2', 'rand2', 'itri', 'berlin',
+      'mouseX', 'mouseY',
     ] as const;
     // Signals are exported as Pattern instances; wrap() makes them callable so
     // scene code says tri() the way it says sine(). Everything else is already
@@ -257,7 +268,11 @@ export async function initStrudel(): Promise<void> {
     // silence is deliberately NOT in here. Strudel writes it without parens
     // (`wash.red(silence)`), so wrapping it would turn the documented form
     // into a function reaching the channel, which is now a rejected value.
-    const signals = new Set(['tri', 'isaw', 'perlin']);
+    const signals = new Set([
+      'tri', 'isaw', 'perlin',
+      'sine2', 'cosine2', 'saw2', 'square2', 'tri2', 'isaw2', 'rand2', 'itri', 'berlin',
+      'mouseX', 'mouseY',
+    ]);
     for (const name of passthrough) {
       // Each read is guarded on its own. A missing name must cost only that
       // name: reading an absent export off a module namespace can throw rather
