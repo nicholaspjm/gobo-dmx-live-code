@@ -2,7 +2,7 @@
  * What the connector will serve when it is also serving the app.
  *
  * Two faults, both reachable by anyone who could open tcp/3001 — which
- * SECURITY.md notes is every interface, not only loopback.
+ * at the time was every interface, not only loopback.
  *
  * The containment check was `candidate.startsWith(root)`, a string test rather
  * than a path test, so a root of /srv/dist also matched /srv/dist-backup. A

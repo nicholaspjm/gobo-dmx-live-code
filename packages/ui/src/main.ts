@@ -867,9 +867,9 @@ initVisualizer(visualizerEl);
 // ─── Scheduler tick ──────────────────────────────────────────────────────────
 
 // Cap DMX output rate so 120/144/240 Hz displays don't flood a USB DMX node or
-// a WiFi link. Configurable via settings.sendRate: default 60 Hz, lower for
-// wireless rigs, higher for local dev. Read fresh each tick so it can change
-// live without re-evaluating.
+// a WiFi link. Configurable via settings.sendRate: default 40 Hz, just under
+// what DMX itself carries, lower for wireless rigs. Read fresh each tick so it
+// can change live without re-evaluating.
 let _lastSendMs = 0;
 
 // Patterns run user code on every query, so a scene can start throwing long

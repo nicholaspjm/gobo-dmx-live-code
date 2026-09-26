@@ -86,10 +86,16 @@ the hosted app a few minutes later.
 
 ## Dev setup
 
-Clone, `npm install`, `npm run dev`. The [README quick start](README.md#two-ways-to-run)
+Clone, `npm install`, `npm run dev`. The [README](README.md#run-it-locally)
 has the commands. `npm run dev` starts **both** workspaces: the UI on
 http://localhost:3000 (Vite) and the bridge on ws://localhost:3001 (`tsx watch`,
 restarts on save). CI builds on Node 20.
+
+Both answer this computer only. To try it from a phone or tablet on the same
+network, `GOBO_LAN=1 npm run dev` opens up both at once. A flag will not do it:
+`npm run dev:bridge -- --lan` hands `--lan` to npm, which keeps it, and the
+bridge starts loopback-only without saying so. The bridge also answers only
+gobo's own pages; a page it refuses is named in its log, with the reason.
 
 The rest of the scripts:
 

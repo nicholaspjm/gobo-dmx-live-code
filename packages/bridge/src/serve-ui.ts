@@ -16,7 +16,7 @@ import { sep } from 'path';
  * /srv/dist also matches /srv/dist-backup, so a request for
  * /../dist-backup/.env resolved outside the build and was served. A versioned
  * or backup sibling beside a build is the ordinary case, which is what made
- * that reachable, and SECURITY.md notes the port is open on every interface.
+ * that reachable, and at the time the port was open on every interface.
  */
 export function isInsideRoot(root: string, candidate: string): boolean {
   const prefix = root.endsWith(sep) ? root : root + sep;

@@ -142,7 +142,7 @@ const DOCS: DocSection[] = [
     category: 'output',
     title: 'output',
     blurb:
-      'Pick where DMX data goes. Call exactly one of these at the top of your code. Switching while running reconfigures on the fly. Two of the six work in a plain browser with nothing installed, usb() and td(); artnet(), sacn(), osc() and mock() need the connector running on this machine.',
+      'Pick where DMX data goes. Call exactly one of these at the top of your code. Switching while running reconfigures on the fly. Two of the six work in a plain browser with nothing installed, usb() and td(); artnet(), sacn(), osc() and mock() need something on this machine to send them: gobo run locally, or the connector.',
     entries: [
       {
         name: 'artnet',
@@ -196,7 +196,7 @@ const DOCS: DocSection[] = [
     category: 'output',
     title: 'why a browser cannot send art-net',
     blurb:
-      'Art-Net, sACN and OSC go out as network packets, and a web page is not allowed to put packets on the network by itself. That is a rule every browser enforces, not something gobo can switch off. The connector is a small program that runs on this machine and does the sending; while it is running, artnet(), sacn(), osc() and mock() all work. Without it, usb() and td() are the two outputs that reach real light from the page alone: a serial port is something a browser may open, and so is a WebSocket to TouchDesigner, which puts the Art-Net out for you.',
+      'Art-Net, sACN and OSC go out as network packets, and a web page is not allowed to put packets on the network by itself. That is a rule every browser enforces, not something gobo can switch off. Something on this machine has to do the sending, and there are two ways to have it. The simpler is to run gobo locally, with the desktop app or npm start: one program serves the app and sends the packets, with nothing to connect. The other keeps this page and adds the connector beside it, a small program that starts with your computer; Chrome will ask whether the page may reach it. Either way, artnet(), sacn(), osc() and mock() all work. Without either, usb() and td() are the two outputs that reach real light from the page alone: a serial port is something a browser may open, and so is a WebSocket to TouchDesigner, which puts the Art-Net out for you.',
     entries: [],
   },
 

@@ -39,9 +39,25 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 
 ---
 
-## Two ways to run
+## Ways to run
 
-### 1. In a browser, nothing installed
+gobo is a web page, and for most of what it does the page is all you need. Network lighting
+is the exception: Art-Net, sACN and OSC leave as UDP packets, which no browser lets a web page
+send, so something native has to run on your computer.
+
+|  | The website | Run it locally | The website + connector |
+|---|---|---|---|
+| Install | nothing | the desktop app, or `npm start` | one small program that runs in the background |
+| Editor, sim, share links | ✓ | ✓ | ✓ |
+| USB DMX box, TouchDesigner | ✓ | ✓ | ✓ |
+| Art-Net, sACN, OSC | | ✓ | ✓ |
+| The browser asks permission | | never | once, in Chrome |
+
+**If you are driving a network rig, run it locally.** It is the most streamlined of the three:
+one program serves the app and sends the output, so there is nothing to connect, nothing
+running in the background once you close it, and nothing for the browser to allow.
+
+### The website
 
 Open the [live link](https://nicholaspjm.github.io/gobo-dmx-live-code/) and start coding. The
 editor, visualizer, fixture sim and share links need no output at all, and two outputs reach
@@ -49,17 +65,18 @@ real fixtures from the page as it stands:
 
 | Call | What it drives | Conditions |
 |------|----------------|------------|
-| `usb()` | A USB DMX box plugged into this computer, the Enttec DMX USB Pro type. Open the outputs panel from the connection light and pick **usb** to choose the box, then call `usb()` | Chrome or Edge, one universe. A serial port is something a browser is allowed to open |
-| `td()` | TouchDesigner, over a WebSocket. TD receives every frame and puts Art-Net on the network for you | TouchDesigner already open on the same machine: an https page may only open `ws://` to localhost |
+| `usb()` | A USB DMX box plugged into this computer, the Enttec DMX USB Pro type. Open the outputs tab from the connection light and pick **usb** to choose the box, then call `usb()` | Chrome or Edge, one universe. A serial port is something a browser is allowed to open |
+| `td()` | TouchDesigner, over a WebSocket. TD receives every frame and puts Art-Net on the network for you | TouchDesigner already open on the same machine |
 
-### 2. With the connector, for Art-Net, sACN and OSC
+### Run it locally
 
-`artnet()`, `sacn()` and `osc()` all leave as UDP network packets, and a web page is not
-allowed to put packets on the network by itself. That is a rule every browser enforces, not a
-gobo limitation, so a small program on this machine has to do the sending. `mock()` needs it
-too, since the printing happens inside it.
+**The desktop app** is the editor and the sender in one window. Download it from
+[Releases](https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest): the `.dmg` for an
+Apple Silicon Mac, the `Setup` `.exe` for Windows, the `.AppImage` for Linux. It is not signed
+with a certificate, so the first time you open it your system will ask you to confirm; the steps
+are [below](#the-first-time-you-open-a-download).
 
-From a checkout, one command is both halves:
+**From a checkout**, one command does the same thing:
 
 ```bash
 git clone https://github.com/nicholaspjm/gobo-dmx-live-code.git
@@ -68,58 +85,80 @@ npm install
 npm start
 ```
 
-That is the whole thing: one process serving the app and speaking UDP, on
-http://localhost:3001, with a browser opened for you. Because the app is served
-from that same process, the page talks to it over a same-origin WebSocket.
-Nothing to start twice, nothing to forget.
+That is one process serving the app and speaking UDP, on http://localhost:3001, with a browser
+opened for you. The page talks to it over a same-origin WebSocket: nothing to start twice,
+nothing to forget. On an Intel Mac this is the route, since the downloads are Apple Silicon
+builds.
 
-Use `npm run dev` while working on gobo itself: Vite on http://localhost:3000
-with hot reload, and the bridge alongside it.
+Use `npm run dev` while working on gobo itself: Vite on http://localhost:3000 with hot reload,
+and the bridge alongside it.
 
-#### Just visiting the site?
+### The website and the connector
 
-There is no checkout to run anything from, so take the connector on its own.
-Download one file from
-[Releases](https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest).
-It sets itself to start at login the first time it runs, so it is a one time
-step; `--uninstall` undoes that.
+If you would rather keep using the hosted page, add the connector: the same sender, on its own.
+Download the one for your system from
+[Releases](https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest) and run it once. It
+sets itself to start when you log in, and `--uninstall` undoes that. Then open the app and press
+`ctrl+enter`.
 
-Then open the app and press `ctrl+enter`.
-
-Three quieter routes are prepared but not live yet, each of them skipping the
-warning a downloaded file raises. On macOS and Linux that is Homebrew:
+On an Apple Silicon Mac or x86_64 Linux, Homebrew installs it without the first-run warning,
+because what it installs is not marked as downloaded:
 
 ```bash
 brew tap nicholaspjm/gobo https://github.com/nicholaspjm/gobo-dmx-live-code
 brew install gobo-connector
+brew services start gobo-connector
 ```
 
-Nothing gobo ships is signed, and a browser marks what it downloads as
-quarantined, which is why Gatekeeper refuses the macOS connector and why
-allowing it under Privacy and Security is often not enough on Apple Silicon.
-Homebrew strips that attribute off what it installs, so the same unsigned
-binary simply runs. The formula is
-[Formula/gobo-connector.rb](Formula/gobo-connector.rb) in this repository, no
-separate tap repo, and it covers Apple Silicon macs and x86_64 Linux, which is
-what the release builds. It carries no checksums until a release publishes the
-connector archives, so brew refuses it today. `npx gobo-connector` needs the
-package published to npm, and `winget install nicholaspjm.gobo` needs the
-manifests accepted into `microsoft/winget-pkgs`. None of the three works yet,
-so the download above is the route.
+**Chrome asks before a website may reach a program on your computer**, and the connector is
+one. When it asks about gobo, allow it. If you blocked it, the outputs tab in the app says so;
+change it from the icon beside the address, under local network access. Running gobo locally
+never meets this, because a page on your own computer reaching your own computer is not a
+request the browser asks about.
 
-Using a USB DMX box, or sending through TouchDesigner? None of the above: those
-are the two the page drives on its own, back in section 1.
+The connector listens on `localhost:3001` and answers only gobo's own pages, so another website
+open in the same browser cannot drive your rig through it. A copy of gobo hosted somewhere else,
+a fork for instance, needs `--allow-origin https://that.site` when the connector starts.
 
-Want it always available? `npm run autostart` starts the bridge at login, so
-opening the page just works from then on, hosted build included. It is a
-per-user login item, needs no administrator rights, and
-`npm run autostart -- --remove` undoes it. A web page cannot start a process
-itself, so this is the way round to arrange it.
+From a checkout, `npm run autostart` starts the bridge at login instead, so the hosted page just
+works from then on. It is a per-user login item, needs no administrator rights, and
+`npm run autostart -- --remove` undoes it.
 
-If nothing reaches the rig, run `npm run doctor`. It checks each link in the
-chain and reports what it measured, including the two mistakes that fail
-silently: sending to your own machine's IP, and the computer being on a
-different subnet from the node.
+### The first time you open a download
+
+Nothing gobo ships is signed with an Apple or Microsoft certificate, so your system will say it
+cannot check who made it.
+
+- **macOS:** open it once and let it be refused, then go to System Settings, Privacy &
+  Security, and choose Open Anyway. A browser download of the connector also loses its execute
+  bit, so `chmod +x gobo-connector-macos` first; if Open Anyway does not appear for it,
+  `xattr -d com.apple.quarantine gobo-connector-macos` clears the flag the browser set. Or use
+  Homebrew, above.
+- **Windows:** SmartScreen says "Windows protected your PC". Choose More info, then Run anyway.
+- **Linux:** `chmod +x` the file, then run it.
+
+If you would rather not run an unsigned binary at all, `npm start` from a checkout is the same
+program, built from source you can read.
+
+### From a phone or tablet on the same network
+
+The connector and the dev server answer only this computer unless you ask otherwise:
+
+```bash
+npm start -- --lan
+```
+
+or, for development, `GOBO_LAN=1 npm run dev`, which opens up both. Then open
+`http://<this computer's address>:3001` on the other device (`:3000` for dev). Only do this on
+a network you trust: web pages are still checked, but any program on that network can connect
+and drive the rig. [SECURITY.md](SECURITY.md#the-connector-answers-this-computer-and-gobos-own-pages)
+has the detail.
+
+### When nothing reaches the rig
+
+Run `npm run doctor`. It checks each link in the chain and reports what it measured, including
+the two mistakes that fail silently: sending to your own machine's IP, and the computer being
+on a different subnet from the node.
 
 `packages/bridge/bridge.config.json` sets the bridge's startup output. It ships in `artnet`
 mode pointed at `127.0.0.1`, which only reaches software on the same machine. Edit the host
@@ -288,10 +327,10 @@ Visualizer (rAF, 30 fps, read-only snapshot)   +   WS sender (wall-clock throttl
 
 - **Tab throttling.** The clock is in a worker, and the visualizer's rAF loop never drives DMX. Patterns keep running with the tab hidden or the window minimized.
 - **Hot swap.** `evalCode` calls `clearDefs()`, which wipes pattern defs *and* universe buffers; the next tick rebuilds everything from the new code, so a swap reaches the wire whole ([dmx.ts](packages/core/src/dmx.ts)).
-- **Send rate.** The sender is throttled against the wall clock rather than the tick count, using `1000 / sendRate` ms as its interval (default 60 Hz; 30 / 60 / 120 in settings). A slow render tick does not back up the send queue ([main.ts](packages/ui/src/main.ts), [settings.ts](packages/ui/src/settings.ts)).
+- **Send rate.** The sender is throttled against the wall clock rather than the tick count, using `1000 / sendRate` ms as its interval (default 40 Hz; 25 / 30 / 40 / 44 in settings, since DMX itself carries about 44 frames a second). A slow render tick does not back up the send queue ([main.ts](packages/ui/src/main.ts), [settings.ts](packages/ui/src/settings.ts)).
 - **Going dark.** Idle all-zero universes are skipped to save UDP bandwidth. When a universe goes from live to all-zero, exactly one trailing zero-frame is sent so downstream fixtures latch off; Art-Net and sACN receivers otherwise hold the last value indefinitely ([websocket.ts](packages/core/src/websocket.ts)).
 - **Per-tick user errors are swallowed.** A broken pattern doesn't kill the clock; that channel outputs zero until you fix it ([scheduler.ts](packages/core/src/scheduler.ts)).
-- **Bridge reconnect.** Every 2 s on close. Sends are dropped while disconnected ([websocket.ts](packages/core/src/websocket.ts)).
+- **Bridge reconnect.** Two seconds after a close, doubling to a thirty-second ceiling, and back to two the moment a scene picks an output that needs it. Sends are dropped while disconnected ([websocket.ts](packages/core/src/websocket.ts)).
 - **Latency floor.** One clock tick (~16 ms) + up to one send interval (~16 ms at 60 Hz) + WS hop + UDP hop. The bridge is stateless: each incoming WS message triggers an immediate UDP send, with no coalescing ([bridge/index.ts](packages/bridge/src/index.ts)).
 - **Inline pattern widgets** hook the same `onTick` the DMX loop uses rather than a separate rAF, so their visuals stay phase-locked with the lights ([inline-viz.ts](packages/ui/src/inline-viz.ts)). The 512-bar visualizer runs its own rAF loop over a read-only snapshot with light exponential smoothing, so the on-screen strip never contends with the DMX path ([visualizer.ts](packages/ui/src/visualizer.ts)).
 
@@ -355,7 +394,9 @@ Full setup for both: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Nothing on the rig, dot reads `disconnected` | Bridge not running, or the page can't reach `ws://<host>:3001` | `npm run dev`, or `npm run dev:bridge` on its own. The page reconnects by itself |
+| Nothing on the rig, dot reads `disconnected` | Bridge not running, or the page can't reach `ws://<host>:3001` | `npm start`, or the connector. The page reconnects by itself |
+| The outputs tab says the browser is blocking the connector | Chrome's local network access permission was refused for the hosted site | Allow it from the icon beside the address, or run gobo locally, where there is nothing to allow |
+| Connector running, a copy of gobo hosted elsewhere will not connect | The connector answers only its own pages and the official hosted site, and says so in its log | Start it with `--allow-origin https://that.site` |
 | Dot reads `bridge`, rig still dark | Bridge in the wrong mode. With no config file it starts in `mock` and only logs | Call `artnet(…)` / `sacn(…)` / `osc(…)` at the top of the scene and re-run; the bridge prints a `config updated` line naming the new mode |
 | Bridge logs Art-Net sends, fixtures dark | Wrong destination. `artnet()` with no argument targets `127.0.0.1`, loopback only | Unicast the node (`artnet('2.0.0.100')`) or broadcast the subnet (`artnet('2.255.255.255')`); the bridge logs the address it used |
 | Visualizer flat but the rig responds, or the reverse | The scene is driving more than one universe. Every call defaults to universe 0, so something is naming another. The strip draws the lowest and says `(+1 more)` when there are others | Give the scene one universe, or point the interface at the one you want. On the connector every universe is sent, but a **USB** interface carries only one — the run says which universes are not reaching it |
@@ -363,10 +404,10 @@ Full setup for both: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
 | Rig stuck on its last colour after commenting a pattern out | The single zero-frame sent when a universe goes dark was lost, because the bridge was disconnected on that frame | Reconnect, then `Ctrl+.` to re-send zeros |
 | Wrong fixtures respond, everything off by one | DMX is 1-based: `ch(1, …)` is channel 1, `fixture(start, id)` covers `start` … `start + channelCount - 1` | Check the fixture's address and channel count; address 1 is gobo's channel 1, not 0 |
 | sACN lands on the wrong universe | `sacn(universe, priority)`'s first arg doesn't steer output. The bridge multicasts every universe it receives to `239.255.<hi>.<lo>` | Set the universe with `uni()` or the fixture universe arg. Priority (default 100) is the arg that counts; receivers arbitrate by it |
-| Hosted https page can't reach a bridge on another machine | From `github.io` the page always dials `ws://localhost:3001`. Browsers allow loopback from https, but block `ws://` to any other host | Run the bridge on the browser's machine, or `npm run dev` locally and open the UI on that machine's LAN IP (`http://192.168.x.x:3000`) |
+| Hosted https page can't reach a bridge on another machine | From `github.io` the page always dials `ws://localhost:3001`. Browsers allow loopback from https, but block `ws://` to any other host | Run the bridge on the browser's machine, or run gobo on that machine with `npm start -- --lan` and open it at `http://<its address>:3001` |
 | Nothing arrives in TouchDesigner | Bridge still in Art-Net or mock mode, or the `OSC In CHOP` port doesn't match `osc(host, port)` | See [docs/touchdesigner.md](docs/touchdesigner.md); only channels you drive are transmitted |
 | Stutter, or a saturated network | Send rate too high for the link | Drop **send rate** to 30 Hz in settings |
-| A share link opens gobo but loads no scene | The link was truncated in transit. Chat apps and mail clients cut long URLs, and half a payload cannot be decoded | Re-send it as a link, not as text that wraps, or send a saved `.js` file instead |
+| A share link opens gobo but loads no scene | The link was truncated in transit. Chat apps and mail clients cut long URLs, and half a payload cannot be decoded | Re-send it as a link, not as text that wraps, or use **copy the code instead** in the share dialog and send the text |
 | Opened a shared scene and nothing happens | Shared scenes arrive stopped on purpose, because they are someone else's code | Read the code, then `Ctrl+Enter` |
 
 ---
@@ -385,7 +426,7 @@ Full setup for both: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
 
 - [CHANGELOG.md](CHANGELOG.md): what landed in each release
 - [CONTRIBUTING.md](CONTRIBUTING.md): dev setup, fixture contributions, PR expectations
-- [SECURITY.md](SECURITY.md): threat model, what a share link hands you, and why the eval and the bridge are unguarded on purpose
+- [SECURITY.md](SECURITY.md): threat model, what a share link hands you, why the eval is unguarded on purpose, and what the connector will and will not answer
 - [fixtures/README.md](fixtures/README.md): public fixture file format
 
 ---

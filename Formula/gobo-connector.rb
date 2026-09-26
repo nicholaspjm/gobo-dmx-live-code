@@ -1,11 +1,11 @@
 # Homebrew formula for the gobo connector.
 #
 # A browser cannot open a UDP socket, so Art-Net, sACN and OSC need this small
-# native program running beside the page. Nothing gobo ships is signed, and a
-# browser marks what it downloads as quarantined, which is why Gatekeeper
-# refuses the macOS connector and why allowing it under Privacy and Security is
-# often not enough on Apple Silicon. Homebrew removes that attribute from what
-# it installs, so the same unsigned binary runs: no certificate, no
+# native program running beside the page. Nothing gobo ships is signed with a
+# certificate, and a browser marks what it downloads as quarantined, which is
+# why Gatekeeper refuses the macOS connector and why allowing it under Privacy
+# and Security is often not enough on Apple Silicon. Homebrew removes that
+# attribute from what it installs, so the same binary runs: no certificate, no
 # notarisation, no security dialog.
 #
 # The tap is this repository. There is no second repo to keep in step:
@@ -83,22 +83,23 @@ class GoboConnector < Formula
   end
 
   def caveats
+    # These used to promise a login item and an --uninstall dance after each
+    # upgrade. Under Homebrew the connector deliberately installs no login item
+    # (see the service block above), so what they described never happened:
+    # brew services is the way it starts with the computer.
     <<~EOS
-      Start it, then open the app and press ctrl+enter:
-
+      Start it now, and every time you log in:
+        brew services start gobo-connector
+      Or run it in a terminal for this session only:
         gobo-connector
+      Then open the app and press ctrl+enter:
         https://nicholaspjm.github.io/gobo-dmx-live-code/
+      Chrome asks before a website may reach a program on your computer.
+      When it asks about gobo, allow it.
 
-      The first run registers a per-user login item, so it is already running
-      next time you log in. It records the path of the copy that ran, and brew
-      keeps each version in its own directory, so after an upgrade run this
-      once to repoint it:
-
-        gobo-connector --uninstall && gobo-connector
-
+      It listens on localhost:3001 and only answers gobo's own pages.
       Scene code picks the output with artnet(), sacn() or osc(), so there is
       no file to edit. To fix a startup mode instead, pass one:
-
         gobo-connector --config ~/.config/gobo/bridge.config.json
     EOS
   end
