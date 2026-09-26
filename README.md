@@ -36,7 +36,9 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 - One working scene, autosaved to the browser as you type
 - A share link that carries the whole scene, no server involved
 - Four bundled demo scenes, on the examples tab of the docs, from two lines to a small real rig
-- Built-in, bundled public, saved and session fixtures on one fixtures tab, with JSON import/export
+- Built-in, bundled public, saved and session fixtures on one fixtures tab, with JSON import/export. **add to rig** on any of them writes the `fixture()` lines for as many as you own, at the next free address
+- The outputs panel lists the networks your computer is on and writes the `artnet()` line that reaches them, and says when a scene sends somewhere the rig cannot hear
+- Errors name their line and tint it, and a misspelt name gets a "did you mean"
 - One panel behind the ☰ button: docs, fixtures, log, outputs, settings — plus hover help and autocomplete in the editor
 - Thirteen themes, named after the lights they look like. `tungsten` (warm charcoal / terracotta) by default, through `bastardAmber`, `cyclorama`, `blackout`, `glowtape` and `surprisePink`
 - Semantic highlighting: fixtures, patterns, colour channels, movement, pixel methods and output config each get their own colour
