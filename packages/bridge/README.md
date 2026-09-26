@@ -48,8 +48,17 @@ rig.
 --no-open             do not open a browser
 --lan                 listen on every network interface, not just this computer
 --allow-origin <url>  also accept pages from that site (repeatable)
+--no-update           do not replace itself when a new release comes out
+--version             print the version and stop
 --uninstall           remove the login item the first run added
 ```
+
+The downloaded connector keeps itself up to date. When a release comes out it
+downloads the file for your system, checks its size and checksum against what
+GitHub published, runs it once to see it starts, and swaps it in the next time
+nothing has been connected for a minute and a half, so never under a show.
+`--no-update` turns that off; copies from Homebrew or npm are updated by those
+instead.
 
 It listens on `localhost:3001` and answers only gobo's own pages: the hosted
 app, and pages served from this computer. `--lan` (or `GOBO_LAN=1`) lets other

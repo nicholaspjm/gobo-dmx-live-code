@@ -77,12 +77,18 @@ describe('parseConnectorMessage', () => {
     expect(parseConnectorMessage('{"type":"hello","version":"0.3.0"}')).toEqual({
       type: 'hello',
       version: '0.3.0',
+      updates: false,
     });
   });
 
   it('keeps only the fields it knows', () => {
     const msg = parseConnectorMessage('{"type":"hello","version":"0.3.0","pid":41,"host":"x"}');
-    expect(msg).toEqual({ type: 'hello', version: '0.3.0' });
+    expect(msg).toEqual({ type: 'hello', version: '0.3.0', updates: false });
+  });
+
+  it('reads whether the connector updates itself, and only a real true counts', () => {
+    expect(parseConnectorMessage('{"type":"hello","version":"0.5.2","updates":true}')?.updates).toBe(true);
+    expect(parseConnectorMessage('{"type":"hello","version":"0.5.2","updates":"yes"}')?.updates).toBe(false);
   });
 
   it('ignores a message type it has not been taught', () => {
@@ -188,6 +194,15 @@ describe('connectorNotice', () => {
     expect(notice?.reason).toContain('any website');
     expect(notice?.badge).toContain('replace it');
     expect(connectorNotice({ version: null, settled: true }, '0.5.0')?.reason).toContain('any website');
+  });
+
+  it('tells a connector that updates itself to be left alone to do it, not replaced', () => {
+    // It only swaps while nothing is connected, and the page saying so is the
+    // thing connected, so the advice is to close the page.
+    const notice = connectorNotice({ version: '0.5.2', updates: true, settled: true }, '0.5.3');
+    expect(notice?.fix).toContain('updates itself');
+    expect(notice?.fix).not.toContain('--uninstall');
+    expect(connectorNotice({ version: '0.5.2', updates: false, settled: true }, '0.5.3')?.fix).toContain('--uninstall');
   });
 
   it('does not say so about a connector that has the origin check', () => {

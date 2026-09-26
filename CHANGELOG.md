@@ -6,6 +6,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+
+- **The connector keeps itself up to date.** When a release comes out, the
+  downloaded connector fetches the file for its system, refuses it unless its
+  size and SHA-256 match what GitHub published, runs it once to check it starts
+  and is the version it claims, and swaps it in. It only does that once nothing
+  has been connected for 90 seconds, so it never restarts under a show; the
+  outputs tab tells someone waiting on it to close gobo for a couple of
+  minutes. `--no-update` turns it off. Homebrew, npm and the desktop app are
+  left to update the way they already do.
+- **`npx gobo-connector@latest`.** The connector is published to npm by the
+  release workflow, with provenance, through npm's trusted publishing, so no npm
+  token is kept in the repository. Started that way it waits for the app and
+  points at it, like the download, without adding a login item.
+- **`--version`** prints the connector's version and stops.
+
 ## [0.5.1] - 2026-09-26
 
 ### Fixed

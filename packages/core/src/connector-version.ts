@@ -62,6 +62,11 @@ const OPEN_TO_ANY_SITE =
 export interface ConnectorHello {
   type: 'hello';
   version: string;
+  /**
+   * Whether this connector replaces itself when a release comes out. Absent
+   * from every connector before 0.5.2, which is read as no.
+   */
+  updates: boolean;
 }
 
 /**
@@ -91,7 +96,7 @@ export function parseConnectorMessage(raw: unknown): ConnectorHello | null {
   if (typeof msg.version !== 'string' || msg.version.trim() === '') return null;
   // Rebuilt rather than passed through, so whatever else rode along cannot end
   // up stored and later displayed.
-  return { type: 'hello', version: msg.version.trim() };
+  return { type: 'hello', version: msg.version.trim(), updates: msg.updates === true };
 }
 
 /**
@@ -135,6 +140,8 @@ function versionParts(version: string): number[] | null {
 export interface ConnectorReport {
   /** The version it announced, or null if it has announced none. */
   version: string | null;
+  /** Whether it said it updates itself. False when it said nothing. */
+  updates?: boolean;
   /**
    * False while a hello could still turn up. Silence only means something once
    * it has lasted longer than the message would take to arrive.
@@ -182,6 +189,15 @@ export interface ConnectorNotice {
  * there is none, so downloading a new binary and running it replaces the
  * process but leaves the old one starting tomorrow morning.
  */
+/**
+ * For a connector that replaces itself. It only does that while nothing is
+ * connected, so it never restarts under a show, and the page saying so is the
+ * one thing connected: the way to let it happen is to close the page.
+ */
+const LET_IT_UPDATE =
+  'It updates itself while nothing is connected to it, so close gobo for a couple of minutes '
+  + 'and it restarts as the new version. Nothing to download.';
+
 const REPLACE_IT =
   'Download the current connector and run it, which replaces the one running now. '
   + 'The copy that starts when you log in is a separate thing and is still the old file, so run the '
@@ -213,7 +229,7 @@ export function connectorNotice(
           + `so anything fixed since ${report.version} is missing from the program that reaches your rig. `
           + 'Output still goes out.'
           + (open ? OPEN_TO_ANY_SITE : ''),
-        fix: REPLACE_IT,
+        fix: report.updates === true ? LET_IT_UPDATE : REPLACE_IT,
       };
     }
 

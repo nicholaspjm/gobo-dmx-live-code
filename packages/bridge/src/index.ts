@@ -22,15 +22,25 @@ import { createSocket, Socket } from 'dgram';
 import { createFrameRouter } from './frames.js';
 import { isInsideRoot } from './serve-ui.js';
 import { oscPacketsFor } from './osc.js';
-import { connectorHello } from './version.js';
+import { connectorHello, CONNECTOR_VERSION } from './version.js';
 import { bindAddresses, createPolicy, parseAccessArgs, printable } from './access.js';
-import { listenAll, type Refusal } from './listen.js';
-import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
+import { listenAll, type Listening, type Refusal } from './listen.js';
+import { cleanupOld, download, downloadPathFor, fetchLatest, planUpdate, swapInPlace } from './updater.js';
+import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, unlinkSync, rmSync } from 'fs';
 import { resolve, dirname, basename, sep } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
 import { networkInterfaces, homedir, hostname } from 'os';
-import { spawn } from 'child_process';
+import { spawn, execFileSync } from 'child_process';
+
+// --version answers and stops, before anything is printed or bound. The
+// updater runs a freshly downloaded copy this way to see that it starts, and
+// that it is the version it claims to be, before trusting it with the login
+// item.
+if (process.argv.includes('--version')) {
+  console.log(CONNECTOR_VERSION);
+  process.exit(0);
+}
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -100,6 +110,26 @@ const UNDER_PACKAGE_MANAGER = /[\\/](?:Cellar|linuxbrew)[\\/]/i.test(process.exe
  * clears when it likes.
  */
 const VIA_NPM = (globalThis as { goboViaNpm?: boolean }).goboViaNpm === true;
+
+/**
+ * Whether this copy replaces itself when a release comes out (updater.ts).
+ *
+ * Only the downloaded connector. A copy Homebrew owns is upgraded by brew, and
+ * replacing it behind brew's back would leave brew wrong about what it
+ * installed. npx fetches the latest itself. Inside the desktop app the
+ * executable is Electron, and swapping the connector over it would destroy the
+ * app. CI builds and tests it and must not reach out to GitHub from a test.
+ * --no-update is the way to say no.
+ */
+const AUTO_UPDATE =
+  PACKAGED &&
+  !UNDER_PACKAGE_MANAGER &&
+  process.versions.electron === undefined &&
+  !process.argv.includes('--no-update') &&
+  !process.env.CI;
+
+// What a Windows update leaves beside the executable, cleared on the next start.
+if (PACKAGED && !UNDER_PACKAGE_MANAGER && process.versions.electron === undefined) cleanupOld(process.execPath);
 
 function resolveConfigPath(): string {
   const flag = process.argv.indexOf('--config');
@@ -860,6 +890,8 @@ wss.on('error', (err) => {
 
 wss.on('connection', (ws: WebSocket) => {
   console.log(`[bridge] client connected (${wss.clients.size} total)`);
+  // A page is driving the rig, so a waiting update waits longer.
+  cancelIdleUpdate();
 
   // A client that vanishes mid-frame (laptop lid, wifi drop) emits 'error' on
   // its socket; with no listener that throws and kills the bridge along with
@@ -873,7 +905,7 @@ wss.on('connection', (ws: WebSocket) => {
   // which is the answer it needs: silence means older than the build that
   // started saying. Sent after the error handler above is installed, so a client
   // that vanishes during the write cannot take the process with it.
-  ws.send(JSON.stringify(connectorHello()), (err) => {
+  ws.send(JSON.stringify(connectorHello(AUTO_UPDATE)), (err) => {
     // A callback rather than none, so a failed write lands here instead of on
     // the socket's shared error path. Nothing to do about it: the only page
     // this mattered to has gone.
@@ -899,7 +931,11 @@ wss.on('connection', (ws: WebSocket) => {
     console.log(`[bridge] client disconnected (${wss.clients.size} remaining)`);
     // Last one out turns the lights off. A closed tab sends no final
     // frame, and receivers hold their last value indefinitely.
-    if (wss.clients.size === 0) blackoutAll('app disconnected');
+    if (wss.clients.size === 0) {
+      blackoutAll('app disconnected');
+      _lastClientLeftAt = Date.now();
+      scheduleIdleUpdate();
+    }
   });
 });
 
@@ -1108,14 +1144,172 @@ function cannotListen(err: NodeJS.ErrnoException): never {
   process.exit(1);
 }
 
-listenAll({
-  port: PORT,
-  addresses: bindAddresses(accessArgs.lan),
-  policy: accessPolicy,
-  wss,
-  onRequest: handleHttp,
-  onRefused: logRefusal,
-}).then(({ servers, bound }) => {
+// ─── Keeping itself current ──────────────────────────────────────────────────
+// The mechanics are in updater.ts. What is here is when: look at start and once
+// a day, download and check in the background, and swap only once nothing has
+// been connected for a while, so an update never restarts the connector under
+// a show.
+
+/** A little after start, so a login is not slowed by it. */
+const UPDATE_FIRST_CHECK_MS = 20_000;
+const UPDATE_EVERY_MS = 24 * 60 * 60 * 1000;
+/**
+ * How long nothing has to be connected before a waiting update is applied. A
+ * page reload drops the connection for a moment; ninety seconds is long past
+ * that, and short enough that closing the tab gets it done.
+ */
+const UPDATE_IDLE_MS = 90_000;
+
+let _listening: Listening | null = null;
+let _pendingUpdate: { version: string; file: string } | null = null;
+let _updateBusy = false;
+let _idleTimer: ReturnType<typeof setTimeout> | null = null;
+/** 0 until a page has connected and left: at login nobody has, and nothing needs waiting for. */
+let _lastClientLeftAt = 0;
+
+function cancelIdleUpdate(): void {
+  if (_idleTimer) {
+    clearTimeout(_idleTimer);
+    _idleTimer = null;
+  }
+}
+
+function scheduleIdleUpdate(): void {
+  cancelIdleUpdate();
+  if (!_pendingUpdate || wss.clients.size > 0) return;
+  const waited = _lastClientLeftAt === 0 ? UPDATE_IDLE_MS : Date.now() - _lastClientLeftAt;
+  _idleTimer = setTimeout(applyUpdate, Math.max(0, UPDATE_IDLE_MS - waited));
+}
+
+async function checkForUpdate(): Promise<void> {
+  if (_updateBusy || _pendingUpdate) return;
+  _updateBusy = true;
+  const file = downloadPathFor(process.execPath);
+  try {
+    const plan = planUpdate(
+      await fetchLatest(`gobo-connector/${CONNECTOR_VERSION}`),
+      CONNECTOR_VERSION,
+      process.platform,
+      process.arch,
+    );
+    // Nothing to do is the normal answer, and not worth a line a day.
+    if (!plan.update) return;
+    console.log(`[gobo] ${plan.version} is out; downloading it in the background`);
+    await download(plan.asset, file);
+    // Run it once before it goes anywhere near the login item. A file that
+    // cannot start here, or that is not the version it was meant to be, stops
+    // now rather than at the next login.
+    const said = execFileSync(file, ['--version'], { timeout: 20_000, encoding: 'utf8', windowsHide: true }).trim();
+    if (said !== plan.version) throw new Error(`the new file says it is ${said || 'nothing'}, not ${plan.version}`);
+    _pendingUpdate = { version: plan.version, file };
+    console.log(`[gobo] ${plan.version} is downloaded and checked. It takes over once nothing is connected.`);
+    scheduleIdleUpdate();
+  } catch (err) {
+    rmSync(file, { force: true });
+    const code = (err as NodeJS.ErrnoException).code;
+    console.warn(code === 'EACCES' || code === 'EPERM'
+      ? `[gobo] a newer connector is out, but ${dirname(process.execPath)} is not writable, so it cannot update itself. Download it from the releases page.`
+      : `[gobo] could not update: ${(err as Error).message}`);
+  } finally {
+    _updateBusy = false;
+  }
+}
+
+/** The arguments this run was given, without the program itself. */
+function ownArgs(): string[] {
+  // A single executable repeats its own path where a script's path would be,
+  // so where the arguments start depends on which this is.
+  const second = process.argv[1];
+  return second !== undefined && resolve(second) === process.execPath ? process.argv.slice(2) : process.argv.slice(1);
+}
+
+function applyUpdate(): void {
+  _idleTimer = null;
+  const pending = _pendingUpdate;
+  if (!pending || wss.clients.size > 0) return;
+  _pendingUpdate = null;
+  try {
+    swapInPlace(process.execPath, pending.file);
+  } catch (err) {
+    rmSync(pending.file, { force: true });
+    console.warn(`[gobo] could not put ${pending.version} in place: ${(err as Error).message}`);
+    return;
+  }
+  // Someone watching this in a terminal keeps this run. The file is already the
+  // new one, so the next start is the new version.
+  if (process.stdout.isTTY) {
+    console.log(`[gobo] ${pending.version} is installed, and takes over the next time you start this.`);
+    return;
+  }
+  console.log(`[gobo] restarting as ${pending.version}`);
+
+  // Under systemd a clean exit stops the service; a failing one is what
+  // Restart=on-failure acts on, and it starts the file now at that path.
+  if (process.env.INVOCATION_ID) {
+    const leave = (): never => process.exit(75);
+    void (_listening?.close() ?? Promise.resolve()).then(leave, leave);
+    setTimeout(leave, 3000).unref();
+    return;
+  }
+
+  // The new version starts first and this one lets go of the port only once it
+  // has: if it cannot start, this one is still listening, rather than the
+  // computer being left with no connector until the next login. The new one is
+  // told it follows an update, which makes it wait for the port, and never
+  // open a browser or add a login item on the way. Its own session, so launchd
+  // and a closing terminal leave it alone.
+  const args = ownArgs().filter((a) => a !== '--after-update');
+  for (const flag of ['--no-open', '--no-install']) if (!args.includes(flag)) args.push(flag);
+  args.push('--after-update');
+  let child;
+  try {
+    child = spawn(process.execPath, args, { detached: true, stdio: 'ignore', windowsHide: true });
+  } catch (err) {
+    console.warn(`[gobo] could not start ${pending.version}, carrying on as ${CONNECTOR_VERSION}: ${(err as Error).message}`);
+    return;
+  }
+  child.once('error', (err) => {
+    console.warn(`[gobo] could not start ${pending.version}, carrying on as ${CONNECTOR_VERSION}: ${err.message}`);
+  });
+  child.once('spawn', () => {
+    child.unref();
+    let gone = false;
+    const leave = (): void => {
+      if (gone) return;
+      gone = true;
+      process.exit(0);
+    };
+    void (_listening?.close() ?? Promise.resolve()).then(leave, leave);
+    setTimeout(leave, 3000).unref();
+  });
+}
+
+/**
+ * Bind the port, waiting for it after an update: the version that started this
+ * one is still letting go of it for a moment.
+ */
+async function listenForUs(): Promise<Listening> {
+  const tries = process.argv.includes('--after-update') ? 20 : 1;
+  for (let i = 1; ; i++) {
+    try {
+      return await listenAll({
+        port: PORT,
+        addresses: bindAddresses(accessArgs.lan),
+        policy: accessPolicy,
+        wss,
+        onRequest: handleHttp,
+        onRefused: logRefusal,
+      });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EADDRINUSE' || i >= tries) throw err;
+      await new Promise((wait) => setTimeout(wait, 500));
+    }
+  }
+}
+
+listenForUs().then((listening) => {
+  _listening = listening;
+  const { servers, bound } = listening;
   for (const server of servers) {
     server.on('error', (err: NodeJS.ErrnoException) => {
       console.error(`[bridge] HTTP server error ${err.code ?? 'error'}: ${err.message}`);
@@ -1151,6 +1345,12 @@ listenAll({
     console.log('[gobo] connector running. Open the app and press ctrl+enter:');
     console.log(`[gobo] ${HOSTED_APP}`);
     if (!process.argv.includes('--no-open')) openBrowser(HOSTED_APP);
+  }
+
+  if (process.argv.includes('--after-update')) console.log(`[gobo] updated to ${CONNECTOR_VERSION}`);
+  if (AUTO_UPDATE) {
+    setTimeout(() => void checkForUpdate(), UPDATE_FIRST_CHECK_MS).unref();
+    setInterval(() => void checkForUpdate(), UPDATE_EVERY_MS).unref();
   }
 }, cannotListen);
 

@@ -180,6 +180,29 @@ Vite dev server to the network as well; without it that is loopback-only too.
   may reach programs on your computer. Allowing gobo that is a decision about gobo's origin,
   and it applies to every page there.
 
+## The connector updates itself
+
+From 0.5.2, the downloaded connector replaces itself when a new release comes
+out (`packages/bridge/src/updater.ts`). It asks the GitHub API for this
+repository's latest release when it starts and once a day, downloads the file
+for its own system over HTTPS, and refuses it unless its size and SHA-256 match
+what GitHub published for that file. It then runs the new file once with
+`--version` and refuses it unless it starts and names the expected version, and
+only then renames it over itself. It swaps and restarts only once nothing has
+been connected for 90 seconds, so it never restarts under a show.
+
+It does not update a copy Homebrew installed (`brew upgrade` does that), a copy
+run through npm, the connector inside the desktop app, or a run with
+`--no-update`.
+
+**Residual risk.** The checksum proves the file is the one GitHub is serving for
+that release, not who put it there. Anyone who can publish a release on this
+repository can put code on every connector that updates itself, which is the
+same trust the first download asked for, now extended to every later one. There
+is no signature independent of GitHub. If that is not a trade you want, start
+the connector with `--no-update`, or run `npm start` from a checkout you have
+read.
+
 ## Art-Net, sACN and OSC are unauthenticated by design
 
 Art-Net (UDP/6454, unicast or broadcast depending on the host you configure), sACN E1.31
@@ -227,6 +250,9 @@ Things that break an expectation gobo sets:
   gate for imported `.gobo-fixture.json` files and for the bundled public library. A def
   that passes it and then breaks something downstream is a bug: resource exhaustion past
   `FIXTURE_LIMITS`, shadowing a built-in, a hostile id reaching a filename or a URL.
+- **Anything that gets the connector to install a file** that is not the published
+  release asset for its system, that skips the size or checksum check, or that
+  restarts it while a page is connected.
 - **Connector crashes or hangs.** Its only inbound surface is the HTTP/WS listener on 3001.
   Malformed JSON is caught per-message, but a request or message that kills the process,
   wedges it, or makes it emit traffic to a destination the operator never configured

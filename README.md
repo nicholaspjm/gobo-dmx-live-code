@@ -105,6 +105,11 @@ Download the one for your system from
 sets itself to start when you log in, and `--uninstall` undoes that. Then open the app and press
 `ctrl+enter`.
 
+From 0.5.2 it keeps itself up to date: when a release comes out it downloads the new one, checks
+it against the checksum GitHub publishes, and switches over the next time nothing is connected
+to it, so never during a show. `--no-update` turns that off. A Homebrew copy is updated with
+`brew upgrade gobo-connector` instead.
+
 On an Apple Silicon Mac or x86_64 Linux, Homebrew installs it without the first-run warning,
 because what it installs is not marked as downloaded:
 

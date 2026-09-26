@@ -104,6 +104,7 @@ let _loggedOutage = false;
  * a different build from the last one.
  */
 let _connectorVersion: string | null = null;
+let _connectorUpdates = false;
 let _connectedAt = 0;
 let _helloTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -148,6 +149,7 @@ export function getConnectorInfo(): ConnectorReport | null {
   if (!_connected) return null;
   return {
     version: _connectorVersion,
+    updates: _connectorUpdates,
     settled: _connectorVersion !== null || Date.now() - _connectedAt >= HELLO_GRACE_MS,
   };
 }
@@ -169,6 +171,7 @@ function announceConnector(): void {
 
 function forgetConnector(): void {
   _connectorVersion = null;
+  _connectorUpdates = false;
   if (_helloTimer) {
     clearTimeout(_helloTimer);
     _helloTimer = null;
@@ -230,6 +233,7 @@ export function connectBridge(url = BRIDGE_URL): void {
     const msg = parseConnectorMessage(ev.data);
     if (!msg) return;
     _connectorVersion = msg.version;
+    _connectorUpdates = msg.updates;
     if (_helloTimer) {
       clearTimeout(_helloTimer);
       _helloTimer = null;

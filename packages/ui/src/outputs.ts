@@ -584,9 +584,9 @@ export function mountOutputsPanel(opts: {
         title: 'the download',
         body:
           'Download the connector for this computer and run it once. It registers itself to start '
-          + 'with your computer and then stays out of the way: there is no window, and this panel '
-          + 'turning green is how you know it is up. It is not signed, so the first run asks you to '
-          + 'confirm it; the README says where.',
+          + 'with your computer, keeps itself up to date, and otherwise stays out of the way: there '
+          + 'is no window, and this panel turning green is how you know it is up. It is not signed, '
+          + 'so the first run asks you to confirm it; the README says where.',
       },
       {
         title: 'with Homebrew',

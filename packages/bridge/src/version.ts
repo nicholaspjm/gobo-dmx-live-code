@@ -44,8 +44,10 @@ export const CONNECTOR_VERSION = '0.5.1';
 export interface ConnectorHello {
   type: 'hello';
   version: string;
+  /** Whether this copy replaces itself when a release comes out (updater.ts). */
+  updates: boolean;
 }
 
-export function connectorHello(): ConnectorHello {
-  return { type: 'hello', version: CONNECTOR_VERSION };
+export function connectorHello(updates = false): ConnectorHello {
+  return { type: 'hello', version: CONNECTOR_VERSION, updates };
 }
