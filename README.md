@@ -27,7 +27,7 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 ## What it does
 
 - `Ctrl+Enter` runs the code, and it takes effect on the next tick
-- `sine()`, `cosine()`, `square()`, `saw()`, `rand()` and full mini-notation, via Strudel
+- `sine`, `cosine`, `square`, `saw`, `rand` and full mini-notation, via Strudel
 - 512 channels per universe, multiple universes via `uni()`
 - A 512-bar channel strip and a fixture simulation, drawn at 30 fps
 - Built-in fixture profiles for RGB, RGBW, moving heads and strobes, and custom definitions
@@ -191,13 +191,13 @@ Supported modes: `artnet`, `sacn`, `osc`, `mock`. Calling `artnet()` / `sacn()` 
 
 ```js
 // Pulse channel 1 over 2 bars
-ch(1, sine().slow(2))
+ch(1, sine.slow(2))
 
 // Fast strobe on channel 5
-ch(5, square().fast(8))
+ch(5, square.fast(8))
 
 // RGB fixture on channels 10-12
-rgb(10, sine(), 0, cosine().slow(3))
+rgb(10, sine, 0, cosine.slow(3))
 
 // Static value
 ch(3, 200)
@@ -207,16 +207,16 @@ ch(7, 0.75)
 setBPM(140)
 
 // Sawtooth chase across 4 channels
-ch(1, saw())
-ch(2, saw().add(0.25))
-ch(3, saw().add(0.5))
-ch(4, saw().add(0.75))
+ch(1, saw)
+ch(2, saw.add(0.25))
+ch(3, saw.add(0.5))
+ch(4, saw.add(0.75))
 
 // Named fixture access
-fixture(1, 'rgb').red(sine())
+fixture(1, 'rgb').red(sine)
 
 // Multi-universe
-uni(2, 1, sine().slow(4))
+uni(2, 1, sine.slow(4))
 ```
 
 ---
@@ -333,7 +333,7 @@ Visualizer (rAF, 30 fps, read-only snapshot)   +   WS sender (wall-clock throttl
 
 - **Clock lives in a Web Worker.** A `setInterval(16)` in [clockWorker.ts](packages/core/src/clockWorker.ts) posts `"tick"` messages to the main thread. Chromium doesn't throttle worker timers, so the clock keeps firing at ~60 Hz even when the tab is backgrounded ([scheduler.ts](packages/core/src/scheduler.ts)).
 - **Cycle position** advances by `(bpm / 60) / 4` cycles per second (4 beats per cycle). `dt` is clamped at 100 ms so a machine sleep or long GC pause doesn't send the phase spinning ([scheduler.ts](packages/core/src/scheduler.ts)). An external clock provider (audio playhead) can override `cyclePos`; nothing installs one in this release.
-- **Pattern evaluation** uses [@strudel/core](https://strudel.cc) as the pattern engine. `sine()`, `saw()`, mini-notation, `.slow / .fast / .add / .range / .early / .late` are Strudel patterns. Each tick, every registered channel calls `pattern.queryArc(cyclePos, cyclePos + ε)` to sample the value at that moment ([dmx.ts](packages/core/src/dmx.ts)). The gobo-specific chain methods `.flash / .glow / .wave` are added by monkey-patching `Pattern.prototype`; user code can add its own with `register(name, fn)` ([eval.ts](packages/core/src/eval.ts)). If Strudel fails to load, evaluation is disabled outright and the status bar says why; reload the page to retry. There is no degraded waveform mode.
+- **Pattern evaluation** uses [@strudel/core](https://strudel.cc) as the pattern engine. `sine`, `saw`, mini-notation, `.slow / .fast / .add / .range / .early / .late` are Strudel patterns. Each tick, every registered channel calls `pattern.queryArc(cyclePos, cyclePos + ε)` to sample the value at that moment ([dmx.ts](packages/core/src/dmx.ts)). The gobo-specific chain methods `.flash / .glow / .wave` are added by monkey-patching `Pattern.prototype`; user code can add its own with `register(name, fn)` ([eval.ts](packages/core/src/eval.ts)). If Strudel fails to load, evaluation is disabled outright and the status bar says why; reload the page to retry. There is no degraded waveform mode.
 - **Live eval is not sandboxed.** User code runs via `new Function(...)` in strict mode with a curated globals object (DMX API, fixture API, Strudel waveforms, `Math`, `console`). Those names shadow, they don't remove: the code runs in the page's own realm. Fast to hot-swap, not safe against hostile code ([eval.ts](packages/core/src/eval.ts), and [SECURITY.md](SECURITY.md)).
 - **Universe state is `Map<number, Uint8Array(512)>`.** Zeroed and rewritten from scratch every tick, so a scene swap is atomic at the tick boundary ([dmx.ts](packages/core/src/dmx.ts)).
 
@@ -363,7 +363,7 @@ The bridge is stateless: one WebSocket frame in, one UDP send out. Wire cadence 
 
 A fixture profile is an ordered list of `{offset, name, type}` channel descriptors ([fixtures.ts](packages/core/src/fixtures.ts)). `fixture(start, id)` returns an object where each channel name becomes a setter that writes to `start + offset` on the target universe. Generic helpers `.color(…) / .off() / .full()` walk the light-emitting channels of whatever fixture you gave them, so the same call works on `rgb`, `rgbw`, `dim-rgbw`, or a moving head ([fixtures.ts](packages/core/src/fixtures.ts)). A channel counts as a colour when it is named `red`/`green`/`blue`/`white` in any case and with any trailing number, or spelled `r`/`g`/`b`/`w` and declared `type: 'color'`. `.color()` takes one colour, several, or an array of them: a run spreads across whatever pixels the fixture has, and a single-position fixture like a par says so rather than dropping the rest. Pixel strips (`rgbStrip`, `rgbwStrip`) lay out N × 3 or N × 4 contiguous channels and answer `.color(…)` and `.fill(…)` alike, plus `.pixel(i, …)`, `.pixelGrid([…])`, `.each(fn)`, `.rainbowChase(…)`. Roll your own with `defineFixture(id, def)`.
 
-`group(...)` puts fixtures, strips and a fixture's `.pixels` behind the same setters, so one line covers a mixed rig. A fixture counts as one element however many channels it has and a strip counts one per pixel, which is what `.each((phase, i, count) => …)` walks: `group(washA, washB, bar.pixels).each(p => sine().early(p).slow(4))` is one phase ramp across the lot, in the order written. A role only some members have is applied to those; a role no member has throws rather than doing nothing.
+`group(...)` puts fixtures, strips and a fixture's `.pixels` behind the same setters, so one line covers a mixed rig. A fixture counts as one element however many channels it has and a strip counts one per pixel, which is what `.each((phase, i, count) => …)` walks: `group(washA, washB, bar.pixels).each(p => sine.early(p).slow(4))` is one phase ramp across the lot, in the order written. A role only some members have is applied to those; a role no member has throws rather than doing nothing.
 
 Every channel write goes through one function ([dmx.ts](packages/core/src/dmx.ts)), which is where the value contract lives. An omitted value means full, so `wash.red()` is red on. Anything that is not a finite number or a pattern is rejected with the channel named: a quoted number, a signal that was never called, `null`, `NaN`. All of those used to be stored and read as 0 on every tick, which showed as a scene running green with the light off.
 

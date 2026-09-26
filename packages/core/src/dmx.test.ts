@@ -288,7 +288,7 @@ describe('invalid values', () => {
     ['undefined',        undefined,                    'got undefined'],
     ['a quoted number',  '1',                          'Drop the quotes: 1'],
     ['mini notation',    '1 0 1 0',                    'mini("1 0 1 0")'],
-    ['an uncalled sine', () => 0,                      'sine() rather than sine'],
+    ['an uncalled function', () => 0,                  'call it, as in flash()'],
     ['a plain object',   {},                           'got an object'],
     ['an array',         [1, 2, 3],                    'got an array'],
     ['a half-a-pattern', { queryArc: 'not a function' }, 'got an object'],

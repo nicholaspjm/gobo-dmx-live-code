@@ -276,7 +276,7 @@ const DOCS: DocSection[] = [
         description:
           'Definitions other people wrote and contributed, bundled into the app so they need no import step: patch one by its id and it is there. Each is one JSON file in fixtures/ at the repo root, loaded by packages/ui/src/public-fixtures.ts at build time. Every file is schema-checked on the way in, so a broken one is dropped with a console warning rather than taking the app down with it, but that check is on shape and size only. It cannot know whether the channel order matches the light in front of you, and these were written by other people, from their manual and their firmware. Read the row\'s channel list against your own manual before a show. If it disagrees, copy the definition out of the panel, fix it, and save it as yours.',
         example:
-          "const atomic = fixture(1, 'atomic-strobe-154ch')\natomic.dim(1)\natomic.pixels.eachXY((x, y, w) => sine().early(x / w).slow(4))\natomic.strip.fill(mini('1 - - -'))",
+          "const atomic = fixture(1, 'atomic-strobe-154ch')\natomic.dim(1)\natomic.pixels.eachXY(sine.slow(4))\natomic.strip.fill(mini('1 - - -'))",
       },
       {
         name: 'saved, or only this scene',
@@ -309,7 +309,7 @@ const DOCS: DocSection[] = [
         description:
           "Create a fixture instance. Returns an object with one setter per named channel (e.g. .red(), .dim(), .pan()) plus generic helpers .color(r,g,b[,w]), .off(), .full(). Built-in ids: dim, rgb, rgbw, rgba, dim-rgb, dim-rgbw, moving-head-basic, moving-head-spot, strobe. (The old `generic-*` ids still resolve via alias.) Universe defaults to 0 (matches Art-Net / TouchDesigner's first-universe convention).",
         example:
-          "const wash = fixture(1, 'rgbw')\nwash.color(1, 0, 0, 0.3)        // red + a touch of white\nwash.red(sine().slow(4))         // or pick channels directly\n\n// Second universe\nconst par2 = fixture(1, 'rgbw', 1)",
+          "const wash = fixture(1, 'rgbw')\nwash.color(1, 0, 0, 0.3)        // red + a touch of white\nwash.red(sine.slow(4))         // or pick channels directly\n\n// Second universe\nconst par2 = fixture(1, 'rgbw', 1)",
       },
       {
         name: 'listFixtures',
@@ -323,7 +323,7 @@ const DOCS: DocSection[] = [
         description:
           'Variable-length RGB pixel strip. Each pixel = 3 channels (R,G,B) laid out contiguously, so 40 pixels = 120 channels. Returns an object with .fill(), .pixel(i, r, g, b), .red(), .green(), .blue(), plus .pixelCount / .channelCount / .startChannel.',
         example:
-          "const strip = rgbStrip(1, 40)\nstrip.fill(sine().slow(4), 0, cosine().slow(4))\n\n// per-pixel chase\nfor (let i = 0; i < strip.pixelCount; i++) {\n  strip.pixel(i, sine().slow(4).add(i/strip.pixelCount), 0, 0)\n}",
+          "const strip = rgbStrip(1, 40)\nstrip.fill(sine.slow(4), 0, cosine.slow(4))\n\n// per-pixel chase\nfor (let i = 0; i < strip.pixelCount; i++) {\n  strip.pixel(i, sine.slow(4).add(i/strip.pixelCount), 0, 0)\n}",
       },
       {
         name: 'rgbwStrip',
@@ -331,7 +331,7 @@ const DOCS: DocSection[] = [
         description:
           'RGBW pixel strip. Each pixel = 4 channels (R,G,B,W) laid out contiguously, so 8 pixels = 32 channels. Same shape as rgbStrip, but every setter takes an extra white arg and there is a .white(v) setter. The white channel is a separate LED emitter that adds to the colour mix, for warm highlights or true whites.',
         example:
-          "const bar = rgbwStrip(1, 8, 1)    // 8 px, universe 1\nbar.fill(sine().slow(4), 0, cosine().slow(4), 0.2)\nbar.pixel(0, 1, 0, 0, 0)           // pixel 0 red\nbar.white(0.1)                      // low white on every pixel",
+          "const bar = rgbwStrip(1, 8, 1)    // 8 px, universe 1\nbar.fill(sine.slow(4), 0, cosine.slow(4), 0.2)\nbar.pixel(0, 1, 0, 0, 0)           // pixel 0 red\nbar.white(0.1)                      // low white on every pixel",
       },
       {
         name: 'strip channel (in defineFixture)',
@@ -339,7 +339,7 @@ const DOCS: DocSection[] = [
         description:
           'The options on the channel itself. It claims pixelCount x channelsPerPixel channels from its offset and exposes a nested strip under its name. pixelLayout defaults to \'rgb\' (3 channels per pixel); set it to \'rgbw\' for 4, which adds the white argument to .fill() and .pixel() and gives you .white(v). Scalar channels before and after work normally, so a dimmer, a strobe and a pixel segment can live in one fixture.',
         example:
-          "defineFixture('my-bar', {\n  name: 'Custom Bar', manufacturer: 'Generic', type: 'generic',\n  channelCount: 12,\n  channels: [\n    { offset: 0,  name: 'dim',    type: 'intensity' },\n    { offset: 1,  name: 'strobe', type: 'strobe' },\n    { offset: 2,  name: 'pixels', type: 'strip', pixelCount: 3 }, // ch 3-11\n    { offset: 11, name: 'mode',   type: 'control' },\n  ],\n})\nconst bar = fixture(100, 'my-bar')\nbar.dim(0.8)\nbar.pixels.fill(sine(), 0, 0)\nbar.pixels.pixel(1, 1, 0, 0)",
+          "defineFixture('my-bar', {\n  name: 'Custom Bar', manufacturer: 'Generic', type: 'generic',\n  channelCount: 12,\n  channels: [\n    { offset: 0,  name: 'dim',    type: 'intensity' },\n    { offset: 1,  name: 'strobe', type: 'strobe' },\n    { offset: 2,  name: 'pixels', type: 'strip', pixelCount: 3 }, // ch 3-11\n    { offset: 11, name: 'mode',   type: 'control' },\n  ],\n})\nconst bar = fixture(100, 'my-bar')\nbar.dim(0.8)\nbar.pixels.fill(sine, 0, 0)\nbar.pixels.pixel(1, 1, 0, 0)",
       },
       {
         name: 'fixture library',
@@ -474,19 +474,19 @@ const DOCS: DocSection[] = [
     entries: [
       {
         name: 'cue',
-        signature: 'cue({ verse, chorus, breakdown })',
+        signature: 'cue(verse, chorus, breakdown)',
         description:
-          "Offers those looks and runs whichever one is selected. The shorthand names each look after the function itself, so the label on the chip and the name in the code cannot drift apart; pass an explicit name, cue({ 'big hit': chorus }), when the look reads better as something else. Returns the name it ran.",
+          "A look is a block with a name, the way a desk has a cue: everything inside it is what the rig does while that look is up. cue() offers the looks it is given and runs whichever one is selected, with a chip for each under the editor, alt+1…9, or a MIDI program change. The chip reads the block's name, so the label and the code cannot drift apart. An underscore in front of a name (_verse:) mutes the block, as in strudel, without commenting it out. Returns the name it ran.",
         example:
-          "const wash = rgbStrip(1, 8)\n\nconst verse     = () => { wash.color(blue) }\nconst chorus    = () => { wash.color(red) }\nconst breakdown = () => { wash.mono(pulse(4)) }\n\ncue({ verse, chorus, breakdown })",
+          "const wash = rgbStrip(1, 8)\n\nverse: {\n  wash.color(blue)\n}\nchorus: {\n  wash.color(red)\n}\nbreakdown: {\n  wash.mono(pulse(4))\n}\n\ncue(verse, chorus, breakdown)",
       },
       {
         name: 'writing the choice instead',
-        signature: 'cue(looks, selector)',
+        signature: 'cue(verse, chorus, selector)',
         description:
-          "A second argument makes the switch part of the scene. The selector is read every frame, so the look changes without the document being evaluated again, which is the difference between a cue you perform and a cue that is in the pattern. Give it a pattern of names or indices, or a live control. A number is an index and wraps, so a fader between looks is declared with a range: slider('look', 0, 2, { step: 1 }).",
+          "Something after the looks makes the switch part of the scene. The selector is read every frame, so the look changes without the document being evaluated again, which is the difference between a cue you perform and a cue that is in the pattern. Give it a pattern of names or indices, or a live control. A number is an index and wraps, so a fader between looks is declared with a range: slider('look', 0, 2, { step: 1 }).",
         example:
-          "const wash = rgbStrip(1, 8)\n\nconst verse  = () => { wash.color(blue) }\nconst chorus = () => { wash.color(red) }\n\ncue({ verse, chorus }, mini('<verse chorus chorus verse>'))",
+          "const wash = rgbStrip(1, 8)\n\nverse: {\n  wash.color(blue)\n}\nchorus: {\n  wash.color(red)\n}\n\ncue(verse, chorus, mini('<verse chorus chorus verse>'))",
       },
       {
         name: 'what a selector does to the bar',
@@ -566,24 +566,24 @@ const DOCS: DocSection[] = [
     entries: [
       {
         name: '.flash',
-        signature: "sine().fast(2).flash()",
+        signature: "sine.fast(2).flash()",
         description:
           "Pulses the editor line's background on each rising edge above mid-scale. Best for anything with a clear on/off shape: beats, strobes, square waves. Refractory period is ~140ms, so a sustained-high value doesn't strobe the UI.",
-        example: 'spot.dim(square().fast(1).flash())',
+        example: 'spot.dim(square.fast(1).flash())',
       },
       {
         name: '.glow',
-        signature: 'sine().slow(4).glow()',
+        signature: 'sine.slow(4).glow()',
         description:
           "Left-to-right background rail whose intensity tracks the pattern's current value 0..1. Best for slow, smooth patterns such as sines and envelopes.",
-        example: 'washA.red(sine().slow(4).range(0, 0.9).glow())',
+        example: 'washA.red(sine.slow(4).range(0, 0.9).glow())',
       },
       {
         name: '.wave',
-        signature: 'sine().slow(6).wave()',
+        signature: 'sine.slow(6).wave()',
         description:
           "The oscilloscope: a sparkline at the end of the line showing the last second or so of values as they went past. Best for anything continuous, where the shape of the curve is the thing you are checking. Like .viz('wave') but attached to one pattern rather than a whole fixture.",
-        example: 'washA.white(sine().slow(6).range(0, 0.4).wave())',
+        example: 'washA.white(sine.slow(6).range(0, 0.4).wave())',
       },
       {
         name: '.roll',
@@ -608,7 +608,7 @@ const DOCS: DocSection[] = [
       },
       {
         name: '.spectrum',
-        signature: 'sine().fast(8).spectrum()',
+        signature: 'sine.fast(8).spectrum()',
         description:
           'Which rates the recent values are moving at: a fast strobe puts a peak on the right, a slow swell sits on the left. Useful for checking a strobe is running at the rate you meant. It analyses this CHANNEL, not audio; there is no sound in gobo to analyse.',
         example: "strb.strobe(mini('1*16').spectrum())",
@@ -670,7 +670,7 @@ const DOCS: DocSection[] = [
     entries: [
       {
         name: '.viz',
-        signature: ".viz(...kinds)",
+        signature: ".viz(kind, kind, …)",
         description:
           "Attach one or more inline widgets to this fixture. Kinds: 'color' (mixed-output swatch), 'wave' (scrolling intensity scope), 'meter' (vertical bar), 'strip' (row of mini pixels, for rgbStrip). Multiple kinds stack side-by-side. Returns the fixture so you can keep chaining.",
         example:
@@ -715,7 +715,7 @@ const DOCS: DocSection[] = [
         description:
           'Set red / green / blue (and optionally white) in one call. Channels absent on the fixture are silently skipped so the same line works on rgb, rgbw, dim-rgb, dim-rgbw, and moving heads. Each argument can be a constant 0..1 or a pattern.',
         example:
-          "wash.color(1, 0, 0)              // red\nwash.color(1, 0, 0, 0.3)         // RGBW: red + a touch of white\nwash.color(sine(), 0, cosine())  // animated",
+          "wash.color(1, 0, 0)              // red\nwash.color(1, 0, 0, 0.3)         // RGBW: red + a touch of white\nwash.color(sine, 0, cosine)  // animated",
       },
       {
         name: '.off',
@@ -781,7 +781,7 @@ const DOCS: DocSection[] = [
         description:
           'Origin and serpentine apply to every way of addressing a strip, not just pixelXY. Counting with .pixel(i) or walking with .each() runs along the top row of the picture and continues onto the next, so a left-to-right chase reads left to right on the light even when the wire runs the other way. With the default origin and no serpentine this is the identity, so nothing written before grids existed changes.',
         example:
-          "seg.each((p, i) => mini('1 - - -').early(p))   // sweeps left to right on the light",
+          "seg.each(mini('1 - - -'))   // sweeps left to right on the light",
       },
       {
         name: 'one channel per cell',
@@ -789,7 +789,7 @@ const DOCS: DocSection[] = [
         description:
           "A segmented white strobe strip, a bar of plain dimmers, a row of single-colour cells: one channel each, no colour to mix. It carries the same geometry as the colour strips, so a chase written for one works here, with a level in place of the colour.",
         example:
-          "const seg = monoStrip(147, 8)         // eight white strobe segments\nseg.fill(0.5)\nseg.each((p, i) => mini('1 - - -').early(p))",
+          "const seg = monoStrip(147, 8)         // eight white strobe segments\nseg.fill(0.5)\nseg.each(mini('1 - - -'))",
       },
       {
         name: '.pixelXY / .row / .column',
@@ -800,12 +800,12 @@ const DOCS: DocSection[] = [
           "grid.pixelXY(3, 1, 1, 0, 0)   // column 3, row 1, red\ngrid.row(0, 1, 1, 1)          // top row white\ngrid.column(11, 0, 0, 1)      // last column blue",
       },
       {
-        name: '.eachXY(fn)',
-        signature: '.eachXY((x, y, w, h) => value)',
+        name: '.eachXY',
+        signature: '.eachXY(pattern, across = 1, down = 0)',
         description:
-          'each() for when the shape matters. The callback runs once per pixel with its position and the grid size, and returns a level or [r, g, b]. This is how you write a sweep across the columns, a wipe down the rows, or a diagonal, without computing i % width anywhere.',
+          "each() for when the shape matters. Every pixel runs the pattern, later the further across and down it is: across is how many cycles the steps add up to over the width, and down over the height. That is a sweep across the columns, a wipe down the rows, or a diagonal, with no arithmetic on positions.",
         example:
-          "grid.eachXY((x, y, w) => sine().early(x / w).slow(4))         // sweep across\ngrid.eachXY((x, y, w, h) => sine().early(y / h).slow(2))      // wipe down\ngrid.eachXY((x, y, w, h) => sine().early((x + y) / (w + h)))  // diagonal",
+          "grid.eachXY(sine.slow(4))            // sweep across\ngrid.eachXY(sine.slow(2), 0, 1)      // wipe down\ngrid.eachXY(sine, 1, 1)              // corner to corner",
       },
     ],
   },
@@ -862,7 +862,7 @@ const DOCS: DocSection[] = [
         description:
           'With no arguments it is one colour wash: a rectangle that takes a colour. Give it a pixel count and it is a strip, add columns and it is a grid, addressable with pixelXY and eachXY exactly like a physical pixel wash. It answers every strip method, so a chase written for real hardware runs on it unchanged.',
         example:
-          "const room = screen()\nroom.fill(sine().slow(4), 0, cosine().slow(4))\n\nconst wall = screen(48, { columns: 12, label: 'wall' })\nwall.eachXY((x, y, w) => sine().early(x / w).slow(4))",
+          "const room = screen()\nroom.fill(sine.slow(4), 0, cosine.slow(4))\n\nconst wall = screen(48, { columns: 12, label: 'wall' })\nwall.eachXY(sine.slow(4))",
       },
       {
         name: 'why it is a real fixture',
@@ -870,7 +870,7 @@ const DOCS: DocSection[] = [
         description:
           'It renders from an ordinary DMX universe well above anything a rig uses, so nothing in the engine treats it specially and it can go into a group() beside real fixtures and be driven by one each(). It takes columns but not origin or serpentine: those describe how a strip is wired, and a screen has no wiring.',
         example:
-          "const rig = group(washA, screen(8))\nrig.each(p => sine().early(p).slow(4))",
+          "const rig = group(washA, screen(8))\nrig.each(sine.slow(4))",
       },
     ],
   },
@@ -883,11 +883,11 @@ const DOCS: DocSection[] = [
     entries: [
       {
         name: 'group',
-        signature: 'group(...members)',
+        signature: 'group(member, member, …)',
         description:
           "Takes fixtures, strips, a fixture's .pixels, and other groups. Members keep the order you write them in, which is the order .each() walks. A role a member does not have is skipped, so one line covers a mixed rig; a role NO member has throws, because that would otherwise be a silent no-op.",
         example:
-          "const rig = group(washA, washB, bar.pixels)\nrig.red(sine().slow(4))\nrig.color(1, 0, 0)\nrig.off()",
+          "const rig = group(washA, washB, bar.pixels)\nrig.red(sine.slow(4))\nrig.color(1, 0, 0)\nrig.off()",
       },
       {
         name: 'how members count',
@@ -899,11 +899,11 @@ const DOCS: DocSection[] = [
       },
       {
         name: '.each',
-        signature: '.each((phase, i, count) => value)',
+        signature: '.each(pattern, spread = 1)',
         description:
-          'Run one gesture across the whole group in order. phase is i / count, the same signature the strips use, so a chase written for one strip works across a rig of mixed fixtures. Return a number for brightness, or [r, g, b] / [r, g, b, w] for colour. Roles the array does not name are left alone.',
+          "Run one gesture across the whole group in order: every light runs the pattern, each a step later than the one before, which is what a desk calls a phase spread. The steps add up to spread cycles across the group, one bar by default, so a slow pattern often wants a spread to match its length. It is the same on a strip, so a chase written for one strip works across a rig of mixed fixtures. The pattern is a level; colour stays wherever .color() put it.",
         example:
-          "const rig = group(washA, washB, bar.pixels, strip)\nrig.each(p => sine().early(p).slow(4))          // one ramp, whole rig\nrig.each(p => [sine().early(p), 0, cosine().early(p)])",
+          "const rig = group(washA, washB, bar.pixels, strip)\nrig.each(sine.slow(4), 4)                  // one ramp, whole rig\nrig.each(mini('1 - - -').fadeOut(2))       // a chase with tails",
       },
       {
         name: 'brightness on a mixed rig',
@@ -911,7 +911,7 @@ const DOCS: DocSection[] = [
         description:
           "A number from .each() means brightness, and each element expresses that its own way: a fixture with a dimmer moves the dimmer and keeps its colour, a fixture without one drives r/g/b together, and a pixel does the same. That is why a fade across a mixed rig does not repaint the look.",
         example:
-          "washA.color(1, 0, 0)                 // dim-rgb par, red\ngroup(washA, bar.pixels).each(() => 0.5)   // par half-bright, still red",
+          "washA.color(1, 0, 0)                 // dim-rgb par, red\ngroup(washA, bar.pixels).each(0.5)   // par half-bright, still red",
       },
     ],
   },
@@ -980,7 +980,7 @@ const DOCS: DocSection[] = [
         name: 'ch',
         signature: 'ch(channel, value)',
         description: 'Set a channel on universe 0, the same universe fixtures patch to. 1-indexed (1-512).',
-        example: 'ch(1, sine().slow(2))',
+        example: 'ch(1, sine.slow(2))',
       },
       {
         name: 'uni',
@@ -992,13 +992,13 @@ const DOCS: DocSection[] = [
         name: 'dim',
         signature: 'dim(channel, value)',
         description: 'Alias for ch(). Reads nicely when the channel is a dimmer.',
-        example: 'dim(9, square().fast(1))',
+        example: 'dim(9, square.fast(1))',
       },
       {
         name: 'rgb',
         signature: 'rgb(startChannel, r, g, b)',
         description: 'Shortcut for 3 consecutive channels.',
-        example: 'rgb(1, sine(), 0, cosine().slow(3))',
+        example: 'rgb(1, sine, 0, cosine.slow(3))',
       },
     ],
   },
@@ -1029,7 +1029,7 @@ const DOCS: DocSection[] = [
         description:
           'Three that come from strudel\'s Pattern. .stut repeats n times, each quieter than the last, which is an echo that decays. .linger repeats the first fraction of a cycle for the whole cycle, a hold or a stutter. .when applies a transformation only on cycles where its test passes, so a scene can change every fourth bar without a second pattern.',
         example:
-          "wash.dim(flash().stut(4, 0.6, 0.125))\nwash.dim(mini('1 0 0 0').linger(0.25))\nwash.dim(sine().when(c => c % 4 === 0, p => p.fast(4)))",
+          "wash.dim(flash().stut(4, 0.6, 0.125))\nwash.dim(mini('1 0 0 0').linger(0.25))\nwash.dim(sine.when(mini('<1 0 0 0>'), fast(4)))",
       },
       {
         name: 'hush · setcps · setcpm',
@@ -1048,11 +1048,11 @@ const DOCS: DocSection[] = [
       },
       {
         name: 'sparkle',
-        signature: 'strip.each((p, i) => rand().early(i * 0.37).range(-3, 1))',
+        signature: 'strip.each(rand.range(-3, 1), 3.7)',
         description:
-          'Random pixels lighting and dying, in four tokens. rand() is one signal, so every pixel handed the same one twinkles in lockstep; .early(i * 0.37) gives each pixel its own place in that stream. .range(-3, 1) puts three quarters of the signal below zero, where the channel clamps it, so only the occasional peak shows. Raise the floor for more sparkle, lower it for less.',
+          'Random pixels lighting and dying. rand is one signal, so every pixel handed the same one twinkles in lockstep; a large spread gives each pixel its own place in that stream. .range(-3, 1) puts three quarters of the signal below zero, where the channel clamps it, so only the occasional peak shows. Raise the floor for more sparkle, lower it for less. On a group, mini(\'1*16\').across(rand) scatters hits instead, and .fadeOut() gives each one a tail.',
         example:
-          'strip.each((p, i) => rand().early(i * 0.37).range(-3, 1))\n\n// warmer, and sparser\nstrip.each((p, i) => [rand().early(i * 0.37).range(-6, 1), 0, 0])',
+          "strip.each(rand.range(-3, 1), 3.7)\n\n// sparser\nstrip.each(rand.range(-6, 1), 3.7)\n\n// hits scattered across a rig, each with a tail\nrig.mono(mini('1*16').across(rand).fadeOut(1))",
       },
       {
         name: '.chase',
@@ -1076,7 +1076,7 @@ const DOCS: DocSection[] = [
         description:
           "Any chase can be written inline with a for-loop, which gives finer control than the built-in helper. Walk each pixel index i, compute its phase offset (i/pixelCount), and call strip.pixel(i, r, g, b [, w]) with patterns whose time is shifted by that phase. The starter example uses this form on the universe-0 strip.",
         example:
-          "for (let i = 0; i < strip.pixelCount; i++) {\n  const phase = i / strip.pixelCount\n  const bright = cosine().early(phase).slow(2).range(-8, 1)\n  strip.pixel(i, bright.mul(hueR), bright.mul(hueG), bright.mul(hueB))\n}",
+          "for (let i = 0; i < strip.pixelCount; i++) {\n  const phase = i / strip.pixelCount\n  const bright = cosine.early(phase).slow(2).range(-8, 1)\n  strip.pixel(i, bright.mul(hueR), bright.mul(hueG), bright.mul(hueB))\n}",
       },
       {
         name: '.pixelGrid',
@@ -1115,9 +1115,9 @@ const DOCS: DocSection[] = [
         name: '.fill',
         signature: 'strip.fill(warm)  ·  strip.fill(red, blue)',
         description:
-          'Spreads the stops it was given across the pixels, endpoint to endpoint: the first colour on the first pixel, the last on the last, blended between. One colour repeats across the whole strip. Three or more values that are not colours is the per-component spelling, so .fill(sine(), 0, cosine()) drives r, g and b.',
+          'Spreads the stops it was given across the pixels, endpoint to endpoint: the first colour on the first pixel, the last on the last, blended between. One colour repeats across the whole strip. Three or more values that are not colours is the per-component spelling, so .fill(sine, 0, cosine) drives r, g and b.',
         example:
-          "strip.fill(warm)                  // amber at one end, red at the other\nstrip.fill(red, blue)             // two stops\nstrip.fill(red)                   // every pixel\nstrip.fill(sine(), 0, cosine())   // per component, as before",
+          "strip.fill(warm)                  // amber at one end, red at the other\nstrip.fill(red, blue)             // two stops\nstrip.fill(red)                   // every pixel\nstrip.fill(sine, 0, cosine)   // per component, as before",
       },
       {
         name: '.mono · brightness on any light',
@@ -1174,7 +1174,7 @@ const DOCS: DocSection[] = [
       },
       {
         name: 'cat',
-        signature: 'cat(...warm).slow(4)',
+        signature: 'cat(warm, warm, …).slow(4)',
         description:
           "A palette across a strip is a gradient; the same palette across time is a cue list. cat() gives one stop per cycle and .slow(n) holds each for n cycles, which is how a single light works through a palette. The result is a pattern of colours, so it goes anywhere a colour goes, including the calls that refuse the array itself.",
         example:
@@ -1184,17 +1184,17 @@ const DOCS: DocSection[] = [
         name: 'mix',
         signature: 'mix(a, b, t)',
         description:
-          "Blend two colours, t of the way from the first to the second. The spread across a strip is linear and evenly spaced, and mix() is how you get any other curve, because the callback decides t for itself. t can be a pattern as well as a number, which gives a crossfade in time. Both endpoints come back by identity, so mix(red, blue, 0) is red rather than a rebuilt copy of it.",
+          "Blend two colours, t of the way from the first to the second. t can be a pattern as well as a number, which gives a crossfade in time. Both endpoints come back by identity, so mix(red, blue, 0) is red rather than a rebuilt copy of it.",
         example:
-          "strip.each(p => mix(red, blue, p * p))       // blue crowded to one end\nwash.color(mix(red, blue, sine().slow(4)))  // crossfade, four bars",
+          "wash.color(mix(red, amber, 0.3))          // mostly red\nwash.color(mix(red, blue, sine.slow(4)))  // crossfade, four bars",
       },
       {
-        name: '.each',
-        signature: 'strip.each((p, i) => warm[i % warm.length])',
+        name: 'bands',
+        signature: 'strip.pixelGrid([[…], […]]).repeat()',
         description:
-          'A callback may hand back a colour now, and that means the same as handing back its three components. Indexing the array rather than sampling across it gives hard bands instead of a blend, which is the other thing a palette on a strip is usually for.',
+          'Hard bands rather than a blend, which is the other thing a palette on a strip is usually for: list the pixels once and repeat them along the strip.',
         example:
-          "strip.each((p, i) => warm[i % warm.length])   // hard bands of three\nstrip.each(p => mix(red, blue, p * p))        // a curve instead",
+          "strip.pixelGrid([[1, 0.5, 0], [1, 0.25, 0], [1, 0, 0]]).repeat()   // amber, orange, red, again and again\nstrip.fill(warm)                                                     // the same three, blended",
       },
       {
         name: 'colour tokens',
@@ -1247,33 +1247,33 @@ const DOCS: DocSection[] = [
     entries: [
       {
         name: 'sine',
-        signature: 'sine()',
+        signature: 'sine',
         description: 'Sine wave, one full cycle per cycle, which is one bar, or four beats, output 0-1. Smooth breathing motion. At 120 BPM that is one breath every two seconds; .fast(4) makes it one per beat.',
-        example: 'washA.red(sine())',
+        example: 'washA.red(sine)',
       },
       {
         name: 'cosine',
-        signature: 'cosine()',
+        signature: 'cosine',
         description: 'Same as sine but 90° ahead. Useful for phase-offset pairs.',
-        example: 'washA.red(sine())\nwashA.blue(cosine())',
+        example: 'washA.red(sine)\nwashA.blue(cosine)',
       },
       {
         name: 'square',
-        signature: 'square()',
+        signature: 'square',
         description: 'Square wave 0/1. Instant on/off.',
-        example: 'spot.dim(square().fast(2))',
+        example: 'spot.dim(square.fast(2))',
       },
       {
         name: 'saw',
-        signature: 'saw()',
+        signature: 'saw',
         description: 'Linear ramp 0→1, jumps back to 0 each cycle.',
-        example: 'myPar.amber(saw().slow(8))',
+        example: 'myPar.amber(saw.slow(8))',
       },
       {
         name: 'rand',
-        signature: 'rand()',
+        signature: 'rand',
         description: 'Uniform random 0-1, resampled per query.',
-        example: 'ch(1, rand())',
+        example: 'ch(1, rand)',
       },
     ],
   },
@@ -1359,7 +1359,7 @@ const DOCS: DocSection[] = [
         description:
           'Same as mini but takes positional args instead of a string. Each arg is one step, and args can be patterns themselves, so step sequencing mixes with continuous waveforms.',
         example:
-          "spot.dim(sequence(0, sine().slow(2), 1, 0.5))",
+          "spot.dim(sequence(0, sine.slow(2), 1, 0.5))",
       },
       {
         name: 'cat',
@@ -1375,7 +1375,7 @@ const DOCS: DocSection[] = [
         description:
           "Run patterns in parallel on one channel. Every pat is queried each tick and the BRIGHTEST value wins, the same highest-takes-precedence merge a lighting desk uses. That makes layers additive in the useful sense: adding one can only raise the channel, never darken it. A slow swell under a fast strobe is the usual reason to reach for it.",
         example:
-          "spot.dim(stack(sine().slow(8).range(0.2, 0.5), mini('1 - - - 1 - - -')))",
+          "spot.dim(stack(sine.slow(8).range(0.2, 0.5), mini('1 - - - 1 - - -')))",
       },
       {
         name: 'layering (comma)',
@@ -1407,32 +1407,32 @@ const DOCS: DocSection[] = [
         signature: 'pat.slow(n)',
         description:
           "Stretch the pattern to take n cycles instead of one. slow(4) = 4x slower, one full wave every 4 beats.",
-        example: 'sine().slow(4)',
+        example: 'sine.slow(4)',
       },
       {
         name: '.fast(n)',
         signature: 'pat.fast(n)',
         description: 'Squeeze pattern into 1/n of a cycle. fast(2) = twice as fast.',
-        example: 'square().fast(8)',
+        example: 'square.fast(8)',
       },
       {
         name: '.range(lo, hi)',
         signature: 'pat.range(lo, hi)',
         description:
-          'Rescale the 0-1 output into [lo, hi]. Essential for dimming a colour without killing its motion: sine().range(0, 0.8).',
-        example: 'washA.red(sine().slow(4).range(0, 0.9))',
+          'Rescale the 0-1 output into [lo, hi]. Essential for dimming a colour without killing its motion: sine.range(0, 0.8).',
+        example: 'washA.red(sine.slow(4).range(0, 0.9))',
       },
       {
         name: '.add(n)',
         signature: 'pat.add(n)',
-        description: 'Offset output by n. Often used to phase-shift: sine().add(0.5).',
-        example: 'sine().add(0.5).range(0, 0.8)',
+        description: 'Offset output by n. Often used to phase-shift: sine.add(0.5).',
+        example: 'sine.add(0.5).range(0, 0.8)',
       },
       {
         name: '.mul(n)',
         signature: 'pat.mul(n)',
         description: 'Multiply output by n.',
-        example: 'sine().mul(0.5)',
+        example: 'sine.mul(0.5)',
       },
       {
         name: '.range backwards',
@@ -1440,14 +1440,14 @@ const DOCS: DocSection[] = [
         description:
           'A high-to-low range inverts the pattern. range(1, 0) is the cheapest way to make one fixture the negative of another without writing a second pattern.',
         example:
-          "washA.red(sine().slow(4).range(0, 1))\nwashB.red(sine().slow(4).range(1, 0))   // opposite swell",
+          "washA.red(sine.slow(4).range(0, 1))\nwashB.red(sine.slow(4).range(1, 0))   // opposite swell",
       },
       {
         name: '.rangex(lo, hi)',
         signature: 'pat.rangex(lo, hi)',
         description:
           'Range on an exponential curve. Perceived brightness is not linear in DMX value, so a linear fade spends most of its time looking bright. rangex spreads the motion across the bottom of the scale, where the eye can see it. Keep lo above 0.',
-        example: 'spot.dim(sine().slow(8).rangex(0.01, 1))',
+        example: 'spot.dim(sine.slow(8).rangex(0.01, 1))',
       },
       {
         name: '.add / .mul with a pattern',
@@ -1455,7 +1455,7 @@ const DOCS: DocSection[] = [
         description:
           'Both take a pattern as well as a number, which is how one pattern modulates another. add() shifts a waveform around by a stepped amount; mul() gates or scales it. The pattern being passed in keeps its own timing, so a slow sine can be chopped by a fast mini string.',
         example:
-          "wash.red(sine().mul(mini('1 0.25 1 0.25')))    // sine, chopped\nwash.red(sine().add(mini('<0 0.5>')))          // shifts every other bar",
+          "wash.red(sine.mul(mini('1 0.25 1 0.25')))    // sine, chopped\nwash.red(sine.add(mini('<0 0.5>')))          // shifts every other bar",
       },
     ],
   },
@@ -1471,29 +1471,29 @@ const DOCS: DocSection[] = [
         signature: 'pat.struct(mini(…))',
         description:
           'Take the values from this pattern and the rhythm from another. The usual way to drive a colour or a waveform with a rhythm you wrote separately, instead of building one pattern that carries both.',
-        example: "wash.red(sine().slow(4).struct(mini('1 - 1 - 1 - - -')))",
+        example: "wash.red(sine.slow(4).struct(mini('1 - 1 - 1 - - -')))",
       },
       {
         name: '.mask(pat)',
         signature: 'pat.mask(mini(…))',
         description:
           'Gate a pattern: it plays where the mask is on and is silent where the mask is off. Unlike struct, the underlying pattern keeps running underneath, so it comes back mid-motion rather than restarting. Good for cutting a running effect in and out.',
-        example: "wash.red(sine().slow(2).mask(mini('1 1 - -')))",
+        example: "wash.red(sine.slow(2).mask(mini('1 1 - -')))",
       },
       {
         name: '.segment(n)',
         signature: 'pat.segment(n)',
         description:
-          'Sample a continuous waveform n times per cycle, turning a smooth fade into n discrete steps. This is how you get a stepped look out of sine() without giving up the shape of the curve.',
-        example: 'spot.dim(sine().segment(8))         // 8 stepped levels per bar',
+          'Sample a continuous waveform n times per cycle, turning a smooth fade into n discrete steps. This is how you get a stepped look out of sine without giving up the shape of the curve.',
+        example: 'spot.dim(sine.segment(8))         // 8 stepped levels per bar',
       },
       {
         name: '.every(n, fn)',
-        signature: 'pat.every(n, p => …)',
+        signature: 'pat.every(n, change)',
         description:
           'Apply a transform on every nth cycle and leave the others alone. The standard way to make a repeating cue that varies without writing the variation out. firstOf and lastOf are the same idea with explicit ends.',
         example:
-          "wash.red(mini('1 - 1 -').every(4, p => p.fast(2)))\nwash.red(mini('1 1 1 1').lastOf(8, p => p.mul(0.2)))   // dip on bar 8",
+          "wash.red(mini('1 - 1 -').every(4, fast(2)))\nwash.red(mini('1 1 1 1').lastOf(8, mul(0.2)))   // dip on bar 8",
       },
       {
         name: '.iter(n)',
@@ -1504,10 +1504,10 @@ const DOCS: DocSection[] = [
       },
       {
         name: '.chunk(n, fn)',
-        signature: 'pat.chunk(n, p => …)',
+        signature: 'pat.chunk(n, change)',
         description:
           'Split the cycle into n parts and apply the transform to a different part each cycle, walking across. Reads as an effect travelling through a static pattern.',
-        example: "wash.red(mini('1 1 1 1').chunk(4, p => p.mul(0.2)))",
+        example: "wash.red(mini('1 1 1 1').chunk(4, mul(0.2)))",
       },
       {
         name: '.rev / .palindrome',
@@ -1548,27 +1548,27 @@ const DOCS: DocSection[] = [
     entries: [
       {
         name: '.superimpose(fn)',
-        signature: 'pat.superimpose(p => …)',
+        signature: 'pat.superimpose(change)',
         description:
           'Play the pattern and a transformed copy of it together. The copy is layered on top, not substituted, so this is how you thicken a cue: the original stays exactly as it was.',
         example:
-          "wash.red(mini('1 - - -').superimpose(p => p.late(0.125).mul(0.4)))",
+          "wash.red(mini('1 - - -').superimpose(late(0.125)))",
       },
       {
         name: '.off(n, fn)',
-        signature: 'pat.off(n, p => …)',
+        signature: 'pat.off(time, change)',
         description:
           'superimpose with the copy shifted n cycles later. The standard echo: one line gives you the hit and its dimmer repeat.',
         example:
-          "wash.red(mini('1 - - -').off(0.25, p => p.mul(0.4)))",
+          "wash.red(mini('1 - - -').off(0.25, mul(0.4)))",
       },
       {
         name: '.echoWith(n, t, fn)',
-        signature: 'pat.echoWith(times, time, (p, i) => …)',
+        signature: 'pat.echoWith(times, time, change)',
         description:
           'n copies, each shifted a further t cycles, each passed through the callback with its index. A decaying tail in one line. The plain .echo(n, time, fade) and .stut() work too, for the simple case: each repeat comes back dimmer by the fade.',
         example:
-          "wash.red(mini('1 - - -').echoWith(4, 0.125, (p, i) => p.mul(1 / (i + 1))))",
+          "wash.red(mini('1 - - -').echoWith(4, 0.125, mul(0.5)))   // each repeat half the last",
       },
       {
         name: 'per-channel, not per-fixture',
@@ -1576,7 +1576,7 @@ const DOCS: DocSection[] = [
         description:
           "Layering merges values on ONE channel. Two calls to the same setter do not merge: the second replaces the first, because the last call is the one that registers. To combine them, put both inside one stack() or one comma'd mini string.",
         example:
-          "wash.red(mini('1 - - -'))\nwash.red(sine())                                  // replaces the line above\nwash.red(stack(mini('1 - - -'), sine().mul(0.3)))  // combines them",
+          "wash.red(mini('1 - - -'))\nwash.red(sine)                                  // replaces the line above\nwash.red(stack(mini('1 - - -'), sine.mul(0.3)))  // combines them",
       },
     ],
   },
@@ -1630,37 +1630,37 @@ const DOCS: DocSection[] = [
     entries: [
       {
         name: 'sine · cosine',
-        signature: 'sine()  ·  cosine()',
+        signature: 'sine  ·  cosine',
         description:
-          'The smooth ones, a quarter cycle apart. cosine() is sine() a quarter early, which is the usual way to get two lights swelling out of step without writing the offset.',
-        example: 'washA.red(sine().slow(4))\nwashB.red(cosine().slow(4))',
+          'The smooth ones, a quarter cycle apart. cosine is sine a quarter early, which is the usual way to get two lights swelling out of step without writing the offset.',
+        example: 'washA.red(sine.slow(4))\nwashB.red(cosine.slow(4))',
       },
       {
         name: 'saw · isaw',
-        signature: 'saw()  ·  isaw()',
+        signature: 'saw  ·  isaw',
         description:
-          'A ramp up and a ramp down. saw() climbs 0 to 1 across the cycle and drops; isaw() is its mirror. Good for sweeps and for anything that should reset hard rather than ease.',
-        example: 'strip.red(saw().slow(2))\nstrip.blue(isaw().slow(2))',
+          'A ramp up and a ramp down. saw climbs 0 to 1 across the cycle and drops; isaw is its mirror. Good for sweeps and for anything that should reset hard rather than ease.',
+        example: 'strip.red(saw.slow(2))\nstrip.blue(isaw.slow(2))',
       },
       {
         name: 'tri',
-        signature: 'tri()',
+        signature: 'tri',
         description:
           'Up then down in equal time. A fade in and out with no dwell at either end, where a sine lingers at the top and bottom.',
-        example: 'spot.dim(tri().slow(8))',
+        example: 'spot.dim(tri.slow(8))',
       },
       {
         name: 'square',
-        signature: 'square()',
+        signature: 'square',
         description: 'Hard on, hard off, half the cycle each. Chops rather than fades.',
-        example: 'strb.strobe(square().fast(8))',
+        example: 'strb.strobe(square.fast(8))',
       },
       {
         name: 'rand · perlin',
-        signature: 'rand()  ·  perlin()',
+        signature: 'rand  ·  perlin',
         description:
-          'Two kinds of noise. rand() jumps to an unrelated value constantly, which reads as sparkle or fault; perlin() wanders smoothly, which reads as flicker, candlelight or drift. perlin is almost always the one you want for something meant to look alive.',
-        example: 'wash.red(perlin().slow(4).range(0.3, 1))\nstrb.strobe(rand().range(-6, 1))',
+          'Two kinds of noise. rand jumps to an unrelated value constantly, which reads as sparkle or fault; perlin wanders smoothly, which reads as flicker, candlelight or drift. perlin is almost always the one you want for something meant to look alive.',
+        example: 'wash.red(perlin.slow(4).range(0.3, 1))\nstrb.strobe(rand.range(-6, 1))',
       },
       {
         name: 'irand · run',
@@ -1687,10 +1687,10 @@ const DOCS: DocSection[] = [
     entries: [
       {
         name: 'what a pattern about sound does here',
-        signature: "sine().gain(0.5)  ·  .room(…)  ·  .s('bd')",
+        signature: "sine.gain(0.5)  ·  .room(…)  ·  .s('bd')",
         description:
           'Patterns copied from strudel work, because gobo runs strudel\'s own engine under strudel\'s names. Many of those methods describe sound. What happens is decided where a value reaches a channel: a plain number is the level, and a wrapped value is unwrapped so the level underneath still drives the light instead of reading as nothing. gain is kept, because gain is amplitude and amplitude is level, and so is velocity, which is how strudel accents a step. Both multiply, which is what makes .stut() and .echo() decay instead of repeating at full. speed, pan, room, crush, note and the sample name are ignored. Nothing errors, so a pasted pattern runs.',
-        example: "wash.dim(flash().stut(4, 0.6, 0.125))   // gain folds in: the repeats decay\nwash.red(sine().gain(0.5))              // half level\nwash.red(sine().room(0.8))              // room ignored, sine drives it",
+        example: "wash.dim(flash().stut(4, 0.6, 0.125))   // gain folds in: the repeats decay\nwash.red(sine.gain(0.5))              // half level\nwash.red(sine.room(0.8))              // room ignored, sine drives it",
       },
       {
         name: 'choose · wchoose',
@@ -1718,7 +1718,7 @@ const DOCS: DocSection[] = [
         signature: 'brand  ·  brandBy(p)',
         description:
           'Random zero or one, rather than a level in between. brandBy(p) biases it: p is the chance of a one. Useful as a gate, multiplied into something else, or fed to mask().',
-        example: 'wash.red(sine().mul(brandBy(0.7).segment(8)))',
+        example: 'wash.red(sine.mul(brandBy(0.7).segment(8)))',
       },
     ],
   },
@@ -1784,11 +1784,11 @@ const DOCS: DocSection[] = [
       },
       {
         name: '.sometimesBy(n, fn)',
-        signature: 'pat.sometimesBy(n, p => …)',
+        signature: 'pat.sometimesBy(n, change)',
         description:
           'Apply a transform to a fraction n of events rather than dropping them. someCyclesBy does the same at whole-cycle scale, so an occasional bar plays differently.',
         example:
-          "wash.red(mini('1 1 1 1').sometimesBy(0.3, p => p.mul(0.2)))",
+          "wash.red(mini('1 1 1 1').sometimesBy(0.3, mul(0.2)))",
       },
       {
         name: '.swingBy(n, sub)',
@@ -1817,7 +1817,7 @@ const DOCS: DocSection[] = [
       },
       {
         name: 'pattern',
-        signature: 'sine().slow(2)',
+        signature: 'sine.slow(2)',
         description: "Queried every tick. Expected to emit values in [0,1].",
       },
       {
@@ -1831,7 +1831,7 @@ const DOCS: DocSection[] = [
         name: 'anything else',
         signature: "wash.red('1')",
         description:
-          'Rejected, with the channel named. A quoted number, a signal that was never called (sine rather than sine()), NaN and null each stop the evaluation, and the rig keeps running whatever it had.',
+          'Rejected, with the channel named. A quoted number, a signal that was never called (sine rather than sine), NaN and null each stop the evaluation, and the rig keeps running whatever it had.',
       },
     ],
   },
@@ -2055,7 +2055,7 @@ function scoreEntry(
   if (shortName.includes(q)) return named(6_000 - shortName.indexOf(q) * 10 - shortName.length);
   if (name.includes(q)) return named(5_000 - name.indexOf(q) * 10 - name.length);
 
-  // Signature hits: `mul` matches `sine().mul(n)` as a word after a dot
+  // Signature hits: `mul` matches `sine.mul(n)` as a word after a dot
   // or opening paren, meaning the method itself, not a random substring.
   if (sig.startsWith(q)) return named(3_000);
   if (

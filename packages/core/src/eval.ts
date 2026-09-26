@@ -269,7 +269,7 @@ export async function initStrudel(): Promise<void> {
       // ones that take nothing but the pattern (rev, palindrome, brak, press)
       // are passed bare, as in .every(4, rev).
       'fast', 'slow', 'early', 'late', 'rev', 'palindrome', 'iter', 'ply', 'linger',
-      'degradeBy', 'segment', 'mul', 'add', 'sub', 'brak', 'press', 'fastGap', 'hurry',
+      'degradeBy', 'segment', 'mul', 'add', 'sub', 'brak', 'press', 'fastGap', 'hurry', 'range',
     ] as const;
     // Signals are exported as Pattern instances; wrap() makes them callable so
     // scene code says tri() the way it says sine(). Everything else is already
@@ -1115,7 +1115,7 @@ const METHOD_HINTS: Record<string, string> = {
   dim:
     '.dim() drives a dimmer channel, and a colour strip has none: its brightness is '
     + 'the colour itself. .mono(v) puts every emitter at one level, and .color(c) takes '
-    + 'a pattern, so .color(red.mul(sine())) fades a colour.',
+    + 'a pattern, so .color(red.mul(sine)) fades a colour.',
   brightness: 'brightness is spelled .dim() on a fixture with a dimmer, and .mono(v) on a colour strip.',
   intensity: 'intensity is spelled .dim() on a fixture with a dimmer, and .mono(v) on a colour strip.',
   level: 'a level is .dim() on a fixture with a dimmer, and .mono(v) on a colour strip.',

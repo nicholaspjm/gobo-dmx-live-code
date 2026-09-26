@@ -2039,7 +2039,9 @@ export interface StripInstance {
    *   wash.pixels.eachXY((x, y, w) => sine().early(x / w).slow(4))
    */
   eachXY(
-    fn: (x: number, y: number, w: number, h: number) => PatternOrValue | PatternOrValue[],
+    fn: EachXYArg<PatternOrValue | PatternOrValue[]>,
+    spreadX?: number,
+    spreadY?: number,
   ): void;
 
   /**
@@ -2248,7 +2250,8 @@ export function rgbStrip(
       for (let y = 0; y < geo.height; y++) inst.pixel(geo.pos(x, y), ...(args as []));
     },
 
-    eachXY(fn) {
+    eachXY(arg, spreadX, spreadY) {
+      const fn = eachXYFunction(arg, spreadX, spreadY);
       for (let y = 0; y < geo.height; y++) {
         for (let x = 0; x < geo.width; x++) {
           const result = spreadIfColor(fn(x, y, geo.width, geo.height));
@@ -2526,7 +2529,7 @@ export interface MonoStripInstance {
   /** Run a callback per cell; `(phase, i, count)` as on the colour strips. */
   each(fn: EachArg<PatternOrValue>, spread?: number): void;
   /** Run a callback per cell with its grid position `(x, y, w, h)`. */
-  eachXY(fn: (x: number, y: number, w: number, h: number) => PatternOrValue): void;
+  eachXY(fn: EachXYArg<PatternOrValue>, spreadX?: number, spreadY?: number): void;
   /**
    * A band of light travelling along the cells. No colour to name, because
    * every cell here is one channel.
@@ -2670,7 +2673,8 @@ export function monoStrip(
       }
     },
 
-    eachXY(fn) {
+    eachXY(arg, spreadX, spreadY) {
+      const fn = eachXYFunction(arg, spreadX, spreadY);
       for (let y = 0; y < geo.height; y++) {
         for (let x = 0; x < geo.width; x++) {
           set(geo.index(x, y), channelValue([fn(x, y, geo.width, geo.height)], `.eachXY() (${x}, ${y})`));
@@ -2778,7 +2782,9 @@ export interface RgbwStripInstance {
    * level or `[r, g, b, w]`. See {@link StripInstance.eachXY}.
    */
   eachXY(
-    fn: (x: number, y: number, w: number, h: number) => PatternOrValue | PatternOrValue[],
+    fn: EachXYArg<PatternOrValue | PatternOrValue[]>,
+    spreadX?: number,
+    spreadY?: number,
   ): void;
 
   /**
@@ -2986,7 +2992,8 @@ export function rgbwStrip(
       for (let y = 0; y < geo.height; y++) inst.pixel(geo.pos(x, y), ...(args as []));
     },
 
-    eachXY(fn) {
+    eachXY(arg, spreadX, spreadY) {
+      const fn = eachXYFunction(arg, spreadX, spreadY);
       for (let y = 0; y < geo.height; y++) {
         for (let x = 0; x < geo.width; x++) {
           const result = spreadIfColor(fn(x, y, geo.width, geo.height));
@@ -3538,6 +3545,11 @@ export type EachArg<R> = PatternLike | ((phase: number, i: number, count: number
 function eachFunction<R>(arg: EachArg<R>, spread: number | undefined): (phase: number, i: number, count: number) => R {
   if (typeof arg === 'function') return arg;
   const pattern = arg as unknown as { early?: (t: number) => R };
+  // A level or a colour is the same for every light, which is allowed: it is
+  // what the group's own setters do, and each(0.5) reads as it should.
+  if (typeof arg === 'number' || (pattern !== null && typeof pattern === 'object' && typeof pattern.early !== 'function' && !Array.isArray(arg))) {
+    return () => arg as unknown as R;
+  }
   if (pattern === null || typeof pattern !== 'object' || typeof pattern.early !== 'function') {
     throw new Error(
       ".each() takes a pattern, which every light runs a step later than the one before, as in "
@@ -3549,6 +3561,35 @@ function eachFunction<R>(arg: EachArg<R>, spread: number | undefined): (phase: n
     throw new Error('.each(pattern, spread): spread is how many cycles the steps add up to across the lights, as in rig.each(sine, 0.5).');
   }
   return (phase) => (pattern.early as (t: number) => R).call(pattern, phase * amount);
+}
+
+/** What .eachXY() is handed: a pattern, or a function of the cell's position. */
+export type EachXYArg<R> = PatternLike | ((x: number, y: number, w: number, h: number) => R);
+
+/**
+ * .eachXY() as a function of position, whichever form it was given.
+ *
+ * A pattern runs on every cell a step later the further along it is:
+ * `spreadX` cycles across the width and `spreadY` down the height, one and
+ * none by default, so `grid.eachXY(sine)` sweeps across, `grid.eachXY(sine, 0,
+ * 1)` wipes down and `grid.eachXY(sine, 1, 1)` runs corner to corner.
+ */
+function eachXYFunction<R>(
+  arg: EachXYArg<R>,
+  spreadX: number | undefined,
+  spreadY: number | undefined,
+): (x: number, y: number, w: number, h: number) => R {
+  if (typeof arg === 'function') return arg;
+  const pattern = arg as unknown as { early?: (t: number) => R };
+  if (pattern === null || typeof pattern !== 'object' || typeof pattern.early !== 'function') {
+    throw new Error(".eachXY() takes a pattern, which runs across the grid, as in grid.eachXY(sine) or grid.eachXY(sine, 0, 1) to run it down.");
+  }
+  const sx = spreadX ?? 1;
+  const sy = spreadY ?? 0;
+  if (!Number.isFinite(sx) || !Number.isFinite(sy)) {
+    throw new Error('.eachXY(pattern, across, down): across and down are how many cycles the steps add up to, as in grid.eachXY(sine, 1, 1).');
+  }
+  return (x, y, w, h) => (pattern.early as (t: number) => R).call(pattern, (x / w) * sx + (y / h) * sy);
 }
 
 /**

@@ -517,14 +517,14 @@ export function mountLibraryPanel(opts: {
     const emitter = def.channels.find((c) => c.type !== 'strip' && isEmitterChannel(c));
 
     if (emitter) {
-      lines.push(`light.${emitter.name}(sine().slow(4))`);
+      lines.push(`light.${emitter.name}(sine.slow(4))`);
     }
     if (strip) {
       const args = strip.pixelLayout === 'rgbw' ? '1, 0, 0, 0'
         : strip.pixelLayout === 'mono' ? '1'
         : '1, 0, 0';
       lines.push(`light.${strip.name}.fill(${args})`);
-      lines.push(`light.${strip.name}.each(p => sine().early(p).slow(2))`);
+      lines.push(`light.${strip.name}.each(sine.slow(2))`);
     }
     // A slotted channel is the one thing here that reads nothing like the
     // rest, so it is worth showing even on a fixture that already has an

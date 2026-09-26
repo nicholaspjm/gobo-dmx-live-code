@@ -73,7 +73,7 @@ function valueHint(v: unknown): string {
       ? ` Drop the quotes: ${Number(v)}, or wrap it in a pattern: mini(${JSON.stringify(v)}).`
       : ` Mini-notation goes inside mini(${JSON.stringify(v)}).`;
   }
-  if (typeof v === 'function') return ' Signals need calling: sine() rather than sine.';
+  if (typeof v === 'function') return ' That is a function, not a pattern: call it, as in flash(), to get the pattern it makes.';
   if (typeof v === 'number') return ' Check the arithmetic that produced it.';
   if (v === undefined) return ' Omit the argument entirely for full.';
   return '';
