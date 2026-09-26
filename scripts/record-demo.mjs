@@ -55,17 +55,19 @@ const wash  = fixture(1, 'rgbw').viz('color')
 const strip = rgbStrip(5, 16).viz('strip')
 const strb  = fixture(60, 'strobe').viz('meter')
 
-wash.red( mini('1 - - -  - - 1 -').glow())
-wash.blue(mini('- 1 - -  1 - - 1'))
+wash.red(mini('1 - - -  - - 1 -').glow())
+wash.blue('- 1 - -  1 - - 1')
 
-strip.rainbowChase()
+strip.color(amber)
+strip.each(mini('1 - - -').fadeOut(2))
 
-strb.dim(0.9)
-strb.strobe(mini('- - - -  - - 1 1').flash())
+strb.dim(mini('- - - -  - - 1 1').settle(0.25).flash())
 `;
 
-const EDIT_FROM = 'rainbowChase()';
-const EDIT_TO = 'chase([red, amber])';
+// A colour swap on the chase: the one change in the scene that reads from
+// across a room, and it shows the level running over whatever colour is set.
+const EDIT_FROM = 'amber';
+const EDIT_TO = 'cyan';
 
 if (!existsSync(join(root, 'dist', 'index.html')) || !existsSync(join(root, 'packages', 'bridge', 'dist', 'index.js'))) {
   console.error('[record] build first: npm run build && npm run bridge:build');
@@ -231,7 +233,7 @@ await sleep(3200);
 const target = await rectOf(`(() => {
   const walker = document.createTreeWalker(document.querySelector('.cm-content'), NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-    const i = n.textContent.indexOf('rainbowChase');
+    const i = n.textContent.indexOf('color(amber)');
     if (i === -1) continue;
     const line = n.parentElement.closest('.cm-line');
     const range = document.createRange();
@@ -243,6 +245,8 @@ const target = await rectOf(`(() => {
 if (!target) throw new Error('could not find the line to edit');
 await click(target.x + target.w + 2, target.y + target.h / 2);
 await key('End', 'End', 35);
+// Back over the closing bracket, so the colour is what gets deleted.
+await key('ArrowLeft', 'ArrowLeft', 37);
 await sleep(350);
 for (let i = 0; i < EDIT_FROM.length; i++) {
   await key('Backspace', 'Backspace', 8);
