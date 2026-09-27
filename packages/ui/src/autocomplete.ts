@@ -367,7 +367,7 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
       label: decl.name,
       type: 'function',
       detail: functionSignature(decl),
-      info: 'A function this scene declares.',
+      info: 'Declared in this scene.',
     }));
 
   // Looks this scene names as blocks, verse: { … }, which cue() takes.

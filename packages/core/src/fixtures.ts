@@ -1140,7 +1140,7 @@ function everyArgIsColour(args: readonly unknown[]): boolean {
 function oneColourOnly(what: string, count: number): Error {
   return new Error(
     `${what}: takes one colour, not ${count}. Take one stop with warm[0], ` +
-    `or put the palette in time with cat(...warm).slow(4).`,
+    `or put the palette in time with '<0 1 2>'.palette(warm).`,
   );
 }
 
@@ -1233,7 +1233,7 @@ export function fixtureCommands(def: FixtureDef): string[] {
       // The same call under the word the rest of the lights answer to. Listed
       // because a call nothing advertises is a call nobody finds.
       if (ch.pixelLayout !== 'mono') out.push(`${ch.name}.color(${v})`);
-      out.push(`${ch.name}.${chase}`, `${ch.name}.each(fn)`);
+      out.push(`${ch.name}.${chase}`, `${ch.name}.each(pattern)`);
       continue;
     }
     if (ch.slots !== undefined && ch.slots.length > 0) {
@@ -1313,7 +1313,7 @@ export function stripCommands(layout: 'rgb' | 'rgbw' | 'mono'): string[] {
   const v = layout === 'rgbw' ? 'r,g,b,w' : layout === 'mono' ? 'v' : 'r,g,b';
   const out = [
     `fill(${v})`, `pixel(i,${v})`, `pixelXY(x,y,${v})`, `row(y,${v})`, `column(x,${v})`,
-    'each(fn)', 'eachXY(fn)',
+    'each(pattern)', 'eachXY(pattern)',
   ];
   // A mono strip is levels, with no colour to name, so it gains no .color().
   if (layout !== 'mono') out.push(`color(${v})`, 'temp(k)');
@@ -3589,7 +3589,7 @@ export interface GroupInstance {
 export function groupCommands(): string[] {
   return [
     'red(v)', 'green(v)', 'blue(v)', 'white(v)', 'dim(v)', 'pan(v)', 'tilt(v)',
-    'color(r,g,b)', 'mono(v)', 'temp(k)', 'set(role, v)', 'each(fn)', 'full()', 'off()', 'size',
+    'color(r,g,b)', 'mono(v)', 'temp(k)', 'set(role, v)', 'each(pattern)', 'full()', 'off()', 'size',
   ];
 }
 
@@ -3628,7 +3628,7 @@ function eachFunction<R>(arg: EachArg<R>, spread: number | undefined): (phase: n
   if (pattern === null || (typeof pattern !== 'object' && typeof pattern !== 'function') || typeof pattern.early !== 'function') {
     throw new Error(
       ".each() takes a pattern, which every light runs a step later than the one before, as in "
-      + "rig.each(sine) or rig.each(mini('1 - - -').fadeOut(2)).",
+      + "rig.each(sine) or rig.each('1 - - -'.fadeOut(2)).",
     );
   }
   const amount = spread ?? 1;
@@ -3682,19 +3682,32 @@ function eachXYFunction<R>(
  * as it comes, so a pattern of pans (`.pan(mini('0 1'))`, `.pan(rand)`)
  * places each step on its own.
  */
-/** Whether a pattern's first cycle carries a place along a group (side, pan or fan). */
+/**
+ * Whether a pattern carries a place along a group (side, pan or fan) in its
+ * first four bars. Remembered per pattern, since a group asks once per light.
+ */
+const _placement = new WeakMap<object, boolean>();
 function carriesPlacement(p: unknown): boolean {
+  if (p === null || (typeof p !== 'object' && typeof p !== 'function')) return false;
+  const known = _placement.get(p as object);
+  if (known !== undefined) return known;
+  let found = false;
   try {
-    const haps = (p as { queryArc: (b: number, e: number) => Array<{ value: unknown }> }).queryArc(0, 1);
-    return haps.some(({ value: v }) => v !== null && typeof v === 'object'
+    const haps = (p as { queryArc: (b: number, e: number) => Array<{ value: unknown }> }).queryArc(0, 4);
+    found = haps.some(({ value: v }) => v !== null && typeof v === 'object'
       && ('side' in v || 'pan' in v || 'fan' in v));
   } catch {
-    return false;
+    found = false;
   }
+  _placement.set(p as object, found);
+  return found;
 }
 
 function placeAcross(value: PatternOrValue, index: number, count: number): PatternOrValue {
   if (typeof value === 'number' || count < 2) return value;
+  // Nothing to place: the same pattern goes to every light, so the tick can
+  // query it once for all of them rather than once per light.
+  if (!carriesPlacement(value)) return value;
   const p = value as unknown as { fmap?: (fn: (v: unknown) => unknown) => PatternOrValue };
   if (typeof p.fmap !== 'function') return value;
   return p.fmap((v: unknown) => {

@@ -171,7 +171,7 @@ function installJux(proto: any, stack: (...pats: unknown[]) => unknown): void {
   proto.fan = function (this: { fmap(fn: (v: unknown) => unknown): unknown }, width: unknown) {
     const w = typeof width === 'string' && width.trim() !== '' ? Number(width) : width;
     if (typeof w !== 'number' || !Number.isFinite(w)) {
-      throw new Error('.fan() takes how wide to spread across the group, as in heads.pan(sine.slow(8).fan(0.4)), or heads.pan(mini(\'0.5\').fan(0.4)) to hold still.');
+      throw new Error('.fan() takes how wide to spread across the group, as in heads.pan(sine.slow(8).fan(0.4)), or heads.pan(\'0.5\'.fan(0.4)) to hold still.');
     }
     return this.fmap((v: unknown) => (v !== null && typeof v === 'object' ? { ...(v as object), fan: w } : { value: v, fan: w }));
   };
@@ -1160,7 +1160,7 @@ function cueArgs(given: unknown[]): [unknown, unknown] {
     looks[name] = look;
   }
   if (args.length > k + 1) {
-    throw new Error('cue(): the looks come first and the one thing after them is what chooses, as in cue(verse, chorus, mini(\'<verse chorus>\')).');
+    throw new Error('cue(): the looks come first and the one thing after them is what chooses, as in cue(verse, chorus, \'<verse chorus>\').');
   }
   return [looks, args[k]];
 }
@@ -1362,7 +1362,7 @@ const METHOD_HINTS: Record<string, string> = {
   pianoroll: "a lighting channel has levels, not notes, so gobo calls this .roll(): the level drawn across the cycle, beside the line.",
   _pianoroll: "a lighting channel has levels, not notes, so gobo calls this .roll(): the level drawn across the cycle, beside the line.",
   _pitchwheel: 'a lighting channel has no pitch. .spiral() draws the level around the cycle, which is the closest picture.',
-  s: 'there are no samples to play: a channel takes a level. wash.dim(mini(\'1 - 1 -\')) is the lighting form of a drum pattern.',
+  s: 'there are no samples to play: a channel takes a level. wash.dim(\'1 - 1 -\') is the lighting form of a drum pattern.',
   note: 'a channel takes a level from 0 to 1 rather than a note. .range(0, 1) maps a pattern into it.',
 };
 
@@ -1374,10 +1374,10 @@ const METHOD_HINTS: Record<string, string> = {
  * letter from `m`).
  */
 const MUSIC_NAMES: Record<string, string> = {
-  s: 's() plays a sound, and a light has none to play. A channel takes a level: wash.dim(mini(\'1 - 1 -\')) is the lighting form of a drum pattern.',
-  sound: 'sound() plays a sample, and a light has none to play. A channel takes a level: wash.dim(mini(\'1 - 1 -\')).',
-  note: 'note() is a pitch, and a light has none. A channel takes a level from 0 to 1: mini(\'0 0.5 1\'), or .range(0, 1) on any pattern.',
-  n: 'n() picks notes from a scale, and a light has none. A channel takes a level from 0 to 1: mini(\'0 0.5 1\').',
+  s: 's() plays a sound, and a light has none to play. A channel takes a level: wash.dim(\'1 - 1 -\') is the lighting form of a drum pattern.',
+  sound: 'sound() plays a sample, and a light has none to play. A channel takes a level: wash.dim(\'1 - 1 -\').',
+  note: 'note() is a pitch, and a light has none. A channel takes a level from 0 to 1: \'0 0.5 1\', or .range(0, 1) on any pattern.',
+  n: 'n() picks notes from a scale, and a light has none. A channel takes a level from 0 to 1: \'0 0.5 1\'.',
   samples: 'samples() loads sounds, which a light does not use. Fixtures are what a scene loads: fixture(1, \'rgb\'), or defineFixture() for your own.',
 };
 
@@ -1461,10 +1461,13 @@ export function methodHint(
   // level. Which setter takes it also depends on the light, so both are named
   // rather than one guessed at.
   if (new Set(globals).has(method)) {
+    // A signal is written bare, as strudel does (sine); a move is called (flash()).
+    const signal = typeof (_strudelCtx[method] as { queryArc?: unknown } | undefined)?.queryArc === 'function';
+    const call = signal ? method : `${method}()`;
     const where = method in COLORS
       ? `${receiver}.color(${method})`
-      : `${receiver}.dim(${method}()) on a fixture with a dimmer, or `
-        + `${receiver}.mono(${method}()) on a colour strip`;
+      : `${receiver}.dim(${call}) on a fixture with a dimmer, or `
+        + `${receiver}.mono(${call}) on a colour strip`;
     return (
       `${message}. ${method} is one of gobo's own, not something a light answers to. `
       + `It is a value, so it goes inside a setter: ${where}.`

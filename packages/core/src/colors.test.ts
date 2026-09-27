@@ -638,7 +638,7 @@ describe('readColor', () => {
   it('refuses a palette rather than quietly taking its first stop', () => {
     const refusal =
       '.color(): takes one colour, not 2. Take one stop with warm[0], ' +
-      'or put the palette in time with cat(...warm).slow(4).';
+      "or put the palette in time with '<0 1 2>'.palette(warm).";
     expect(messageOf(() => readColor([[COLORS.red, COLORS.blue]], '.color()'))).toBe(refusal);
     expect(messageOf(() => readColor([COLORS.red, COLORS.blue], '.color()'))).toBe(refusal);
   });

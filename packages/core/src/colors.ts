@@ -561,7 +561,7 @@ export function readColor(args: readonly unknown[], what: string): Color {
   if (stops.length === 1) return stops[0];
   throw new Error(
     `${what}: takes one colour, not ${stops.length}. Take one stop with warm[0], ` +
-    `or put the palette in time with cat(...warm).slow(4).`,
+    `or put the palette in time with '<0 1 2>'.palette(warm).`,
   );
 }
 

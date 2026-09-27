@@ -286,7 +286,7 @@ describe('invalid values', () => {
     ['NaN',              NaN,                          'finite number'],
     ['null',             null,                         'got null'],
     ['undefined',        undefined,                    'got undefined'],
-    ['mini notation',    '1 0 1 0',                    'mini("1 0 1 0")'],
+    ['mini notation',    '1 0 1 0',                    'pattern engine, which has not loaded'],
     ['an uncalled function', () => 0,                  'call it, as in flash()'],
     ['a plain object',   {},                           'got an object'],
     ['an array',         [1, 2, 3],                    'got an array'],

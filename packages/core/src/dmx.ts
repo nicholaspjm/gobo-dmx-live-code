@@ -72,8 +72,8 @@ function describeValue(v: unknown): string {
 function valueHint(v: unknown): string {
   if (typeof v === 'string') {
     return Number.isFinite(Number(v))
-      ? ` Drop the quotes: ${Number(v)}, or wrap it in a pattern: mini(${JSON.stringify(v)}).`
-      : ` Mini-notation goes inside mini(${JSON.stringify(v)}).`;
+      ? ` Drop the quotes: ${Number(v)}.`
+      : ` A quoted pattern needs the pattern engine, which has not loaded: reload the page.`;
   }
   if (typeof v === 'function') return ' That is a function, not a pattern: call it, as in flash(), to get the pattern it makes.';
   if (typeof v === 'number') return ' Check the arithmetic that produced it.';
