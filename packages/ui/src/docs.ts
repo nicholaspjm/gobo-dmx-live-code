@@ -580,6 +580,13 @@ export const DOCS: DocSection[] = [
         example: "wash.dim('1 - 1 -'.fadeIn(0.5))       // swells in\nwash.dim('1 - - -'.fadeOut(2))        // glows after the hit",
       },
       {
+        name: '.clip · .legato',
+        signature: '.clip(fraction) · .legato(fraction)',
+        description:
+          "How much of each step is lit, from its start: .clip(0.25) is a quarter. strudel uses these for how long a note sounds; here it is how long a step stays on, so '1*8'.clip(0.25) is eight short flashes rather than a solid bar. A fade out after it starts where the flash ends.",
+        example: "strb.dim('1*8'.clip(0.25))              // eight short flashes\npars.each('1 - - -'.clip(0.5).fadeOut(2))   // a short hit with a tail",
+      },
+      {
         name: '.settle',
         signature: '.settle(beats, level = 0)',
         description:

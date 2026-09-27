@@ -155,12 +155,15 @@ export function fade(kit: StrudelKit, pattern: unknown, shape: Shape): unknown {
     const from = Fraction(t - r);
     const to = Fraction(t + 1e-6);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stepped: any[] = src.query(state.setSpan(new TimeSpan(from, to))).filter((h: any) => h.whole);
+    const wide: any[] = src.query(state.setSpan(new TimeSpan(from, to)));
     // A continuous signal has no steps to shape, and a query as wide as the
     // look back reads it at the far end of it: it is read again at t itself.
+    // Only then, since the second query is most of the cost of a fade.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const flowing: any[] = src.query(state.setSpan(new TimeSpan(Fraction(t), to))).filter((h: any) => !h.whole);
-    const haps = [...stepped, ...flowing];
+    const haps: any[] = wide.every((h: any) => h.whole)
+      ? wide
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      : [...wide.filter((h: any) => h.whole), ...src.query(state.setSpan(new TimeSpan(Fraction(t), to))).filter((h: any) => !h.whole)];
     let best: number | null = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let bestHap: any = null;
@@ -237,6 +240,23 @@ export function fade(kit: StrudelKit, pattern: unknown, shape: Shape): unknown {
   return faded;
 }
 
+/** Every step of `pattern` held for `fraction` of its length, from its start. */
+function shorten(kit: StrudelKit, pattern: unknown, fraction: number): unknown {
+  const { Pattern, Hap, TimeSpan, Fraction } = kit;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const src = pattern as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return new Pattern((state: any) => src.query(state).flatMap((hap: any) => {
+    if (!hap.whole) return [hap];
+    const begin = hap.whole.begin.valueOf();
+    const end = begin + (hap.whole.end.valueOf() - begin) * fraction;
+    if (hap.part.begin.valueOf() >= end) return [];
+    const whole = new TimeSpan(hap.whole.begin, Fraction(end));
+    const part = hap.part.end.valueOf() > end ? new TimeSpan(hap.part.begin, Fraction(end)) : hap.part;
+    return [new Hap(whole, part, hap.value, hap.context)];
+  }));
+}
+
 /** Read a stage length a scene wrote, or say what it should have been. */
 function amountOf(v: unknown, what: string, unit: string): number {
   const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
@@ -280,6 +300,22 @@ export function installFades(kit: StrudelKit, proto: any): void {
   proto.adsr = function (this: unknown, spec: unknown) {
     return fade(kit, this, parseAdsr(spec));
   };
+  // How much of each step is lit. In strudel .clip() and .legato() say how
+  // long a note sounds against its step; for a light that is how long the
+  // step stays on: '1*8'.clip(0.25) is eight short flashes, and a fade out
+  // after it starts where the flash ends. Numbers only; a patterned length
+  // keeps strudel's own meaning.
+  for (const name of ['clip', 'legato'] as const) {
+    const own = proto[name];
+    proto[name] = function (this: unknown, v: unknown, ...rest: unknown[]) {
+      const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
+      if (typeof n !== 'number' || !Number.isFinite(n) || rest.length > 0) {
+        return typeof own === 'function' ? own.call(this, v, ...rest) : this;
+      }
+      return shorten(kit, this, Math.max(0, n));
+    };
+  }
+
   // Position across a group, in lighting words. It rides on strudel's pan
   // control, which the group reads (fixtures.ts, placeAcross), so the two are
   // one thing; pan keeps its strudel name for pasted code, and across is the

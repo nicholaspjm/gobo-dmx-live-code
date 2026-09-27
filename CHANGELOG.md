@@ -4,6 +4,19 @@ All notable changes to gobo are recorded here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`.clip()` and `.legato()` set how long each step stays lit.** In strudel
+  they are how long a note sounds; for a light, `'1*8'.clip(0.25)` is eight
+  short flashes, and a `.fadeOut()` after it starts where the flash ends.
+
+### Changed
+
+- Fades are back to their earlier speed on long strips: the second look at
+  a continuous signal is only taken when the pattern has one.
+
 ## [0.6.0] - 2026-09-27
 
 ### Added
@@ -941,6 +954,7 @@ First public release. There was never a published 0.1.0. Everything below landed
 - The sim panel was hard-coded to one scene's channel layout and showed ghost fixtures after a scene switch. It is now rebuilt from the fixtures registered during the last eval. Its "off" state also reads the theme background instead of a hardcoded colour, so blackout looks dark on every theme.
 - The `ultratronics 11` template called `spot.dim()` on an RGBW fixture that has no dimmer channel, throwing on every run. The instrument palette was remapped onto discrete colour channels. The fixed version is the one in the **examples** menu; a copy you saved under the old scene model still holds the broken call, so re-load the example if you kept one.
 
+[Unreleased]: https://github.com/nicholaspjm/gobo-dmx-live-code/compare/v0.6.0...HEAD
 [0.6.0]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.6.0
 [0.5.3]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.3
 [0.5.2]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.5.2

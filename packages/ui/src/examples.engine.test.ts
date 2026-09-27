@@ -423,6 +423,30 @@ describe('what the whole-project review found', () => {
   });
 });
 
+describe('step length, strudel clip and legato', () => {
+  it('.clip() lights each step for part of its length', () => {
+    run("const w = fixture(1, 'dim')\nw.dim('1 1'.clip(0.25))");
+    expect(at(0.05)).toBe(255);
+    expect(at(0.2)).toBe(0);
+    expect(at(0.55)).toBe(255);
+    expect(at(0.8)).toBe(0);
+  });
+
+  it('a fade out after it starts where the flash ends', () => {
+    run("const w = fixture(1, 'dim')\nw.dim('1'.clip(0.25).fadeOut(2))");
+    expect(at(0.1)).toBe(255);
+    const tail = at(0.5);
+    expect(tail).toBeGreaterThan(0);
+    expect(tail).toBeLessThan(255);
+  });
+
+  it('.legato() reads the same way', () => {
+    run("const w = fixture(1, 'dim')\nw.dim('1'.legato(0.5))");
+    expect(at(0.25)).toBe(255);
+    expect(at(0.75)).toBe(0);
+  });
+});
+
 describe('a fan', () => {
   it('spreads a group of heads out around a centre', () => {
     run("const a = fixture(1, 'moving-head-basic')\nconst b = fixture(9, 'moving-head-basic')\nconst c = fixture(17, 'moving-head-basic')\ngroup(a, b, c).pan(mini('0.5').fan(0.4))");

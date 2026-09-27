@@ -196,6 +196,23 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'method',
   },
   {
+    label: 'clip',
+    signature: '.clip(fraction)',
+    description:
+      "How much of each step is lit, from its start. strudel's note length, as a light's: '1*8'.clip(0.25) is eight short flashes. .legato() reads the same.",
+    example: "strb.dim('1*8'.clip(0.25))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
+    label: 'legato',
+    signature: '.legato(fraction)',
+    description: 'The same as .clip(): how much of each step is lit, from its start.',
+    example: "strb.dim('1*4'.legato(0.5))",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
     label: 'settle',
     signature: '.settle(beats, level = 0)',
     description:
