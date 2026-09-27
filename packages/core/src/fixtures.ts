@@ -3578,7 +3578,8 @@ function eachFunction<R>(arg: EachArg<R>, spread: number | undefined): (phase: n
       + "rig.each(sine) or rig.each('1 - - -'.fadeOut(2)).",
     );
   }
-  const amount = spread ?? 1;
+  // A quoted number is that number, as it is for a level.
+  const amount = typeof spread === 'string' && (spread as string).trim() !== '' ? Number(spread) : spread ?? 1;
   if (typeof amount !== 'number' || !Number.isFinite(amount)) {
     throw new Error('.each(pattern, spread): spread is how many cycles the steps add up to across the lights, as in rig.each(sine, 0.5).');
   }
@@ -3608,8 +3609,10 @@ function eachXYFunction<R>(
   if (pattern === null || (typeof pattern !== 'object' && typeof pattern !== 'function') || typeof pattern.early !== 'function') {
     throw new Error(".eachXY() takes a pattern, which runs across the grid, as in grid.eachXY(sine) or grid.eachXY(sine, 0, 1) to run it down.");
   }
-  const sx = spreadX ?? 1;
-  const sy = spreadY ?? 0;
+  const num = (v: unknown, fallback: number): number =>
+    typeof v === 'string' && v.trim() !== '' ? Number(v) : typeof v === 'number' ? v : fallback;
+  const sx = num(spreadX, 1);
+  const sy = num(spreadY, 0);
   if (!Number.isFinite(sx) || !Number.isFinite(sy)) {
     throw new Error('.eachXY(pattern, across, down): across and down are how many cycles the steps add up to, as in grid.eachXY(sine, 1, 1).');
   }

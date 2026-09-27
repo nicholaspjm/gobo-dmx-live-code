@@ -6,8 +6,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+
+- **`.log()`** writes each step's value to the log tab as it starts, once per
+  step, as it does in Strudel.
+
 ### Changed
 
+- **Strudel's sound controls say they do nothing here.** `.s()`, `.note()`,
+  `.lpf()`, `.room()` and the rest are accepted, and the run's status now says
+  they shape sound and change nothing on a light.
+- **Pasted `await samples(…)` explains itself**, with its line: a scene runs
+  straight through and loads fixtures, not samples.
+- A missing method on a quoted pattern names the method as written
+  (`a pattern has no .pianoroll()`) rather than the editor's internal rewrite,
+  and suggests the nearest pattern method.
+- `.each()` and `.eachXY()` take a spread written as a quoted number (`'2'`).
+- Status badges, docs section tags and fixture tags are tinted rather than
+  outlined, matching the borderless controls.
 - Strudel is written with a capital S everywhere: docs, hover help, messages
   and comments.
 

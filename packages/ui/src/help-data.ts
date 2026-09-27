@@ -198,6 +198,15 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'method',
   },
   {
+    label: 'log',
+    signature: '.log()',
+    description:
+      "Writes each step's value to the log tab as it starts, once per step however many lights read the pattern. The pattern itself is unchanged.",
+    example: "wash.dim('1 0.5 - 1'.log())",
+    context: 'pattern-method',
+    kind: 'method',
+  },
+  {
     label: 'clip',
     signature: '.clip(fraction)',
     description:

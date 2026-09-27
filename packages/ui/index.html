@@ -1542,14 +1542,13 @@
         font-size: 10px;
         letter-spacing: 0.06em;
         color: var(--text-muted);
-        border: 1px solid var(--border);
+        background: color-mix(in srgb, currentColor 10%, transparent);
         border-radius: 2px;
         padding: 1px 6px;
       }
 
       .output-badge.ok {
         color: var(--sage);
-        border-color: var(--sage);
       }
 
       .output-current-tag {
@@ -1866,7 +1865,7 @@
         display: inline-block;
         margin-left: auto;
         padding: 2px 8px;
-        border: 1px solid var(--border);
+        background: color-mix(in srgb, currentColor 8%, transparent);
         border-radius: 10px;
         font-size: 9px;
         color: var(--text-muted);
@@ -2051,7 +2050,7 @@
       .fx-tag {
         display: inline-block;
         padding: 1px 7px;
-        border: 1px solid var(--border);
+        background: color-mix(in srgb, currentColor 8%, transparent);
         border-radius: 10px;
         font-size: 9px;
         letter-spacing: 0.12em;
@@ -2060,15 +2059,13 @@
         vertical-align: middle;
         color: var(--text-muted);
       }
-      /* Fill and outline follow the tag's own colour, so a tier is
-         recognisable before the word is read. The fill is held to 8%: the
-         label sits on it, and the contrast quoted above is measured
-         through it. */
+      /* The fill follows the tag's own colour, so a tier is recognisable
+         before the word is read. It is held to 8%: the label sits on it,
+         and the contrast quoted above is measured through it. */
       .fx-tag-builtin,
       .fx-tag-public,
       .fx-tag-saved,
       .fx-tag-session {
-        border-color: color-mix(in srgb, currentColor 45%, var(--border));
         background: color-mix(in srgb, currentColor 8%, transparent);
       }
       /* Cool for what arrived with the app, warm for what came from you,

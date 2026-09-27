@@ -8,7 +8,7 @@
  * music vocabulary was ported to light.
  */
 
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 
 // The bridge client reads `window` and the screen fixtures touch `document` as
 // they load. Nothing here needs either to work, only to exist.
@@ -477,6 +477,45 @@ describe('a fade whose length is a pattern', () => {
   it('a plain number still works, quoted or not', () => {
     run("const w = fixture(1, 'dim')\nw.dim('1 -'.fadeOut('2'))");
     expect(at(0.75)).toBeGreaterThan(100);
+  });
+});
+
+describe('Strudel habits with nothing to act on', () => {
+  it('a sound control is accepted and said to change nothing on a light', () => {
+    const r = core.evalCode("const w = fixture(1, 'dim')\nw.dim('1 0'.lpf(800).s('bd'))");
+    expect(r.success).toBe(true);
+    expect(r.warning).toContain('.lpf(), .s() shape sound in Strudel and change nothing on a light');
+    expect(at(0.1)).toBe(255);
+  });
+
+  it('.log() writes each step to the log once and passes the pattern through', () => {
+    const logs: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((m: unknown) => { logs.push(String(m)); });
+    try {
+      run("const w = fixture(1, 'dim')\nconst a = fixture(2, 'dim')\nconst p = '1 0.5'.log()\nw.dim(p)\na.dim(p)");
+      at(0.1); at(0.1); at(0.2); at(0.6);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(logs.filter((l) => l.startsWith('[gobo] '))).toEqual(['[gobo] 1', '[gobo] 0.5']);
+  });
+
+  it('await says a scene loads lights, not samples, and names the line', () => {
+    const r = core.evalCode("const w = fixture(1, 'dim')\nawait samples('github:tidalcycles/dirt-samples')");
+    expect(r.error).toMatch(/^line 2: await is not needed/);
+  });
+
+  it('a missing pattern method names what was written, not the rewrite', () => {
+    const r = core.evalCode("const w = fixture(1, 'dim')\nw.dim(m('1 0', 30).pianoroll())");
+    expect(r.error).toContain('a pattern has no .pianoroll()');
+    expect(r.error).not.toContain('m(...)');
+  });
+
+  it('a spread written as a quoted number is that number', () => {
+    run("const a = fixture(1, 'dim')\nconst b = fixture(2, 'dim')\nconst g = group(a, b)\ng.each(sine, '0.5')");
+    core.tick(0);
+    const [x, y] = core.getUniverseBuffer(0).slice(0, 2);
+    expect(x).not.toBe(y);
   });
 });
 

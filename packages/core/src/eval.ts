@@ -543,6 +543,8 @@ export async function initStrudel(): Promise<void> {
       // Per-step fades, and Strudel's envelope names reading as light. See
       // envelope.ts.
       if (proto) installFades({ Pattern: core.Pattern, Hap: core.Hap, TimeSpan: core.TimeSpan, Fraction: core.Fraction }, proto);
+      if (proto) installSoundNotes(proto);
+      if (proto) installLog(core.Pattern, proto);
       if (proto) installPalette(proto);
       _patternKit = { Pattern: core.Pattern, Hap: core.Hap };
       if (proto) installJux(proto, core.stack as (...pats: unknown[]) => unknown);
@@ -1019,6 +1021,67 @@ function sceneLine(err: unknown, code: string): number | null {
 
 /** Things cue() noticed during this run, to report as warnings rather than errors. */
 let _cueNotes: string[] = [];
+
+/**
+ * Strudel's controls that shape sound and have nothing to act on in a light.
+ * Pasted onto a pattern they are accepted and change nothing, so a run that
+ * uses one says so in its status line.
+ */
+const SOUND_CONTROLS = [
+  's', 'sound', 'n', 'note', 'bank', 'lpf', 'cutoff', 'lpq', 'resonance', 'hpf', 'hcutoff', 'hpq',
+  'bpf', 'bandf', 'bpq', 'vowel', 'room', 'roomsize', 'size', 'delay', 'delaytime', 'delayfeedback',
+  'dry', 'crush', 'coarse', 'shape', 'distort', 'orbit', 'phaser', 'tremolo', 'vib', 'fm', 'squiz',
+  'postgain', 'detune',
+] as const;
+
+/** The sound controls this run called, for its status line. */
+let _soundNotes = new Set<string>();
+
+function installSoundNotes(proto: Record<string, unknown>): void {
+  for (const name of SOUND_CONTROLS) {
+    const own = proto[name];
+    if (typeof own !== 'function') continue;
+    proto[name] = function (this: unknown, ...args: unknown[]) {
+      _soundNotes.add(name);
+      return (own as (...a: unknown[]) => unknown).apply(this, args);
+    };
+  }
+}
+
+/**
+ * Strudel's .log(): each step's value in the log as it starts, once per step
+ * however many channels read the pattern. The pattern itself passes through.
+ */
+function installLog(Pattern: new (query: (state: unknown) => unknown[]) => unknown, proto: Record<string, unknown>): void {
+  const show = (v: unknown): string => {
+    if (typeof v === 'number') return String(Math.round(v * 1000) / 1000);
+    if (typeof v === 'string') return v;
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return String(v);
+    }
+  };
+  proto.log = function (this: { query(state: unknown): unknown[] }) {
+    const src = this;
+    let last = -Infinity;
+    return new Pattern((state: unknown) => {
+      const haps = src.query(state) as Array<{ whole?: { begin: { valueOf(): number }; end: { valueOf(): number } }; value: unknown }>;
+      const t = (state as { span: { begin: { valueOf(): number } } }).span.begin.valueOf();
+      for (const hap of haps) {
+        if (!hap.whole) continue;
+        const begin = hap.whole.begin.valueOf();
+        // The step that is on now and has not been logged: a wide query (an
+        // inline picture drawing the bar) sees steps ahead and logs none.
+        if (begin > last && begin <= t + 1e-3 && t < hap.whole.end.valueOf()) {
+          last = begin;
+          console.log(`[gobo] ${show(hap.value)}`);
+        }
+      }
+      return haps;
+    });
+  };
+}
 /** The looks this scene mutes, which a cue pattern may name on purpose. */
 let _mutedLooks = new Set<string>();
 
@@ -1337,8 +1400,6 @@ const METHOD_HINTS: Record<string, string> = {
   pianoroll: "a lighting channel has levels, not notes, so gobo calls this .roll(): the level drawn across the cycle, beside the line.",
   _pianoroll: "a lighting channel has levels, not notes, so gobo calls this .roll(): the level drawn across the cycle, beside the line.",
   _pitchwheel: 'a lighting channel has no pitch. .spiral() draws the level around the cycle, which is the closest picture.',
-  s: 'there are no samples to play: a channel takes a level. wash.dim(\'1 - 1 -\') is the lighting form of a drum pattern.',
-  note: 'a channel takes a level from 0 to 1 rather than a note. .range(0, 1) maps a pattern into it.',
 };
 
 /**
@@ -1410,6 +1471,17 @@ export function methodHint(
     return `${message}. ${name} is used above the line that makes it: move this line below ${where}, since a scene runs top to bottom.`;
   }
 
+  // A quoted pattern reaches the engine as m('…', offset) or mini('…'), and
+  // the engine's message quotes that rewrite. The scene said '…'.method().
+  const onPattern = /^(?:m|mini)\(\.\.\.\)\.(\w+) is not a function$/.exec(message);
+  if (onPattern) {
+    const name = onPattern[1];
+    const head = `a pattern has no .${name}()`;
+    const specific = METHOD_HINTS[name];
+    if (specific) return `${head}. ${specific}`;
+    const near = nearestName(name, patternMethodNames());
+    return near ? `${head}. Did you mean .${near}()?` : head;
+  }
   const m = /^(.+)\.(\w+) is not a function$/.exec(message);
   if (!m) return message;
   const [, receiver, method] = m;
@@ -1532,6 +1604,17 @@ function knownMethodNames(): Set<string> {
   return names;
 }
 
+/** Every method a pattern answers to, for spelling suggestions. */
+function patternMethodNames(): string[] {
+  const pure = _strudelCtx.pure as ((v: unknown) => object) | undefined;
+  if (typeof pure !== 'function') return [];
+  const names = new Set<string>();
+  for (let o: object | null = Object.getPrototypeOf(pure(0)); o && o !== Object.prototype; o = Object.getPrototypeOf(o)) {
+    for (const n of Object.getOwnPropertyNames(o)) if (/^[a-z]\w*$/i.test(n)) names.add(n);
+  }
+  return [...names];
+}
+
 /** A pattern method as a curried change: fadeOut(2) is "fade each step out over 2 beats". */
 function changeOf(method: string): (...args: unknown[]) => (pattern: unknown) => unknown {
   return (...args: unknown[]) => (pattern: unknown) => {
@@ -1590,7 +1673,22 @@ export function locatedError(
       + `a look is a block, ${missing[1]}: { … }, which cue(${missing[1]}, …) can pick.`;
   }
   const line = sceneLine(err, code);
+  const awaited = awaitHint(message, code);
+  if (awaited !== null) return awaited;
   return line === null ? message : `line ${line}: ${message}`;
+}
+
+/**
+ * Strudel scenes await samples() before they play. A gobo scene runs straight
+ * through and loads fixtures, not sounds. Returns the message with its line,
+ * or null when the error is something else.
+ */
+function awaitHint(message: string, code: string): string | null {
+  if (!/await is only valid/.test(message)) return null;
+  const hint = 'await is not needed: a scene runs straight through, and there are no samples to load. '
+    + "A scene loads lights instead: fixture(1, 'rgb'), or defineFixture() for your own.";
+  const at = code.split('\n').findIndex((l) => /(^|[^\w$.])await\b/.test(l.replace(/\/\/.*$/, '')));
+  return at === -1 ? hint : `line ${at + 1}: ${hint}`;
 }
 
 /**
@@ -1614,6 +1712,7 @@ export function evalCode(code: string): EvalResult {
   const refusal = strudelRefusal();
   if (refusal !== null) return { success: false, error: refusal };
   _cueNotes = [];
+  _soundNotes = new Set();
 
   const sideEffects: SideEffectBuffer = { config: null, bpm: null, direct: null };
 
@@ -1712,7 +1811,7 @@ export function evalCode(code: string): EvalResult {
     _mutedLooks = new Set(rewritten.mutedLooks);
     fn = new Function(...keys, `"use strict";\n${chainOnStrings(rewritten.code)}`) as (...args: unknown[]) => unknown;
   } catch (err) {
-    return { success: false, error: reservedNameHint(errorMessage(err), keys) };
+    return { success: false, error: awaitHint(errorMessage(err), code) ?? reservedNameHint(errorMessage(err), keys) };
   }
 
   // The code parses, so it is worth building a scene from. Channel writes go to
@@ -1810,7 +1909,11 @@ export function evalCode(code: string): EvalResult {
       const danglingNote = dangling.length === 0
         ? null
         : `line ${dangling.join(', ')}: a pattern on its own reaches no light. Hand it to one, as in wash.dim(…) or rig.each(…).`;
-      const warning = [outputWarning, impliedNote, impliedColourNote, overwriteNote, danglingNote, ..._cueNotes]
+      const soundNote = _soundNotes.size === 0
+        ? null
+        : `${[..._soundNotes].map((n) => `.${n}()`).join(', ')} ${_soundNotes.size === 1 ? 'shapes' : 'shape'} sound in Strudel and `
+          + `${_soundNotes.size === 1 ? 'changes' : 'change'} nothing on a light.`;
+      const warning = [outputWarning, impliedNote, impliedColourNote, overwriteNote, danglingNote, soundNote, ..._cueNotes]
         .filter((w) => w !== null).join(' ') || null;
       if (warning !== null) {
         // The status line is the UI's to write, and it may be showing something
