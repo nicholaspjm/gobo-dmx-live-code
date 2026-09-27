@@ -2068,7 +2068,7 @@ async function handleShare(): Promise<void> {
   // the clipboard leaves something to do rather than nothing.
   shareResultEl.textContent = copied
     ? '✓ link copied to the clipboard'
-    : 'this browser would not write to the clipboard — the link is selected below, copy it by hand';
+    : 'this browser would not write to the clipboard, so the link is selected below to copy by hand';
   shareResultEl.classList.toggle('ok', copied);
   shareCopyEl.textContent = 'copy link';
   shareCodeEl.textContent = 'copy the code instead';

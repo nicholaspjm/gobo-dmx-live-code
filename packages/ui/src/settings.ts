@@ -465,7 +465,7 @@ export function mountSettingsPanel(opts: {
         ${row({
           key: 'sendRate',
           label: 'send rate',
-          hint: 'cap on connector updates per second. DMX itself carries about 44, so 40 is the useful ceiling. Lower it for wireless rigs.',
+          hint: 'cap on connector updates per second. DMX itself carries about 44, so 40 is the useful ceiling. lower it for wireless rigs.',
           control: select('sendRate', String(s.sendRate), [
             { value: '25',  label: '25 Hz' },
             { value: '30',  label: '30 Hz' },

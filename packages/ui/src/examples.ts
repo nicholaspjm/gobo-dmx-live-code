@@ -95,7 +95,7 @@ all(mul(slider(1)))
     // is NOT what you start with.
     id: 'starter',
     label: 'language tour',
-    blurb: 'Everything the language does: patching, mini notation, waveforms, groups, layering.',
+    blurb: 'Most of the language in one scene: patching, mini-notation, waveforms, groups, layering.',
     code: `// gobo · ctrl+enter run · ctrl+space stop · ☰ top right for the full reference
 // commented lines are alternates: swap one in and run again
 
@@ -267,7 +267,7 @@ bar.pixels.fill(0, 0, 0, 1)                                          // solid wh
 // bar.pixels.pixelGrid([[1,1,0,0]]).hold()                          // yellow hold
 
 // movement (stack on top of any pixel effect)
-// bar.direction(0.5); bar.speed(0)                                  // center
+// bar.direction(0.5); bar.speed(0)                                  // centre
 // bar.direction(0); bar.speed(0)                                    // left
 // bar.direction(1); bar.speed(0)                                    // right
 // bar.direction(sine.slow(8)); bar.speed(0.6)                       // sweep

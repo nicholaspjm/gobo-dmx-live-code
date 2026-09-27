@@ -1147,7 +1147,7 @@ spot.white(mini('1 - - -').punch())`,
     label: 'ctrl+shift+enter',
     signature: 'run only the edits in the selection',
     description:
-      "Commits just the edits inside your selection, or the block around the cursor, on top of what is already running. The half-written look elsewhere in the file stays out of the rig — and stays out even when it is broken.",
+      "Commits just the edits inside your selection, or the block around the cursor, on top of what is already running. The half-written look elsewhere in the file stays out of the rig, even when it is broken.",
     example: "// edit one look, put the cursor in it, ctrl+shift+enter",
     context: 'command',
     kind: 'variable',
@@ -1216,7 +1216,7 @@ rig.color(warm)             // a palette across the members of a group`,
     label: 'off',
     signature: '.off()',
     description:
-      'Zero every light-emitting channel — on a fixture, a group or a strip alike (dim, RGB(W), amber, embedded strips, every pixel). Leaves state channels like pan / tilt / gobo alone, because a wheel selects rather than emits.',
+      'Zero every light-emitting channel on a fixture, a group or a strip alike (dim, RGB(W), amber, embedded strips, every pixel). Leaves state channels like pan / tilt / gobo alone, because a wheel selects rather than emits.',
     example: 'wash.off()\nbar.pixels.off()\nrig.off()',
     context: 'fixture-method',
     kind: 'method',
@@ -1237,7 +1237,7 @@ rig.color(warm)             // a palette across the members of a group`,
     label: 'pixels',
     signature: 'fixture.pixels',
     description:
-      'The pixel strip inside a fixture, under whatever name its definition gave that channel — pixels is the usual one. '
+      'The pixel strip inside a fixture, under whatever name its definition gave that channel (pixels is the usual one). '
       + 'Everything a bare rgbStrip answers to, it answers to: .color(), .fill(), .pixel(i, …), .pixelXY(x, y, …), .each(pattern), '
       + '.chase(), .rainbowChase(), .off(), .full(). The fixture itself also answers .color() and .off() and passes them down, '
       + 'so reach for this when you want the pixels individually rather than the light as one thing.',
@@ -1250,7 +1250,7 @@ rig.color(warm)             // a palette across the members of a group`,
     signature: '.mono(value | pattern)',
     description:
       'Every emitter on this light at one level: white, as bright as you ask for. The brightness that works on any '
-      + 'fixture, because .dim() is a channel setter and only exists where the definition has that channel — a bare rgb '
+      + 'fixture, because .dim() is a channel setter and only exists where the definition has that channel. A bare rgb '
       + 'par keeps its brightness in its colour and has no dimmer at all. Drives a master, or three colours, or four, or '
       + 'a strip of pixels, and takes a pattern like any other value. On a fixture, a group and a strip alike.',
     example: 'par.mono(0.5)        // half, in white\npar.mono(pulse(4))   // breathing\nrig.mono(0.3)        // a whole rig, evenly',
@@ -1262,7 +1262,7 @@ rig.color(warm)             // a palette across the members of a group`,
     signature: '.temp(kelvin)',
     description:
       'White at a colour temperature, the way lighting has always said it. 2000 is candlelight, 3200 tungsten, 5600 '
-      + 'daylight, 6500 neutral, and above that it goes blue — warmer means a smaller number. It says what colour the '
+      + 'daylight, 6500 neutral, and above that it goes blue; warmer means a smaller number. It says what colour the '
       + 'white is, not how bright, so pair it with .mono() or a dimmer. On a fixture, a group and a colour strip alike; '
       + 'a single-channel strip has no colour to set.',
     example: 'wash.temp(3200)      // tungsten\nwash.temp(5600)      // daylight\nwash.temp(2700); wash.mono(0.4)',

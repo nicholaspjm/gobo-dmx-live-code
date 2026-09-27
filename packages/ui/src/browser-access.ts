@@ -104,5 +104,5 @@ export async function watchLocalAccess(): Promise<LocalAccess> {
 export const BLOCKED_BY_BROWSER =
   'Your browser is stopping this page from reaching programs on this computer, so it cannot '
   + 'reach the connector even if it is running. Allow local network access for this site from '
-  + 'the icon beside the address, or run gobo locally — the desktop app or npm start — where '
+  + 'the icon beside the address, or run gobo locally (the desktop app or npm start), where '
   + 'there is nothing to allow.';

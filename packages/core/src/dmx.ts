@@ -77,7 +77,7 @@ function valueHint(v: unknown): string {
   }
   if (typeof v === 'function') return ' That is a function, not a pattern: call it, as in flash(), to get the pattern it makes.';
   if (typeof v === 'number') return ' Check the arithmetic that produced it.';
-  if (v === undefined) return ' Omit the argument entirely for full.';
+  if (v === undefined) return ' Omit the argument for full.';
   return '';
 }
 

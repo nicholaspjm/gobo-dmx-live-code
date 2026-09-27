@@ -16,7 +16,7 @@ with a scripting tab. Every feature, name and affordance is judged against
 live-coding practice first, and a change that reads as desk-thinking needs a much
 better argument than one that reads as code-thinking.
 
-The distinction is not decoration. In live coding **the code is the interface** — the
+The distinction matters because in live coding **the code is the interface**: the
 performance is writing and evaluating it. A bar of pre-written looks you select
 between is pre-composed playback with a selector, which is the thing live coding
 defines itself against. Reach for the pattern before reaching for the button.
@@ -33,8 +33,8 @@ Seven invariants. A change that breaks one is wrong, however useful it looks:
    off by deleting a line.
 4. **An evaluation is atomic and phase-preserving.** The swap happens at a tick
    boundary and the clock is never reset by a run, so re-running unchanged code is
-   invisible on the rig. Much of the design rests on this — check it still holds
-   before changing the eval path.
+   invisible on the rig. Much of the design rests on this, so check it still
+   holds before changing the eval path.
 5. **What the performer set by hand survives a re-run; what the document declares
    does not.** Slider and picker positions, the cue selection, MIDI values and
    tempo persist. Channel definitions are rebuilt from scratch every time.
@@ -49,8 +49,8 @@ pattern copied out of the strudel docs should run here. Renaming one of their ve
 makes this a dialect; the passthrough list in `packages/core/src/eval.ts` says so and
 means it.
 
-Desk affordances are not banned — the person using this is often a lighting operator
-at a gig who cannot stop the song — but they belong **beside** the code-first path,
+Desk affordances are not banned, since the person using this is often a lighting
+operator at a gig who cannot stop the song. They belong **beside** the code-first path,
 never as the only way to do something, and they should be honest about what they are.
 
 ---
@@ -152,15 +152,15 @@ throttle in the UI is the *wire path*: it can look correct in the visualizer and
 still be wrong on the wire. The maintainer can't verify every interface and every
 fixture, so say in the PR description what you tested against:
 
-- **Real hardware.** Name the node and protocol, e.g. "Enttec ODE Mk3, Art-Net
+- **Real hardware:** name the node and protocol, e.g. "Enttec ODE Mk3, Art-Net
   unicast, 2 universes".
-- **No hardware.** Set `"mode": "mock"` in `packages/bridge/bridge.config.json` (or
+- **No hardware:** set `"mode": "mock"` in `packages/bridge/bridge.config.json` (or
   call `mock()` in the editor) and the bridge prints the non-zero channels about
   twice a second, which confirms frames are produced and channels land where you
   expect. `npm run bridge:selftest` covers the other half: it emits a known ramp
   directly, so you can point a capture or a node at it without the browser in the
   picture.
-- **Packet layout changes.** A Wireshark capture or the receiving node's own
+- **Packet layout changes:** a Wireshark capture or the receiving node's own
   diagnostics. Nothing else proves the bytes.
 
 ---

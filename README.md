@@ -41,7 +41,7 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 - Built-in, bundled public, saved and session fixtures on one fixtures tab, with JSON import/export. **add to rig** on any of them writes the `fixture()` lines for as many as you own, at the next free address
 - The outputs panel lists the networks your computer is on and writes the `artnet()` line that reaches them, and says when a scene sends somewhere the rig cannot hear
 - Errors name their line and tint it, and a misspelt name gets a "did you mean"
-- One panel behind the ☰ button: docs, fixtures, log, outputs, settings — plus hover help and autocomplete in the editor
+- One panel behind the ☰ button (docs, fixtures, log, outputs, settings), plus hover help and autocomplete in the editor
 - 39 themes in five groups: gobo's own thirteen, named after the lights they look like (`tungsten`, warm charcoal and terracotta, by default), plus basics, monochrome (including red night, which keeps a booth's night vision), accessibility (high contrast at 7:1, colour-blind safe, no blue light) and performance (a dim booth theme, projector, daylight). Every one holds text and syntax colours to at least 4.5:1, and a black background setting puts any dark theme on true black
 - Semantic highlighting: fixtures, patterns, colour channels, movement, pixel methods and output config each get their own colour
 
@@ -94,9 +94,9 @@ npm start
 ```
 
 That is one process serving the app and speaking UDP, on http://localhost:3001, with a browser
-opened for you. The page talks to it over a same-origin WebSocket: nothing to start twice,
-nothing to forget. On an Intel Mac this is the route, since the downloads are Apple Silicon
-builds.
+opened for you. The page talks to it over a same-origin WebSocket, so there is no second
+process to start or to forget. On an Intel Mac this is the route, since the downloads are
+Apple Silicon builds.
 
 Use `npm run dev` while working on gobo itself: Vite on http://localhost:3000 with hot reload,
 and the connector alongside it.
@@ -136,9 +136,9 @@ The connector listens on `localhost:3001` and answers only gobo's own pages, so 
 open in the same browser cannot drive your rig through it. A copy of gobo hosted somewhere else,
 a fork for instance, needs `--allow-origin https://that.site` when the connector starts.
 
-From a checkout, `npm run autostart` starts the connector at login instead, so the hosted page just
-works from then on. It is a per-user login item, needs no administrator rights, and
-`npm run autostart -- --remove` undoes it.
+From a checkout, `npm run autostart` starts the connector at login instead, so from then on
+the hosted page connects without you starting anything. It is a per-user login item, needs no
+administrator rights, and `npm run autostart -- --remove` undoes it.
 
 ### The first time you open a download
 
@@ -341,13 +341,13 @@ Visualizer (rAF, 30 fps, read-only snapshot)   +   WS sender (wall-clock throttl
 
 ### Real-time behavior
 
-- **Tab throttling.** The clock is in a worker, and the visualizer's rAF loop never drives DMX. Patterns keep running with the tab hidden or the window minimized.
-- **Hot swap.** `evalCode` calls `clearDefs()`, which wipes pattern defs *and* universe buffers; the next tick rebuilds everything from the new code, so a swap reaches the wire whole ([dmx.ts](packages/core/src/dmx.ts)).
-- **Send rate.** The sender is throttled against the wall clock rather than the tick count, using `1000 / sendRate` ms as its interval (default 40 Hz; 25 / 30 / 40 / 44 in settings, since DMX itself carries about 44 frames a second). A slow render tick does not back up the send queue ([main.ts](packages/ui/src/main.ts), [settings.ts](packages/ui/src/settings.ts)).
-- **Going dark.** Idle all-zero universes are skipped to save UDP bandwidth. When a universe goes from live to all-zero, exactly one trailing zero-frame is sent so downstream fixtures latch off; Art-Net and sACN receivers otherwise hold the last value indefinitely ([websocket.ts](packages/core/src/websocket.ts)).
+- **Tab throttling:** the clock is in a worker, and the visualizer's rAF loop never drives DMX. Patterns keep running with the tab hidden or the window minimized.
+- **Hot swap:** `evalCode` calls `clearDefs()`, which wipes pattern defs *and* universe buffers; the next tick rebuilds everything from the new code, so a swap reaches the wire whole ([dmx.ts](packages/core/src/dmx.ts)).
+- **Send rate:** the sender is throttled against the wall clock rather than the tick count, using `1000 / sendRate` ms as its interval (default 40 Hz; 25 / 30 / 40 / 44 in settings, since DMX itself carries about 44 frames a second). A slow render tick does not back up the send queue ([main.ts](packages/ui/src/main.ts), [settings.ts](packages/ui/src/settings.ts)).
+- **Going dark:** idle all-zero universes are skipped to save UDP bandwidth. When a universe goes from live to all-zero, exactly one trailing zero-frame is sent so downstream fixtures latch off; Art-Net and sACN receivers otherwise hold the last value indefinitely ([websocket.ts](packages/core/src/websocket.ts)).
 - **Per-tick user errors are swallowed.** A broken pattern doesn't kill the clock; that channel outputs zero until you fix it ([scheduler.ts](packages/core/src/scheduler.ts)).
-- **Connector reconnect.** Two seconds after a close, doubling to a thirty-second ceiling, and back to two the moment a scene picks an output that needs it. Sends are dropped while disconnected ([websocket.ts](packages/core/src/websocket.ts)).
-- **Latency floor.** One clock tick (~16 ms) + up to one send interval (25 ms at the default 40 Hz) + WS hop + UDP hop. The connector is stateless: each incoming WS message triggers an immediate UDP send, with no coalescing ([bridge/index.ts](packages/bridge/src/index.ts)).
+- **Connector reconnect:** two seconds after a close, doubling to a thirty-second ceiling, and back to two the moment a scene picks an output that needs it. Sends are dropped while disconnected ([websocket.ts](packages/core/src/websocket.ts)).
+- **Latency floor:** one clock tick (~16 ms) + up to one send interval (25 ms at the default 40 Hz) + WS hop + UDP hop. The connector is stateless: each incoming WS message triggers an immediate UDP send, with no coalescing ([bridge/index.ts](packages/bridge/src/index.ts)).
 - **Inline pattern widgets** hook the same `onTick` the DMX loop uses rather than a separate rAF, so their visuals stay phase-locked with the lights ([inline-viz.ts](packages/ui/src/inline-viz.ts)). The 512-bar visualizer runs its own rAF loop over a read-only snapshot with light exponential smoothing, so the on-screen strip never contends with the DMX path ([visualizer.ts](packages/ui/src/visualizer.ts)).
 
 ### Output protocols

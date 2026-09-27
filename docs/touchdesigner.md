@@ -59,7 +59,7 @@ Multiply by 255 in TD if you want the raw DMX byte back.
 - **Only active channels are sent.** A channel is transmitted when it is non-zero, or when it was non-zero on the previous frame; that trailing frame is what pushes a channel back to `0.0`. Channels your scene never touches never appear in the CHOP at all, so an empty OSC In CHOP usually means nothing is being driven yet rather than a broken link.
 - **The universe number comes from your scene, not from the output call.** `fixture()`, `rgbStrip()`, `rgbwStrip()`, `ch()` and `dim()` all default to universe `0`; `uni(n, ch, v)` writes whatever you ask for. That number lands in the OSC address.
 - **The connector logs its first OSC packet and every hundredth after that**: `[bridge] OSC → 127.0.0.1:9000 uni0 (12 active ch, packet #100)`. If that line never appears, the browser is not reaching the connector. If it appears and TD stays empty, the problem is between the connector and TD (wrong host, wrong port, firewall).
-- **Firewall.** Sending to another machine needs an inbound UDP allow on that port on the TD host. Loopback (`127.0.0.1`) needs nothing.
+- **Firewall:** sending to another machine needs an inbound UDP allow on that port on the TD host. Loopback (`127.0.0.1`) needs nothing.
 - **Send rate** is capped by the `send rate` setting in gobo's settings: 25 / 30 / 40 / 44 Hz, default 40, since DMX itself carries about 44 frames a second. Drop it to 30 if you are pushing many channels over wireless.
 
 ## Art-Net instead of OSC

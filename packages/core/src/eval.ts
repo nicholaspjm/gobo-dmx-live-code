@@ -664,7 +664,7 @@ const OUTPUT_NEEDS_CONNECTOR: Record<string, string> = {
   sacn:
     'sacn() sends sACN as network packets, and a web page is not allowed to put packets on the network by itself.',
   osc:
-    'osc() sends OSC as network packets, the same kind Art-Net uses, so it is not a no-install output either.',
+    'osc() sends OSC as network packets, the same kind Art-Net uses, so it needs the connector too.',
   mock:
     'mock() prints the live channels from inside the connector, so it needs the connector as much as the real outputs do.',
 };
@@ -680,8 +680,8 @@ const OUTPUT_NEEDS_CONNECTOR: Record<string, string> = {
  */
 const CONNECTOR_FIX =
   'Nothing is listening on this machine right now, so run the connector (or start gobo from a checkout with '
-  + 'npm start) and press ctrl+enter again. Driving a USB DMX box instead? Open the outputs panel from the connection light and pick usb, '
-  + 'nothing to install.';
+  + 'npm start) and press ctrl+enter again. For a USB DMX box instead, open the outputs panel from the connection light and pick usb, '
+  + 'which needs nothing installed.';
 
 /**
  * The plain-language reason a staged output is reaching nothing, or null when
@@ -941,14 +941,14 @@ export function reservedNameHint(message: string, reserved: Iterable<string>): s
   // would send someone to write red(…), which fails in its own way.
   if (name in COLORS) {
     return (
-      `${message.replace(/\s*$/, '')}. "${name}" is already one of gobo's colours — `
-      + `wash.color(${name}) works in any scene — so this scene cannot declare it as well. `
+      `${message.replace(/\s*$/, '')}. "${name}" is already one of gobo's colours `
+      + `(wash.color(${name}) works in any scene), so this scene cannot declare it as well. `
       + `Pick another name: my${Title}, or ${name}Level for a slider.`
     );
   }
   return (
-    `${message.replace(/\s*$/, '')}. "${name}" is already one of gobo's own — you can call `
-    + `${name}(…) in any scene — so this scene cannot declare it as well. Pick another name: `
+    `${message.replace(/\s*$/, '')}. "${name}" is already one of gobo's own (you can call `
+    + `${name}(…) in any scene), so this scene cannot declare it as well. Pick another name: `
     + `my${Title} for a light, or ${name}Look for a look, as in ${name}Look: { … }.`
   );
 }
@@ -1318,7 +1318,7 @@ function overwrittenNote(): string | null {
   const shown = seen.slice(0, OVERWRITE_NAMES).join(', ');
   const rest = seen.length > OVERWRITE_NAMES ? ` and ${seen.length - OVERWRITE_NAMES} more` : '';
   return (
-    `set more than once: ${shown}${rest}. The last call wins — two values on one channel `
+    `set more than once: ${shown}${rest}. The last call wins: two values on one channel `
     + 'are not mixed, so an earlier look is replaced rather than added to. '
     + 'Combine them in one call if you meant both.'
   );

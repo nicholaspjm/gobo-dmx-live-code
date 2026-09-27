@@ -38,7 +38,7 @@ byte-identical, because the published release predates the fix too.
 
 The machine now runs a connector built from source, and the startup script
 points at it, so it survives a reboot. What is left is a test on the actual
-rig: if the lag survives this, it is the fixture own fade-time menu and not
+rig: if the lag survives this, it is the fixture's own fade-time menu and not
 software.
 
 ## Already open elsewhere

@@ -140,7 +140,7 @@ anything on the same network. It now makes three checks, all in
 `packages/bridge/src/access.ts`, applied in `packages/bridge/src/listen.ts` before a request
 or upgrade reaches anything else:
 
-- **Where it listens.** `127.0.0.1` and `::1`, and nothing else. Other machines cannot open
+- **Where it listens:** `127.0.0.1` and `::1`, and nothing else. Other machines cannot open
   a connection at all.
 - **The `Origin` of a WebSocket**, which a web page cannot forge. Accepted: pages served
   from this computer's loopback on any port (`npm start`, the desktop app, `npm run dev`,
@@ -149,7 +149,7 @@ or upgrade reaches anything else:
   with `--allow-origin`. Refused: every other site, `null` (what a sandboxed iframe or a
   `file://` page sends, and what a hostile page can arrange for itself), browser extensions,
   and anything that is not an http(s) origin.
-- **The `Host` header, on every HTTP request and upgrade.** This is the DNS-rebinding
+- **The `Host` header, on every HTTP request and upgrade:** this is the DNS-rebinding
   defence. A page on a name the attacker controls can make that name resolve to `127.0.0.1`
   and then talk to "its own" origin, which passes any check that only compares `Origin` with
   `Host`. Here the host must be an IP literal, which cannot be rebound, or `localhost`.
@@ -167,7 +167,7 @@ Vite dev server to the network as well; without it that is loopback-only too.
 
 **Residual risk.**
 
-- **No authentication.** A program running on this computer can connect without an
+- **No authentication:** a program running on this computer can connect without an
   `Origin` header and is let through. Refusing it would protect nothing: a program already
   running here can send UDP to your rig itself.
 - **The former hosted origin is the whole of `nicholaspjm.github.io`.** The app moved to
@@ -250,18 +250,18 @@ Things that break an expectation gobo sets:
   `gobo-scene-meta-v1`. Those keys hold scenes from the old multi-scene version and are
   deliberately read-only forever; for many users the browser is the only copy, so a write
   there destroys work that cannot be recovered.
-- **XSS in the UI.** The fixtures page builds rows with `innerHTML` and escapes every
+- **XSS in the UI:** the fixtures page builds rows with `innerHTML` and escapes every
   fixture-supplied string through `escapeText` / `escapeAttr` (`packages/ui/src/library.ts`).
   A fixture id, name, manufacturer, or channel name that escapes that and executes is a bug.
   Same for the docs, the sim and the settings.
-- **Validator bypass.** `validateFixture` (`packages/core/src/fixture-validator.ts`) is the
+- **Validator bypass:** `validateFixture` (`packages/core/src/fixture-validator.ts`) is the
   gate for imported `.gobo-fixture.json` files and for the bundled public library. A def
   that passes it and then breaks something downstream is a bug: resource exhaustion past
   `FIXTURE_LIMITS`, shadowing a built-in, a hostile id reaching a filename or a URL.
 - **Anything that gets the connector to install a file** that is not the published
   release asset for its system, that skips the size or checksum check, or that
   restarts it while a page is connected.
-- **Connector crashes or hangs.** Its only inbound surface is the HTTP/WS listener on 3001.
+- **Connector crashes or hangs:** its only inbound surface is the HTTP/WS listener on 3001.
   Malformed JSON is caught per-message, but a request or message that kills the process,
   wedges it, or makes it emit traffic to a destination the operator never configured
   (without going through the documented `config` message) is a bug. A crash matters more

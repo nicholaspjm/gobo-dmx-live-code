@@ -105,7 +105,7 @@ export const DOCS: DocSection[] = [
     category: 'examples',
     title: 'bundled scenes',
     blurb:
-      'Working scenes to read or take apart. Loading one replaces what is in the editor, and asks first if you have unsaved work — take a share link or copy the code before you say yes.',
+      'Working scenes to read or take apart. Loading one replaces what is in the editor, and asks first if you have unsaved work. Take a share link or copy the code before you say yes.',
     entries: EXAMPLES.map((ex) => ({
       name: ex.label,
       signature: `${ex.code.split('\n').length} lines`,
@@ -128,7 +128,7 @@ export const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'scenes and files',
     blurb:
-      "You edit one scene at a time. It autosaves to the browser as you type, so a refresh costs nothing. It has no name, because it is the only one. share copies a link carrying the whole scene, and that link is the durable copy — the dialog will also hand you the code as text, which is what to keep for a long scene. Bundled demos are on the examples tab here. Anything that replaces the buffer arrives stopped, and asks first.",
+      "You edit one scene at a time. It autosaves to the browser as you type, so a refresh costs nothing. It has no name, because it is the only one. share copies a link carrying the whole scene, and that link is the durable copy. The dialog will also hand you the code as text, which is what to keep for a long scene. Bundled demos are on the examples tab here. Anything that replaces the buffer arrives stopped, and asks first.",
     entries: [],
   },
   {
@@ -561,7 +561,7 @@ export const DOCS: DocSection[] = [
         name: 'pick is two things here',
         signature: 'pick(name) vs .pick(list)',
         description:
-          "Worth knowing because it is a collision rather than a coincidence. Bare pick('warm') is gobo's colour wheel, a control with a swatch beside it. Chained .pick([…]) is strudel's chooser, described above. The dot tells them apart, and the chained form is the one strudel's own documentation uses.",
+          "Two different things share the name. Bare pick('warm') is gobo's colour wheel, a control with a swatch beside it. Chained .pick([…]) is strudel's chooser, described above. The dot tells them apart, and the chained form is the one strudel's own documentation uses.",
       },
     ],
   },
@@ -730,7 +730,7 @@ export const DOCS: DocSection[] = [
         name: 'only plain quoted patterns',
         signature: "'1 0 1 0' or mini('1 0 1 0'), not mini(someString)",
         description:
-          "The offsets are found by reading the source, and it is deliberately timid about what it will read: a single quoted literal written straight into a setter, at the start of a chain, or into a mini() call. A string built from a variable, one carrying a backslash escape, or a call already given a second argument is left alone. Those scenes run exactly as before and simply get no outline, the scene is worth more than the decoration.",
+          "The offsets are found by reading the source, and it is deliberately timid about what it will read: a single quoted literal written straight into a setter, at the start of a chain, or into a mini() call. A string built from a variable, one carrying a backslash escape, or a call already given a second argument is left alone. Those scenes run exactly as before and get no outline: the scene is worth more than the decoration.",
       },
     ],
   },
@@ -843,13 +843,13 @@ export const DOCS: DocSection[] = [
     category: 'viz',
     title: 'fixture viz',
     blurb:
-      'Opt-in per-fixture editor visualizations. Chain .viz(kind) onto a fixture or strip and a live widget appears at the end of that line, driven from the current DMX buffer at ~60fps. Nothing happens until you add a .viz() call.',
+      'Opt-in per-fixture editor visualisations. Chain .viz(kind) onto a fixture or strip and a live widget appears at the end of that line, driven from the current DMX buffer at ~60fps. Nothing happens until you add a .viz() call.',
     entries: [
       {
         name: '.viz',
         signature: ".viz(kind, kind, …)",
         description:
-          "Attach one or more inline widgets to this fixture. Kinds: 'color' (mixed-output swatch), 'wave' (scrolling intensity scope), 'meter' (vertical bar), 'strip' (row of mini pixels, for rgbStrip). Multiple kinds stack side-by-side. Returns the fixture so you can keep chaining.",
+          "Attach one or more inline widgets to this fixture. Kinds: 'color' (mixed-output swatch), 'wave' (scrolling intensity scope), 'meter' (vertical bar), 'strip' (row of mini pixels, for rgbStrip). Multiple kinds stack side by side. Returns the fixture so you can keep chaining.",
         example:
           "const washA = fixture(1, 'rgbw').viz('color')\nconst spot  = fixture(9, 'dim').viz('wave', 'meter')\nconst strip = rgbStrip(12, 10).viz('strip')",
       },
@@ -1137,7 +1137,7 @@ export const DOCS: DocSection[] = [
       {
         name: 'moving-head-spot',
         signature: '.pan  .panFine  .tilt  .tiltFine  .speed  .dim  .strobe  .zoom  .gobo  .colorWheel  .prism  .focus',
-        description: '12-channel moving head spot. (colorWheel was renamed from `color` to free .color() for the generic RGB helper.)',
+        description: '12-channel moving head spot. The colour wheel is colorWheel rather than `color`, so .color() stays the generic RGB helper.',
       },
       {
         name: 'strobe',
@@ -1197,7 +1197,7 @@ export const DOCS: DocSection[] = [
         name: 'colours',
         signature: 'red · orange · amber · yellow · green · cyan · blue · purple · magenta · pink · white',
         description:
-          'A colour is a value. Two ways to say one: a predefined name from this list, or a mix of three numbers from 0 to 1. Both reach every call that takes a colour. In quotes a name is mini-notation, as in strudel, so \'red\' is red and \'<red blue>\' changes each bar; a word that is not a colour is named when the scene runs. Note that white here is the r,g,b mix; on a fixture with a dedicated white emitter, use .full() to light every emitter. Slot names on a wheel stay quoted, because they are the manufacturer\'s labels for mechanical positions rather than colours you can mix.',
+          'A colour is a value. Two ways to say one: a predefined name from this list, or a mix of three numbers from 0 to 1. Both reach every call that takes a colour. In quotes a name is mini-notation, as in strudel, so \'red\' is red and \'<red blue>\' changes each bar; a word that is not a colour is named when the scene runs. White here is the r,g,b mix; on a fixture with a dedicated white emitter, use .full() to light every emitter. Slot names on a wheel stay quoted, because they are the manufacturer\'s labels for mechanical positions rather than colours you can mix.',
         example: 'wash.pixels.chase(red)\nwash.color(1, 0.4, 0)\nwash.pixels.chase(1, 0.4, 0, { cycles: 2 })',
       },
       {
@@ -1219,7 +1219,7 @@ export const DOCS: DocSection[] = [
         name: 'named moves',
         signature: 'pulse(cycles) · strobe(per) · flash(per, tail) · flicker(amount) · adsr(a, d, s, r)',
         description:
-          'Five gestures a desk has a button for. They are ordinary patterns, so they chain and stack. pulse is the slow swell. strobe is hard on and off, per times a cycle, for a fixture with no strobe channel. flash is a sharp hit with a short tail, on every beat, and tail is how much of each beat it stays lit: 0.3 for a snap, 0.9 for nearly a sawtooth. flicker wanders around full, for candles and failing lamps. adsr is an envelope to multiply onto any of them, in four fractions of a cycle. One thing inside flash and adsr is worth knowing: a channel clamps below zero, so pushing most of a wave under the line leaves only its tip above, which turns a linear ramp into a sharp hit.',
+          'Five gestures a desk has a button for. They are ordinary patterns, so they chain and stack. pulse is the slow swell. strobe is hard on and off, per times a cycle, for a fixture with no strobe channel. flash is a sharp hit with a short tail, on every beat, and tail is how much of each beat it stays lit: 0.3 for a snap, 0.9 for nearly a sawtooth. flicker wanders around full, for candles and failing lamps. adsr is an envelope to multiply onto any of them, in four fractions of a cycle. flash and adsr rely on a channel clamping below zero: pushing most of a wave under the line leaves only its tip above, which turns a linear ramp into a sharp hit.',
         example:
           'wash.dim(pulse(4))\nwash.dim(flash())                       // on every beat\nwash.dim(flash(1, 0.9))                 // longer tail\nstrb.dim(strobe(16))\nwash.dim(flicker(0.4))\nwash.dim(flicker().mul(adsr(0.1, 0.1, 0.7, 0.2)))\nwash.dim(stack(pulse(8), flash()))      // layered, brightest wins',
       },
@@ -1393,7 +1393,7 @@ export const DOCS: DocSection[] = [
         name: 'a rest is a gap',
         signature: "'-' writes nothing",
         description:
-          "A rest writes nothing, which is not the same as black. On its own the two look identical, because nothing is written and the channel stays dark. They part company the moment something else is running: layers merge highest-takes-precedence, so a gap lets the layer underneath show through where a black would have held it down. Worth reading twice, since '-' looks like an off switch and is not one.",
+          "A rest writes nothing, which is not the same as black. On its own the two look identical, because nothing is written and the channel stays dark. They part company the moment something else is running: layers merge highest-takes-precedence, so a gap lets the layer underneath show through where a black would have held it down. '-' looks like an off switch and is not one.",
         example:
           "wash.color(mini('r - g'))                       // dark on the rests\nwash.color(stack(mini('r - g'), mini('0.2')))   // the rests show the bed",
       },
@@ -1465,7 +1465,7 @@ export const DOCS: DocSection[] = [
         name: 'mini',
         signature: "mini('1 - 0.5 -')",
         description:
-          "Parse mini-notation into a Pattern<number>. Each space-separated token is one step; tokens split one scheduler cycle equally. Numeric tokens ('1', '0.5', '0') are levels, which gives per-step brightness. A word is not a level: on a dimmer that step stays dark and the status bar names the word. Colour names go to .color(), as in wash.color(mini('<red blue>')). Aliased as m(). Returns a regular Pattern, so .slow / .fast / .range / .glow / .flash all chain afterward. Anywhere a level or a colour is taken, a quoted string on its own reads as mini-notation too, as in strudel: wash.dim('1 - 1 -'), wash.color('<red blue>'). A chain can start on one, as in strudel: wash.dim('1 0'.fast(2)), in single or double quotes.",
+          "Parse mini-notation into a Pattern<number>. Each space-separated token is one step; tokens split one scheduler cycle equally. Numeric tokens ('1', '0.5', '0') are levels, which gives per-step brightness. A word is not a level: on a dimmer that step stays dark and the status bar names the word. Colour names go to .color(), as in wash.color(mini('<red blue>')). Aliased as m(). Returns a regular Pattern, so .slow / .fast / .range / .glow / .flash all chain afterwards. Anywhere a level or a colour is taken, a quoted string on its own reads as mini-notation too, as in strudel: wash.dim('1 - 1 -'), wash.color('<red blue>'). A chain can start on one, as in strudel: wash.dim('1 0'.fast(2)), in single or double quotes.",
         example:
           "spot.dim(mini('1 - 1 -'))\nwash.red(mini('1 0.5 0 0.5'))\nstrb.strobe(m('1 - 1 -').flash())",
       },
@@ -1542,7 +1542,7 @@ export const DOCS: DocSection[] = [
         name: 'cat',
         signature: 'cat(pat1, pat2, …)',
         description:
-          'Concatenate patterns so each pat takes one full cycle before the next starts. Great for building long sequences out of short patterns.',
+          'Concatenate patterns so each pat takes one full cycle before the next starts. Builds long sequences out of short patterns.',
         example:
           "wash.red(cat(mini('1 - 1 -'), mini('1 1 1 1')))",
       },
@@ -1934,7 +1934,7 @@ export const DOCS: DocSection[] = [
     category: 'patterns',
     title: 'euclidean and chance',
     blurb:
-      'Two families that generate rhythm rather than spell it out. Both are worth reaching for when a pattern should feel less written.',
+      'Two families that generate rhythm rather than spell it out. Reach for either when a pattern should feel less written.',
     entries: [
       {
         name: '.euclid(k, n)',
@@ -2008,7 +2008,7 @@ export const DOCS: DocSection[] = [
         name: 'anything else',
         signature: 'wash.red(flash)  ·  wash.red(NaN)',
         description:
-          'Rejected, with the channel named. A function that was never called (flash rather than flash()), NaN and null each stop the evaluation, and the rig keeps running whatever it had. A quoted string is mini-notation, so \'1\' is simply full.',
+          'Rejected, with the channel named. A function that was never called (flash rather than flash()), NaN and null each stop the evaluation, and the rig keeps running whatever it had. A quoted string is mini-notation, so \'1\' is full.',
       },
     ],
   },

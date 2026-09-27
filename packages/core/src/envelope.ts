@@ -309,6 +309,15 @@ function amountOf(v: unknown, what: string, unit: string): number {
   return n;
 }
 
+/** Read a level a scene wrote (a sustain, a settle's hold), 0 to 1. */
+function levelArg(v: unknown, what: string, example: string): number {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
+  if (typeof n !== 'number' || !Number.isFinite(n) || n < 0) {
+    throw new Error(`${what} takes a level from 0 to 1, as in ${example}.`);
+  }
+  return n;
+}
+
 /**
  * Put the fade methods on strudel's Pattern prototype.
  *
@@ -332,14 +341,14 @@ export function installFades(kit: StrudelKit, proto: any): void {
   proto.fadeOut = stage('release', 'beats', 'fadeOut');
   proto.settle = function (this: unknown, beats: unknown, level: unknown = 0) {
     const amount = amountOf(beats, '.settle', 'beats');
-    const held = amountOf(level, '.settle', 'a level from 0 to 1 as its second argument');
+    const held = levelArg(level, '.settle', '.settle(0.25, 0.4)');
     return fade(kit, this, { decay: { amount, unit: 'beats' }, sustain: Math.min(1, held) });
   };
   proto.attack = stage('attack', 'seconds', 'attack');
   proto.decay = stage('decay', 'seconds', 'decay');
   proto.release = stage('release', 'seconds', 'release');
   proto.sustain = function (this: unknown, v: unknown) {
-    const level = amountOf(v, '.sustain', 'a level from 0 to 1');
+    const level = levelArg(v, '.sustain', '.sustain(0.5)');
     return fade(kit, this, { sustain: Math.min(1, level) });
   };
   proto.adsr = function (this: unknown, spec: unknown) {
