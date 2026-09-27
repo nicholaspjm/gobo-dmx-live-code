@@ -211,9 +211,9 @@ export function sampleStops(stops: Palette, phase: number): Color {
 /**
  * Blend two colours, `t` of the way from the first to the second.
  *
- * For any curve the built-in spread does not give:
- * `bar.each(p => mix(red, blue, p * p))`. Both endpoints come back by identity,
- * so a blend that lands on a stop is that same object.
+ * A colour a quarter of the way from red to blue is `mix(red, blue, 0.25)`,
+ * as in `wash.color(mix(red, blue, 0.25))`. Both endpoints come back by
+ * identity, so a blend that lands on a stop is that same object.
  */
 export function mix(a: Color, b: Color, t: number | ColorComponent): Color {
   if (!isColor(a) || !isColor(b)) {

@@ -2064,8 +2064,8 @@ export interface StripInstance {
   /**
    * Run a pattern per pixel, shifted by its grid position: `spreadX` and
    * `spreadY` are how many cycles the shift adds up to over the columns and
-   * the rows. For a sweep, a wipe or a diagonal. A function of `(x, y, w, h)`
-   * returning a level or `[r, g, b]` also works.
+   * the rows. For a sweep, a wipe or a diagonal. (The function form from
+   * 0.5 scenes is still accepted, so those scenes run; it is not documented.)
    *
    * @example
    *   wash.pixels.eachXY(sine.slow(4), 4)
@@ -2154,9 +2154,8 @@ export interface StripInstance {
 
   /**
    * Run a pattern per pixel, a step later on each; `spread` is how many
-   * cycles those steps add up to along the strip. A function of
-   * `(phase, i, count)` also works, returning one level (R=G=B) or
-   * `[r, g, b]`, with phase as `i / count`.
+   * cycles those steps add up to along the strip. (The function form from
+   * 0.5 scenes is still accepted, so those scenes run; it is not documented.)
    *
    * @example
    *   strip.each(cosine.slow(2).range(-7, 1), 2)   // monochrome walk
@@ -2887,9 +2886,8 @@ export interface RgbwStripInstance {
 
   /**
    * Run a pattern per pixel, a step later on each; `spread` is how many
-   * cycles those steps add up to along the bar. A function of
-   * `(phase, i, count)` also works, returning one level (R=G=B, W=0) or
-   * `[r, g, b, w]`, with phase as `i / count`.
+   * cycles those steps add up to along the bar. (The function form from
+   * 0.5 scenes is still accepted, so those scenes run; it is not documented.)
    *
    * @example
    *   bar.pixels.each(cosine.slow(2).range(-7, 1), 2)   // walk

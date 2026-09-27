@@ -1679,8 +1679,7 @@ export function evalCode(code: string): EvalResult {
      * so a scene does not come up black waiting to be wiggled.
      */
     midi: midiCC,
-    /** Blend two colours, for a curve the built-in spread does not give:
-     *  `bar.each(p => mix(red, blue, p * p))`. */
+    /** Blend two colours: `wash.color(mix(red, blue, 0.25))`. */
     mix,
     // Pattern extension: define custom chain methods at top level.
     register,
