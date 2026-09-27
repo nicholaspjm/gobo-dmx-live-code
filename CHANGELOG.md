@@ -4,6 +4,15 @@ All notable changes to gobo are recorded here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A share link that cannot be read says so.** A link cut short or changed
+  in copying used to do nothing, leaving the scene already in the editor on
+  screen as if it were the one linked. The status bar now says the link could
+  not be read and that the scene in the editor is untouched.
+
 ## [0.7.3] - 2026-09-27
 
 ### Added

@@ -27,6 +27,7 @@ import {
   encodeShareLink,
   decodeShareFromLocation,
   clearShareFromLocation,
+  hasSharePayload,
 } from './share.js';
 
 // ─── globals stubbing ─────────────────────────────────────────────────────────
@@ -537,5 +538,24 @@ describe('clearShareFromLocation', () => {
       },
     };
     expect(() => clearShareFromLocation()).not.toThrow();
+  });
+});
+
+describe('a link damaged in copying', () => {
+  it('does not decode, and is still recognised as a share link so the app can say so', async () => {
+    const url = await encodeShareLink('// a scene with $: in it\n'.repeat(40));
+    const hash = url.slice(url.indexOf('#'));
+    // A few characters changed in the middle, the way a hand-copied link goes.
+    const mid = Math.floor(hash.length / 2);
+    const swap = (c: string): string => (c === 'A' ? 'B' : 'A');
+    const damaged = hash.slice(0, mid) + swap(hash[mid]) + swap(hash[mid + 1]) + hash.slice(mid + 2);
+    setHash(damaged);
+    expect(await decodeShareFromLocation()).toBeNull();
+    expect(hasSharePayload()).toBe(true);
+  });
+
+  it('is not claimed for an ordinary hash', () => {
+    setHash('#section-2');
+    expect(hasSharePayload()).toBe(false);
   });
 });

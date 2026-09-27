@@ -265,6 +265,16 @@ export async function decodeShareFromLocation(): Promise<{ code: string } | null
   return { code };
 }
 
+/**
+ * Whether the address bar holds something shaped like a share link, readable
+ * or not. Lets the caller tell "no link here" from "a link that did not
+ * decode", which a copied link cut short or altered in copying turns into.
+ */
+export function hasSharePayload(): boolean {
+  const hash = globalThis.location?.hash ?? '';
+  return new RegExp(`^#(${VERSION_DEFLATE}|${VERSION_PLAIN})=.`).test(hash);
+}
+
 // ─── cleanup ─────────────────────────────────────────────────────────────────
 
 /**

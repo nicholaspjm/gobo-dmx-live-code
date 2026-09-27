@@ -90,7 +90,7 @@ import {
   watchLocalAccess,
 } from './browser-access.js';
 import { browserName, reportUrl, routeName, systemName, type Environment } from './report.js';
-import { encodeShareLink, decodeShareFromLocation, clearShareFromLocation } from './share.js';
+import { encodeShareLink, decodeShareFromLocation, clearShareFromLocation, hasSharePayload } from './share.js';
 import { getExample, type Example } from './examples.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
 import { OPEN_PANEL_EVENT, renderDocs } from './docs.js';
@@ -2119,7 +2119,15 @@ let _openedFromLink = false;
  */
 async function handleSharedScene(): Promise<void> {
   const shared = await decodeShareFromLocation();
-  if (shared === null) return;
+  if (shared === null) {
+    // A link that is there but does not read is said out loud; otherwise the
+    // scene already in the editor stays up and looks like the one linked.
+    if (hasSharePayload()) {
+      clearShareFromLocation();
+      setStatus('error', 'this share link could not be read: it was probably cut short or changed when it was copied. Your scene is untouched.');
+    }
+    return;
+  }
 
   if (!confirmReplace('Open the shared scene?')) {
     // The link stays in the address bar. It is the only copy of somebody
