@@ -14,11 +14,10 @@
  * Channel definitions are swapped in transactionally (see the staged scene swap
  * section below), so a scene that fails to evaluate is not applied at all.
  *
- * That transaction covers evaluation only. Patterns run user code again on every
+ * The transaction covers evaluation only. Patterns run user code again on every
  * tick, so a scene that evaluated without throwing can still throw at query
- * time. tick()
- * contains those throws per channel rather than extending the transaction over
- * them; see the query-failure section below.
+ * time. tick() contains those throws per channel; see the query-failure section
+ * below.
  */
 
 import { stringPattern } from './string-patterns.js';
@@ -35,22 +34,22 @@ function isPattern(v: unknown): v is PatternLike {
 
 // ─── Value arguments ─────────────────────────────────────────────────────────
 //
-// Every channel write in the whole API funnels through channelValue(), so the
-// rules about what a value may be are written once.
+// Every channel write in the API goes through channelValue(), so the rules
+// about what a value may be are written once.
 //
-// Two things used to reach the buffer as a silent 0:
+//   wash.red()       an omitted value is full: naming a channel with no level
+//                    reads as "red, on".
+//   wash.red('1')    a quoted number is that number; any other string is
+//                    mini-notation.
+//   wash.red(null)   anything else that is not a level or a pattern (null,
+//                    NaN, an uncalled function, an object) throws, which puts
+//                    the channel in the editor's error banner. Stored, it would
+//                    read as 0 on every tick, with the light off under a green
+//                    status bar.
 //
-//   wash.red()      an omitted value. Naming a channel and no level reads as
-//                   "red, on", so it now means full.
-//   wash.red('1')   a value of the wrong type. A quoted number, a bare `sine`
-//                   that was never called, null, NaN: all stored fine and read
-//                   as 0 on every tick, so the scene ran with a green status
-//                   bar and the light off. These now throw, which puts the
-//                   channel in the editor's error banner instead.
-//
-// Numbers are left alone beyond the finite check. Out-of-range constants still
-// clamp at the buffer, because patterns routinely swing outside 0-1 (range(),
-// add()) and clamping is the useful behaviour there.
+// Numbers are left alone beyond the finite check. Out-of-range constants clamp
+// at the buffer, because patterns routinely swing outside 0-1 (range(), add())
+// and clamping is the useful behaviour there.
 
 /** Describe a rejected value in the terms the operator wrote it in. */
 function describeValue(v: unknown): string {
@@ -61,14 +60,13 @@ function describeValue(v: unknown): string {
   if (t === 'string') return `a string (${JSON.stringify(v)})`;
   if (t === 'function') return 'a function';
   if (t === 'object') return 'an object';
-  // NaN and ±Infinity are the only numbers that get here, and naming them is
-  // the whole message: they usually come out of a division that had no
-  // business dividing.
+  // NaN and ±Infinity are the only numbers that get here. The message names
+  // them; they usually come out of a division that had no business dividing.
   if (t === 'number') return String(v);
   return `a ${t}`;
 }
 
-/** Suggest the fix for the mistakes that actually get made. */
+/** Suggest the fix for the common mistakes. */
 function valueHint(v: unknown): string {
   if (typeof v === 'string') {
     return Number.isFinite(Number(v))
@@ -101,9 +99,9 @@ export function channelValue(args: readonly unknown[], what: string): PatternOrV
     return v;
   }
   // Reading .queryArc runs user code: it can be a getter, and a hostile one
-  // throws. A value that cannot even be probed is not a pattern, and the
-  // rejection below says so in the same terms as every other bad value rather
-  // than surfacing whatever the getter felt like throwing.
+  // throws. A value that cannot be probed counts as not a pattern, so the
+  // rejection below reports it in the same terms as any other bad value
+  // instead of passing on the getter's own error.
   let looksLikePattern = false;
   try {
     looksLikePattern = isPattern(v);
@@ -133,8 +131,8 @@ export function channelValue(args: readonly unknown[], what: string): PatternOrV
  * three of rgb() or the r/g/b of a strip fill.
  *
  * All of them or none of them. `fill()` is full white, `fill(1, 0, 0)` is red,
- * and `fill(1, 0)` is a half-written line rather than a colour, so it throws
- * instead of guessing at the missing channel.
+ * and `fill(1, 0)` is a half-written line, so it throws instead of guessing at
+ * the missing channel.
  *
  * @param names  the parameter names in order, for the error message
  */
@@ -152,7 +150,7 @@ export function channelValues(
   return names.map((name, i) => channelValue([args[i]], `${what} ${name}`));
 }
 
-/** A DMX universe is 512 channels. Named because three checks now cite it. */
+/** A DMX universe is 512 channels. Named because three checks cite it. */
 const CHANNELS_PER_UNIVERSE = 512;
 
 // universe number (1-based) → 512-byte buffer
@@ -186,29 +184,27 @@ function key(universe: number, channel: number): string {
 /**
  * The universe a call lands on when it does not name one.
  *
- * Zero, and the same for every family. It used to be zero for fixture(),
- * rgbStrip() and friends and ONE for ch(), dim() and rgb() — so a scene that
- * patched a fixture and also wrote a raw channel drove two universes without
- * ever naming one. The visualizer follows the lowest, and a USB interface
- * carries a single universe, so half of such a scene could silently never
- * leave the machine.
+ * Zero, for every family: fixture(), rgbStrip(), ch(), dim() and rgb() alike.
+ * If two families defaulted differently, a scene that patched a fixture and
+ * also wrote a raw channel would drive two universes without naming either.
+ * The visualizer follows the lowest, and a USB interface carries a single
+ * universe, so half of that scene would never leave the machine.
  *
- * Zero rather than one because the fixture family is the one nearly every
- * scene uses, because it is what the visualizer and the USB path already
- * default to, and because the connector already knows how to handle it: E1.31
- * reserves universe 0, so the bridge remaps scene universe 0 onto the sACN
- * base. That remap was written for this split and stays correct.
+ * Zero because the fixture family is the one nearly every scene uses, the
+ * visualizer and the USB path default to it, and the connector handles it:
+ * E1.31 reserves universe 0, so the bridge remaps scene universe 0 onto the
+ * sACN base.
  */
 const DEFAULT_UNIVERSE = 0;
 
 // ─── Public DMX API ──────────────────────────────────────────────────────────
 
 /**
- * Set a channel on the default universe. channel is 1-indexed (1-512). Omit the value for
- * full.
+ * Set a channel on the default universe. channel is 1-indexed (1-512). Omit
+ * the value for full.
  *
  * Resolves the value here rather than leaving it to uni(), so a rejected value
- * is reported against the call the operator actually wrote.
+ * is reported against the call the operator wrote.
  */
 export function ch(channel: number, ...args: [PatternOrValue?]): void {
   const value = channelValue(args, `ch(${channel})`);
@@ -219,11 +215,10 @@ export function ch(channel: number, ...args: [PatternOrValue?]): void {
 /**
  * Refuse an address that cannot exist, naming the call that wrote it.
  *
- * A DMX universe is 512 channels, 1-indexed. Writing outside that used to be
- * accepted and then quietly dropped when the frame was built, so `ch(5100, 1)`
- * — a typo for 510 — reported a running scene and lit nothing. The fixture
- * family has always refused an address it cannot fit; the channel family took
- * anything. Same rule for both now.
+ * A DMX universe is 512 channels, 1-indexed. An address outside that would be
+ * dropped when the frame is built, so `ch(5100, 1)`, a typo for 510, would
+ * report a running scene and light nothing. The fixture family and the channel
+ * family both refuse an address that does not fit.
  *
  * Checked where the operator names the channel rather than at the buffer, so
  * the message can say which call was wrong instead of which byte was.
@@ -258,8 +253,8 @@ export function uni(universe: number, channel: number, ...args: [PatternOrValue?
   assertChannel(channel, `uni(${universe}, ${channel})`);
   const target = _capture ?? _staging ?? _defs;
   const k = key(universe, channel);
-  // Last write wins, and always has. Noted on the way past so the run can say
-  // so afterwards: see noteOverwrite.
+  // Last write wins. The overwrite is noted so the run can report it
+  // afterwards: see noteOverwrite.
   const held = target.get(k);
   if (held !== undefined && !Object.is(held.value, value)) noteOverwrite(universe, channel);
   target.set(k, { universe, channel, value });
@@ -272,10 +267,9 @@ export function uni(universe: number, channel: number, ...args: [PatternOrValue?
 //
 // On a desk, colour and intensity are separate: pick red, then run a chase on
 // the intensity, and the chase is red. A colour strip or a par with no dimmer
-// has no intensity channel, so a level there used to be written straight onto
-// the colour channels, and `strip.color(red); strip.each(chase)` came out as a
-// white chase with a note that red had been overwritten. A level handed to
-// colour channels that already hold a colour now scales that colour instead.
+// has no intensity channel, so a level handed to colour channels that already
+// hold a colour scales that colour. Written straight onto the colour channels,
+// `strip.color(red); strip.each(chase)` would come out as a white chase.
 
 /** A value as a level from 0 to 1 at an instant, for multiplying. */
 function levelAt(v: PatternOrValue, begin: number, end: number): number {
@@ -304,20 +298,20 @@ export function scaledBy(held: PatternOrValue, level: PatternOrValue): PatternOr
 }
 
 /**
- * Put a level on a set of colour channels: scaling the colour they already
- * hold in this scene, or, when none of them holds anything, writing the level
- * to each (a white level, as before). Not counted as setting them twice: it
- * is one light's colour and intensity, not two looks fighting.
- */
-/**
  * For each channel levelOnColour() has written in the scene being built: the
  * colour it scaled, or null where it wrote a plain level. A second level on
- * the same channels re-scales that colour rather than the first level, so it
- * replaces the first the way a second write always has, instead of
- * multiplying with it. Cleared when a scene or a captured look begins.
+ * the same channels re-scales that colour, so it replaces the first level the
+ * way any second write does, instead of multiplying with it. Cleared when a
+ * scene or a captured look begins.
  */
 const _levelBase = new Map<string, PatternOrValue | null>();
 
+/**
+ * Put a level on a set of colour channels: scaling the colour they already
+ * hold in this scene, or, when none of them holds anything, writing the level
+ * to each (a white level). Not counted as setting them twice: it is one
+ * light's colour and intensity, not two looks fighting.
+ */
 export function levelOnColour(
   universe: number,
   channels: readonly number[],
@@ -352,18 +346,15 @@ export function levelOnColour(
 //
 // A scene is imperative, so two calls to one channel are an assignment
 // followed by another assignment: the second replaces the first and nothing
-// is mixed. That is the intended behaviour and not something to change — a
-// lighting desk would take the highest of the two, but a desk is not running
-// somebody's JavaScript, where a silent max would be far stranger than a
-// silent overwrite.
+// is mixed, by design. A lighting desk would take the highest of the two, but
+// in JavaScript a silent max would be stranger than a silent overwrite.
 //
-// What it should not be is invisible. The shape that makes it bite is two
-// looks over one rig — verse(); chorus() — where the channels they share come
-// out as whatever the later one said and the earlier look is simply gone, with
-// a green status bar over the top. So the run counts them and says so.
+// The overwrite is reported, though. It bites with two looks over one rig,
+// verse(); chorus(): the channels they share come out as the later one said,
+// the earlier look is gone, and the status bar stays green. So the run counts
+// overwrites and says so.
 //
-// Only a write that changes the value counts. Setting a channel to what it
-// already holds is not something anyone needs told about.
+// Only a write that changes the value counts.
 
 const _overwritten = new Map<string, { universe: number; channel: number; times: number }>();
 
@@ -400,7 +391,7 @@ export function patchAt(universe: number, channel: number): { label: string; sta
  *
  * Reads the staging map while a transaction is open, so it answers about the
  * scene being built rather than the one still on the wire. Asking the defs is
- * how anything can tell what a run actually drove without hooking every path
+ * how anything can tell what a run drove without hooking every path
  * that writes: a strip's pixels, a group's members and a plain `ch()` all end
  * up here, and only here.
  */
@@ -422,11 +413,9 @@ export function dim(channel: number, ...args: [PatternOrValue?]): void {
 export function rgb(startChannel: number, ...args: [PatternOrValue?, PatternOrValue?, PatternOrValue?]): void {
   const [r, g, b] = channelValues(args, ['r', 'g', 'b'], 'rgb');
   assertChannel(startChannel, `rgb(${startChannel})`);
-  // The whole span, not just the address written. It used to take the start,
-  // write what fitted and drop the rest, so rgb(511, …) lit red and green and
-  // silently swallowed blue — a colour that is not the colour asked for, with
-  // nothing said. fixture() has always refused the same overflow; this now
-  // matches it.
+  // The whole span must fit. Writing what fits and dropping the rest would
+  // turn rgb(511, …) into red and green with no blue, a different colour from
+  // the one asked for, with nothing said. fixture() refuses the same overflow.
   const last = startChannel + 2;
   if (last > CHANNELS_PER_UNIVERSE) {
     throw new Error(
@@ -442,17 +431,15 @@ export function rgb(startChannel: number, ...args: [PatternOrValue?, PatternOrVa
 
 // ─── Capturing one look ──────────────────────────────────────────────────────
 //
-// A look is a function that writes channels, so the only way to hold one as a
-// value is to run it with its writes going somewhere of its own. That is what
-// this is for: cue() with a selector runs every look into its own map, then
-// writes one value per channel that reads the selector at query time and
-// resolves whichever look it names.
+// A look is a function that writes channels, so holding one as a value means
+// running it with its writes going to a map of its own. cue() with a selector
+// runs every look into its own map, then writes one value per channel that
+// reads the selector at query time and resolves whichever look it names.
 //
-// Strictly inside an evaluation, and strictly above staging: what finally
-// reaches the staging map is ordinary channel values, so the commit, the
-// rollback, hush() and the panic keys are all untouched by this existing. The
-// engine never sees a partial picture — the merge happens before anything is
-// staged.
+// Strictly inside an evaluation, and strictly above staging: what reaches the
+// staging map is ordinary channel values, so the commit, the rollback, hush()
+// and the panic keys work unchanged. The merge happens before anything is
+// staged, so the engine never sees a partial picture.
 
 let _capture: Map<string, ChannelDef> | null = null;
 
@@ -607,20 +594,10 @@ function resetQueryFailures(): void {
 }
 
 /**
- * Record a throwing def. Called from the tick loop, so the repeat path stays
- * cheap: one key string, one map lookup, then a counter bump on an object that
- * already exists. The key string is the only allocation, and only throwing
- * channels reach it; a healthy scene never calls this function.
- *
- * Never throws. It runs inside tick()'s per-def catch, where a throw would
- * escape the loop and cost the whole frame, which is the hole this function
- * exists to close, so the whole body runs under a guard.
- */
-/**
  * A word in a pattern where a level belongs: mini('1 x 1'), or a colour name
- * in a pattern handed to a dimmer. Strudel keeps it as the string it was, and
- * a string is no level, so that step went dark with nothing said. It is
- * reported the way a throwing pattern is, once per channel, on the status bar.
+ * in a pattern handed to a dimmer. Strudel keeps it as a string, which is no
+ * level, so that step is dark. It is reported the way a throwing pattern is,
+ * once per channel, on the status bar.
  *
  * The existing entry is checked first so the message, and the Error, are made
  * once rather than on every tick the word comes round.
@@ -638,6 +615,16 @@ function recordWordHap(def: ChannelDef, word: string): void {
   ));
 }
 
+/**
+ * Record a throwing def. Called from the tick loop, so the repeat path stays
+ * cheap: one key string, one map lookup, then a counter bump on an object that
+ * already exists. The key string is the only allocation, and only throwing
+ * channels reach it; a healthy scene never calls this function.
+ *
+ * Never throws. It runs inside tick()'s per-def catch, where a throw would
+ * escape the loop and cost the whole frame, so the whole body runs under a
+ * guard.
+ */
 function recordQueryFailure(def: ChannelDef, err: unknown): void {
   try {
     const k = key(def.universe, def.channel);
@@ -651,12 +638,11 @@ function recordQueryFailure(def: ChannelDef, err: unknown): void {
     // and a thrown non-Error can have a toString() that throws.
     //
     // String() rather than a template literal or `+`, because it is the one
-    // coercion that survives a Symbol. An Error whose .message is a Symbol used
-    // to be stored raw and then interpolated into the console line below, which
-    // throws TypeError; the UI, which trusts this field to be a string, would
-    // have thrown on it too. Coercing here keeps `message` a string for every
-    // consumer. The inner catch keeps the entry with a fallback message rather
-    // than losing the record to one bad message.
+    // coercion that survives a Symbol. A Symbol .message interpolated into the
+    // console line below throws TypeError, and so would the UI, which trusts
+    // this field to be a string. Coercing here keeps `message` a string for
+    // every consumer. The inner catch keeps the entry with a fallback message
+    // rather than losing the record to one bad message.
     let message = 'unknown error';
     try {
       message = String(err instanceof Error ? err.message : err);
@@ -678,10 +664,9 @@ function recordQueryFailure(def: ChannelDef, err: unknown): void {
       }
     }
   } catch {
-    // Bookkeeping must never become the failure it is reporting. Scene code
-    // shares this realm, so even the console can be replaced with something
-    // that throws. Losing one status-bar entry is cheaper than losing the frame
-    // the entry exists to protect.
+    // Scene code shares this realm, so even the console can be replaced with
+    // something that throws. Losing one status-bar entry is cheaper than losing
+    // the frame.
   }
 }
 
@@ -695,12 +680,10 @@ function recordQueryFailure(def: ChannelDef, err: unknown): void {
  *   echo(3, 0.125, 0.5)  ->  { value: 1, gain: 1 }, { value: 1, gain: 0.5 }, …
  *   hurry(2)             ->  { value: 1, speed: 2 }
  *
- * Reading only bare numbers meant every one of those landed as 0: the channel
- * went dark, the scene ran clean, and nothing said why. Unwrapping `value`
- * makes them work. `gain` is folded in because that is what it means, an
- * amplitude, so echo's repeats come out decaying rather than all at full.
- * Parameters that describe sound rather than level (speed, pan, room) are
- * ignored, which is the right reading for a lamp.
+ * `value` is unwrapped: read as bare numbers only, each of those would land as
+ * 0 and the channel would go dark with nothing said. `gain` is an amplitude,
+ * so it is folded in and echo's repeats come out decaying. Parameters that
+ * describe sound (speed, pan, room) are ignored.
  */
 export function levelOf(v: unknown): number | null {
   if (typeof v === 'number') return v;
@@ -725,10 +708,10 @@ export function levelOf(v: unknown): number | null {
  * The character ranges of the mini-notation tokens driving light right now.
  *
  * @strudel/mini can tag every leaf of a pattern with where it came from in the
- * document — that is what `m(str, offset)` is for, as against `mini(str)`,
- * which throws the offsets away. When a scene is compiled with the tagging
- * version, each hap carries the range of the token that produced it, and this
- * collects the ones that are actually reaching a channel on this tick.
+ * document: `m(str, offset)` keeps those offsets, and `mini(str)` throws them
+ * away. When a scene is compiled with the tagging version, each hap carries the
+ * range of the token that produced it, and this collects the ones reaching a
+ * channel on this tick.
  *
  * Flat pairs rather than objects: this fills sixty times a second and the
  * editor reads it just as often, so it is one array that is emptied and
@@ -769,17 +752,6 @@ function collectLocations(hap: unknown): void {
 // ─── Internal ─────────────────────────────────────────────────────────────────
 
 /**
- * Drop every channel definition, so the next tick() drives nothing.
- *
- * Deliberately does NOT zero the universe buffers. tick() zeroes and rewrites
- * every buffer from scratch each frame, so clearing defs is enough to go dark
- * while the scheduler runs. Wiping buffers here would mean any caller that
- * clears defs speculatively (as eval once did) blacks out real hardware before
- * it knows what replaces the scene. Callers that need the outputs dark *now*,
- * with no further tick coming (the stop / blackout path), zero the buffers
- * themselves via getAllUniverses().
- */
-/**
  * Drop everything the scene has driven so far, leaving it dark.
  *
  * Clears the staged map during an eval and the live one outside it. Using
@@ -805,13 +777,11 @@ const _patched: PatchClaim[] = [];
 /**
  * Claim a run of channels for one patched light, or say who already holds them.
  *
- * Two lights at overlapping addresses used to patch quietly and then fight over
- * the channels they shared, every frame, with the second one's dimmer sitting
- * on the first one's green. The rig then does something that reads as a broken
- * fixture rather than as a mistyped number, which is the expensive way to find
- * out. Overlapping patches are the commonest addressing error there is, and the
- * other one is already refused: a fixture that would run past channel 512
- * throws and names the overrun.
+ * Two lights at overlapping addresses would fight over the channels they share,
+ * every frame, with the second one's dimmer sitting on the first one's green.
+ * The rig then looks like a broken fixture rather than a mistyped number.
+ * Overlapping patches are the commonest addressing error; the other, a fixture
+ * that would run past channel 512, throws and names the overrun.
  *
  * Lives here rather than in fixtures.ts because this is channel ownership, and
  * because clearDefs() is the signal that a new scene is starting.
@@ -839,10 +809,10 @@ export function claimChannels(universe: number, start: number, count: number, la
  * Separate from clearDefs() because the two resets are not the same event. A
  * scene run does not go through clearDefs(): eval.ts clears the sim, the
  * screens, the controls, the pickers and the fixture activity, and leaves the
- * channel defs to be replaced by the run itself. Hanging the claims off
- * clearDefs() alone meant they survived from one run to the next, so the second
- * ctrl+enter on any scene with a fixture in it reported that fixture
- * overlapping itself.
+ * channel defs to be replaced by the run itself. With the claims hanging off
+ * clearDefs() alone, they would survive from one run to the next, and the
+ * second ctrl+enter on any scene with a fixture in it would report that
+ * fixture overlapping itself.
  */
 export function clearPatchClaims(): void {
   _patched.length = 0;
@@ -885,11 +855,32 @@ export function mapLightChannels(change: (value: PatternOrValue) => PatternOrVal
   return touched;
 }
 
+/**
+ * Drop every channel definition, so the next tick() drives nothing.
+ *
+ * Does not zero the universe buffers. tick() zeroes and rewrites every buffer
+ * each frame, so clearing defs is enough to go dark while the scheduler runs.
+ * Wiping buffers here would let any caller that clears defs speculatively
+ * black out real hardware before it knows what replaces the scene. Callers
+ * that need the outputs dark now, with no further tick coming (the stop /
+ * blackout path), zero the buffers themselves via getAllUniverses().
+ */
 export function clearDefs(): void {
   _defs.clear();
   clearPatchClaims();
   resetQueryFailures();
 }
+
+/**
+ * Levels already resolved this tick, by the pattern that produced them.
+ *
+ * One pattern often drives several channels: a colour strip given a level
+ * writes the same value to red, green and blue of every pixel, and a group
+ * hands one value to every member. Asking it once per tick rather than once
+ * per channel is a third of the work on a strip. Reused and cleared, so the
+ * tick allocates nothing for it.
+ */
+const _resolved = new Map<object, number>();
 
 /**
  * Called by the scheduler on each tick to resolve patterns → channel values.
@@ -906,17 +897,6 @@ export function clearDefs(): void {
  * caller still ships it. If the frame never shipped, the rig would hold its last
  * look with no indication anything is wrong.
  */
-/**
- * Levels already resolved this tick, by the pattern that produced them.
- *
- * One pattern often drives several channels: a colour strip given a level
- * writes the same value to red, green and blue of every pixel, and a group
- * hands one value to every member. Asking it once per tick rather than once
- * per channel is a third of the work on a strip. Reused and cleared, so the
- * tick allocates nothing for it.
- */
-const _resolved = new Map<object, number>();
-
 export function tick(cyclePos: number): void {
   // Zero all universe buffers
   for (const buf of _universes.values()) buf.fill(0);
@@ -928,7 +908,7 @@ export function tick(cyclePos: number): void {
     const chIdx = def.channel - 1; // 1-indexed → 0-indexed
     if (chIdx < 0 || chIdx >= 512) continue;
 
-    // Default is dark. Every path that cannot produce a real value (no haps, a
+    // Default is dark. Every path that cannot produce a value (no haps, a
     // non-numeric hap, a throw) leaves this untouched.
     let floatVal = 0;
     const value = def.value;
@@ -951,20 +931,16 @@ export function tick(cyclePos: number): void {
           const haps = value.queryArc(cyclePos, cyclePos + 0.0001);
           // Highest takes precedence, the merge every lighting desk uses. A
           // channel can have several values at one instant: stack(), a comma
-          // inside mini(), superimpose(), off(). Reading haps[0] and dropping
-          // the rest meant every layer after the first did nothing, so
-          // mini('1 1 1 1, 0.5 0.5 0.5 0.5') put only the first layer on the
-          // wire. Brightest-wins is also what makes layering safe to build up:
-          // adding a layer can raise a channel but never darken one.
+          // inside mini(), superimpose(), off(). Every hap is read, so every
+          // layer counts, and adding a layer can raise a channel but never
+          // darken one.
           for (let i = 0; i < haps.length; i++) {
             const raw = haps[i].value;
             const v = levelOf(raw);
             if (typeof raw === 'string') recordWordHap(def, raw);
             if (v !== null && v > floatVal) floatVal = v;
-            // Only a hap that is actually lighting something. A token
-            // sitting at zero is in the pattern but is not what anyone
-            // means by the live one, and outlining it would light the whole
-            // string up at once.
+            // Only a hap that is lighting something. Outlining tokens that sit
+            // at zero would light the whole string up at once.
             if (_collectLocations && v !== null && v > 0) collectLocations(haps[i]);
           }
           // Only a query that answered is remembered: one that threw is asked
@@ -1003,7 +979,7 @@ export function getPrimaryUniverseSnapshot(): number[] {
 }
 
 /**
- * Universes the live scene actually drives, lowest first.
+ * Universes the live scene drives, lowest first.
  *
  * Read from the channel definitions rather than the buffers, so a universe
  * whose channels all happen to be at zero this frame still counts: it is in

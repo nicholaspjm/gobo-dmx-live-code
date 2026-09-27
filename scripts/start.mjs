@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * Start gobo: one command, one process, browser opens itself.
+ * Start gobo in one process, and open a browser on it.
  *
  * A browser cannot open a UDP socket, so something native has to run for
- * Art-Net or sACN to reach a rig. This makes that thing the only thing you
- * start: it serves the app and speaks UDP from the same process, on one port,
- * so the page's WebSocket is same-origin and there is no second thing to
- * forget.
+ * Art-Net or sACN to reach a rig. This script is the only thing to start: it
+ * serves the app and sends UDP from the same process, on one port, so the
+ * page's WebSocket is same-origin and there is no second process to forget.
  *
  *   npm start                    build if needed, serve, open a browser
  *   npm start -- --no-open       same, without opening a browser
@@ -100,10 +99,10 @@ if (args.includes('--rebuild') || !bridgeBuilt || bridgeStale) {
 
 // Hand the bridge its flags, then run it in THIS process rather than spawning
 // a child, so there is exactly one process to start and to stop.
-// --lan and --allow-origin are the bridge's, and pass straight through. This
-// list is rebuilt rather than forwarded whole, so a flag not named here never
-// reaches the bridge: `npm start -- --lan` used to start a loopback-only
-// connector without a word.
+// This list is rebuilt rather than forwarded whole, so only flags named here
+// reach the bridge. --lan and --allow-origin are the bridge's and pass straight
+// through; leaving one out would make `npm start -- --lan` start a
+// loopback-only connector without a word.
 const passThrough = [];
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--lan') passThrough.push('--lan');

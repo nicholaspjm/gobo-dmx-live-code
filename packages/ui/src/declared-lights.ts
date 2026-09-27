@@ -7,14 +7,13 @@
  * which is enough to say what a name is, what it answers to, and, once the id
  * resolves to a definition, which address each of its channels lands on.
  *
- * Three surfaces want this and each used to carry its own copy of the regex:
- * syntax colouring (which names to paint as fixtures), autocomplete (which
- * names to offer) and hover (what to say about one). Two of the three had
- * fallen behind and knew nothing about `monoStrip` or `screen`.
+ * Three surfaces share this one scan, so they agree on which constructors
+ * declare a light: syntax colouring (which names to paint as fixtures),
+ * autocomplete (which names to offer) and hover (what to say about one).
  *
  * Custom ids only resolve once the scene has run, because `defineFixture`
- * registers them at run time. Hovering one before then says so rather than
- * pretending the fixture does not exist.
+ * registers them at run time. Hovering one before then says to run the scene
+ * first.
  */
 
 // Imported from the fixtures module rather than the package index: this file
@@ -262,7 +261,7 @@ const MAX_CHANNEL_ROWS = 16;
 /** The address column: one channel, or the span a strip claims. */
 function rowAddress(row: ChannelRow): string {
   // With no address in the text the position within the fixture is still
-  // known, and is marked so it cannot be read as a real DMX channel.
+  // known, and is marked so it cannot be mistaken for a DMX address.
   const mark = row.address === null ? '+' : '';
   const first = row.address ?? row.offset + 1;
   return row.span > 1 ? `${mark}${first}-${first + row.span - 1}` : `${mark}${first}`;
@@ -358,7 +357,7 @@ function describeScreen(decl: LightDecl): LightInfo {
   const summary = pixels === null
     ? 'A light made of screen.'
     : pixels === 1
-      ? 'One colour wash, drawn rather than patched. No DMX address.'
+      ? 'One colour wash, drawn on screen. No DMX address.'
       : `${pixels} cells drawn on screen${gridNote(cols, pixels)}. No DMX address.`;
   return {
     signature: `screen(${decl.args.join(', ')})`,
@@ -399,11 +398,11 @@ export function describeLight(decl: LightDecl): LightInfo {
  * The names a scene gave its lights, keyed by where each is patched
  * (`universe:startChannel`), for labelling the sim.
  *
- * The sim is handed addresses, not names, so a rig of four pars read
- * "dim-rgbw" four times over while the code said wash, key and back. Only a
- * declaration whose address is written as plain numbers can be matched; a
- * light made in a loop keeps its kind as its label. Two declarations on one
- * address name neither, rather than guess.
+ * The sim is handed addresses, not names. Without this, a rig of four pars
+ * reads "dim-rgbw" four times over while the code says wash, key and back.
+ * Only a declaration whose address is written as plain numbers can be
+ * matched; a light made in a loop keeps its kind as its label. When two
+ * declarations share an address, neither name is used.
  */
 export function lightNamesByAddress(doc: string): Map<string, string> {
   const out = new Map<string, string>();

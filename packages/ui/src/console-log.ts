@@ -1,18 +1,19 @@
 /**
  * The log, in the app.
  *
- * gobo hands `console` to the scene sandbox, so a scene can print — and until
- * now the only place that went was the browser's devtools. That is a fine
- * answer while you are building something and a bad one at a gig, where the
- * laptop is on a road case, the room is dark, and opening devtools over the
- * top of the editor costs the half of the screen you are working in.
+ * gobo hands `console` to the scene sandbox, so a scene can print. Devtools
+ * shows that output well enough while you are building something. At a gig
+ * the laptop is on a road case, the room is dark, and opening devtools over
+ * the editor costs the half of the screen you are working in, so the output
+ * is kept in a panel inside the app.
  *
- * It also holds what the status bar cannot. The bar shows one line and the
- * newest thing wins, so a pattern that threw four bars ago is gone by the time
- * anyone looks up. This keeps the last few hundred and timestamps them.
+ * The panel also holds what the status bar cannot. The bar shows one line and
+ * the newest thing wins, so a pattern that threw four bars ago is gone by the
+ * time anyone looks up. This keeps the last few hundred lines and timestamps
+ * them.
  *
- * The real console still gets everything: this wraps rather than replaces, so
- * devtools stays exactly as useful as it was.
+ * The browser console still gets everything: each console method is wrapped
+ * and every call is forwarded, so devtools shows the same output.
  */
 
 import { PANEL_OPEN_EVENT } from './panel.js';
@@ -33,9 +34,8 @@ export interface LogEntry {
  * How many lines to keep.
  *
  * A pattern throwing on every tick can produce 40 lines a second, and the
- * collapse below turns that into one row with a count, so this is not a
- * per-second budget. It is how far back you can look, and a few hundred covers
- * the last song.
+ * collapse below turns that into one row with a count, so the limit sets how
+ * far back you can look. A few hundred rows covers the last song.
  */
 const MAX_ENTRIES = 300;
 
@@ -91,12 +91,12 @@ function present(value: unknown): string {
  *
  * Without this the panel shows a library's styled banner as the raw thing:
  * "%c🌀 @strudel/core loaded 🌀 background-color: black;color:white", CSS and
- * all. The real console reads %c as "style what follows with the next
- * argument"; there is no styling to do here, so the directive and its CSS are
- * dropped and the text is left.
+ * all. The browser console reads %c as "style what follows with the next
+ * argument"; the panel has no styling to apply, so the directive and its CSS
+ * are dropped and the text is kept.
  *
- * Only run when the first argument is a string that actually carries a
- * directive, so ordinary calls keep going through untouched.
+ * Only runs when the first argument is a string carrying a directive, so
+ * ordinary calls pass through untouched.
  */
 export function formatArgs(args: unknown[]): string {
   const first = args[0];
@@ -121,22 +121,22 @@ export function formatArgs(args: unknown[]): string {
 let _captured = false;
 
 /**
- * Start recording what goes to the console.
- *
- * Wraps rather than replaces: every call is still forwarded, so devtools shows
- * exactly what it showed before. Guarded against being called twice, which
- * would wrap the wrapper and double every line.
- */
-/**
  * Lines the log panel leaves out. Strudel announces itself with a banner the
- * moment it loads, and gobo already says the same thing in its own words a
- * line later, so the panel showed it twice on every start. The browser's own
+ * moment it loads, and gobo says the same thing in its own words a line
+ * later, so the panel would show it twice on every start. The browser's own
  * console still gets both.
  */
 export function isLogNoise(line: string): boolean {
   return /^🌀 @strudel\/\w+ loaded 🌀$/.test(line.trim());
 }
 
+/**
+ * Start recording what goes to the console.
+ *
+ * Each method is wrapped and every call is still forwarded, so devtools shows
+ * the same output as before. Guarded against being called twice, which would
+ * wrap the wrapper and double every line.
+ */
 export function captureConsole(): void {
   if (_captured) return;
   _captured = true;
@@ -148,8 +148,8 @@ export function captureConsole(): void {
         const line = formatArgs(args);
         if (!isLogNoise(line)) addLog(kind, line);
       } catch {
-        // Recording a line must never be the reason a scene fails. The real
-        // console already has it.
+        // Recording a line must never be the reason a scene fails. The
+        // browser console already has it.
       }
     };
   }

@@ -3,12 +3,12 @@
  *
  * With sound you hear which step is playing. With light your eyes are on the
  * rig, and when something looks wrong you are left counting tokens in a long
- * string to work out which one is firing. This marks it: the code becomes its
- * own playhead.
+ * string to work out which one is firing. This outlines the firing token in
+ * the code.
  *
  * The data comes from the engine. dmx.ts collects the character ranges of
- * every hap that actually reached a channel on the last tick — see
- * setLocationCollection — and this paints them.
+ * every hap that reached a channel on the last tick (see
+ * setLocationCollection), and this paints them.
  *
  * Marks are rebuilt from those ranges on an animation frame rather than held
  * across ticks, because the set changes every tick by definition. What is NOT

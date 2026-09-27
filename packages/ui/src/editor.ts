@@ -16,8 +16,8 @@
  * bound when the popup is closed: Enter inserts a newline and Tab moves focus
  * out of the editor, which is how a keyboard user leaves it. See autocomplete.ts.
  *
- * Nine of these behaviours are switchable, because the editor is the whole
- * interface and an editor habit is personal. Each one lives in its own
+ * Nine of these behaviours are switchable, because everything in gobo is
+ * driven from the editor and editor habits are personal. Each one lives in its own
  * Compartment so a setting can be changed with a scene running: replacing the
  * whole extension set would rebuild the state and take the undo history, the
  * fold state and the live decorations with it.
@@ -45,9 +45,8 @@ import { EXAMPLES } from './examples.js';
 /**
  * The document a brand-new editor starts on.
  *
- * This used to be a hardcoded INITIAL_CODE constant here, duplicated verbatim
- * by one of the bundled examples. Examples own that text now (examples.ts),
- * and EXAMPLES[0] is the two-line scene a new browser opens on.
+ * The text lives in examples.ts: EXAMPLES[0] is the two-line scene a new
+ * browser opens on.
  *
  * main.ts always passes the user's stored buffer, so this default is only
  * reached by a caller that has nothing to restore.
@@ -63,14 +62,13 @@ export type EvalBlockHandler = (view: EditorView) => void;
 /**
  * The editor behaviours a user can turn off.
  *
- * Deliberately the same list strudel offers, minus the ones that mean
+ * The same list strudel offers, minus the ones that mean
  * something different here. Tab indentation is not offered because Tab is
  * already the second key that accepts a completion, and with the popup closed
  * it is how a keyboard user leaves the editor: taking it would cost an
  * accessibility control to save a keystroke. Syncing across browser tabs is
- * not offered either — two tabs holding the same scene is two schedulers
- * writing the same DMX channels, which is a conflict rather than a
- * convenience.
+ * not offered either: two tabs holding the same scene means two schedulers
+ * writing the same DMX channels.
  */
 export interface EditorPrefs {
   lineNumbers: boolean;
@@ -161,7 +159,7 @@ export function createEditor(
         run(view) {
           // With block evaluation on, the main chord takes the block around
           // the cursor and Ctrl+Shift+Enter still takes the whole document,
-          // so the pair swaps rather than one of them disappearing.
+          // so the two chords swap and both stay available.
           if (current.blockEval && onEvalBlock) {
             onEvalBlock(view);
             return true;
@@ -224,15 +222,14 @@ export function createEditor(
     doc: initialDoc,
     extensions: [
       history(),
-      // Folding a look you are not working on. The gutter has been styled
-      // since the theme was written; what was missing was the extension that
-      // draws it, so a long document had no way to collapse anything.
+      // Folding a look you are not working on. The theme styles the gutter;
+      // foldGutter() draws it.
       codeFolding(),
       foldGutter(),
-      // Find, which the editor simply did not have. The browser's own find is
-      // no substitute: CodeMirror only renders the lines near the viewport, so
-      // Cmd+F in the browser searches the part of the document you can already
-      // see. In a file holding a whole performance that is the wrong half.
+      // Find. The browser's own find cannot stand in for it: CodeMirror only
+      // renders the lines near the viewport, so Cmd+F in the browser searches
+      // only the part of the document you can already see, which in a file
+      // holding a whole performance misses most of it.
       search({ top: true }),
       highlightSelectionMatches(),
       // Marks lines edited since the run that is currently live. See
@@ -243,24 +240,23 @@ export function createEditor(
       // Look names marked and muted blocks dimmed. See look-marks.ts.
       lookMarks,
       indentOnInput(),
-      // Everything switchable. The compartments sit here, in the order the
-      // fixed extensions used to, so turning one on puts it back where it was
-      // rather than at the end of the precedence chain.
+      // Everything switchable. The compartments hold this place in the array,
+      // so turning one on puts it here in the precedence chain; appending it
+      // would put it at the end.
       ...compartmentKeys.map((key) => parts[key].of(extensionFor(key, prefs))),
       javascript(),
       goboTheme,
       goboHighlight,
       goboCodeHighlight,
-      // Ahead of goboAutocomplete, and that ordering is load-bearing.
+      // Must stay ahead of goboAutocomplete.
       //
       // Both are at Prec.highest, so the array decides which is asked first,
       // and the answer decides what Ctrl+Space does. Autocomplete binds it to
       // startCompletion, which returns true whenever the completion field
       // exists, meaning always: it does not check whether there is anything to
-      // complete. So while it was asked first, it always won, and the stop
-      // below never ran. Ctrl+Space opened a popup instead of going dark,
-      // which is the opposite of what this file's own comment and the README
-      // both promise, and it is a panic key.
+      // complete. If autocomplete is asked first it always wins, the stop never
+      // runs, and Ctrl+Space opens a popup instead of going dark. Ctrl+Space is
+      // a panic key, and this file's header and the README both say it stops.
       evalKeybinding,
       vizDecorationsField,
       changeListener,

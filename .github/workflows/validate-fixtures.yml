@@ -1,7 +1,7 @@
 name: Validate fixtures
 
 # Runs on every PR that touches `fixtures/` and on pushes to main
-# (so merges get re-verified too). Fails fast on any invalid file.
+# (so merges are checked again). Fails fast on any invalid file.
 on:
   pull_request:
     paths:

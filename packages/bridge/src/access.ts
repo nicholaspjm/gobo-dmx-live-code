@@ -1,17 +1,15 @@
 /**
  * Who the connector will talk to.
  *
- * THE PROBLEM THIS EXISTS TO FIX
+ * WHY
  * The connector installs itself as a login item and then sits on tcp/3001 for
- * as long as the machine is on. It used to listen on every network interface
- * and accept a WebSocket from anything that asked, and a browser does not apply
- * same-origin rules to WebSockets. So any web page open on the operator's
- * machine could connect, stream DMX at the rig, and repoint the Art-Net or OSC
- * output at any host and port it liked; so could anything else on the same
- * café wifi. SECURITY.md said so plainly, as accepted risk, and it was
- * reasonable to accept for one person on a trusted network. It is not
- * reasonable for a program strangers download and leave running in the
- * background.
+ * as long as the machine is on, and a browser does not apply same-origin rules
+ * to WebSockets. A connector that listened on every interface and accepted any
+ * WebSocket would let any web page open on the operator's machine connect,
+ * stream DMX at the rig, and repoint the Art-Net or OSC output at any host and
+ * port it liked, and anything else on the same café wifi could do the same.
+ * That risk might be acceptable for one person on a trusted network, but not
+ * for a program strangers download and leave running in the background.
  *
  * THE THREE CHECKS
  *   1. Where it listens. Loopback only, unless the operator passes --lan.
@@ -19,19 +17,19 @@
  *      handshake, and a page cannot forge it, so this is what stops a page on
  *      some other site from connecting. Allowed: pages served from this
  *      machine's loopback, the hosted app, and anything named with
- *      --allow-origin. A connection with no Origin at all is not a browser —
- *      doctor.mjs, a test, a script — and is let through, because a program
+ *      --allow-origin. A connection with no Origin at all is not a browser
+ *      (doctor.mjs, a test, a script) and is let through, because a program
  *      already running on this machine can send UDP itself and refusing it
  *      would protect nothing.
  *   3. The Host header, on every request. This is the DNS-rebinding defence. A
  *      page on attacker.example can make that name resolve to 127.0.0.1 and then
  *      talk to "its own" origin, which passes an Origin check that only compares
  *      Origin with Host. A name the attacker controls never passes this one: the
- *      Host has to be an IP literal, which cannot be rebound, or localhost, or —
- *      in LAN mode — one of this machine's own names.
+ *      Host has to be an IP literal, which cannot be rebound, localhost, or (in
+ *      LAN mode) one of this machine's own names.
  *
  * Its own module because index.ts starts listening the moment it is imported,
- * and these rules are the part worth testing. serve-ui.ts, frames.ts and osc.ts
+ * and these rules need tests. serve-ui.ts, frames.ts and osc.ts
  * are split out for the same reason.
  */
 

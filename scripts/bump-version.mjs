@@ -11,8 +11,8 @@
  * comments beside them), and tests fail if any of the eight disagree. Editing
  * them by hand is how a release goes out half-bumped.
  *
- * It changes the files and nothing else: no commit, no tag. The changelog
- * section is still written by hand, because what goes in it is the point.
+ * It changes the files and makes no commit or tag. The changelog section is
+ * still written by hand.
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';

@@ -1,11 +1,8 @@
 /**
  * A quoted string is a pattern.
  *
- * In strudel "1 - 1 -" is mini-notation wherever a pattern is taken, which is
- * the first thing anyone writes there. gobo asked for mini('1 - 1 -') and
- * refused a bare string outright, so a strudel habit was an error on the first
- * line. Now a string handed to anything that takes a level or a colour reads as
- * mini-notation: wash.dim('1 - 1 -'), wash.color('<red blue>').
+ * As in strudel, a string handed to anything that takes a level or a colour
+ * reads as mini-notation: wash.dim('1 - 1 -'), wash.color('<red blue>').
  *
  * The parser is strudel's own, handed over by eval.ts once it has loaded, so
  * this module stays free of strudel and the channel code can use it.

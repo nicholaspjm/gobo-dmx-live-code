@@ -44,7 +44,7 @@ describe('findHelp', () => {
   });
 
   it('has no unintended duplicate labels left', () => {
-    // The six above are deliberate and are told apart by context. Any other
+    // The eight above are deliberate and are told apart by context. Any other
     // repeat is one entry silently shadowing another, which is how `linger`
     // came to be documented twice and offered twice by autocomplete.
     // dim joined these: the bare dim(channel, value) writes a raw DMX channel

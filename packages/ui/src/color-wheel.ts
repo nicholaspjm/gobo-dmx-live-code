@@ -1,32 +1,30 @@
 /**
  * A drawn colour wheel, for the swatch beside a pick().
  *
- * The swatch used to be an `<input type="color">`, which hands the job to the
- * operating system. That is a wheel on most platforms but a set of sliders on
- * some, it cannot take the editor's theme, and on a dark stage it is a bright
- * grey box in the middle of a dark buffer. This is the same control drawn
- * here instead, so it looks and behaves the same everywhere at the cost of
- * owning it.
+ * A native `<input type="color">` hands the job to the operating system. That
+ * is a wheel on most platforms but a set of sliders on some, it cannot take
+ * the editor's theme, and on a dark stage it is a bright grey box in the
+ * middle of a dark buffer. Drawing the control here makes it look and behave
+ * the same everywhere, at the cost of maintaining it.
  *
- * What it is: an HSV disc, hue by angle and saturation by radius, with a
- * value bar beside it. Two axes on the disc and one on the bar covers the
- * whole cube, and it is the arrangement most people have already used.
+ * The control is an HSV disc, hue by angle and saturation by radius, with a
+ * value bar beside it. The disc's two axes and the bar's one cover the whole
+ * cube, in the layout most people have used before.
  *
  * The disc is drawn once at full value into an ImageData and then scaled per
  * frame, because the per-pixel hue conversion is the expensive half and the
  * value is a multiply. Dragging repaints on every pointer move and this keeps
  * that cheap enough not to compete with the DMX tick.
  *
- * Placement: the popover is a child of <body> with `position: fixed`, not a
- * child of the widget. Inside the editor it would be clipped by the
- * scroller's overflow and pushed around by the line it sits on. Fixed
- * positioning off the swatch's own rect means it follows the swatch when the
- * document scrolls, and closes rather than floating loose once the swatch
- * itself has scrolled out of sight.
+ * The popover is a child of <body> with `position: fixed`, outside the
+ * widget. Inside the editor it would be clipped by the scroller's overflow
+ * and pushed around by the line it sits on. Fixed positioning off the
+ * swatch's own rect makes it follow the swatch when the document scrolls, and
+ * it closes once the swatch itself has scrolled out of sight.
  *
- * Its rules are here rather than in the page stylesheet so that importing the
- * module is all there is to it; they read the same theme variables the rest
- * of the page does, so a theme change carries.
+ * Its CSS rules live in this module instead of the page stylesheet, so
+ * importing the module is enough. They read the same theme variables as the
+ * rest of the page, so a theme change applies here too.
  */
 
 /** Handle for the popover the caller opened. */
@@ -235,7 +233,7 @@ export function openColorWheel(opts: ColorWheelOptions): ColorWheel {
   const bctx = bar.getContext('2d');
 
   // Current colour, held as HSV. Hex is a rounding of this, so keeping HSV
-  // as the truth is what stops the cursor drifting as a drag crosses cells
+  // as the source of truth stops the cursor drifting as a drag crosses cells
   // that round to the same byte.
   const start = rgbToHsv(...fromHex(opts.hex));
   let h = start.h;
@@ -357,7 +355,7 @@ export function openColorWheel(opts: ColorWheelOptions): ColorWheel {
   }
 
   /** Render, then hand the colour out. Every movement calls this, so the rig
-   *  follows the wheel rather than waiting for it to be let go of. */
+   *  follows the wheel during a drag. */
   function emit(): void {
     render();
     opts.onInput(currentHex());
@@ -515,8 +513,8 @@ export function openColorWheel(opts: ColorWheelOptions): ColorWheel {
   function place(): void {
     if (closed) return;
     const r = opts.anchor.getBoundingClientRect();
-    // The swatch has gone, so there is nothing left to point at. Better away
-    // than parked over unrelated text.
+    // The swatch is out of sight, so there is nothing left to point at. Close
+    // instead of leaving the popover over unrelated text.
     if (!anchorVisible(r)) {
       close();
       return;

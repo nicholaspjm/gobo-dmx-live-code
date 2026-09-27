@@ -1,9 +1,9 @@
 /**
  * USB DMX output, straight from the browser over WebSerial.
  *
- * The one path from a web page to real fixtures with nothing installed. A
- * browser cannot open a UDP socket, so Art-Net always needs a native helper,
- * but it can open a serial port, and a USB DMX interface is a serial device.
+ * The only way for a web page to drive fixtures with nothing installed. A
+ * browser cannot open a UDP socket, so Art-Net needs a native helper, but it
+ * can open a serial port, and a USB DMX interface is a serial device.
  *
  * Targets the Enttec DMX USB Pro protocol, which most interfaces speak or
  * emulate. The Pro has a microcontroller that generates the DMX break and
@@ -20,8 +20,8 @@
  *   ...   up to 512 channel bytes
  *   0xE7  end of message
  *
- * Requires a secure context (https or localhost) and a user gesture to choose
- * the port, both browser rules rather than ours.
+ * The browser requires a secure context (https or localhost) and a user
+ * gesture to choose the port.
  */
 
 const ENTTEC_START = 0x7e;
@@ -47,17 +47,16 @@ function serialApi(): SerialLike | null {
 }
 
 /**
- * Which universe goes out the box, when the scene said.
+ * Which universe goes out the interface, when the scene chose one.
  *
- * A DMX line carries one universe, so something has to choose which one, and
- * the send sites used to answer 0 unconditionally. That is the universe
- * `fixture()` patches into, but `ch()`, `dim()` and `rgb()` all write universe
- * 1, so every scene written the way the README writes them fed the interface a
- * buffer of zeros while the on-screen strip — which follows the lowest active
- * universe, not this one — animated as though it were working.
+ * A DMX line carries one universe, so something has to choose it. A fixed
+ * universe 0 does not work: `fixture()` patches into 0, but `ch()`, `dim()` and
+ * `rgb()` write universe 1, so scenes written the way the README writes them
+ * would send the interface zeros while the on-screen strip (which follows the
+ * lowest active universe) animated normally.
  *
- * null means "whichever universe the scene is actually driving", resolved by
- * the caller, so a scene that never mentions a universe keeps working.
+ * null means "whichever universe the scene is driving", resolved by the
+ * caller, so a scene that never mentions a universe still works.
  */
 let _universe: number | null = null;
 
@@ -80,9 +79,9 @@ let _connected = false;
 // A Set, for the same reason as the bridge listener: more than one part of the
 // UI reacts to the interface appearing or going away.
 const _onStatusChange = new Set<(connected: boolean) => void>();
-// One frame in flight at a time. A DMX frame at 40Hz takes about 23ms on the
-// wire, so without this a slow port would queue frames faster than it drains
-// and the rig would lag further behind by the second.
+// One frame in flight at a time. A DMX frame takes about 23ms on the wire at
+// 40Hz, so without this a slow port would queue frames faster than it drains
+// and the rig would fall further behind every second.
 let _writing = false;
 let _dropped = 0;
 /** The newest frame that arrived while a write was in flight, or null. */
@@ -105,7 +104,7 @@ export function getUsbDroppedFrames(): number {
  * Ask the user to choose a USB DMX interface, then open it.
  *
  * Must be called from a user gesture: browsers refuse requestPort() otherwise,
- * so the UI drives this from a button rather than from scene code.
+ * so only the UI calls this, from a button.
  */
 export async function connectUsbDmx(): Promise<void> {
   const serial = serialApi();
@@ -155,7 +154,7 @@ export async function disconnectUsbDmx(): Promise<void> {
     _port = null;
   }
   // Clear the in-flight flag. A write that was outstanding when the interface
-  // went away never settles, so without this the next connection is wedged:
+  // went away never settles, so without this the next connection is stuck:
   // every send takes the "already writing" branch and the rig stays dark.
   _writing = false;
   // Nothing queued survives the port going away.
@@ -189,20 +188,19 @@ export function buildEnttecFrame(channels: Uint8Array): Uint8Array {
  */
 export function sendUsbDmx(channels: Uint8Array): void {
   if (!_connected || !_writer) return;
-  // Built now rather than when it goes out, because the argument is the live
-  // universe buffer and keeps changing. buildEnttecFrame copies, so this is a
-  // snapshot of what the caller meant to send.
+  // Built now because the argument is the live universe buffer and keeps
+  // changing. buildEnttecFrame copies, so this is a snapshot of what the caller
+  // meant to send.
   const frame = buildEnttecFrame(channels);
   if (_writing) {
-    // Held, not discarded. DMX is state rather than events, so only the newest
-    // frame is worth sending — but it does have to be sent, and this used to
-    // throw it away outright. That is survivable for an ordinary frame, which
-    // the next tick corrects 25 ms later, and not survivable for the last one:
-    // .off() sends a single blackout and then the scheduler stops, so nothing
-    // comes after it to correct. Lose that one to a write already in flight and
-    // the interface goes on repeating the last lit frame while the status bar
-    // reads stopped. packages/bridge/src/frames.ts hardened the connector
-    // against exactly this; the USB path never was.
+    // Held for sending after the current write. DMX is state, so only the
+    // newest frame matters, but it must go out. Losing an ordinary frame is
+    // corrected by the next tick 25 ms later; losing the last one is not:
+    // .off() sends a single blackout and then the scheduler stops, so if that
+    // frame were dropped behind a write in flight, the interface would keep
+    // repeating the last lit frame while the status bar read stopped.
+    // packages/bridge/src/frames.ts guards the connector against the same
+    // case.
     if (_pending) _dropped++;
     _pending = frame;
     return;
@@ -217,7 +215,7 @@ function writeFrame(frame: Uint8Array): void {
   _writer.write(frame)
     .catch(() => {
       // The interface was unplugged, or the port errored. Drop the connection
-      // rather than throwing on every tick from here on.
+      // so later ticks do not throw.
       void disconnectUsbDmx();
     })
     .finally(() => {

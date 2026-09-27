@@ -77,8 +77,8 @@ import {
   isUnsavedSinceFileSave,
   listLegacyScenes, legacyNoticeDismissed, dismissLegacyNotice,
 } from './buffer.js';
-// Only the legacy-scene notice writes files now: it offers scenes saved under
-// the pre-0.3 model as downloads, which is the one way out they have.
+// Only the legacy-scene notice writes files: it offers scenes saved under the
+// pre-0.3 model as downloads, the only way to recover them.
 import { downloadScene, sceneFilename } from './scene-file.js';
 import { mountPanel, type PanelHost } from './panel.js';
 import {
@@ -122,25 +122,24 @@ import {
 } from './outputs.js';
 import { artnetTargetProblem, isLoopbackHost } from './artnet-target.js';
 
-// Apply the persisted theme before the editor mounts and before any
-// CSS-variable-dependent code runs. Otherwise the page flashes the default
-// ember palette while the editor constructs.
-// Before anything else runs, so a failure during start-up is already in the
-// panel by the time someone opens it.
+// First, so a failure during start-up is already in the log panel when
+// someone opens it.
 captureConsole();
 
 // The engine only notes which source ranges are live when something is going
 // to draw them, and the editor is that something.
 setLocationCollection(true);
 
+// Apply the persisted theme before the editor mounts and before any
+// CSS-variable-dependent code runs, so the page does not flash the default
+// ember palette while the editor constructs.
 applyTheme(getSettings().theme, { black: getSettings().blackBackground });
 
 /**
  * Editor type size, as a variable the stylesheet reads.
  *
- * Set on the document rather than on the editor, so the gutter, the inline
- * widgets and the tooltips all scale with the code rather than staying at
- * whatever size they were authored against.
+ * Set on the document rather than the editor, so the gutter, the inline
+ * widgets and the tooltips scale with the code.
  */
 function applyFontSize(px: number): void {
   document.documentElement.style.setProperty('--editor-font-size', `${px}px`);
@@ -150,8 +149,8 @@ applyFontSize(getSettings().fontSize);
 /**
  * Turn every transition and animation in the app off, or back on.
  *
- * One class on <html> rather than a rule per component, so nothing that gets
- * added later is quietly exempt from it.
+ * One class on <html> rather than a rule per component, so components added
+ * later are covered too.
  */
 function applyAnimations(on: boolean): void {
   document.documentElement.classList.toggle('no-animations', !on);
@@ -177,21 +176,18 @@ const wsLockEl = document.getElementById('ws-lock') as HTMLElement;
 const outputStatusEl = document.getElementById('output-status') as HTMLButtonElement;
 
 
-// Scene bar: name, copy, share.
+// Scene bar: the share button. Copying the code as text is inside the share
+// dialog.
 //
-// There is no save and no open. A scene is text, and the place to keep text is
-// the editor you already use: copy takes the whole thing to the clipboard and
-// share turns it into a link. Nothing here is a file manager.
-//
-// The dirty dot went with them. It meant "not yet written to a file", and with
-// no files it would be lit on every buffer that had ever been typed into,
-// which is no signal at all.
+// There is no save or open. A scene is text, kept in whatever editor you
+// already use or passed on as a link. There is no unsaved-changes dot either:
+// with no files, it would be lit on every buffer ever typed into.
 const sceneShareEl = document.getElementById('scene-share') as HTMLButtonElement;
 
 
 
 
-// One-time notice for scenes saved under the old multi-scene model.
+// One-time notice for scenes saved under the pre-0.3 multi-scene model.
 const legacyNoticeEl = document.getElementById('legacy-notice') as HTMLElement;
 const legacyListEl = document.getElementById('legacy-list') as HTMLElement;
 const legacyCloseEl = document.getElementById('legacy-close') as HTMLButtonElement;
@@ -218,17 +214,15 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
     if (formatted !== null) toRun = formatted;
   }
   // Give the mini-notation strings their document offsets, so the editor can
-  // outline whichever token is driving light. Timid by design: anything it is
-  // unsure of it leaves alone, and the untouched source is what runs. See
-  // mini-locations.ts.
+  // outline whichever token is driving light. It skips anything it is unsure
+  // of and leaves that source untouched. See mini-locations.ts.
   const tagged = tagLocations(toRun);
 
   let result = evalCode(tagged.code);
-  // If the tagged copy failed but the original would not have, the tagging is
-  // at fault and the scene is worth more than the outlines. Retried once, on
-  // the untouched source, and only when something was actually rewritten — so
-  // a scene with a real error in it still reports that error and is not run
-  // twice for nothing.
+  // If the tagged copy fails but the original runs, the tagging is at fault:
+  // drop the outlines and keep the scene. The retry runs once, on the
+  // untouched source, and only when tagging rewrote something, so a scene with
+  // its own error still reports that error and is not run twice.
   if (!result.success && tagged.tagged > 0) {
     const plain = evalCode(toRun);
     if (plain.success) {
@@ -242,7 +236,7 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
   }
   if (result.success) {
     showErrorLine(editorView, null);
-    // This scene ran, so it is worth being able to get back to. See
+    // A scene that ran is kept in the address bar. See
     // rememberSceneInAddressBar.
     rememberSceneInAddressBar(toRun);
     // What is on the rig now. Ctrl+Shift+Enter splices onto this.
@@ -258,20 +252,16 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
     // is reported about this run.
     refreshOutputIndicator();
     const out = describeOutput();
-    // A run can succeed and still have something to say — a dimmer it raised,
-    // a channel two looks both set. That went to the console and nowhere the
-    // operator was looking, so the bar carries a mark for it: short enough not
-    // to push the output name off the line, and a way into the log, which has
-    // the whole of it.
-    // A DMX line carries one universe, so a USB box can only be handed one of
-    // them. The scene splitting across two is easy to do by accident, because
-    // fixture() patches universe 0 while ch(), dim() and rgb() write universe
-    // 1 — so a file using both drives two universes without ever naming one,
-    // and half of it silently never leaves the machine. Said out loud rather
-    // than left to be discovered by a light that does not come up.
+    // A run can succeed and still have something to report: a dimmer it
+    // raised, a channel two looks both set. The bar shows a short mark for it,
+    // short enough to keep the output name on the line, and the log has the
+    // full text.
+    // A DMX line carries one universe, so a USB box gets only one. A scene
+    // that names a second universe would lose that half of its output without
+    // a word, so undeliveredUniverseNote() reports it in the same mark.
     const note = [result.warning ?? null, undeliveredUniverseNote()]
       .filter((n) => n !== null).join(' ') || null;
-    const mark = note === null ? '' : ' · ⚠ one note, in the log';
+    const mark = note === null ? '' : ' · ⚠ see log';
     if (out && !out.delivered) {
       setStatus('error', `running, but ${out.short} was never reached. ${undeliveredHint()}`);
       if (out.short !== 'td()') showConnectorBanner(out.short);
@@ -303,10 +293,9 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
     // A scene that does not parse never ran, so it has no line from the
     // stack. The editor's parser finds one.
     const message = locateSyntaxError(result.error ?? 'unknown error', toRun);
-    // The bar is one line and clips, and the useful half of an error is
-    // usually the end of it: the line number, the suggested rename, the name
-    // of the channel. Sent to the console as well, which the log panel keeps
-    // in full and timestamped, so nothing said here is only half-said.
+    // The bar is one line and clips, and the useful part of an error (the line
+    // number, the suggested rename, the channel name) is usually at the end.
+    // The console copy lands in the log panel in full, with a timestamp.
     console.error(`[gobo] ${message}`);
     setStatus('error', message);
     showErrorLine(editorView, message);
@@ -317,12 +306,12 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
 /**
  * A brief flash across the editor when a run lands.
  *
- * The status bar already says so, and it is at the bottom of the window while
- * the eyes are on the code. Strudel does the same thing for the same reason.
+ * The status bar reports the run too, but it sits at the bottom of the window
+ * while the eyes are on the code. Strudel flashes for the same reason.
  *
- * Restarted rather than queued: two runs a beat apart should read as two
- * flashes, not one long one, and reflow is forced between the two writes so
- * the browser cannot coalesce them into a no-op.
+ * Restarted on every run, so two runs a beat apart read as two flashes. Reflow
+ * is forced between the two class writes so the browser cannot coalesce them
+ * into a no-op.
  */
 let _flashTimer: ReturnType<typeof setTimeout> | null = null;
 function flashRun(): void {
@@ -341,11 +330,10 @@ function flashRun(): void {
  * Whether the rig was already stopped when the last stop arrived.
  *
  * The second press of the panic key always blacks out, whatever the stop
- * action is set to. "freeze last frame" is a real thing to want — stopping the
- * code at a gig should not black the stage — but it left no key at all that
- * clears the rig: the scheduler is stopped, so nothing rewrites the buffers,
- * and hush() needs a scene to run to reach it. A panic key that cannot be
- * relied on to black out is not a panic key.
+ * action is set to. "freeze last frame" lets you stop the code at a gig
+ * without blacking the stage, but then no other key clears the rig: the
+ * scheduler is stopped, so nothing rewrites the buffers, and hush() needs a
+ * scene to run to reach it.
  */
 let _stoppedAlready = false;
 
@@ -370,8 +358,8 @@ function runStop(): void {
     updateVisualizer(getUniverseSnapshot(visualizedUniverse()));
   }
   _stoppedAlready = true;
-  // The offer is made only while there is something left to black out, so it
-  // is never advice to press a key that would do nothing.
+  // The blackout hint shows only while the rig is holding a frame.
+
   setStatus('', panic ? 'stopped · ctrl+enter to run' : 'stopped, rig holding · ctrl+. again to black out');
 }
 
@@ -424,39 +412,30 @@ function describeOutput(): { text: string; short: string; delivered: boolean } |
   else if (mode === 'osc') text = `osc ${c.osc?.host ?? '?'}:${c.osc?.port ?? 9000}`;
   else if (mode === 'sacn') text = `sacn base universe ${c.sacn?.universe ?? 1}`;
   else if (mode === 'mock') text = 'mock (console only)';
-  // The call that chose it, for a sentence that goes on: "artnet() is going
-  // nowhere" reads, and the full description spliced in there did not.
+  // `short` is the call that chose the output, for use inside a longer
+  // sentence ("artnet() is going nowhere"), where the full text reads badly.
   return { text, short: `${mode}()`, delivered: out.delivered };
 }
 
 function setStatus(kind: '' | 'ok' | 'error', msg: string, full?: string): void {
-  // Marked in the text, not only in the colour. The two status colours are
-  // --sage #7a8c6e and --error #c45a5a, which sit at 1.17:1 against each other
-  // for normal vision and 1.05:1 simulated for deuteranopia — indistinguishable
-  // either way, and this is a tool people read in a dark room at a glance. The
-  // ok messages have carried a ✓ for a while; the errors carried nothing.
+  // Errors are marked with × in the text as well as the colour. The two status
+  // colours, --sage #7a8c6e and --error #c45a5a, sit at 1.17:1 against each
+  // other for normal vision and 1.05:1 simulated for deuteranopia, and people
+  // read this bar at a glance in a dark room. Ok messages carry a ✓.
   //
   // _statusMsg keeps the unmarked text, because the tick loop compares it
   // against the pattern-failure warning to know whether that warning is still
   // the thing on the bar.
   evalStatusEl.textContent = kind === 'error' && !msg.startsWith('×') ? `× ${msg}` : msg;
   evalStatusEl.className = kind;
-  // The bar is one line and clips, and the useful half of an error is usually
-  // its end: the line number, the suggested rename, the channel that was
-  // named. Appending "see the log" does not help, because that would be
-  // clipped with everything else. So the whole text is on the element itself,
-  // where hovering shows it, and an error makes the bar a way into the log,
-  // which keeps it in full and timestamped.
-  // `full` is the whole of what this run had to say, when that is more than
-  // fits. An error always has one, because the bar is one line and clips and
-  // the useful half of an error is usually its end: the line number, the
-  // suggested rename, the channel that was named. A successful run has one
-  // when it produced a warning, which used to reach the console and nowhere
-  // the operator was looking.
+  // `full` is everything this run had to say, when that does not fit. An
+  // error always has it: the bar is one line and clips, and the useful part of
+  // an error (the line number, the suggested rename, the channel named) is
+  // usually at the end. A successful run has it when it produced a warning.
   //
-  // Appending the text to the message would not help — it would be clipped
-  // with everything else — so it goes on the element, where hovering shows it,
-  // and the bar becomes a way into the log, which keeps it in full.
+  // Appending it to the message would be clipped too, so it goes in the
+  // element's title, where hovering shows it, and the bar becomes a way into
+  // the log, which keeps it in full with a timestamp.
   const detail = full ?? (kind === 'error' ? msg : '');
   evalStatusEl.title = detail === '' ? '' : `${detail}\n\n(click to open the log)`;
   evalStatusEl.classList.toggle('clickable', detail !== '');
@@ -511,15 +490,14 @@ async function handleFormat(): Promise<void> {
 }
 
 document.addEventListener('keydown', (e) => {
-  // Alt+1..9 picks a cue, which is the one thing a performer needs to do
-  // without looking at the keyboard. Alt rather than a bare digit because a
-  // bare digit is a number you are typing into a scene, and alt+digit is not
-  // bound to anything in the editor. preventDefault matters on macOS, where
-  // alt+1 would otherwise insert a character.
+  // Alt+1..9 picks a cue, so a performer can switch looks without looking at
+  // the keyboard. Alt rather than a bare digit because a bare digit is a
+  // number you are typing into a scene, and alt+digit is not bound to anything
+  // in the editor. preventDefault matters on macOS, where alt+1 would
+  // otherwise insert a character.
   //
-  // On a US Mac, option+1 types ¡, so `key` is never "1" there and the
-  // shortcut did nothing on the platform most likely to be running a show.
-  // Those nine characters are read as their digits. Nothing else is: on a
+  // On a US Mac, option+1 types ¡, so `key` is never "1" there. Those nine
+  // characters are read as their digits. Other layouts are left alone: on a
   // German, Nordic or French Mac, option+5 to 9 type [ ] { } |, which a scene
   // needs, and taking the physical key would stop anyone typing a brace.
   const US_MAC_OPTION_DIGITS = '¡™£¢∞§¶•ª';
@@ -548,7 +526,8 @@ document.addEventListener('keydown', (e) => {
 
 // ─── Editor + working buffer ────────────────────────────────────────────────
 // One document, autosaved to the browser so a refresh or a crash does not lose
-// work. Durable copies are files (Save / Open) or share links.
+// work. Durable copies are share links, or the text copied out of the share
+// dialog.
 
 const boot = loadBuffer();
 
@@ -572,8 +551,8 @@ let _saveTimer: ReturnType<typeof setTimeout> | null = null;
 /**
  * The source of the last run that succeeded, and the edits made since.
  *
- * Together they are what Ctrl+Shift+Enter splices: the document that is
- * actually on the rig, plus only the edits inside the region you pointed at.
+ * Together they are what Ctrl+Shift+Enter splices: the document on the rig,
+ * plus only the edits inside the region you pointed at.
  * See splice.ts for why the unit is the edit rather than the syntactic block.
  *
  * Null until something has run. There is nothing to splice onto before that,
@@ -599,7 +578,7 @@ function recordEdits(changes: ChangeSet): void {
   // Rebase what was already pending through this new change, then add it.
   // Composing the ChangeSets and re-reading them would be tidier, but the
   // pending list is also rebased by a splice, which has no ChangeSet to
-  // compose with — so both paths keep the same plain representation.
+  // compose with, so both paths keep the same plain representation.
   for (const held of _editsSinceGoodRun) {
     next.push({
       ...held,
@@ -619,15 +598,15 @@ function recordEdits(changes: ChangeSet): void {
 function onEditorChange(code: string, changes: ChangeSet): void {
   recordEdits(changes);
   refreshPendingMarks();
-  // Any edit differs from the last file, so the marker flips immediately
+  // Any edit differs from the last file, so the flag flips immediately
   // rather than waiting out the debounce.
   if (!_dirtySinceFileSave) {
     _dirtySinceFileSave = true;
   }
   if (_saveTimer) clearTimeout(_saveTimer);
   // Autosave can be disabled in settings; the browser copy is then left as it
-  // stands and Save is the only way to secure work. The setting is read per
-  // edit, so switching it back on takes effect from the next keystroke.
+  // stands. The setting is read per edit, so switching it back on takes effect
+  // from the next keystroke.
   if (!getSettings().autosave) return;
   _saveTimer = setTimeout(() => {
     _saveTimer = null;
@@ -638,11 +617,11 @@ function onEditorChange(code: string, changes: ChangeSet): void {
 /**
  * Run only the edits inside the selection, on top of what is already running.
  *
- * The gesture exists because Ctrl+Enter commits the WHOLE buffer: nudge a
- * level in the look that is lit and the half-written look you were drafting
- * for the next song goes live with it, as long as it happens to parse. It is
- * not about keeping other looks alive — a whole-document re-run already does
- * that, invisibly. See splice.ts.
+ * Ctrl+Enter commits the whole buffer: nudge a level in the lit look and the
+ * half-written look you were drafting for the next song goes live with it, as
+ * long as it parses. This commits only the region you point at. Keeping other
+ * looks alive is a separate matter: a whole-document re-run already does
+ * that. See splice.ts.
  *
  * What is compiled is always a complete document, so nothing downstream sees a
  * fragment. The engine is untouched by this feature.
@@ -655,8 +634,8 @@ async function runBlock(view: EditorView): Promise<void> {
   const { state } = view;
   const sel = state.selection.main;
   // A selection if there is one, otherwise the run of non-blank lines around
-  // the cursor — which is how a performance file is already laid out, one
-  // blank line between looks.
+  // the cursor, which matches how a performance file is laid out: one blank
+  // line between looks.
   const region = sel.empty
     ? paragraphAt(state.doc.toString().split('\n'), state.doc.lineAt(sel.head).number - 1)
     : { from: sel.from, to: sel.to };
@@ -667,8 +646,8 @@ async function runBlock(view: EditorView): Promise<void> {
     return;
   }
 
-  // Formatting is skipped: it rewrites the whole document, which would both
-  // mark every line as edited and defeat the point of committing one region.
+  // Formatting is skipped: it rewrites the whole document, which would mark
+  // every line as edited.
   const ok = await runEval(spliced.source, { format: false });
   if (!ok) return;                                  // the rig is untouched; keep the edits pending
   _editsSinceGoodRun = spliced.remaining;
@@ -711,25 +690,22 @@ const editorView = goboEditor.view;
 
 // Picking a look runs the file again with that one selected.
 //
-// This is the whole mechanism. Which function runs is decided at eval time, so
-// selection cannot be a live value the way a fader is — but evaluating is
-// already atomic, so running again IS the clean swap. The rig holds the
-// previous look right up to the commit, and a scene that throws leaves it
-// exactly where it was.
+// Which function runs is decided at eval time, so selection cannot be a live
+// value the way a fader is. Evaluating is atomic, so a re-run is a clean swap:
+// the rig holds the previous look up to the commit, and a scene that throws
+// leaves it where it was.
 //
-// It runs the source that is ALREADY on the rig, not the buffer. The operator
-// asked for a different look, not to commit whatever they had half-typed —
-// and this fires from a chip, a key and a MIDI button, none of which is a
-// moment anyone has decided their edits are ready. Handing it the buffer made
-// a cue press the one gesture that could put an unfinished look on stage
-// without anyone choosing to, and reformat the document on the way past.
-// Falls back to the buffer only before anything has ever run.
+// It runs the source already on the rig, not the buffer. This fires from a
+// chip, a key and a MIDI button, and none of those means the operator has
+// decided their half-typed edits are ready. Running the buffer would let a cue
+// press put an unfinished look on stage and reformat the document on the way.
+// Falls back to the buffer only before anything has run.
 onCueChange((_name, previous) => {
   void (async (): Promise<void> => {
     const source = _lastGoodSource ?? editorView.state.doc.toString();
     const ok = await runEval(source, { format: false });
-    // A look that threw is not on the rig — the staged scene was discarded and
-    // the previous one is still live — so the selection goes back to match.
+    // A look that threw is not on the rig (the staged scene was discarded and
+    // the previous one is still live), so the selection goes back to match.
     // Otherwise the bar shows what is lit, the selection holds something that
     // never ran, and the next run jumps somewhere nobody asked to go.
     if (!ok) {
@@ -740,24 +716,20 @@ onCueChange((_name, previous) => {
 });
 
 
-// ── Run and stop belong to the app, not to the editor ────────────────────────
+// ── Run and stop keys, bound at the document ─────────────────────────────────
 //
-// These three keys were bound only in the editor's keymap, so they fired only
-// while the editor held focus. The status bar promises them unconditionally and
-// the app opens with focus on the body, so ctrl+enter did nothing at all on a
-// fresh load: the one action every surface instructs, dead until the user
-// happened to click the code first.
+// Run and stop work wherever focus is. The status bar promises them
+// unconditionally and the app opens with focus on the body, so keys bound only
+// in the editor's keymap would do nothing until the user clicked the code.
 //
-// Stop is the serious half. Open the docs or the library — which is exactly
-// what someone does when they are looking something up mid-show — and focus
-// leaves the editor, so ctrl+. and ctrl+space stopped reaching the panic stop
-// and the rig stayed lit. editor.ts says in its own comment that performers
-// asked for a stop that does not depend on the easy-to-miss period key; a stop
-// that depends on where the caret is, is worse than that.
+// Stop matters most. Opening the docs or the library mid-show moves focus out
+// of the editor, and the panic stop still has to reach the rig. editor.ts notes
+// that performers asked for a stop that does not depend on the easy-to-miss
+// period key; one that depends on where the caret is would be worse.
 //
-// Bound in the capture phase, which is why the tests below for where focus is
-// matter: this listener calls stopPropagation, so anything it handles the
-// editor's own keymap never sees.
+// Bound in the capture phase, and this listener calls stopPropagation, so
+// anything it handles never reaches the editor's own keymap. That is why the
+// focus checks below matter.
 document.addEventListener('keydown', (e) => {
   // Literal Ctrl, matching the editor's 'Ctrl-' bindings rather than 'Mod-':
   // on a Mac these are ctrl, not cmd, and cmd+enter must stay free. Alt as
@@ -767,13 +739,10 @@ document.addEventListener('keydown', (e) => {
   if (e.metaKey || (!e.ctrlKey && !alt) || (e.ctrlKey && e.altKey)) return;
 
   if (e.key === 'Enter') {
-    // Inside the editor, its keymap owns both Enter chords, including which
-    // of the two "ctrl+enter runs the block" has swapped them to. Handling
-    // them here as well made that binding dead code — which is what the
-    // setting ran into: the editor's Ctrl+Enter was never reached, so turning
-    // block evaluation on changed nothing at all. Ctrl+Shift+Enter already
-    // had this test; Ctrl+Enter did not, because until there was a setting
-    // the two paths did the same thing and nobody could tell.
+    // Inside the editor, its keymap owns both Enter chords, including the
+    // swap the "block on ctrl+enter" setting makes. Handling them here
+    // as well would leave the editor's bindings unreachable, and the setting
+    // would change nothing.
     // Only the editor's own text: an inline slider or swatch sits inside the
     // editor but CodeMirror ignores keys from widgets, so "drag a fader, then
     // run" has to be handled here or it does nothing.
@@ -791,11 +760,11 @@ document.addEventListener('keydown', (e) => {
   }
 
   // Space is read off `code` as well, because a keyboard layout can put a
-  // different character on that key, and so is the period, which option
-  // turns into ≥ on a Mac. Alt+Space is not a stop: it is the window menu on
-  // Windows and a non-breaking space on a Mac.
-  // Option+. types ≥ on a US Mac. The physical key is not used: on other
-  // layouts it types something a scene may need.
+  // different character on that key. Alt+Space is not a stop: it is the
+  // window menu on Windows and a non-breaking space on a Mac.
+  // Option+. types ≥ on a US Mac, so that is read as a period. The physical
+  // key is not used: on other layouts it types something a scene may need.
+
   const period = e.key === '.' || (alt && e.key === '≥');
   const space = e.key === ' ' || e.code === 'Space';
   if (!period && (alt || !space)) return;
@@ -817,9 +786,8 @@ function flushBuffer(): void {
 // back/forward cache.
 window.addEventListener('pagehide', () => {
   // Unconditionally, including with autosave off. Autosave off means "do not
-  // write on every keystroke", and it used to mean "lose everything": the
-  // debounce never ran and this line was skipped, so the one moment work could
-  // be lost for good was the one moment it cost nothing to write it.
+  // write on every keystroke". Closing the page is the last chance to keep the
+  // work, and one write here costs nothing.
   flushBuffer();
   blackoutOnTheWayOut();
 });
@@ -828,22 +796,20 @@ window.addEventListener('pagehide', () => {
  * Darken the outputs the connector cannot darken for us.
  *
  * When the page goes away while driving artnet, sacn or osc, the connector
- * notices its last client leave and blacks out by itself — bridge/index.ts
- * calls blackoutAll('app disconnected'). usb() and td() never go through it:
+ * notices its last client leave and blacks out by itself (bridge/index.ts
+ * calls blackoutAll('app disconnected')). usb() and td() never go through it:
  * one writes the serial port straight from the page and the other holds its own
- * socket to TouchDesigner. Nothing was covering those, and a DMX interface does
- * not stop when its host does — an Enttec Pro keeps re-transmitting the last
- * frame it was handed, forever. So closing the tab mid-show left the rig lit on
- * whatever was up, with nothing left running that could change it.
+ * socket to TouchDesigner. A DMX interface does not stop when its host does:
+ * an Enttec Pro keeps re-transmitting the last frame it was handed. Without
+ * this, closing the tab mid-show would leave the rig lit on whatever was up,
+ * with nothing running that could change it.
  *
  * Done whatever the stop-action setting says. 'freeze' is a choice about what
- * `stop` means, made by someone who is still at the keyboard; this is the case
- * where nobody is. It is also what the connector already does on the other
- * three outputs, so the paths now agree.
+ * `stop` means, made by someone still at the keyboard; this is the case where
+ * nobody is. The connector does the same on the other three outputs.
  *
- * Best effort by nature: pagehide gives no guarantee an async serial write
- * lands. It is strictly better than the nothing that was here, and the frame it
- * sends is the same one .off() sends.
+ * Best effort: pagehide gives no guarantee an async serial write lands. The
+ * frame it sends is the same one .off() sends.
  */
 function blackoutOnTheWayOut(): void {
   if (!isUsbConnected() && !isDirectConnected()) return;
@@ -857,10 +823,10 @@ function blackoutOnTheWayOut(): void {
 /**
  * Which universe the 512-channel level strip shows.
  *
- * It was pinned to universe 0, so a scene addressing anything else drew an
- * empty strip and looked broken while the rig ran correctly. It now follows
- * the lowest universe the scene actually drives, falling back to 0 when
- * nothing is running so the strip keeps its shape.
+ * The lowest universe the scene drives, falling back to 0 when nothing is
+ * running so the strip keeps its shape. A strip fixed on universe 0 would draw
+ * empty for a scene addressing anything else, and look broken while the rig
+ * ran correctly.
  *
  * Screen lights are skipped: they render themselves as panels, and their
  * universe is an implementation detail nobody patched a fixture to.
@@ -877,11 +843,8 @@ function visualizedUniverse(): number {
  * whatever the level strip is showing, so the picture and the light agree, and
  * usb(n) overrides it for a rig that needs a fixed one.
  *
- * This used to matter far more than it does. Both send sites named 0, which is
- * where fixture() patches, while ch(), dim() and rgb() wrote universe 1 — so a
- * scene built from the channel family handed the box 512 zeros and nothing said
- * so. Every call defaults to universe 0 now, so a scene reaches two universes
- * only by naming one, and a run that does says which are not being sent.
+ * Every call defaults to universe 0, so a scene reaches two universes only by
+ * naming one, and a run that does says which are not being sent.
  */
 function usbUniverse(): number {
   return getUsbUniverse() ?? visualizedUniverse();
@@ -891,8 +854,9 @@ function usbUniverse(): number {
  * What a single-universe output cannot carry, or null.
  *
  * Only USB today: the connector paths send every universe, so nothing is lost
- * on them. Named by number, and with the cause, because "universe" is not a
- * word anyone reaches for while a light is failing to come up.
+ * on them. The note names the universes by number and gives the cause,
+ * because someone chasing a light that will not come up is not thinking in
+ * universes.
  */
 function undeliveredUniverseNote(): string | null {
   if (!isUsbConnected()) return null;
@@ -908,7 +872,7 @@ function undeliveredUniverseNote(): string | null {
   );
 }
 
-/** Keep the strip's label honest about which universe is on screen. */
+/** Update the strip's label to name the universe on screen. */
 function refreshVisualizerLabel(): void {
   const u = visualizedUniverse();
   const others = getActiveUniverses().filter((x) => x !== SCREEN_UNIVERSE && x !== u);
@@ -942,16 +906,17 @@ let _lastQueryFailureGen = getQueryFailureGeneration();
 //
 // The core generation moves only when a new channel starts failing or the set
 // is reset, so writing the warning once at that moment is not enough to keep
-// it: any unrelated setStatus (a save, a rename) erases it, and with the
+// it: any unrelated setStatus (a format, say) erases it, and with the
 // failing set unchanged the generation never moves again. Holding the message
 // here makes the warning a state rather than an event, so the tick loop can
 // put it back once something else takes the bar.
 let _queryFailureMsg: string | null = null;
 
 // How long an unrelated message stays readable before the warning takes the bar
-// back. Both bounds matter. Reclaiming on the next frame would flash "saved"
-// for ~16ms and look like the save failed. Waiting much longer leaves a dark
-// channel unreported for most of a song. 1.5s reads a confirmation and no more.
+// back. Reclaiming on the next frame would flash a confirmation for ~16ms and
+// make it look like the action failed. Waiting much longer leaves a dark
+// channel unreported for most of a song. 1.5s is long enough to read a
+// confirmation.
 const QUERY_FAILURE_RECLAIM_MS = 1500;
 
 function formatQueryFailures(failures: QueryFailure[]): string {
@@ -1014,14 +979,13 @@ onTick((cyclePos, _delta) => {
 });
 
 // ─── Transport ───────────────────────────────────────────────────────────────
-// Run and stop as buttons, next to the tempo. Both keys have worked since the
-// beginning; these are for the hand that is on the mouse, and for anyone who
-// has not read the status bar yet.
+// Run and stop as buttons, next to the tempo, for a hand on the mouse and for
+// anyone who has not read the status bar's key hints yet.
 //
-// Run is not disabled while a scene runs. Re-running is the whole gesture of
-// live coding, so the button does exactly what ctrl+enter does, every press.
-// Stop is the one that carries state: it is lit while there is something to
-// stop, which makes the pair double as the answer to "is anything going out".
+// Run is not disabled while a scene runs. Re-running is the core gesture of
+// live coding, so every press does what ctrl+enter does. Stop carries state:
+// it is lit while there is something to stop, so the pair also shows whether
+// anything is going out.
 
 const transportRunEl = document.getElementById('transport-run') as HTMLButtonElement;
 const transportStopEl = document.getElementById('transport-stop') as HTMLButtonElement;
@@ -1057,8 +1021,8 @@ setInterval(() => {
   cycleFillEl.style.width = `${(getCycleFraction() * 100).toFixed(1)}%`;
   // Polled rather than pushed. A scene can stop itself, and the scheduler can
   // stop for reasons that never pass through runStop(), so reading the engine
-  // on the same tick as the tempo keeps the buttons honest where a callback on
-  // each of our own entry points would not.
+  // on the same tick as the tempo keeps the buttons correct, where a callback
+  // on each of our own entry points would miss some stops.
   refreshTransport();
 }, 100);
 
@@ -1107,8 +1071,8 @@ bpmValEl.addEventListener('keydown', (e) => {
 
 // ─── Halve and double ────────────────────────────────────────────────────────
 // Two buttons beside the readout, for the moment a scene turns out to be at
-// twice or half the tempo of the room. Kept to two characters: this is a top
-// bar at a gig, not a settings page.
+// twice or half the tempo of the room. Two characters each, to keep the top
+// bar compact.
 
 /**
  * Scale the tempo and put the result back through setBPM, the same call the
@@ -1117,7 +1081,7 @@ bpmValEl.addEventListener('keydown', (e) => {
  * The ends hold rather than wrap, because setBPM clamps to 1..400: 400 doubled
  * stays 400, and 1 halved stays 1 whichever way the rounding falls. The readout
  * is repainted from getBPM() rather than from the number computed here, so a
- * clamped value shows the tempo actually in force.
+ * clamped value shows the tempo in force.
  */
 function scaleBpm(factor: number): void {
   setBPM(Math.round(getBPM() * factor));
@@ -1178,27 +1142,26 @@ document.addEventListener('keydown', (e) => {
   tap();
 });
 
-// ─── The address bar is the durable copy ─────────────────────────────────────
+// ─── Address bar copy ────────────────────────────────────────────────────────
 //
-// The scene model here is one working buffer, autosaved, with a share link as
-// the copy that outlives this browser — that is what the reference says, and
-// it is a good model. The gap was that the link only existed if you remembered
-// to press share. Nobody remembers to press share before the thing they did
-// not expect happens: a closed tab, a cleared site, a laptop swapped at the
-// venue, a second window overwriting the first.
+// The scene model is one working buffer, autosaved, with a share link as the
+// copy that outlives this browser. A link that exists only when someone
+// presses share is missing when the unexpected happens: a closed tab, a
+// cleared site, a laptop swapped at the venue, a second window overwriting the
+// first.
 //
-// So the hash is kept current instead. After a run that worked, the URL in the
-// address bar carries that scene, which means a bookmark, a browser-restored
-// tab and a copied address are all the durable copy the model promised, with
-// nothing to remember.
+// So after a run that worked, the URL in the address bar carries that scene. A
+// bookmark, a browser-restored tab or a copied address is then a durable copy,
+// with nothing to remember.
 //
-// Written with replaceState, so it never adds a history entry: back must keep
-// meaning what it meant, and a scene run forty times in a set would otherwise
-// bury every other page behind forty of itself.
+// Written with replaceState, so it never adds a history entry: back keeps its
+// meaning, and a scene run forty times in a set does not bury every other page
+// behind forty copies of itself.
 //
-// Only after a successful eval, not on every keystroke. A half-typed scene is
-// not worth carrying, the encode is a compression pass, and the address bar
-// flickering while someone types would be its own small horror.
+// Written only after a successful eval. A half-typed scene is not worth
+// carrying, the encode is a compression pass, and the address bar would
+// flicker while someone types.
+
 
 /** How long a hash can get before it is left alone. */
 const MAX_LIVE_HASH_CHARS = 60_000;
@@ -1244,8 +1207,7 @@ function resync(): void {
     return;
   }
   resetPhase();
-  // The tempo is in the message because the whole point of this button is that
-  // it does not touch the tempo.
+  // The message includes the tempo to show that resync left it alone.
   setStatus('ok', `resynced · cycle back to 1 · ${getBPM()} bpm`);
 }
 
@@ -1262,9 +1224,9 @@ let _outputsPanel: ReturnType<typeof mountOutputsPanel> | null = null;
  * Repaint the connection light from every link at once.
  *
  * The bridge, direct output and a USB interface are independent, and a scene
- * can be using two of them. Each listener used to write the label from its own
- * socket alone, so a rig being driven over USB read "disconnected". One
- * resolver, called by all three, is the only way that label stays true.
+ * can be using two of them. A label written from one socket alone would read
+ * "disconnected" while a rig is driven over USB, so one resolver, called by
+ * all three listeners, writes it.
  *
  * Also drives the lock badge and the outputs panel, so a connection appearing
  * updates every place that reports on it.
@@ -1285,14 +1247,11 @@ function refreshOutputIndicator(): void {
 /**
  * Say on the bar what the indicator already knows.
  *
- * The status line is written once, when the eval finishes, and then left
- * alone. Delivery is not a fact settled at that moment: the connector can go
- * away mid-show, and the interface can be unplugged. Only the small indicator
- * followed, so the bar went on reading "✓ running · art-net → 2.0.0.100" in
- * green with nothing on the wire and the rig frozen on its last frame. That is
- * the failure this project keeps finding in itself — the light is wrong and the
- * tool says it is fine — and the correction already existed for direct output
- * a few lines below. This is the same correction for the other two.
+ * The status line is written when the eval finishes, but delivery can change
+ * after that: the connector can go away mid-show, and the interface can be
+ * unplugged. Without this, the bar would go on reading "✓ running · art-net →
+ * 2.0.0.100" in green with nothing on the wire and the rig frozen on its last
+ * frame. Direct output gets the same correction just below.
  */
 function refreshOutputStatus(): void {
   refreshOutputIndicator();
@@ -1309,7 +1268,7 @@ onUsbStatusChange(refreshOutputStatus);
 /**
  * Direct output opens its socket asynchronously, so the status written the
  * instant an eval finishes always says "not reached". Correct it when the
- * socket actually settles, otherwise a working setup reads as broken.
+ * socket settles, otherwise a working setup reads as broken.
  */
 onDirectStatusChange(() => {
   refreshOutputIndicator();
@@ -1337,7 +1296,7 @@ const cueLabelEl = document.getElementById('cue-label') as HTMLElement;
  * The cue bar: one chip per look the scene offered, the live one lit.
  *
  * Rebuilt after every eval, and hidden entirely when a scene offers none, so a
- * file that does not use cue() sees no new furniture. The chips carry their
+ * file that does not use cue() shows nothing extra. The chips carry their
  * number because that number is also the key that picks them and the program
  * change a controller sends.
  */
@@ -1351,8 +1310,8 @@ function rebuildCueBar(): void {
   }
   // A scene with a selector chooses its own look, every frame. There is no one
   // look that is up, so none is highlighted and none can be pressed: a bar
-  // claiming a live look while a pattern moves between them would be the
-  // screen disagreeing with the rig.
+  // showing one live look while a pattern moves between them would contradict
+  // the rig.
   const driven = isCueDrivenByPattern();
   cueBarEl.classList.toggle('driven', driven);
   const live = driven ? null : getSelectedCue();
@@ -1406,10 +1365,11 @@ function rebuildSimPanel(): void {
   const fixtures = getSimFixtures();
   simEmptyEl.classList.toggle('hidden', fixtures.length > 0);
   // Nothing is registered until the scene has been evaluated, so a scene that
-  // plainly declares a fixture still has none here until it runs. Saying "no
-  // fixtures in this scene" over `const wash = fixture(1, 'rgb')` reads as a
-  // fault in the scene, which is exactly the wrong first impression: it is the
-  // state the app opens in, above the example it ships with.
+  // plainly declares a fixture still has none here until it runs. "no fixtures
+  // in this scene" over `const wash = fixture(1, 'rgb')` would read as a fault
+  // in the scene, and this is the state the app opens in, above the bundled
+  // example. Before a run the panel says how to run instead.
+
   simEmptyEl.textContent = isRunning()
     ? 'no fixtures in this scene'
     : 'nothing running · ctrl+enter to run';
@@ -1669,8 +1629,8 @@ setInterval(() => {
       updateGlobeDim(r.mainEl, buf[base + render.dim] ?? 0);
     } else if (render.kind === 'strip-rgb' || render.kind === 'strip-rgbw' || render.kind === 'strip-mono') {
       // A master dimmer over the fixture dims its pixels on the rig, so it has
-      // to dim them here. Without this a wash whose master is at zero, emitting
-      // nothing at all, was drawn on screen at full.
+      // to dim them here. Otherwise a wash whose master is at zero, emitting
+      // nothing, would be drawn on screen at full.
       const m = r.core.master !== undefined ? (buf[r.core.master - 1] ?? 0) / 255 : 1;
       const pixels = r.pixelEls ?? [];
       if (render.kind === 'strip-rgb') {
@@ -1682,8 +1642,7 @@ setInterval(() => {
         for (let i = 0; i < render.pixelCount; i++) {
           const pb = base + i * 4;
           const wv = buf[pb + 3] ?? 0;
-          // Mix W additively into RGB for the on-screen pixel, as the old
-          // barPixel renderer did.
+          // Mix W additively into RGB for the on-screen pixel.
           updateStripPixel(
             pixels[i],
             Math.min(255, (buf[pb] ?? 0) + wv) * m,
@@ -1692,8 +1651,8 @@ setInterval(() => {
           );
         }
       } else {
-        // One channel per cell, so the level IS the colour. Drawn white because
-        // that is what a segmented strobe strip actually emits.
+        // One channel per cell, so the level is the colour. Drawn white,
+        // because that is what a segmented strobe strip emits.
         for (let i = 0; i < render.pixelCount; i++) {
           const v = (buf[base + i] ?? 0) * m;
           updateStripPixel(pixels[i], v, v, v);
@@ -1767,9 +1726,8 @@ function renderTooltip(r: RenderedSimFixture): void {
     ? `ch ${startChannel}-${startChannel + channelCount - 1}`
     : `ch ${startChannel}`;
 
-  // What this fixture answers to, and the call that patched it. Knowing a
-  // light is there is not the same as knowing what it responds to, and the
-  // alternative is reading the docs for something already on screen.
+  // What this fixture answers to, and the call that patched it, so nobody has
+  // to look up in the docs a light that is already on screen.
   const { fixtureId, patchChannel, commands } = r.core;
   const patchLine = fixtureId !== undefined
     ? `<div class="tt-call">fixture(${patchChannel ?? startChannel}, '${escapeHtml(fixtureId)}'${universe !== 0 ? `, ${universe}` : ''})</div>`
@@ -1827,14 +1785,11 @@ setInterval(() => {
   if (_hoveredSim) renderTooltip(_hoveredSim);
 }, 100);
 
-// ─── Stopping from anywhere ──────────────────────────────────────────────────
+// ─── Stop from anywhere ──────────────────────────────────────────────────────
 //
-// The stop shortcut lived only in the editor's keymap, so it fired when the
-// editor had focus and did nothing at all otherwise. Click the sim panel, a
-// toolbar button or the page background first and the panic key was silent,
-// which is the one behaviour a panic key must never have. The editor binding
-// stays (it can stop autocomplete taking Ctrl+Space); this catches the rest of
-// the page.
+// The panic key has to work wherever focus is: the sim panel, a toolbar button
+// or the page background. The editor binding stays (it can stop autocomplete
+// taking Ctrl+Space); this catches the rest of the page.
 document.addEventListener('keydown', (e) => {
   if (!e.ctrlKey && !e.metaKey) return;
   if (e.key !== '.' && e.key !== ' ' && e.code !== 'Space') return;
@@ -1858,10 +1813,10 @@ function short(name: string): string {
 }
 
 /**
- * Shorten a filename for a status line WITHOUT losing its extension.
+ * Shorten a filename for a status line, keeping its extension.
  *
- * The extension is the part that answers "what did save just write?", so the
- * ellipsis eats the middle of the name rather than the tail of the string.
+ * The extension says what kind of file the download wrote, so the ellipsis
+ * eats the middle of the name rather than the tail of the string.
  * `short()` on a long name would leave a status line that never says `.js`.
  */
 function shortFilename(filename: string): string {
@@ -1883,8 +1838,8 @@ const OUTPUT_LINE = /^[ \t]*(?:artnet|sacn|osc|mock|usb|td)[ \t]*\(.*\)[ \t]*;?[
  * The output lives in the code, like everything else a scene does, so the
  * panel writes the line rather than switching anything behind the scene's
  * back. It replaces the scene's own output line if there is one, and otherwise
- * goes in under the comments at the top. It does not run: that is still
- * ctrl+enter, so nothing reaches the rig until the person says so.
+ * goes in under the comments at the top. It does not run the scene: ctrl+enter
+ * does that, so nothing reaches the rig until the person says so.
  */
 function useOutputCode(code: string): void {
   const doc = editorView.state.doc;
@@ -1915,8 +1870,8 @@ function useOutputCode(code: string): void {
 /**
  * Write patch lines from the fixtures tab into the scene, under the lights it
  * already declares. Like the outputs panel's lines it does not run them: the
- * lines are code in the buffer, and ctrl+enter is still what puts them on the
- * rig. The new lines are selected so they are easy to see and to undo.
+ * lines are code in the buffer, and ctrl+enter puts them on the rig. The new
+ * lines are selected so they are easy to see and to undo.
  */
 function insertPatch(code: string, summary: string): void {
   const doc = editorView.state.doc;
@@ -1958,7 +1913,7 @@ function loadCodeIntoEditor(code: string): void {
  * Ask before throwing away work that exists nowhere else.
  *
  * Returns true when it is safe to proceed. Called by every path that replaces
- * the whole buffer: a share link, an opened file, an example.
+ * the whole buffer: a share link or an example.
  */
 function confirmReplace(headline: string): boolean {
   if (!_dirtySinceFileSave) return true;
@@ -1992,7 +1947,7 @@ function replaceBuffer(code: string, opts: { dirty: boolean }): void {
  * Length past which a link starts being risky to paste around. Browsers handle
  * far longer URLs, but chat clients, mail gateways and QR codes truncate
  * somewhere around here (see the note in share.ts). A truncated link fails at
- * the other end, not this one, so the status line says the length out loud.
+ * the other end, not this one, so the status line states the length.
  */
 const LONG_LINK_CHARS = 2000;
 
@@ -2011,9 +1966,9 @@ async function copyText(text: string): Promise<boolean> {
 /**
  * Say "copied" on the button itself for a moment.
  *
- * The status bar already reported it, but that is at the far end of the window
- * from the button just clicked, so the click read as having done nothing. The
- * confirmation belongs where the eye already is.
+ * The status bar reports it too, but that is at the far end of the window from
+ * the button, so the confirmation goes where the eye already is.
+
  */
 const _flashTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
 function flashCopied(button: HTMLElement, restore: string): void {
@@ -2036,13 +1991,12 @@ const shareCopyEl = document.getElementById('share-copy') as HTMLButtonElement;
 const shareCodeEl = document.getElementById('share-code') as HTMLButtonElement;
 
 /**
- * One button, one gesture: build the link, put it on the clipboard, and say so.
+ * Build the link, put it on the clipboard, and say so.
  *
- * It used to be two buttons — copy, for the code, and share, for a link — and
- * the difference between them is a distinction about storage, which is not
- * something to make somebody read a top bar to work out. So there is one verb
- * now, it does the thing almost everyone means, and the other way out of gobo
- * is a second button inside the dialog, where there is room to say what it is.
+ * The top bar has one button for this. Link versus plain code is a
+ * distinction about storage, too fine to ask someone to work out from a top
+ * bar, so copying the code is a second button inside the dialog, where there
+ * is room to say what it is.
  *
  * The copy happens before the dialog opens rather than on a button inside it.
  * Clipboard writes need a user gesture and this click is one; deferring to a
@@ -2068,7 +2022,7 @@ async function handleShare(): Promise<void> {
   // the clipboard leaves something to do rather than nothing.
   shareResultEl.textContent = copied
     ? '✓ link copied to the clipboard'
-    : 'this browser would not write to the clipboard, so the link is selected below to copy by hand';
+    : 'clipboard unavailable · the link is selected below to copy by hand';
   shareResultEl.classList.toggle('ok', copied);
   shareCopyEl.textContent = 'copy link';
   shareCodeEl.textContent = 'copy the code instead';
@@ -2092,9 +2046,9 @@ shareCopyEl.addEventListener('click', () => {
 /**
  * The scene as text rather than as a link.
  *
- * Kept because a link has a ceiling and a paste does not: past a couple of
- * thousand characters the link is the worse of the two, and a scene long
- * enough to matter is exactly the one worth keeping in a file of your own.
+ * A link has a length ceiling and a paste does not: past a couple of thousand
+ * characters the link is the worse of the two, and a scene that long is worth
+ * keeping in a file of your own.
  */
 shareCodeEl.addEventListener('click', () => {
   void (async (): Promise<void> => {
@@ -2104,7 +2058,7 @@ shareCodeEl.addEventListener('click', () => {
       setStatus('ok', `copied ${code.length} characters · paste it somewhere you keep files`);
       return;
     }
-    shareCodeEl.textContent = 'the clipboard is not available';
+    shareCodeEl.textContent = 'clipboard unavailable';
   })();
 });
 
@@ -2138,12 +2092,10 @@ function loadExample(ex: Example): void {
 // packages/core/src/eval.ts), so a scene that arrived in a link can read what
 // is saved on this origin and repoint DMX output.
 //
-// This used to raise a banner about that, which had to be dismissed every time
-// a link was opened. The banner is gone; the protection is not. A shared scene
-// is still never auto-run, and opening one still asks before it replaces the
-// buffer, so nothing from a link executes without the user pressing
-// ctrl+enter on code they can see. What the banner added on top of that was a
-// paragraph of reading, in the way, on every open.
+// A shared scene is never auto-run, and opening one asks before it replaces
+// the buffer, so nothing from a link executes until the user presses
+// ctrl+enter on code they can see. There is no warning banner on top of that:
+// it would put a paragraph of reading in the way on every open.
 
 /** Whether this session started from a link, so the ready message does not
  *  overwrite the line saying so. */
@@ -2159,12 +2111,10 @@ async function handleSharedScene(): Promise<void> {
   if (shared === null) return;
 
   if (!confirmReplace('Open the shared scene?')) {
-    // The link is deliberately LEFT in the address bar. It used to be stripped
-    // before the question was asked, so saying no once destroyed the only copy
-    // of somebody else's scene that the page had — and "keep my work, save it
-    // first, then open the link" was not a thing you could do. A refresh
-    // asking again is the lesser cost, and it is the answer to a question you
-    // already chose to defer.
+    // The link stays in the address bar. It is the only copy of somebody
+    // else's scene the page has, and keeping it lets the user secure their own
+    // work first and open the link afterwards. A refresh asks again, which is
+    // the lesser cost.
     setStatus('', 'shared scene not loaded · your work is untouched, the link is still in the address bar');
     return;
   }
@@ -2179,10 +2129,10 @@ async function handleSharedScene(): Promise<void> {
 }
 
 // ─── Legacy scenes notice ────────────────────────────────────────────────────
-// Scenes saved under the old multi-scene model. The old keys are only read
-// (see listLegacyScenes), never written or cleared. The panel offers to take
-// copies out as files; dismissing it changes nothing but whether the panel
-// appears again.
+// Scenes saved under the pre-0.3 multi-scene model. Their storage keys are
+// only read (see listLegacyScenes), never written or cleared. The panel offers
+// to take copies out as files; dismissing it changes nothing but whether the
+// panel appears again.
 
 function closeLegacyNotice(): void {
   legacyNoticeEl.classList.remove('open');
@@ -2264,10 +2214,7 @@ function currentEnvironment(): Environment {
 
 // ─── The side panel ──────────────────────────────────────────────────────────
 // One panel, five tabs: the reference, the fixture library, the log, the
-// outputs and the settings. It used to be five panels behind four top-bar
-// buttons plus the connection light, each with its own close, its own Escape
-// handler and its own copy of "shut the other four first". Mutual exclusion is
-// not a rule any of them has to remember now; it is what a tab strip is.
+// outputs and the settings.
 //
 // panel.ts owns the shell. Each module below renders into the page it is
 // handed and is told when that page comes into view.
@@ -2332,16 +2279,14 @@ _panel = mountPanel({
   closeEl:  document.getElementById('panel-close')  as HTMLButtonElement,
   toggleEl: document.getElementById('panel-toggle') as HTMLButtonElement,
   pages: [
-    // "docs" rather than "reference", which this page has a sub-tab of its
-    // own called: a reference inside a reference reads as a mistake. It is
-    // also the more accurate word for what is here, since the page carries the
-    // walkthrough and the bundled scenes as well as the function list.
+    // "docs": the page has a sub-tab of its own called "reference", and it
+    // carries the walkthrough and the bundled scenes as well as the function
+    // list.
     { id: 'docs', label: 'docs', bodyEl: docsBodyEl,
       title: 'every function a scene can call, the bundled examples, and how to start' },
-    // "fixtures" rather than "library", which said where the definitions are
-    // kept instead of what they are. It sits under the same panel as the
-    // reference's own fixtures tab; one is the stock you can address by name,
-    // the other is how to address it.
+    // "fixtures" names what the definitions are. The docs page has its own
+    // fixtures tab: this one is the stock you can address by name, that one is
+    // how to address it.
     { id: 'fixtures', label: 'fixtures', bodyEl: libraryBodyEl,
       title: 'fixture definitions you can address by name, and the ones this scene declared' },
     { id: 'log', label: 'log', bodyEl: logBodyEl,
@@ -2352,9 +2297,8 @@ _panel = mountPanel({
   ],
 });
 
-// The connection light is still a way in, straight to the tab that answers
-// the question it raises. It is the thing a lighting person already looks at
-// when the rig is dark.
+// The connection light also opens the outputs tab. It is what a lighting
+// person looks at when the rig is dark.
 outputStatusEl.addEventListener('click', () => _panel?.toggle('outputs'));
 // The welcome page's "connect your lights" goes to the live panel, not a doc.
 document.addEventListener(OPEN_PANEL_EVENT, (e) => {
@@ -2386,34 +2330,32 @@ onSettingsChange((s) => {
 const _refreshLibraryAfterEval = (): void => libraryPanel.refresh();
 
 // ─── Minimal view ────────────────────────────────────────────────────────────
-// One key takes away everything that is not the code: the top bar, the sim
-// panel and the level strip. The screen lights stay, because a scene using
-// screen() is aiming at them and they are output rather than furniture, and so
-// does the status bar, which is where a pattern error turns up mid-set.
+// One key hides everything that is not the code: the top bar, the sim panel
+// and the level strip. The screen lights stay, because a scene using screen()
+// is aiming at them and they are output. So does the status bar, where a
+// pattern error turns up mid-set.
 //
-// Strudel calls this zen mode; gobo calls it minimal view, which says what it
-// is to someone who has not met strudel. Three ways in: alt+m, the button in
-// the bar, and clicking the mark on the left, which is strudel's own gesture.
-// What it hides is tucked away rather than removed, and comes back on hover
-// (the CSS in index.html), so nothing is out of reach while it is on.
+// Strudel calls this zen mode; "minimal view" says what it is to someone who
+// has not met strudel. Three ways in: alt+m, the button in the bar, and
+// clicking the mark on the left (strudel's own gesture). What it hides is
+// tucked away and comes back on hover (the CSS in index.html), so nothing is
+// out of reach while it is on.
 //
-// Bound on the document, not in the editor's keymap. A CodeMirror keymap only
-// fires while the editor has focus, which is how the stop shortcut once ended
-// up doing nothing unless you had clicked into the code first: every test
-// passed, because the tests focused the editor before pressing anything.
+// Bound on the document, not in the editor's keymap: a CodeMirror keymap only
+// fires while the editor has focus. Tests that focus the editor before
+// pressing a key will not catch that.
 //
 // alt+m rather than a ctrl+shift combination: ctrl+shift+m switches profile in
-// Chrome and opens responsive mode in Firefox, and a page cannot take either of
-// those back. The keymaps under the editor were checked rather than assumed:
-// CodeMirror's default keymap binds alt+l, alt+shift+a, ctrl+m and, on macOS,
-// shift+alt+m, and the autocomplete keymap binds no alt at all. Plain alt+m is
-// bound by none of them, which is why shift is rejected below: shift+alt+m is
-// macOS's tab-focus toggle and taking it would cost an accessibility control.
+// Chrome and opens responsive mode in Firefox, and a page cannot take either
+// back. CodeMirror's default keymap binds alt+l, alt+shift+a, ctrl+m and, on
+// macOS, shift+alt+m; the autocomplete keymap binds no alt at all. Plain alt+m
+// is bound by none of them. Shift is rejected below because shift+alt+m is
+// macOS's tab-focus toggle, and taking it would cost an accessibility control.
 //
-// Not persisted. settings.ts is where a preference would live and its Settings
-// type has no key for this one, so the view starts off on every load. That is
-// also the safer default: nobody opens gobo into a window with no controls on
-// it and has to work out why.
+// Not persisted: the Settings type in settings.ts has no key for it, so the
+// view starts off on every load. That is the safer default, since nobody then
+// opens gobo into a window with no controls and has to work out why.
+
 
 const zenExitEl = document.getElementById('zen-exit') as HTMLButtonElement;
 const zenToggleEl = document.getElementById('zen-toggle') as HTMLButtonElement;
@@ -2424,9 +2366,9 @@ let _zenMode = false;
 function setZenMode(on: boolean): void {
   _zenMode = on;
   document.body.classList.toggle('zen-mode', on);
-  // What the mode hides is a setting, so the switch stays one switch. Read on
-  // every toggle rather than cached, so changing a setting with the view open
-  // takes effect when it is next turned on.
+  // Which parts the view hides are settings; the key stays a single toggle.
+  // Read on every toggle rather than cached, so changing a setting with the
+  // view open takes effect when it is next turned on.
   const s = getSettings();
   document.body.classList.toggle('zen-hide-chrome', on && s.zenHideChrome);
   document.body.classList.toggle('zen-hide-sim', on && s.zenHideSim);
@@ -2452,8 +2394,8 @@ document.addEventListener('keydown', (e) => {
   // ctrl+alt for AltGr, so an international layout typing a character on that
   // key must not toggle the layout out from under the typist.
   if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-  // Either identifier will do. e.code is the physical key, which is what holds
-  // up where alt composes a character (alt+m is µ on macOS) or the layout is
+  // Either identifier matches. e.code is the physical key, which holds up
+  // where alt composes a character (alt+m is µ on macOS) or the layout is
   // not Latin. e.key covers the sources that send no code at all: on-screen
   // keyboards, some remote-desktop clients, and the browser automation this was
   // tested through, all of which would otherwise find the shortcut dead.
@@ -2476,8 +2418,8 @@ wordmarkEl.addEventListener('click', () => setZenMode(!_zenMode));
 // id (if any) wins.
 registerPublicFixtures();
 
-// The desktop app is the one copy of gobo nothing updates, so it asks GitHub
-// whether a newer one is out and says so in the top bar. See app-update.ts.
+// Nothing updates the desktop app automatically, so it asks GitHub whether a
+// newer release is out and says so in the top bar. See app-update.ts.
 if (isDesktopBuild()) {
   const desktopVersion = (globalThis as { gobo?: { version?: string } }).gobo?.version ?? 'unknown';
   void mountAppUpdate({
@@ -2495,10 +2437,10 @@ refreshOutputIndicator();
 // HMR can keep the worker / animation loop alive across reloads in dev,
 // which makes the page look like it's "already playing" before the user
 // hits Ctrl+Enter. Calling stop() unconditionally is a no-op on a cold
-// load and a real reset under HMR.
+// load and a reset under HMR.
 runStop();
 
-// One-time offer to export the old multi-scene saves as files. Reads the
+// One-time offer to export the pre-0.3 multi-scene saves as files. Reads the
 // legacy keys; never writes or clears them.
 mountLegacyNotice();
 
@@ -2509,9 +2451,9 @@ void handleSharedScene();
 
 // A link pasted into a tab that already has gobo open changes only the hash,
 // which is a same-document navigation: nothing reloads, so the boot handler
-// never runs. That was silent — the scene did not arrive, the address bar kept
-// a payload nobody read, and no message said why. Pasting a link into the tab
-// you are already in is an ordinary way to open one.
+// never runs. Without this listener the scene would not arrive, the address
+// bar would keep a payload nobody read, and no message would say why. Pasting
+// a link into the tab you are already in is an ordinary way to open one.
 //
 // replaceState does not fire this event, so the permalink the app writes after
 // every successful run cannot trigger it; only a navigation the user made can.
@@ -2551,9 +2493,9 @@ onUsbStatusChange(() => {
 });
 
 // Reopen an interface this origin has already been granted, without asking
-// again. Browsers remember the grant but not the open port, so a reload used
-// to leave a plugged-in box disconnected until someone clicked through the
-// chooser a second time. Nothing is prompted here: getPorts() only ever
+// again. Browsers remember the grant but not the open port, so without this a
+// reload would leave a plugged-in box disconnected until someone clicked
+// through the chooser a second time. Nothing is prompted here: getPorts() only ever
 // returns devices the user has already picked, so this is silent when there
 // are none, and silent when it fails.
 void reconnectUsbDmx().then((reconnected) => {
@@ -2569,7 +2511,7 @@ async function handleUsbButton(): Promise<void> {
     return;
   }
   if (!isUsbDmxSupported()) {
-    setStatus('error', 'this browser has no WebSerial. Chrome and Edge support it, Firefox and Safari do not');
+    setStatus('error', 'this browser has no WebSerial · use Chrome or Edge');
     return;
   }
   try {
@@ -2587,9 +2529,9 @@ async function handleUsbButton(): Promise<void> {
 // ─── Connector prompt ────────────────────────────────────────────────────────
 //
 // A browser cannot open a UDP socket, so Art-Net and sACN need a native helper.
-// Someone running from a checkout has one command for that. Someone who just
-// opened the hosted site has no repository to run anything from, and telling
-// them to run npm is worse than useless, so they get the download instead.
+// Someone running from a checkout has one command for that. Someone on the
+// hosted site has no repository to run anything from, and an npm command is no
+// use to them, so they get the download instead.
 
 // RELEASES_URL, connectorFileName(), hasSeenConnector() and rememberConnector()
 // come from outputs.ts, which the panel reads from too, so the banner and the
@@ -2600,13 +2542,10 @@ async function handleUsbButton(): Promise<void> {
  *
  * Pressing ctrl+enter as the page loads beats the WebSocket to it, so declaring
  * "nothing is listening" straight away would flash a download prompt at someone
- * whose connector is running perfectly well.
+ * whose connector is running.
  */
 const CONNECT_GRACE_MS = 2500;
 let _connectorPromptTimer: ReturnType<typeof setTimeout> | null = null;
-
-/** True when this page came from a local dev server or a local connector. */
-
 
 function undeliveredHint(): string {
   const out = describeOutput();
@@ -2644,7 +2583,7 @@ function renderConnectorBanner(target: string): void {
 
   if (browserBlocksConnector()) {
     // Offering the download here would send someone to fetch a program they
-    // may well have running already. The browser is the missing piece.
+    // may have running already. The browser's permission is what is missing.
     connectorBannerTextEl.textContent = `${target} is going nowhere. ${BLOCKED_BY_BROWSER}`;
     connectorBannerLinkEl.hidden = true;
     setConnectorBannerOpen(true);
@@ -2652,7 +2591,7 @@ function renderConnectorBanner(target: string): void {
   }
 
   if (hasSeenConnector()) {
-    // They have one. The download is not the missing piece; running it is.
+    // The connector is installed here but not running.
     connectorBannerTextEl.textContent =
       `Nothing is listening for DMX, so ${target} is going nowhere. The connector has run on this `
       + 'machine before, so start it again. It normally starts itself when you log in.';
@@ -2667,8 +2606,8 @@ function renderConnectorBanner(target: string): void {
       `Nothing is listening for DMX, so ${target} is going nowhere. Run npm start, `
       + 'which serves this page and sends the output from one process. Or download the connector.';
   } else {
-    // Same sentence the outputs panel would give for this output, so the
-    // banner and the panel cannot end up telling two stories.
+    // Same sentence the outputs panel gives for this output, so the banner and
+    // the panel agree.
     connectorBannerTextEl.textContent =
       `${blockedOutputMessage(target)} The file to download is ${connectorFileName()}.`;
   }
@@ -2699,7 +2638,8 @@ if (!servedLocally()) {
   void watchLocalAccess();
 }
 
-// Once something is listening, the banner has served its purpose.
+// Once something is listening, the banner closes.
+
 onStatusChange((connected) => {
   if (!connected) return;
   // Seeing one is proof they have it, so never offer the download again.

@@ -16,20 +16,20 @@ The connector is the only piece that speaks UDP, so it has to be running. TouchD
 
 ## Setup
 
-**1. Have something on this computer sending UDP.** Any of the routes in the
+**1. Start a UDP sender on this computer.** Any of the routes in the
 [README](../README.md#ways-to-run) does it: the desktop app, `npm start` from a checkout, or the
-website with the connector running beside it (`npx gobo-connector@latest` is the quickest try).
+website with the connector running beside it (`npx gobo-connector@latest` is the quickest way to try it).
 
 The connection light in gobo's top bar reads `connector ready` once it is up. Its outputs panel
 says the same, and lists the networks this computer is on.
 
-**2. Switch gobo to OSC.** Put this at the top of your scene and hit `Ctrl+Enter`:
+**2. Switch gobo to OSC.** Put this at the top of your scene and press `Ctrl+Enter`:
 
 ```js
 osc('127.0.0.1', 9000)   // host = the machine running TouchDesigner
 ```
 
-Host defaults to `127.0.0.1` and port to `9000`. If TD runs on another machine, pass its IP. The connector sends the UDP, not the browser, so the address is relative to whatever machine the connector is on.
+Host defaults to `127.0.0.1` and port to `9000`. If TD runs on another machine, pass its IP. The connector sends the UDP, so the address is relative to the machine the connector is on.
 
 **3. Add an OSC In CHOP.** Create an `OSC In CHOP` and set its *Network Port* to the same port (`9000`). One channel appears per address that gobo has sent.
 
@@ -56,15 +56,15 @@ Multiply by 255 in TD if you want the raw DMX byte back.
 
 ## Notes
 
-- **Only active channels are sent.** A channel is transmitted when it is non-zero, or when it was non-zero on the previous frame; that trailing frame is what pushes a channel back to `0.0`. Channels your scene never touches never appear in the CHOP at all, so an empty OSC In CHOP usually means nothing is being driven yet rather than a broken link.
-- **The universe number comes from your scene, not from the output call.** `fixture()`, `rgbStrip()`, `rgbwStrip()`, `ch()` and `dim()` all default to universe `0`; `uni(n, ch, v)` writes whatever you ask for. That number lands in the OSC address.
-- **The connector logs its first OSC packet and every hundredth after that**: `[bridge] OSC → 127.0.0.1:9000 uni0 (12 active ch, packet #100)`. If that line never appears, the browser is not reaching the connector. If it appears and TD stays empty, the problem is between the connector and TD (wrong host, wrong port, firewall).
-- **Firewall:** sending to another machine needs an inbound UDP allow on that port on the TD host. Loopback (`127.0.0.1`) needs nothing.
-- **Send rate** is capped by the `send rate` setting in gobo's settings: 25 / 30 / 40 / 44 Hz, default 40, since DMX itself carries about 44 frames a second. Drop it to 30 if you are pushing many channels over wireless.
+- Only active channels are sent. A channel is transmitted when it is non-zero, or when it was non-zero on the previous frame; that trailing frame is what pushes a channel back to `0.0`. Channels your scene never touches never appear in the CHOP at all, so an empty OSC In CHOP usually means nothing is being driven yet rather than a broken link.
+- The universe number comes from your scene, not from the output call. `fixture()`, `rgbStrip()`, `rgbwStrip()`, `ch()` and `dim()` all default to universe `0`; `uni(n, ch, v)` writes whatever you ask for. That number lands in the OSC address.
+- The connector logs its first OSC packet and every hundredth after that: `[bridge] OSC → 127.0.0.1:9000 uni0 (12 active ch, packet #100)`. If that line never appears, the browser is not reaching the connector. If it appears and TD stays empty, the problem is between the connector and TD (wrong host, wrong port, firewall).
+- Firewall: sending to another machine needs an inbound UDP allow on that port on the TD host. Loopback (`127.0.0.1`) needs nothing.
+- The send rate is capped by the `send rate` setting in gobo's settings: 25 / 30 / 40 / 44 Hz, default 40, since DMX itself carries about 44 frames a second. Drop it to 30 if you are pushing many channels over wireless.
 
 ## Art-Net instead of OSC
 
-TouchDesigner's `DMX In CHOP` can take Art-Net directly, which keeps values as 0-255 integers and stays closer to a real lighting network:
+TouchDesigner's `DMX In CHOP` can take Art-Net directly, which keeps values as 0-255 integers, as a lighting network carries them:
 
 ```js
 artnet('127.0.0.1')   // or the IP of the machine running TD
@@ -74,7 +74,7 @@ The connector sends one 530-byte ArtDmx packet per universe per frame on port 64
 
 ---
 
-## Direct mode: no connector, works from the hosted site
+## Direct mode
 
 `td()` opens a WebSocket from the browser straight to a TouchDesigner WebSocket
 DAT. The connector is not involved, so this works from
@@ -85,10 +85,10 @@ has TouchDesigner open. TD receives the frames and puts Art-Net on the wire.
 td('localhost', 9980)
 ```
 
-The browser still cannot speak Art-Net; it never can. TouchDesigner is doing
-that part. What direct mode removes is having to run anything of gobo's.
+The browser still cannot send Art-Net. TouchDesigner does that part, so direct
+mode needs nothing of gobo's running.
 
-> **One constraint.** A page served over https may only open an insecure
+> **Constraint:** a page served over https may only open an insecure
 > WebSocket to `localhost` or `127.0.0.1`. Browsers block every other host as
 > mixed content. So TouchDesigner has to be on the same machine as the browser,
 > or gobo has to be served over http. gobo reports this rather than letting the
@@ -153,9 +153,9 @@ def onDisconnect(dat, peer): return
 (`0/1`, `0/2`, and so on) with values 0 to 1.
 
 **6. Art-Net out.** Feed `datto1` into a DMX Out CHOP set to Art-Net, pointed at
-your node. That is the step that puts light on the rig.
+your node. This step puts light on the rig.
 
-### Which mode to use
+### Choosing a mode
 
 | | `td()` direct | `osc()` or `artnet()` via the connector |
 |---|---|---|

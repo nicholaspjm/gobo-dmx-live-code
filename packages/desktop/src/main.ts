@@ -1,9 +1,8 @@
 /**
  * gobo desktop: one window, with the bridge running inside it.
  *
- * A browser cannot open a UDP socket. There is no API for it, in any browser,
- * so Art-Net, sACN and OSC always need a native process. This build is that
- * process. The main process starts the same bridge the connector runs, in this
+ * No browser has an API for opening a UDP socket, so Art-Net, sACN and OSC
+ * always need a native process, and this build provides it. The main process starts the same bridge the connector runs, in this
  * process exactly as scripts/start.mjs does, and the bridge serves the built UI
  * from its own HTTP server on port 3001. The window then loads
  * http://localhost:3001.
@@ -214,8 +213,8 @@ function createWindow(): BrowserWindow {
   w.once('ready-to-show', () => w.show());
   w.on('closed', () => { win = null; });
 
-  // Links in the app (docs, the repository) belong in a real browser, not in a
-  // window with no address bar and no way back.
+  // Links in the app (docs, the repository) open in the user's browser, since
+  // this window has no address bar and no way back.
   w.webContents.setWindowOpenHandler(({ url }) => {
     openExternally(url);
     return { action: 'deny' };
@@ -260,7 +259,7 @@ async function main(): Promise<void> {
     await showFailure('Nothing to run yet', app.isPackaged
       ? [
           'This copy is missing the editor or the bridge, so there is nothing to serve.',
-          'The install looks incomplete. Installing it again is the fix.',
+          'The install looks incomplete. Reinstall the app to fix it.',
         ]
       : [
           'The editor or the bridge has not been built, so there is nothing to serve.',

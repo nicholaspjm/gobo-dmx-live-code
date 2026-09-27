@@ -20,8 +20,7 @@
  *   }
  *
  * Storage: a single localStorage entry keyed by LIBRARY_KEY holds all
- * saved fixtures as { [id]: def }. Simple enough that a user can also
- * poke at it via DevTools if they want.
+ * saved fixtures as { [id]: def }, readable in DevTools.
  */
 
 import { defineFixture, type FixtureDef } from './fixtures.js';
@@ -30,13 +29,13 @@ import { validateFixture } from './fixture-validator.js';
 const LIBRARY_KEY = 'gobo-fixtures-v1';
 
 /**
- * Pre-rename storage key. The project was called "lumen" before it became
- * gobo, and every library saved up to that point still sits under the old
- * key in the user's browser. readRaw() adopts it the first time the new key
- * comes back empty, so upgrading doesn't look like a wiped library.
+ * Storage key from when the project was called "lumen". Libraries saved under
+ * that name still sit under this key in users' browsers. readRaw() adopts it
+ * the first time the current key comes back empty, so an upgraded install
+ * keeps its library.
  *
- * Do not delete this until no browser still holds the old entry. Dropping it
- * orphans user fixtures with no way to get them back.
+ * Keep this while any browser may still hold the old entry. Removing it
+ * orphans those fixtures with no way to recover them.
  */
 const LEGACY_LIBRARY_KEY = 'lumen-fixtures-v1';
 
@@ -51,10 +50,10 @@ function readRaw(): Record<string, FixtureDef> {
   try {
     let raw = localStorage.getItem(LIBRARY_KEY);
     if (raw === null) {
-      // Nothing under the current key. Fall back to the pre-rename one and
-      // copy it across, so the migration happens once and stays invisible.
-      // The legacy entry is left in place: it costs nothing, and it keeps an
-      // older build of the app working for anyone who rolls back.
+      // Nothing under the current key. Fall back to the legacy one and copy it
+      // across, so the migration happens once and the user never sees it.
+      // The legacy entry is left in place so an older build still works for
+      // anyone who rolls back.
       const legacy = localStorage.getItem(LEGACY_LIBRARY_KEY);
       if (legacy === null) return {};
       raw = legacy;
@@ -141,11 +140,10 @@ export interface ExportEnvelope {
 }
 
 /**
- * Pre-rename name of the schema-version field. Files exported while the
- * project was still called "lumen" carry `lumenFixture` instead, and users
- * have those files sitting in folders and shared with other people, so
- * parseImportString() accepts it as a deprecated alias. Exports only ever
- * write the current `goboFixture` field.
+ * Schema-version field from when the project was called "lumen". Files
+ * exported under that name carry `lumenFixture`, and users still have them in
+ * folders and share them, so parseImportString() accepts it as a deprecated
+ * alias. Exports write `goboFixture` only.
  *
  * @deprecated Import-only alias for `goboFixture`; do not write it.
  */
@@ -175,7 +173,7 @@ export interface ImportResult {
  * schema / limits / no-collision-with-built-ins pass.
  *
  * The deprecated `lumenFixture` field is accepted in place of
- * `goboFixture` so pre-rename exports still import.
+ * `goboFixture` so files exported as "lumen" still import.
  */
 export function parseImportString(raw: string): ImportResult {
   let parsed: unknown;

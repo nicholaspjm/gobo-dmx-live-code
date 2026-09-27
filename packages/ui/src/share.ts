@@ -1,9 +1,9 @@
 /**
  * Share links: a whole scene encoded into the URL hash.
  *
- * WHY the payload lives in the URL: gobo is a static site. The hosted build
- * on GitHub Pages is files on a CDN, with no backend to store a scene and
- * hand back a short id. A server would also mean the user's work leaving
+ * The payload lives in the URL because gobo is a static site. The hosted
+ * build on GitHub Pages is files on a CDN, with no backend to store a scene
+ * and hand back a short id. A server would also mean the user's work leaving
  * their browser. Putting the scene in the link keeps the feature
  * client-side, and there is no id registered anywhere, so a link cannot
  * expire or 404.
@@ -25,9 +25,8 @@
  * job; this module only promises never to run the code itself and never to
  * throw on hostile input.
  *
- * Links written before 0.5.0 carry a `name` alongside the code, from when a
- * scene had one. It is read past rather than rejected: the code is the part
- * that was ever worth carrying, and an old link still has to open.
+ * Links written before 0.5.0 also carry a `name` field. The decoder ignores
+ * it, so those links still open.
  */
 
 // Version prefixes. The hash is `#<version>=<base64url>`, so the decoder
@@ -210,7 +209,7 @@ export async function encodeShareLink(code: string): Promise<string> {
  *
  * Every failure path returns null rather than throwing: this input arrives
  * from a stranger's link, so a malformed, truncated, oversized, wrong-version
- * or non-JSON payload is an expected case, not an exception. The caller sees
+ * or non-JSON payload is an expected case. The caller sees
  * "no share link here" and carries on with the user's own buffer.
  */
 export async function decodeShareFromLocation(): Promise<{ code: string } | null> {
@@ -257,9 +256,8 @@ export async function decodeShareFromLocation(): Promise<{ code: string } | null
 
   // Validate the shape before trusting it. An attacker controls this object,
   // so anything that isn't a plain record with a string `code` is rejected;
-  // otherwise a number where `code` should be would reach the editor. Any
-  // other key, `name` included, is ignored rather than refused: a link from
-  // an older gobo carries one and still has to open.
+  // otherwise a number where `code` should be would reach the editor. Other
+  // keys are ignored, so a pre-0.5.0 link with a `name` still opens.
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
   const { code } = parsed as { code?: unknown };
   if (typeof code !== 'string') return null;

@@ -28,9 +28,7 @@ jobs:
       - run: npm ci
 
       # The deploy is the live site, so it is gated on the same command a
-      # contributor runs: check-names, then typecheck, then vitest. Nothing in
-      # CI ran any of them before, so every push to main published whatever it
-      # happened to contain.
+      # contributor runs: check-names, then typecheck, then vitest.
       - run: npm test
 
       - run: npm run build

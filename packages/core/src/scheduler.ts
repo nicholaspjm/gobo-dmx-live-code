@@ -5,15 +5,15 @@
  * fractional part = position within that cycle (0.0 to 1.0).
  * At 120 BPM with 4 beats per cycle, 1 cycle = 2 seconds.
  *
- * The clock lives in a Worker (see clockWorker.ts) rather than on the main
- * thread because Chromium throttles main-thread timers on backgrounded tabs:
+ * The clock lives in a Worker (see clockWorker.ts) because Chromium throttles
+ * main-thread timers on backgrounded tabs:
  * requestAnimationFrame pauses entirely and setInterval is clamped to 1 Hz.
  * Workers run at full rate regardless of tab visibility, so DMX output keeps
  * flowing during alt-tab.
  *
  * The worker only fires "tick" messages; pattern eval and DMX writes happen on
  * the main thread via onTick callbacks. The increment per tick is computed from
- * wall-clock elapsed time, so BPM is accurate and drift-free at any tick rate.
+ * wall-clock elapsed time, so BPM stays accurate without drift at any tick rate.
  */
 
 const BEATS_PER_CYCLE = 4;
@@ -35,9 +35,9 @@ let _tickErrorLogged = false;
  * Scene code calls this straight out of the eval sandbox, so `value` is
  * whatever the user's expression produced: setBPM(), parseInt('fast') and a
  * typo'd variable all arrive as NaN. The clamp cannot catch that on its own,
- * because Math.max/Math.min propagate NaN rather than rejecting it. NaN is
- * absorbing once it reaches the cycle accumulator, so one bad call silently
- * kills every pattern. Reject non-finite input and keep the last good tempo.
+ * because Math.max/Math.min propagate NaN. Once NaN reaches the cycle
+ * accumulator it absorbs every later addition, so one bad call silently stops
+ * every pattern. Non-finite input is ignored and the last good tempo kept.
  */
 export function setBPM(value: number): void {
   if (!Number.isFinite(value)) return;
@@ -61,11 +61,10 @@ export function getCycleFraction(): number {
 /**
  * Put the count back to the top of a cycle, without touching the tempo.
  *
- * Tapping a tempo fixes the speed and says nothing about where the downbeat
- * is, so a set can end up at exactly the right BPM and half a bar out. This is
- * the other half of that.
+ * Tapping a tempo sets the speed but not the downbeat, so a set can be at the
+ * right BPM and half a bar out. This moves the downbeat.
  *
- * Deliberately separate from stop()/start(), which also zero the accumulator:
+ * Separate from stop()/start(), which also zero the accumulator:
  * restarting the clock costs the few milliseconds a replacement worker takes
  * to come up, and no tick runs in that window, so the rig holds its last frame
  * and a resync can be seen as a stutter. This is a single assignment between
@@ -85,10 +84,10 @@ export function onTick(cb: TickCallback): () => void {
 function handleTick(): void {
   // Self-heal: cyclePos is an accumulator, so a single non-finite value sticks
   // forever, because NaN absorbs every later addition. Fixing the BPM from the
-  // UI does not recover it: cyclePos stays poisoned, and start() early-returns
-  // while the worker is alive, so only stop() clears it. Healing here rather
-  // than only in setBPM means no route can leave the clock wedged with the rig
-  // half-lit.
+  // UI does not recover it: cyclePos stays NaN, and start() early-returns
+  // while the worker is alive, so only stop() clears it. Resetting here as
+  // well as guarding setBPM means no route can leave the clock stuck with the
+  // rig half-lit.
   if (!Number.isFinite(_cyclePos)) _cyclePos = 0;
 
   const nowMs = performance.now();
@@ -102,11 +101,8 @@ function handleTick(): void {
 
   const inc = (_bpm / 60 / BEATS_PER_CYCLE) * dtSec;
 
-  // One timebase: the wall clock, advanced by the tempo. There used to be a
-  // hook here for an external provider to pin cyclePos to an audio playhead,
-  // but the audio module it existed for was never wired to anything, so the
-  // branch only ever took the fallback. Sync to an outside clock belongs back
-  // here when something actually drives it, shaped by what that needs.
+  // One timebase: the wall clock, advanced by the tempo. Sync to an external
+  // clock (an audio playhead, say) would go here.
   _cyclePos += inc;
 
   for (const cb of _callbacks) {
@@ -114,17 +110,16 @@ function handleTick(): void {
       cb(_cyclePos, inc);
     } catch (err) {
       // Keep the clock running: one broken subscriber must not stop the others
-      // from ticking or kill the timebase.
+      // from ticking or stop the timebase.
       //
       // Nothing here reaches the UI. The eval error display only shows the
       // result of evalCode(), which has already reported success by the time a
       // tick runs, so a callback that throws every frame is otherwise
-      // invisible. Callbacks whose failures the operator needs to know about
-      // must surface them themselves (dmx.tick() does this for pattern
-      // queries, the one throw path that used to reach here).
+      // invisible. Callbacks whose failures the operator needs to see must
+      // surface them themselves (dmx.tick() does this for pattern queries).
       //
-      // Logged once, not per tick: at ~60 Hz a repeating throw would bury the
-      // console and starve the frame budget.
+      // Logged once per run: at ~60 Hz a repeating throw would bury the
+      // console and eat the frame budget.
       if (!_tickErrorLogged) {
         _tickErrorLogged = true;
         console.error('[gobo] tick callback threw; further occurrences are not logged:', err);

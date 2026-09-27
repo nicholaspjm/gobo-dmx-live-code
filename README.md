@@ -12,11 +12,11 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 
 [![Licence: AGPL v3](https://img.shields.io/badge/Licence-AGPL%20v3-blue.svg)](LICENSE)
 
-![A scene running in gobo and edited live: the strip's rainbow chase is swapped for a red and amber one and re-run with ctrl+enter, and the sim follows](docs/media/demo.gif)
+![A scene running in gobo and edited live: the strip's amber chase is changed to cyan and re-run with ctrl+enter, and the sim follows](docs/media/demo.gif)
 
 ---
 
-## The hosted build
+## Hosted version
 
 **[Open gobo in your browser](https://gobolive.cc/)**. No install required.
 
@@ -27,18 +27,18 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 ## What it does
 
 - `Ctrl+Enter` runs the code, and it takes effect on the next tick
-- Strudel's language as Strudel writes it: bare signals (`sine.slow(4)`), quoted mini-notation (`wash.dim('1 - 1 -')`), curried changes (`.every(4, fast(2))`), labelled blocks, `_` to mute, with no JavaScript functions to write
+- Strudel's own syntax: bare signals (`sine.slow(4)`), quoted mini-notation (`wash.dim('1 - 1 -')`), curried changes (`.every(4, fast(2))`), labelled blocks, and `_` to mute, with no JavaScript functions to write
 - Strudel's music ideas ported to light: per-step fades (`.fadeIn`, `.settle`, `.fadeOut`, and Strudel's `.attack`/`.release` reading the same), palettes where Strudel has scales (`.palette(warm)`), a position across a group where it has stereo pan (`.across(saw)`), and looks you switch between where it has labelled patterns (`verse: { … }`, `cue(verse, chorus)`)
-- Chases without code: `rig.each('1 - - -'.fadeOut(2))` runs a pattern on every light, each a step later
+- One-line chases: `rig.each('1 - - -'.fadeOut(2))` runs a pattern on every light, each a step later
 - 512 channels per universe, multiple universes via `uni()`
 - A 512-bar channel strip and a fixture simulation, drawn at 30 fps
 - Built-in fixture profiles for RGB, RGBW, moving heads and strobes, and custom definitions
 - Pixel strips, `rgbStrip()` / `rgbwStrip()`, with per-pixel, grid and chase helpers
 - Output to Art-Net 4, sACN (E1.31), OSC, a USB DMX interface over WebSerial with nothing installed, TouchDesigner directly, or mock
 - One working scene, autosaved to the browser as you type
-- A share link that carries the whole scene, no server involved
-- Four bundled demo scenes, on the examples tab of the docs, from two lines to a small real rig
-- Built-in, bundled public, saved and session fixtures on one fixtures tab, with JSON import/export. **add to rig** on any of them writes the `fixture()` lines for as many as you own, at the next free address
+- A share link that holds the whole scene, with no server involved
+- Four bundled demo scenes, on the examples tab of the docs, from two lines to a small working rig
+- Built-in, bundled public, saved and session fixtures on one fixtures tab, with JSON import/export. The add to rig button on any of them writes the `fixture()` lines for as many as you own, at the next free address
 - The outputs panel lists the networks your computer is on and writes the `artnet()` line that reaches them, and says when a scene sends somewhere the rig cannot hear
 - Errors name their line and tint it, and a misspelt name gets a "did you mean"
 - One panel behind the ☰ button (docs, fixtures, log, outputs, settings), plus hover help and autocomplete in the editor
@@ -61,9 +61,8 @@ send, so something native has to run on your computer.
 | Art-Net, sACN, OSC | | ✓ | ✓ |
 | The browser asks permission | | never | once, in Chrome |
 
-**If you are driving a network rig, run it locally.** It is the most streamlined of the three:
-one program serves the app and sends the output, so there is nothing to connect, nothing
-running in the background once you close it, and nothing for the browser to allow.
+For a network rig, run it locally. One program serves the app and sends the output, it stops
+when you close it, and the browser never asks for permission.
 
 ### The website
 
@@ -78,13 +77,13 @@ real fixtures from the page as it stands:
 
 ### Run it locally
 
-**The desktop app** is the editor and the sender in one window. Download it from
+The desktop app is the editor and the sender in one window. Download it from
 [Releases](https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest): the `.dmg` for an
 Apple Silicon Mac, the `Setup` `.exe` for Windows, the `.AppImage` for Linux. It is not signed
 with a certificate, so the first time you open it your system will ask you to confirm; the steps
-are [below](#the-first-time-you-open-a-download).
+are [below](#unsigned-downloads).
 
-**From a checkout**, one command does the same thing:
+From a checkout, one command does the same thing:
 
 ```bash
 git clone https://github.com/nicholaspjm/gobo-dmx-live-code.git
@@ -95,23 +94,22 @@ npm start
 
 That is one process serving the app and speaking UDP, on http://localhost:3001, with a browser
 opened for you. The page talks to it over a same-origin WebSocket, so there is no second
-process to start or to forget. On an Intel Mac this is the route, since the downloads are
-Apple Silicon builds.
+process to start. Use this route on an Intel Mac, since the downloads are Apple Silicon builds.
 
 Use `npm run dev` while working on gobo itself: Vite on http://localhost:3000 with hot reload,
 and the connector alongside it.
 
-### The website and the connector
+### Website and connector
 
-If you would rather keep using the hosted page, add the connector: the same sender, on its own.
+To keep using the hosted page, add the connector, which is the same sender on its own.
 Download the one for your system from
 [Releases](https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest) and run it once. It
 sets itself to start when you log in, and `--uninstall` undoes that. Then open the app and press
 `ctrl+enter`.
 
-From 0.5.2 it keeps itself up to date: when a release comes out it downloads the new one, checks
-it against the checksum GitHub publishes, and switches over the next time nothing is connected
-to it, so never during a show. `--no-update` turns that off. A Homebrew copy is updated with
+The connector updates itself (0.5.2 and later). When a release comes out it downloads the new
+one, checks it against the checksum GitHub publishes, and switches over the next time nothing is
+connected to it, so a show is never interrupted. `--no-update` turns that off. A Homebrew copy is updated with
 `brew upgrade gobo-connector` instead.
 
 On an Apple Silicon Mac or x86_64 Linux, Homebrew installs it without the first-run warning,
@@ -126,11 +124,11 @@ brew services start gobo-connector
 With Node installed, `npx gobo-connector@latest` runs the latest one without installing
 anything. It runs until you close the terminal, and nothing starts at login.
 
-**Chrome asks before a website may reach a program on your computer**, and the connector is
-one. When it asks about gobo, allow it. If you blocked it, the outputs tab in the app says so;
+Chrome asks before a website may reach a program on your computer, and the connector is one.
+When it asks about gobo, allow it. If you blocked it, the outputs tab in the app says so;
 change it from the icon beside the address, under local network access. Running gobo locally
-never meets this, because a page on your own computer reaching your own computer is not a
-request the browser asks about.
+avoids the prompt, because the browser does not ask when a page served from your own computer
+connects to it.
 
 The connector listens on `localhost:3001` and answers only gobo's own pages, so another website
 open in the same browser cannot drive your rig through it. A copy of gobo hosted somewhere else,
@@ -140,7 +138,7 @@ From a checkout, `npm run autostart` starts the connector at login instead, so f
 the hosted page connects without you starting anything. It is a per-user login item, needs no
 administrator rights, and `npm run autostart -- --remove` undoes it.
 
-### The first time you open a download
+### Unsigned downloads
 
 Nothing gobo ships is signed with an Apple or Microsoft certificate, so your system will say it
 cannot check who made it.
@@ -156,9 +154,10 @@ cannot check who made it.
 If you would rather not run an unsigned binary at all, `npm start` from a checkout is the same
 program, built from source you can read.
 
-### From a phone or tablet on the same network
+### Phones and tablets
 
-The connector and the dev server answer only this computer unless you ask otherwise:
+To use gobo from another device on the same network, start it with `--lan`; otherwise the
+connector and the dev server answer only this computer:
 
 ```bash
 npm start -- --lan
@@ -167,13 +166,13 @@ npm start -- --lan
 or, for development, `GOBO_LAN=1 npm run dev`, which opens up both. Then open
 `http://<this computer's address>:3001` on the other device (`:3000` for dev). Only do this on
 a network you trust: web pages are still checked, but any program on that network can connect
-and drive the rig. [SECURITY.md](SECURITY.md#the-connector-answers-this-computer-and-gobos-own-pages)
+and drive the rig. [SECURITY.md](SECURITY.md#connector-access)
 has the detail.
 
-### When nothing reaches the rig
+### Diagnostics and startup mode
 
-Run `npm run doctor`. It checks each link in the chain and reports what it measured, including
-the two mistakes that fail silently: sending to your own machine's IP, and the computer being
+When nothing reaches the rig, run `npm run doctor`. It checks each link in the chain and reports
+what it measured, including the two mistakes that fail silently: sending to your own machine's IP, and the computer being
 on a different subnet from the node.
 
 `packages/bridge/bridge.config.json` sets the connector's startup output. It ships in `artnet`
@@ -225,13 +224,13 @@ uni(2, 1, sine.slow(4))
 
 ## Scenes and links
 
-There is **one working scene**. It autosaves to the browser as you type, debounced at ~0.5 s;
-switch that off under **autosave** in settings. A refresh, a crash or a closed laptop costs
-you nothing. It has no name: there is only the one, and it is the document on screen.
+There is one working scene, with no name. It autosaves to the browser as you type (debounced at
+~0.5 s), so a refresh, a crash or a closed laptop loses nothing; switch that off under
+**autosave** in settings.
 
 A share link is the durable copy. **share** in the top bar copies a link carrying the entire
-scene and shows you what it copied, described below. The same dialog will hand you the code
-as plain text instead, which is what to keep for a scene too long to paste as a link.
+scene and shows you what it copied (details below). The same dialog can give you the code as
+plain text instead, for a scene too long to paste as a link.
 
 The four bundled demos live under the panel's **docs** tab, on its examples sub-tab: *start here*
 (the two lines a new browser opens on), *four pars and a strobe* (a small real rig), *language
@@ -239,10 +238,10 @@ tour* (everything the language does), and *four-colour bar demo* (one custom fix
 
 **save** writes the scene to a `.js` file (`Ctrl+S`) and **open** reads one back. The file is
 the code and nothing else, so it opens with syntax highlighting in any editor and diffs line by
-line. One file is one performance: a show that lives only in this browser cannot be carried to
-the laptop going to the gig, kept in git, or backed up.
+line. Keep each show in a file: a scene that lives only in this browser cannot be carried to the
+laptop going to the gig, kept in git, or backed up.
 
-Anything that replaces the whole buffer (open, share link, example) **arrives stopped** and
+Anything that replaces the whole buffer (open, share link, example) arrives stopped and
 waits for `Ctrl+Enter`. It asks first if the current scene has changes you have not saved to a
 file.
 
@@ -259,7 +258,7 @@ The trade-off is length. Deflate gets typical scene source to around a third of 
 base64 adds about a third back, so a 2 kB scene lands near 900 characters of link. Browsers
 handle far longer URLs, but chat apps, mail gateways and QR codes start truncating somewhere
 past 2000 characters. gobo reports the character count when it copies and warns when a link
-crosses that mark. **For a big set, use "copy the code instead" in the same dialog and send that.**
+crosses that mark. For a big set, use **copy the code instead** in the same dialog and send that.
 
 A link carries the code and nothing else. Saved fixtures, settings and themes stay in your
 browser, so a scene relying on a fixture you imported needs its `defineFixture()` call in the
@@ -271,7 +270,7 @@ scene itself to work on someone else's machine.
 > [SECURITY.md](SECURITY.md#share-links-carry-someone-elses-code-into-your-browser) has the
 > detail.
 
-### Scenes from the old multi-scene version
+### Old named scenes
 
 Earlier builds kept several named scenes in a top-bar dropdown. If you have any, a one-time
 notice lists them with a download button each, so you can turn them into `.js` files. The old
@@ -293,7 +292,7 @@ anything else in this version.
 | `T` | Tap tempo (ignored while typing in the editor or any input) |
 | `Alt+M` | Minimal view: tuck away the top bar, sim panel and level strip. Hover the top edge for the bar, or the status bar for the sim. Clicking the mark does the same |
 
-Turning on **ctrl+enter runs the block** in settings swaps `Ctrl+Enter` and `Ctrl+Shift+Enter`
+Turning on **block on ctrl+enter** in settings swaps `Ctrl+Enter` and `Ctrl+Shift+Enter`
 over, so the plain chord takes the block and the shifted one takes the document.
 
 ---
@@ -333,22 +332,22 @@ Visualizer (rAF, 30 fps, read-only snapshot)   +   WS sender (wall-clock throttl
 
 ### Engine
 
-- **Clock lives in a Web Worker.** A `setInterval(16)` in [clockWorker.ts](packages/core/src/clockWorker.ts) posts `"tick"` messages to the main thread. Chromium doesn't throttle worker timers, so the clock keeps firing at ~60 Hz even when the tab is backgrounded ([scheduler.ts](packages/core/src/scheduler.ts)).
-- **Cycle position** advances by `(bpm / 60) / 4` cycles per second (4 beats per cycle). `dt` is clamped at 100 ms so a machine sleep or long GC pause doesn't send the phase spinning ([scheduler.ts](packages/core/src/scheduler.ts)). An external clock provider (audio playhead) can override `cyclePos`; nothing installs one in this release.
-- **Pattern evaluation** uses [@strudel/core](https://strudel.cc) as the pattern engine. `sine`, `saw`, mini-notation, `.slow / .fast / .add / .range / .early / .late` are Strudel patterns. Each tick, every registered channel calls `pattern.queryArc(cyclePos, cyclePos + ε)` to sample the value at that moment ([dmx.ts](packages/core/src/dmx.ts)). The gobo-specific chain methods `.flash / .glow / .wave` are added by monkey-patching `Pattern.prototype`; user code can add its own with `register(name, change)`, as in `register('punch', range(-4, 1))` ([eval.ts](packages/core/src/eval.ts)). If Strudel fails to load, evaluation is disabled outright and the status bar says why; reload the page to retry. There is no degraded waveform mode.
-- **Live eval is not sandboxed.** User code runs via `new Function(...)` in strict mode with a curated globals object (DMX API, fixture API, Strudel waveforms, `Math`, `console`). Those names shadow, they don't remove: the code runs in the page's own realm. Fast to hot-swap, not safe against hostile code ([eval.ts](packages/core/src/eval.ts), and [SECURITY.md](SECURITY.md)).
-- **Universe state is `Map<number, Uint8Array(512)>`.** Zeroed and rewritten from scratch every tick, so a scene swap is atomic at the tick boundary ([dmx.ts](packages/core/src/dmx.ts)).
+- The clock lives in a Web Worker. A `setInterval(16)` in [clockWorker.ts](packages/core/src/clockWorker.ts) posts `"tick"` messages to the main thread. Chromium doesn't throttle worker timers, so the clock keeps firing at ~60 Hz even when the tab is backgrounded ([scheduler.ts](packages/core/src/scheduler.ts)).
+- The cycle position advances by `(bpm / 60) / 4` cycles per second (4 beats per cycle). `dt` is clamped at 100 ms so a machine sleep or long GC pause doesn't send the phase spinning ([scheduler.ts](packages/core/src/scheduler.ts)). An external clock provider (audio playhead) can override `cyclePos`; nothing installs one in this release.
+- Pattern evaluation uses [@strudel/core](https://strudel.cc) as the pattern engine. `sine`, `saw`, mini-notation, `.slow / .fast / .add / .range / .early / .late` are Strudel patterns. Each tick, every registered channel calls `pattern.queryArc(cyclePos, cyclePos + ε)` to sample the value at that moment ([dmx.ts](packages/core/src/dmx.ts)). The gobo-specific chain methods `.flash / .glow / .wave` are added by monkey-patching `Pattern.prototype`; user code can add its own with `register(name, change)`, as in `register('punch', range(-4, 1))` ([eval.ts](packages/core/src/eval.ts)). If Strudel fails to load, evaluation is disabled and the status bar says why; reload the page to retry. There is no fallback waveform mode.
+- Live eval is not sandboxed. User code runs via `new Function(...)` in strict mode with a curated globals object (DMX API, fixture API, Strudel waveforms, `Math`, `console`). Those names shadow the page's globals without removing them, and the code runs in the page's own realm. That keeps hot swaps fast and gives no protection against hostile code ([eval.ts](packages/core/src/eval.ts), and [SECURITY.md](SECURITY.md)).
+- Universe state is a `Map<number, Uint8Array(512)>`, zeroed and rewritten every tick, so a scene swap is atomic at the tick boundary ([dmx.ts](packages/core/src/dmx.ts)).
 
-### Real-time behavior
+### Runtime behaviour
 
-- **Tab throttling:** the clock is in a worker, and the visualizer's rAF loop never drives DMX. Patterns keep running with the tab hidden or the window minimized.
-- **Hot swap:** `evalCode` calls `clearDefs()`, which wipes pattern defs *and* universe buffers; the next tick rebuilds everything from the new code, so a swap reaches the wire whole ([dmx.ts](packages/core/src/dmx.ts)).
-- **Send rate:** the sender is throttled against the wall clock rather than the tick count, using `1000 / sendRate` ms as its interval (default 40 Hz; 25 / 30 / 40 / 44 in settings, since DMX itself carries about 44 frames a second). A slow render tick does not back up the send queue ([main.ts](packages/ui/src/main.ts), [settings.ts](packages/ui/src/settings.ts)).
-- **Going dark:** idle all-zero universes are skipped to save UDP bandwidth. When a universe goes from live to all-zero, exactly one trailing zero-frame is sent so downstream fixtures latch off; Art-Net and sACN receivers otherwise hold the last value indefinitely ([websocket.ts](packages/core/src/websocket.ts)).
-- **Per-tick user errors are swallowed.** A broken pattern doesn't kill the clock; that channel outputs zero until you fix it ([scheduler.ts](packages/core/src/scheduler.ts)).
-- **Connector reconnect:** two seconds after a close, doubling to a thirty-second ceiling, and back to two the moment a scene picks an output that needs it. Sends are dropped while disconnected ([websocket.ts](packages/core/src/websocket.ts)).
-- **Latency floor:** one clock tick (~16 ms) + up to one send interval (25 ms at the default 40 Hz) + WS hop + UDP hop. The connector is stateless: each incoming WS message triggers an immediate UDP send, with no coalescing ([bridge/index.ts](packages/bridge/src/index.ts)).
-- **Inline pattern widgets** hook the same `onTick` the DMX loop uses rather than a separate rAF, so their visuals stay phase-locked with the lights ([inline-viz.ts](packages/ui/src/inline-viz.ts)). The 512-bar visualizer runs its own rAF loop over a read-only snapshot with light exponential smoothing, so the on-screen strip never contends with the DMX path ([visualizer.ts](packages/ui/src/visualizer.ts)).
+- Tab throttling: the clock is in a worker, and the visualizer's rAF loop never drives DMX. Patterns keep running with the tab hidden or the window minimized.
+- Hot swap: `evalCode` calls `clearDefs()`, which wipes pattern defs *and* universe buffers; the next tick rebuilds everything from the new code, so a swap reaches the wire whole ([dmx.ts](packages/core/src/dmx.ts)).
+- Send rate: the sender is throttled against the wall clock rather than the tick count, using `1000 / sendRate` ms as its interval (default 40 Hz; 25 / 30 / 40 / 44 in settings, since DMX itself carries about 44 frames a second). A slow render tick does not back up the send queue ([main.ts](packages/ui/src/main.ts), [settings.ts](packages/ui/src/settings.ts)).
+- Going dark: idle all-zero universes are skipped to save UDP bandwidth. When a universe goes from live to all-zero, exactly one trailing zero-frame is sent so downstream fixtures latch off; Art-Net and sACN receivers otherwise hold the last value indefinitely ([websocket.ts](packages/core/src/websocket.ts)).
+- Per-tick errors: a broken pattern's error is caught, the clock keeps running, and that channel outputs zero until you fix it ([scheduler.ts](packages/core/src/scheduler.ts)).
+- Connector reconnect: two seconds after a close, doubling to a thirty-second ceiling, and back to two the moment a scene picks an output that needs it. Sends are dropped while disconnected ([websocket.ts](packages/core/src/websocket.ts)).
+- Latency floor: one clock tick (~16 ms) + up to one send interval (25 ms at the default 40 Hz) + WS hop + UDP hop. The connector is stateless: each incoming WS message triggers an immediate UDP send, with no coalescing ([bridge/index.ts](packages/bridge/src/index.ts)).
+- Inline pattern widgets hook the same `onTick` the DMX loop uses rather than a separate rAF, so their visuals stay phase-locked with the lights ([inline-viz.ts](packages/ui/src/inline-viz.ts)). The 512-bar visualizer runs its own rAF loop over a read-only snapshot with light exponential smoothing, so the on-screen strip never contends with the DMX path ([visualizer.ts](packages/ui/src/visualizer.ts)).
 
 ### Output protocols
 
@@ -367,7 +366,7 @@ A fixture profile is an ordered list of `{offset, name, type}` channel descripto
 
 `group(...)` puts fixtures, strips and a fixture's `.pixels` behind the same setters, so one line covers a mixed rig. A fixture counts as one element however many channels it has and a strip counts one per pixel, which is what `.each(pattern)` walks: `group(washA, washB, bar.pixels).each(sine.slow(4), 4)` runs the wave on every element a step later than the last, one phase ramp across the lot, in the order written. A role only some members have is applied to those; a role no member has throws rather than doing nothing.
 
-Every channel write goes through one function ([dmx.ts](packages/core/src/dmx.ts)), which is where the value contract lives. An omitted value means full, so `wash.red()` is red on. A quoted string is mini-notation, as in Strudel. Anything else that is not a finite number or a pattern is rejected with the channel named: a function that was never called, `null`, `NaN`. All of those used to be stored and read as 0 on every tick, which showed as a scene running green with the light off.
+Every channel write goes through one function ([dmx.ts](packages/core/src/dmx.ts)), which is where the value contract lives. An omitted value means full, so `wash.red()` is red on. A quoted string is mini-notation, as in Strudel. Anything else that is not a finite number or a pattern is rejected with the channel named: a function that was never called, `null`, `NaN`. Storing them would read as 0 on every tick, and the scene would run green with the light off.
 
 ---
 
@@ -396,13 +395,13 @@ override it at runtime.
 
 Two routes, and they differ in what has to be running:
 
-- `td('localhost', 9980)` sends straight from the page to a **WebSocket DAT**, with no connector
+- `td('localhost', 9980)` sends straight from the page to a WebSocket DAT, with no connector
   involved. TD then puts Art-Net on the network itself. This one works from the hosted site with
   nothing installed, as long as TD is open on the same machine.
-- `osc('127.0.0.1', 9000)` feeds an **OSC In CHOP**, one channel per driven DMX address. OSC is
+- `osc('127.0.0.1', 9000)` feeds an OSC In CHOP, one channel per driven DMX address. OSC is
   UDP, so this route goes through the connector like Art-Net does.
 
-Full setup for both: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
+Full setup for both is in [docs/touchdesigner.md](docs/touchdesigner.md).
 
 ---
 
@@ -415,7 +414,7 @@ Full setup for both: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
 | Connector running, a copy of gobo hosted elsewhere will not connect | The connector answers only its own pages and the official hosted site, and says so in its log | Start it with `--allow-origin https://that.site` |
 | Dot reads `connector`, rig still dark | Connector in the wrong mode. With no config file it starts in `mock` and only logs | Call `artnet(…)` / `sacn(…)` / `osc(…)` at the top of the scene and re-run; the connector prints a `config updated` line naming the new mode |
 | Connector logs Art-Net sends, fixtures dark | Wrong destination. `artnet()` with no argument targets `127.0.0.1`, loopback only | Unicast the node (`artnet('2.0.0.100')`) or broadcast the subnet (`artnet('2.255.255.255')`); the connector logs the address it used |
-| Visualizer flat but the rig responds, or the reverse | The scene is driving more than one universe. Every call defaults to universe 0, so something is naming another. The strip draws the lowest and says `(+1 more)` when there are others | Give the scene one universe, or point the interface at the one you want. On the connector every universe is sent, but a **USB** interface carries only one — the run says which universes are not reaching it |
+| Visualizer flat but the rig responds, or the reverse | The scene is driving more than one universe. Every call defaults to universe 0, so something is naming another. The strip draws the lowest and says `(+1 more)` when there are others | Give the scene one universe, or point the interface at the one you want. On the connector every universe is sent, but a USB interface carries only one, and the run says which universes are not reaching it |
 | Fixtures stay lit after `Ctrl+.` | Stop action is set to `freeze`, which holds the last frame by design (the default is `blackout`) | Set it back to `blackout` in settings. Blackout only reaches the rig while the connector is connected; closing the tab sends nothing |
 | Rig stuck on its last colour after commenting a pattern out | The single zero-frame sent when a universe goes dark was lost, because the connector was disconnected on that frame | Reconnect, then `Ctrl+.` to re-send zeros |
 | Wrong fixtures respond, everything off by one | DMX is 1-based: `ch(1, …)` is channel 1, `fixture(start, id)` covers `start` … `start + channelCount - 1` | Check the fixture's address and channel count; address 1 is gobo's channel 1, not 0 |
@@ -451,17 +450,17 @@ Full setup for both: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
 
 ## Licence
 
-**AGPL-3.0-or-later.** Use it, study it, change it, share it. A changed version
-has to stay under the same terms, and because of section 13 that includes
-running it as a network service: host a modified gobo and you have to publish
-your changes. Nobody can take this, close it, and sell it.
+gobo is AGPL-3.0-or-later: you can use, study, change and share it. A changed
+version has to stay under the same terms, and section 13 extends that to running
+it as a network service, so hosting a modified gobo means publishing your
+changes. Nobody can release a closed-source version of it.
 
-Partly that is a choice and partly it is arithmetic: the app bundles
-[@strudel/core](https://strudel.cc), which is AGPL, so the distributed app
-cannot be anything else.
+The licence is partly a choice and partly required: the app bundles
+[@strudel/core](https://strudel.cc), which is AGPL, so the distributed app has
+to be AGPL too.
 
-The connector under [`packages/bridge`](packages/bridge) is **MIT**. It contains
-no AGPL code, depending only on `ws`, so other lighting projects can reuse it
+The connector under [`packages/bridge`](packages/bridge) is MIT. It contains
+no AGPL code and depends only on `ws`, so other lighting projects can reuse it
 freely.
 
 There is no contributor licence agreement and there will not be one:

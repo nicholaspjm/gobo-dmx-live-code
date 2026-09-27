@@ -19,10 +19,9 @@ import { migrateLegacyKey } from './storage-migration.js';
 
 const STORAGE_KEY = 'gobo-settings-v1';
 
-// Pre-rename this blob lived under `lumen-settings-v1`. Adopt it before the
+// `lumen-settings-v1` is the legacy name of this blob. Adopt it before the
 // first read so an existing user keeps their theme, send rate and stop
-// action instead of being silently reset to defaults. See
-// storage-migration.ts.
+// action. See storage-migration.ts.
 migrateLegacyKey(STORAGE_KEY, 'lumen-settings-v1');
 
 /** Behaviour when the user presses the stop key (Ctrl+. / Ctrl+Space).
@@ -31,25 +30,24 @@ migrateLegacyKey(STORAGE_KEY, 'lumen-settings-v1');
  *               hardware hold their colour until the next eval. */
 export type StopAction = 'blackout' | 'freeze';
 
-/** Maximum send rate to the bridge in Hz. Higher is smoother and uses
- *  more network traffic. 60 is the default, 30 saves bandwidth on
- *  wireless rigs, 120 suits local rigs running at high refresh. */
+/** Maximum send rate to the bridge in Hz. Lower rates save bandwidth on
+ *  wireless rigs; see `Settings.sendRate` for the ceiling. */
 export type SendRate = 25 | 30 | 40 | 44;
 
 /**
  * Editor type size, in pixels.
  *
- * Bigger than a text editor's usual range at the top end on purpose: this is
- * read in a dark room, over someone's shoulder, and sometimes off a projector
- * at the back of a venue. 13 is for working on a laptop, 24 is for being able
- * to see it from the desk.
+ * The top end goes past a text editor's usual range because this is read in
+ * a dark room, over someone's shoulder, and sometimes off a projector at the
+ * back of a venue. 13 is for working on a laptop, 24 is for reading it from
+ * the desk.
  */
 export type FontSize = 11 | 13 | 15 | 18 | 21 | 24;
 
 /**
- * Rates that used to be offered. A setting saved as 60 or 120 is migrated to
- * the nearest useful value rather than left as a number the select cannot
- * show, which would silently reset it to the default on the next write.
+ * Legacy rates (60 and 120 Hz), mapped to the nearest supported value. Left
+ * as they are, the select could not show them and the next write would reset
+ * the setting to the default without saying so.
  */
 const LEGACY_SEND_RATES: Record<number, SendRate> = { 60: 40, 120: 44 };
 
@@ -71,8 +69,8 @@ export interface Settings {
    *  carry buys nothing, and the Art-Net spec asks senders not to exceed that
    *  rate. 40 sits just under it. */
   sendRate: SendRate;
-  /** Active colour theme. Default 'tungsten' (the original warm-brown,
-   *  formerly stored as 'ember'; see resolveThemeId()). */
+  /** Active colour theme. Default 'tungsten' (warm brown; legacy id
+   *  'ember', see resolveThemeId()). */
   theme: ThemeId;
   /** Editor type size in pixels. Default 13. */
   fontSize: FontSize;
@@ -83,10 +81,10 @@ export interface Settings {
   /** What zen mode (alt+m, the button in the top bar, or a click on the mark)
    *  hides.
    *
-   *  The mode is one switch; these decide what it does. Someone projecting the
-   *  screen wants the code alone, someone in a booth may want the sim kept. All
-   *  default true except the background, which changes what the code sits on
-   *  and is the one worth opting into. */
+   *  The mode is a single toggle and these choose what it hides. Someone
+   *  projecting the screen wants only the code; someone in a booth may want to
+   *  keep the sim. All default true except the cue bar and the black
+   *  background, which changes what the code sits on and is opt-in. */
   zenHideChrome: boolean;
   zenHideSim: boolean;
   zenHideLevels: boolean;
@@ -96,12 +94,11 @@ export interface Settings {
   /** The page on true black under any dark theme, all the time. Default false. */
   blackBackground: boolean;
 
-  // ── The editor itself ──────────────────────────────────────────────────
-  // The editor is the whole interface here, and an editor habit is personal:
-  // someone who has typed in one for twenty years has opinions about brackets
-  // closing themselves. Each of these maps to a CodeMirror extension held in
-  // a compartment (editor.ts), so changing one takes effect with a scene
-  // running rather than on the next reload.
+  // ── Editor ─────────────────────────────────────────────────────────────
+  // Editor habits are personal (whether brackets close themselves, say), so
+  // each one is a switch. Each maps to a CodeMirror extension held in a
+  // compartment (editor.ts), so a change takes effect while a scene is
+  // running, without a reload.
   /** Line numbers down the gutter. Default true. */
   lineNumbers: boolean;
   /** Tint the line the cursor is on. Default true. */
@@ -117,22 +114,19 @@ export interface Settings {
   /** Hover a name for what it does. Default true. */
   hoverHelp: boolean;
   /** Outline the mini-notation token that is driving light right now.
-   *  Default true; the one setting here that is about the rig rather than
-   *  about typing. */
+   *  Default true. */
   eventHighlight: boolean;
   /** Cmd/Ctrl+click for a second cursor. Default true. */
   multiCursor: boolean;
-  /** Ctrl+Enter runs the block around the cursor, and Ctrl+Shift+Enter runs
-   *  the whole document. The pair swaps rather than one disappearing.
-   *  Default false, because the document is the safer thing for the main
-   *  chord to mean. */
+  /** Ctrl+Enter runs the block around the cursor and Ctrl+Shift+Enter runs
+   *  the whole document (the two chords swap). Default false, because the
+   *  whole document is the safer meaning for the main chord. */
   blockEval: boolean;
-  /** Flash the editor when a run lands. Default true: the status bar is at
-   *  the bottom of the window and the eyes are on the code. */
+  /** Flash the editor when a run lands. Default true, because the status bar
+   *  is at the bottom of the window and the eyes are on the code. */
   flashOnRun: boolean;
   /** CSS transitions and animations across the app. Off is for a slow
-   *  machine, or for anyone who does not want movement they did not ask for.
-   *  Default true. */
+   *  machine, or for anyone who does not want motion. Default true. */
   animations: boolean;
 }
 
@@ -186,13 +180,12 @@ function writeRaw(s: Settings): void {
 }
 
 /**
- * Resolve a persisted theme id to one that still exists.
+ * Resolve a persisted theme id to one that exists.
  *
- * The theme ids were renamed (ember → tungsten, slate → moonbox, and so
- * on). The stored value is whatever id was current when the user picked
- * it, so anyone who chose a theme before the rename has a legacy id.
- * applyTheme() falls back to the default for an id it does not know, so
- * without this the rename would silently reset their choice.
+ * A stored value can be a legacy id (ember for tungsten, slate for moonbox,
+ * and so on; see LEGACY_THEME_IDS). applyTheme() falls back to the default
+ * for an id it does not know, so without this mapping a user with a legacy
+ * id would lose their choice without being told.
  *
  * Returns null for a value that is neither current nor legacy (a hand-
  * edited or corrupt blob), so the caller can fall back to the default.
@@ -206,14 +199,13 @@ function resolveThemeId(stored: unknown): ThemeId | null {
 }
 
 /**
- * The five zen-mode switches under the names they had while the mode was
- * called the performance view.
+ * Legacy names of the five zen-mode switches (`perf*`, from when the mode was
+ * called the performance view).
  *
- * Renaming a key silently resets whoever had changed one: the stored blob
- * still holds the old spelling, the merge below drops it as unknown, and the
- * default takes over with nothing on screen to say so. Adopted on read, then
- * written back, so the old spelling is gone for good rather than depending on
- * this map being kept forever.
+ * The merge below drops a key it does not know, so a stored value under a
+ * legacy name would be replaced by the default with nothing on screen to say
+ * so. These are adopted on read and written back, so storage holds the
+ * current spelling and does not depend on this map being kept.
  */
 const RENAMED_KEYS: Record<string, keyof Settings> = {
   perfHideChrome: 'zenHideChrome',
@@ -235,8 +227,6 @@ function adoptRenamedKeys(raw: Record<string, unknown>): Partial<Settings> {
   return out as Partial<Settings>;
 }
 
-/** Merge persisted values over defaults. Unknown keys are dropped and
- *  missing ones inherit defaults. Cached for fast repeat reads. */
 /** A media query the browser answers, or false where there is no browser. */
 function prefers(query: string): boolean {
   try {
@@ -246,36 +236,36 @@ function prefers(query: string): boolean {
   }
 }
 
+/** Merge persisted values over defaults. Unknown keys are dropped and
+ *  missing ones inherit defaults. Cached for fast repeat reads. */
 export function getSettings(): Settings {
   if (_cached) return _cached;
   const raw = readRaw();
   const adopted = adoptRenamedKeys(raw as Record<string, unknown>);
-  // Only keys that exist today are carried over. A plain spread would keep
-  // whatever else is in the blob and write it back out again, which would make
-  // the adoption above a lie: the old spelling would live in storage forever.
+  // Only current keys are carried over. A plain spread would keep everything
+  // else in the blob and write it back out, so a legacy spelling would stay
+  // in storage for good.
   const merged: Settings = { ...DEFAULTS };
   for (const key of Object.keys(DEFAULTS) as (keyof Settings)[]) {
     if (key in raw) (merged as unknown as Record<string, unknown>)[key] = (raw as Record<string, unknown>)[key];
   }
   Object.assign(merged, adopted);
   merged.theme = resolveThemeId(raw.theme) ?? DEFAULTS.theme;
-  // What the computer already says about the person using it, for anything
-  // they have not chosen here: reduced motion turns the animations off, and
-  // more contrast starts on a high-contrast theme. A choice made in settings
-  // always wins, and nothing is written until they make one.
+  // OS preferences fill in anything the user has not chosen here: reduced
+  // motion turns the animations off, and more contrast starts on a
+  // high-contrast theme. A choice made in settings always wins, and nothing
+  // is written until the user makes one.
   if (!('animations' in raw) && prefers('(prefers-reduced-motion: reduce)')) merged.animations = false;
   if (raw.theme === undefined && prefers('(prefers-contrast: more)')) {
     merged.theme = prefers('(prefers-color-scheme: light)') ? 'contrastLight' : 'contrastDark';
   }
-  // 60 and 120 Hz used to be offered, and both are above what DMX can carry.
+  // Legacy 60 and 120 Hz values, both above what DMX can carry.
   merged.sendRate = LEGACY_SEND_RATES[merged.sendRate as number] ?? merged.sendRate;
   _cached = merged;
-  // Write the adopted id straight back. Settings are otherwise only
-  // persisted when the user changes one, so a legacy id would sit in
-  // storage indefinitely and be lost the moment LEGACY_THEME_IDS is
-  // retired. Rewriting on first read makes the adoption permanent while
-  // the map is still here. Guarded on an actual change so a first run
-  // (no stored theme at all) doesn't write.
+  // Write adopted values straight back. Settings are otherwise persisted
+  // only when the user changes one, so a legacy id would stay in storage and
+  // be lost once LEGACY_THEME_IDS is retired. Guarded on an actual change so
+  // a first run (no stored theme at all) doesn't write.
   if ((raw.theme !== undefined && raw.theme !== merged.theme)
     || (raw.sendRate !== undefined && raw.sendRate !== merged.sendRate)
     || Object.keys(adopted).length > 0) writeRaw(merged);
@@ -309,23 +299,20 @@ export function mountSettingsPanel(opts: {
 }): void {
   const { bodyEl } = opts;
 
-  // Drawn each time it comes into view rather than once: a setting can be
-  // changed from elsewhere (the zen-key adoption on first read, a reset), and
-  // a stale toggle is a switch that lies about what it is set to.
+  // Redrawn each time it comes into view, because a setting can change
+  // elsewhere (the zen-key adoption on first read, a reset) and a stale
+  // toggle would show the wrong state.
   bodyEl.addEventListener(PANEL_OPEN_EVENT, () => render());
 
   function render(): void {
     const s = getSettings();
-    // Each row is label, control, hint. A string template plus a couple of
-    // delegated listeners, no framework.
-    //
-    // Grouped under headings rather than run together: there are twenty-five
-    // of these now, and a flat list of twenty-five switches is a list nobody
-    // reads to the end of. The groups are by what the setting is about, not
-    // by what kind of control it is.
+    // Each row is label, control, hint: a string template plus a couple of
+    // delegated listeners, no framework. Rows are grouped under headings by
+    // what they affect; one flat list of this many switches is too long to
+    // scan.
     bodyEl.innerHTML = `
       <div class="settings-list">
-        ${section('how it looks')}
+        ${section('style')}
         ${row({
           key: 'theme',
           label: 'theme',
@@ -335,13 +322,13 @@ export function mountSettingsPanel(opts: {
         ${row({
           key: 'blackBackground',
           label: 'black background',
-          hint: 'the page on true black under any dark theme. lights drawn on screen keep their own colours. a light theme stays as it is.',
+          hint: 'true black page under any dark theme. lights drawn on screen keep their colours, and light themes are unchanged.',
           control: toggle('blackBackground', s.blackBackground),
         })}
         ${row({
           key: 'fontSize',
           label: 'text size',
-          hint: 'how big the code is. the large sizes are for reading it in a dark room, or off a projector.',
+          hint: 'size of the code. the large sizes are for a dark room or a projector.',
           control: select('fontSize', String(s.fontSize), [
             { value: '11', label: '11 px' },
             { value: '13', label: '13 px (default)' },
@@ -354,65 +341,65 @@ export function mountSettingsPanel(opts: {
         ${row({
           key: 'animations',
           label: 'animations',
-          hint: 'the slide, fade and colour transitions across the app. off for a slow machine, or for anyone who would rather nothing moved unasked.',
+          hint: 'slide, fade and colour transitions across the app. turn off for a slow machine, or to stop the motion.',
           control: toggle('animations', s.animations),
         })}
 
-        ${section('the editor')}
+        ${section('editor')}
         ${row({
           key: 'lineNumbers',
           label: 'line numbers',
-          hint: 'the gutter down the left. an error names the line it came from, so these are how you find it.',
+          hint: 'numbers in the left gutter. errors report the line they came from.',
           control: toggle('lineNumbers', s.lineNumbers),
         })}
         ${row({
           key: 'activeLine',
-          label: 'highlight the active line',
-          hint: 'a tint on the line the cursor is on.',
+          label: 'active line',
+          hint: 'tints the line the cursor is on.',
           control: toggle('activeLine', s.activeLine),
         })}
         ${row({
           key: 'lineWrapping',
-          label: 'wrap long lines',
-          hint: 'off, a long chain runs off the right edge and scrolls. on, it folds onto the next line and the line numbers stop lining up with what you see.',
+          label: 'line wrapping',
+          hint: 'off: a long chain runs off the right edge and scrolls. on: it folds onto the next line, and the line numbers no longer match the lines you see.',
           control: toggle('lineWrapping', s.lineWrapping),
         })}
         ${row({
           key: 'bracketMatching',
-          label: 'match brackets',
-          hint: 'lights up the bracket paired with the one beside the cursor.',
+          label: 'bracket matching',
+          hint: 'highlights the bracket paired with the one beside the cursor.',
           control: toggle('bracketMatching', s.bracketMatching),
         })}
         ${row({
           key: 'closeBrackets',
-          label: 'close brackets',
-          hint: 'type ( and get () with the cursor inside. typing the closing one steps over it rather than doubling it.',
+          label: 'auto-close brackets',
+          hint: 'typing ( inserts () with the cursor inside. typing the closing bracket steps over it.',
           control: toggle('closeBrackets', s.closeBrackets),
         })}
         ${row({
           key: 'multiCursor',
           label: 'multiple cursors',
-          hint: 'cmd/ctrl+click puts a second cursor down, and typing goes to all of them. for changing the same thing on four lights at once.',
+          hint: 'cmd/ctrl+click adds a cursor, and typing goes to all of them. for making the same change on several lights at once.',
           control: toggle('multiCursor', s.multiCursor),
         })}
         ${row({
           key: 'autocomplete',
           label: 'autocomplete',
-          hint: 'the popup that offers function and channel names as you type. enter or tab accepts.',
+          hint: 'popup that offers function and channel names as you type. enter or tab accepts.',
           control: toggle('autocomplete', s.autocomplete),
         })}
         ${row({
           key: 'hoverHelp',
           label: 'hover help',
-          hint: 'hover a function name for what it does and what it takes.',
+          hint: 'hover a function name to see what it does and what it takes.',
           control: toggle('hoverHelp', s.hoverHelp),
         })}
 
-        ${section('running a scene')}
+        ${section('running')}
         ${row({
           key: 'blockEval',
-          label: 'ctrl+enter runs the block',
-          hint: 'off, ctrl+enter runs the whole document and ctrl+shift+enter runs the block around the cursor. on, the two swap. the document is the default because it is the one that cannot leave half a scene running.',
+          label: 'block on ctrl+enter',
+          hint: 'off: ctrl+enter runs the whole document and ctrl+shift+enter runs the block around the cursor. on: the two swap. off by default, because running the whole document cannot leave half a scene running.',
           control: toggle('blockEval', s.blockEval),
         })}
         ${row({
@@ -427,27 +414,27 @@ export function mountSettingsPanel(opts: {
         ${row({
           key: 'flashOnRun',
           label: 'flash on run',
-          hint: 'a brief flash across the editor when a run lands. the status bar says so too, but it is at the bottom of the window and your eyes are on the code.',
+          hint: 'a brief flash across the editor when a run lands. the status bar reports it too, but it sits at the bottom of the window.',
           control: toggle('flashOnRun', s.flashOnRun),
         })}
         ${row({
           key: 'formatOnRun',
           label: 'format on run',
-          hint: 'reformat the buffer with prettier each time you press ctrl+enter. ctrl+shift+f is the manual trigger.',
+          hint: 'reformat the buffer with prettier each time you press ctrl+enter. ctrl+shift+f formats on demand.',
           control: toggle('formatOnRun', s.formatOnRun),
         })}
         ${row({
           key: 'autosave',
           label: 'autosave',
-          hint: 'persist every edit to the browser after a 500ms idle. off still writes when the tab closes, so a crash costs the session rather than everything. share is what makes a copy that outlives this browser.',
+          hint: 'saves every edit to the browser after 500 ms idle. off still saves when the tab closes, so a crash loses only the edits from this session. to keep a copy outside this browser, use share.',
           control: toggle('autosave', s.autosave),
         })}
 
-        ${section('what the rig is doing')}
+        ${section('monitoring')}
         ${row({
           key: 'eventHighlight',
-          label: 'highlight events in code',
-          hint: 'outlines the mini-notation token that is driving light at this instant, so the code and the rig read as one thing.',
+          label: 'live outlines',
+          hint: 'outlines the mini-notation token that is driving light right now.',
           control: toggle('eventHighlight', s.eventHighlight),
         })}
         ${row({
@@ -459,13 +446,13 @@ export function mountSettingsPanel(opts: {
         ${row({
           key: 'simTooltips',
           label: 'sim tooltips',
-          hint: 'hover any fixture in the sim panel to show its DMX values. off for a quieter UI.',
+          hint: 'hover a fixture in the sim panel to see its DMX values.',
           control: toggle('simTooltips', s.simTooltips),
         })}
         ${row({
           key: 'sendRate',
           label: 'send rate',
-          hint: 'cap on connector updates per second. DMX itself carries about 44, so 40 is the useful ceiling. lower it for wireless rigs.',
+          hint: 'maximum connector updates per second. DMX carries about 44, so 40 is the practical ceiling. lower it for wireless rigs.',
           control: select('sendRate', String(s.sendRate), [
             { value: '25',  label: '25 Hz' },
             { value: '30',  label: '30 Hz' },
@@ -477,26 +464,26 @@ export function mountSettingsPanel(opts: {
         ${section('minimal view')}
         ${row({
           key: 'zenHideChrome',
-          label: 'hide the top bar',
-          hint: 'what alt+m, the minimal view button and a click on the mark tuck away. the view is one switch; these decide what it does. the top bar comes back while the pointer is at the top edge.',
+          label: 'hide top bar',
+          hint: 'these switches set what the minimal view hides (alt+m, the minimal view button, or a click on the mark). the top bar comes back while the pointer is at the top edge.',
           control: toggle('zenHideChrome', s.zenHideChrome),
         })}
         ${row({
           key: 'zenHideSim',
-          label: 'hide the sim',
-          hint: 'the fixture simulation under the editor. with the level strip also hidden, both come back while the pointer is on the status bar.',
+          label: 'hide sim',
+          hint: 'the fixture simulation under the editor. when the level strip is also hidden, both come back while the pointer is on the status bar.',
           control: toggle('zenHideSim', s.zenHideSim),
         })}
         ${row({
           key: 'zenHideLevels',
-          label: 'hide the level strip',
+          label: 'hide level strip',
           hint: 'the 512-bar channel strip at the bottom.',
           control: toggle('zenHideLevels', s.zenHideLevels),
         })}
         ${row({
           key: 'zenHideCues',
-          label: 'hide the cue bar',
-          hint: 'off by default. the cue chips say which look is up, which is worth keeping on a projector.',
+          label: 'hide cue bar',
+          hint: 'off by default. the cue chips show which look is up, which helps on a projector.',
           control: toggle('zenHideCues', s.zenHideCues),
         })}
         ${row({
@@ -520,7 +507,7 @@ export function mountSettingsPanel(opts: {
     const key = t.dataset.settingKey as keyof Settings | undefined;
     if (!key) return;
     if (t instanceof HTMLInputElement && t.type === 'checkbox') {
-      // Booleans: autosave / inlineViz / simTooltips. Cast through unknown
+      // Booleans (every toggle). Cast through unknown
       // because TS can't narrow the union from a runtime string key.
       (setSetting as (k: keyof Settings, v: unknown) => void)(key, t.checked);
     } else if (t instanceof HTMLSelectElement) {

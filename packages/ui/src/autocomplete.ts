@@ -11,7 +11,7 @@
  *      meaning channel setters (.red, .dim, …), pattern chains (.slow,
  *      .range, …), pixel/strip ops (.pixel, .fill, …), and the viz
  *      methods (.viz, .flash, .glow, .wave). When the receiver is a light
- *      the document declares, the verbs that light actually answers to are
+ *      the document declares, the verbs that light answers to are
  *      ranked above the rest of the pool. Nothing is dropped: `.slow()` on
  *      a light is still offered, further down.
  *
@@ -53,10 +53,10 @@ import { rewriteLooks } from '@gobo/core/looks';
  *   'silence'                    not a call           → silence
  *   '.pixelCount => number'      a property           → .pixelCount
  *
- * Accepting a completion used to insert the bare name, so `wash.red` sat
- * there looking finished and did nothing until the parentheses were typed by
- * hand. Worse, a bare method reference is legal JavaScript, so the scene ran
- * clean with a channel that never got set.
+ * Inserting only the bare name would leave `wash.red` looking finished while
+ * it did nothing until the parentheses were typed by hand. A bare method
+ * reference is also legal JavaScript, so the scene would run clean with a
+ * channel that never got set.
  */
 function callShape(e: HelpEntry): { call: boolean; takesArgs: boolean } {
   if (e.kind === 'property' || e.kind === 'variable') return { call: false, takesArgs: false };
@@ -144,9 +144,9 @@ function matchBoost(label: string, q: string): number {
  * Put the obvious answer at the top.
  *
  * CodeMirror scores a prefix hit on `channelCount` the same as one on `chase`
- * and then falls back to alphabetical, so typing `ch` offered channelCount,
- * channels, and only then the method actually named that. Its fuzzy matcher
- * also lets `punchcard` and `startChannel` through on the same two letters.
+ * and then falls back to alphabetical, so typing `ch` would list channelCount
+ * and channels before chase. Its fuzzy matcher also lets `punchcard` and
+ * `startChannel` through on the same two letters.
  *
  * A boost is added to CodeMirror's own score, so this reorders without hiding
  * anything.
@@ -186,8 +186,7 @@ function verbsOn(doc: string, receiver: string): ReadonlyMap<string, string> {
   const { commands } = describeLight(decl);
   // A fixture whose id is not loaded, or is not written as a literal, lists no
   // commands at all. It is still a light, so the whole fixture pool goes above
-  // the pattern methods: which channels it has is unknown, that it has some is
-  // not.
+  // the pattern methods: which channels it has is unknown, but it has some.
   if (commands.length === 0) return ALL_FIXTURE_VERBS;
 
   const path = dot === -1 ? '' : `${receiver.slice(dot + 1)}.`;
@@ -211,16 +210,16 @@ const BAND = 50;
 /**
  * Combine "this light answers to it" with "it answers what has been typed".
  *
- * The band used to be added on top of the match tier, which made belonging to
- * the light worth more than matching the query: typing `slo` on a light put
+ * Adding the band on top of the match tier would make belonging to the light
+ * worth more than matching the query: typing `slo` on a light would put
  * .solo() above .slow(), because solo is one of that light's verbs and slow
- * merely matched every letter. The band is meant to break ties, not to
- * overrule the query.
+ * only matches the letters. The band breaks ties and leaves the query in
+ * charge.
  *
- * So a name the query actually reaches is ranked on the query, with a nudge
- * for belonging to this light, and only a name the query says nothing about
- * falls back to the band. With nothing typed at all, every tier is zero and
- * the band decides the whole list, which is the original behaviour.
+ * So a name the query reaches is ranked on the query, with a nudge for
+ * belonging to this light, and only a name the query says nothing about falls
+ * back to the band. With nothing typed, every tier is zero and the band
+ * decides the whole list.
  */
 function rankWith(tier: number, mine: boolean): number {
   if (tier > 0) return tier + (mine ? 10 : 0);
@@ -230,18 +229,17 @@ function rankWith(tier: number, mine: boolean): number {
 /**
  * The method pool as it would be offered after `receiver.` in this document.
  *
- * A light's own verbs were lost in the merge. The pool after a dot is every
- * pattern method and every fixture method at once, while any one light answers
- * to a dozen of them at most, so `.chase` on a strip ranked below chain methods
- * that strip has no use for. The pool is ranked in two bands instead, the
- * light's own verbs above everything else, with the match tier deciding the
- * order inside each band.
+ * The pool after a dot is every pattern method and every fixture method at
+ * once, while any one light answers to a dozen of them at most, so unranked,
+ * `.chase` on a strip would sit below chain methods that strip has no use for.
+ * The pool is ranked in two bands, the light's own verbs above everything
+ * else, with the match tier deciding the order inside each band.
  *
  * Two bands rather than a filter, because the reading can be wrong: the
  * receiver is recognised from the text, `register()` adds chain methods at run
  * time, and a custom fixture's channels are not known until the scene has run.
  * A wrong guess that reorders costs a keystroke. A wrong guess that filtered
- * would hide a method that is really there.
+ * would hide a method that exists.
  */
 export function methodsAfter(doc: string, receiver: string, typed: string): Completion[] {
   const own = verbsOn(doc, receiver);
@@ -252,14 +250,12 @@ export function methodsAfter(doc: string, receiver: string, typed: string): Comp
     return { ...o, boost: rankWith(tier, own.has(o.label)) };
   });
 
-  // Channels this light really has that the shared pool has never heard of.
-  // The pool is written by hand, so it covers the words most fixtures share
-  // and nothing else: a spot head's zoom, gobo, prism and focus were never in
-  // it, and a custom fixture's channels cannot be, because they are invented
-  // after the pool is written. Ranking alone could not help there — a name
-  // that is not in the list cannot be moved up it — so the one surface that
-  // knows what this light answers to could not offer the half of it that
-  // makes the light worth owning.
+  // Channels this light has that the shared pool does not list. The pool is
+  // written by hand and covers the words most fixtures share: a spot head's
+  // zoom, gobo, prism and focus are not in it, and a custom fixture's channels
+  // cannot be, because they are defined after the pool is written. Ranking
+  // cannot move up a name that is not in the list, so these are added as
+  // entries of their own.
   const pooled = new Set(allMethods.map((o) => o.label));
   const own_only: Completion[] = [];
   for (const [verb, command] of own) {
@@ -280,10 +276,10 @@ export function methodsAfter(doc: string, receiver: string, typed: string): Comp
 /**
  * The kind of light, inside the quotes of fixture(1, '…').
  *
- * The one string in a scene whose every legal value is known, and the one
- * that has to be spelled exactly: par-rgbw-7ch is not something to type from
- * memory. Offers every fixture registered right now, built-in, public, saved
- * and defined by the last run, with its full name and size beside it.
+ * Every legal value of this string is known, and it has to be spelled
+ * exactly: par-rgbw-7ch is hard to type from memory. Offers every fixture
+ * registered right now, built-in, public, saved and defined by the last run,
+ * with its full name and size beside it.
  */
 export function fixtureIdOptions(): Completion[] {
   return listFixtures().map((id) => {
@@ -298,7 +294,7 @@ export function fixtureIdOptions(): Completion[] {
 }
 
 function goboCompletions(context: CompletionContext): CompletionResult | null {
-  // Case 0: the second argument of fixture(), the one string worth completing.
+  // Case 0: the second argument of fixture(), the fixture id.
   const idMatch = context.matchBefore(/\bfixture\s*\(\s*[^,()'"`]*,\s*['"`][\w.-]*$/);
   if (idMatch) {
     const quote = idMatch.text.search(/['"`][\w.-]*$/);
@@ -336,9 +332,9 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
   if (!wordMatch) return null;
   if (wordMatch.from === wordMatch.to && !context.explicit) return null;
 
-  // Lights the user declared, described from their own declaration: the
+  // Lights the user declared, described from their own declaration. The
   // completion list is where you look to remember what you called something,
-  // and "a fixture you defined" was true of every entry in it.
+  // so each entry says what that light is.
   const doc = context.state.doc.toString();
   // Keyed by name so a name bound twice offers one entry, the later binding,
   // which is the one the running scene holds.
@@ -354,8 +350,8 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
   });
 
   // Looks the user wrote. In a performance file these are the names you type
-  // to change what the rig is doing, and they are different in every document,
-  // so they are the ones least worth having to remember. Offered after the
+  // to change what the rig is doing, and they differ in every document, so
+  // they are the names most worth offering. Offered after the
   // lights and marked as this scene's, so a name from the file is never
   // mistaken for something gobo ships.
   const declaredHere = new Set([...byName.keys()]);
@@ -377,7 +373,7 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
       .filter((name) => !declaredHere.has(name))
       .map((name) => ({ label: name, type: 'function', detail: 'look', info: 'A look this scene names. cue() switches to it.' }));
   } catch {
-    // The scan walks user text; a scene worth completing is worth more than this.
+    // The scan walks user text. If it throws, complete without the looks.
   }
 
   return {
@@ -403,11 +399,10 @@ function goboCompletions(context: CompletionContext): CompletionResult | null {
  * command returns true or a binding asks for it, so a false here leaves the
  * keystroke to whatever would have had it if this binding did not exist.
  *
- * Which today is the browser, and it stays that way on purpose. Nothing binds
- * Tab in this editor, so it moves focus out of the text area, and that is how a
- * keyboard user leaves the editor at all. Taking it for indentation would buy
- * an indent that indentOnInput() mostly performs already, at the price of the
- * only exit. Not worth it.
+ * Here that is the browser, on purpose. Nothing else binds Tab in this editor,
+ * so it moves focus out of the text area, which is the only way a keyboard
+ * user can leave the editor. Taking it for indentation would add an indent
+ * that indentOnInput() mostly performs already, and remove that exit.
  *
  * No `shift` here, also on purpose: a binding registers Shift-Tab as a separate
  * key and only if it names one, so leaving it off keeps Shift-Tab moving focus

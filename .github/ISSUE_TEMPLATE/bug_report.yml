@@ -1,4 +1,4 @@
-name: Something went wrong
+name: Problem report
 description: A light that did the wrong thing, an error that made no sense, or the app getting in the way.
 labels: [bug]
 body:
@@ -21,21 +21,21 @@ body:
   - type: textarea
     id: expected
     attributes:
-      label: What you expected
+      label: Expected behaviour
 
   - type: textarea
     id: scene
     attributes:
-      label: The scene, or the part of it that shows the problem
+      label: Scene
       description: |
-        The fewer lines, the faster it gets fixed. **A scene is public once it is posted here**, including any node IP addresses, venue names and comments in it, and so is a share link, which carries the whole scene. Paste only what you are happy to publish.
+        The part of the scene that shows the problem. The fewer lines, the faster it gets fixed. **A scene is public once it is posted here**, including any node IP addresses, venue names and comments in it, and so is a share link, which carries the whole scene. Paste only what you are happy to publish.
       render: js
 
   - type: textarea
     id: log
     attributes:
-      label: Anything in the log tab
-      description: The lines around the problem. Check them for addresses you would rather not publish.
+      label: Log
+      description: The lines in the log tab around the problem. Check them for addresses you would rather not publish.
       render: text
 
   - type: textarea
@@ -51,7 +51,7 @@ body:
   - type: dropdown
     id: hardware
     attributes:
-      label: Was real hardware involved?
+      label: Hardware
       options:
         - No, the sim or mock output only
         - Yes, over USB DMX

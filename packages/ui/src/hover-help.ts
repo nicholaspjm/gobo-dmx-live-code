@@ -6,11 +6,9 @@
  * edit updates both surfaces.
  *
  * Names the user bound themselves are handled too: `wash` in
- * `const wash = fixture(1, 'rgb')` is the name they actually think in, and it
- * used to be the one identifier on the line with nothing to say. Its
- * declaration is read out of the buffer (see declared-lights.ts) so the
- * tooltip can list the channels that fixture has. Anything that is neither
- * yields nothing rather than a "no info" tooltip.
+ * `const wash = fixture(1, 'rgb')` is the name they think in. Its declaration
+ * is read out of the buffer (see declared-lights.ts) so the tooltip can list
+ * the channels that fixture has. Anything that is neither yields no tooltip.
  *
  * Word boundary detection is ECMAScript-identifier shaped (it matches
  * /[A-Za-z_$][\w$]+/) so it ignores punctuation and whitespace. Mousing
@@ -56,9 +54,8 @@ function identifierAt(
   if (lo === hi) return null;
 
   const word = text.slice(lo, hi);
-  // Reject pure-numeric tokens. `120` in `setBPM(120)` would otherwise
-  // fall through and fail to match anyway; short-circuiting
-  // saves the lookup.
+  // Reject pure-numeric tokens. `120` in `setBPM(120)` would never match;
+  // returning early saves the lookup.
   if (/^\d+$/.test(word)) return null;
 
   return { word, from: left + lo, to: left + hi };
@@ -113,9 +110,9 @@ function renderTooltip(entry: HelpEntry): HTMLElement {
 /**
  * Build the tooltip for a light the user declared.
  *
- * Same three rows as an API entry, plus the channel map and the list of verbs,
- * because the useful thing about a fixture you patched is which channels it
- * turned out to have and what they answer to.
+ * Same three rows as an API entry, plus the channel map and the list of verbs:
+ * for a patched fixture, the useful facts are which channels it has and which
+ * verbs it responds to.
  */
 function renderLightTooltip(info: LightInfo): HTMLElement {
   const root = document.createElement('div');
@@ -138,12 +135,10 @@ function renderLightTooltip(info: LightInfo): HTMLElement {
     root.appendChild(mapLabel);
 
     const map = document.createElement('pre');
-    // The example block's class, because this is the same thing: columns of
-    // monospaced text whose whitespace has to survive. Styles live in theme.ts,
-    // and a second block that looked different would only ask why.
+    // Reuses the example block's class: both are monospaced text whose
+    // whitespace has to survive. Styles live in theme.ts.
     map.className = 'gobo-hover-help-ex';
-    // textContent rather than innerHTML: nothing here needs markup, so the
-    // escaping question does not arise.
+    // textContent: nothing here needs markup, so nothing needs escaping.
     map.textContent = formatChannelMap(info.channels).join('\n');
     root.appendChild(map);
   }

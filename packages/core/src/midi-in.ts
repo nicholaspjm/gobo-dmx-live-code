@@ -1,30 +1,21 @@
 /**
- * MIDI in: a fader box driving the rig.
+ * MIDI in: hardware faders for riding levels during a show without dragging a
+ * slider on the screen the code is on.
  *
- * The one input gobo had none of. Everything a scene could react to came from
- * the clock or from a control drawn in the editor, so the only way to ride a
- * level during a show was to reach for the trackpad and drag a slider on the
- * same screen the code is on. Every lighting desk ever built solves this with
- * a row of faders, and every cheap MIDI controller is a row of faders.
+ * Reads continuous controllers and program change. A CC maps to a level, which
+ * is what a channel takes. Program change is what desks and pad controllers
+ * send for "recall number N", so it selects a cue (see cues.ts); it is the one
+ * way a hardware button can change which look is live.
  *
- * Reads continuous controllers, and program change. A CC is a knob, a knob is
- * a level, and a level is what a channel wants. Program change is the message
- * every desk and pad controller sends for "recall number N", so it selects a
- * cue — see cues.ts — which is the one way a hardware button can change which
- * look is live.
+ * Notes and clock are not handled. A note needs a decision about whether it
+ * latches and for how long, which this module would have to guess; program
+ * change needs no such decision.
  *
- * Notes and clock are still not handled. A note asks whether it latches and
- * for how long, and guessing at that here would be worse than leaving it out;
- * program change asks nothing, which is why it could be added and a note
- * could not.
+ * Values arrive 0..127 and are passed on as 0..1, the range every other value
+ * in a scene uses. Nothing here needs to know what a channel is.
  *
- * Values arrive 0..127 and are handed on as 0..1, because that is the domain
- * every other value in a scene is in. Nothing here needs to know what a
- * channel is.
- *
- * Requires a user gesture and a permission prompt, both browser rules rather
- * than ours, so enabling is driven from a button in the outputs panel exactly
- * as choosing a USB interface is.
+ * The browser requires a user gesture and a permission prompt, so enabling is
+ * driven from a button in the outputs panel, as choosing a USB interface is.
  */
 
 import type { PatternLike } from './dmx.js';
@@ -66,9 +57,8 @@ const _statusListeners = new Set<(enabled: boolean) => void>();
  * The latest value of every controller seen, keyed "channel:cc".
  *
  * Kept per channel as well as per controller, because two controllers on one
- * desk commonly send the same CC number on different channels, and a scene
- * that asked for one and silently got the other would be maddening to debug
- * with a fader in your hand.
+ * desk often send the same CC number on different channels, and a scene that
+ * asked for one and silently got the other would be hard to debug mid-show.
  */
 const _values = new Map<string, number>();
 
@@ -102,12 +92,9 @@ function handleMessage(e: MidiMessage): void {
   if (!d || d.length < 2) return;
   const status = d[0] & 0xf0;
 
-  // 0xC0 is program change: one byte, meaning "recall number N". It is the
-  // message every desk and every pad controller sends for exactly that, and
-  // it is the one place a hardware button can pick a look — so it selects a
-  // cue. Notes are still not handled: a note asks whether it latches and for
-  // how long, and program change asks nothing, which is why this is the one
-  // that could be added without guessing at an answer.
+  // 0xC0 is program change: one data byte, meaning "recall number N", as sent
+  // by desks and pad controllers. It selects a cue. Notes are not handled
+  // (see the file header).
   if (status === 0xc0) {
     // 1-based, the way cue numbers are on the buttons it comes from.
     selectCueIndex(d[1] + 1);
@@ -123,8 +110,8 @@ function handleMessage(e: MidiMessage): void {
   _values.set(key(channel, cc), value);
 
   // Remembered so the panel can say "move a fader and it will appear here",
-  // which is how someone finds out what number their hardware sends without
-  // a manual. Newest first, and one row per controller.
+  // which shows what number the hardware sends without a manual. Newest
+  // first, one row per controller.
   const at = Date.now();
   const existing = _seen.findIndex((s) => s.channel === channel && s.cc === cc);
   if (existing !== -1) _seen[existing].at = at;
@@ -139,24 +126,22 @@ function attach(input: MidiInputLike): void {
  * Ask for MIDI access and start listening.
  *
  * Must be called from a user gesture: browsers refuse the permission prompt
- * otherwise, which is why the UI drives this from a button rather than a scene
- * doing it on the way past.
+ * otherwise, so the UI drives this from a button and scenes cannot call it.
  */
 export async function enableMidi(): Promise<void> {
   const nav = midiApi();
   if (!nav?.requestMIDIAccess) {
     throw new Error('This browser has no Web MIDI. Chrome and Edge have it; Firefox and Safari do not.');
   }
-  // sysex is not asked for: it widens the permission prompt considerably and
-  // nothing here reads a sysex message.
+  // No sysex: it widens the permission prompt and nothing here reads sysex.
   const access = await nav.requestMIDIAccess({ sysex: false });
   _access = access;
 
   const inputs = (access.inputs as { values(): IterableIterator<MidiInputLike> }).values();
   for (const input of [...inputs]) attach(input);
 
-  // A controller plugged in after this point still works, which matters
-  // because the lead is usually found halfway through setting up.
+  // Attach controllers plugged in later too; the lead often turns up halfway
+  // through setting up.
   access.onstatechange = (): void => {
     const later = (access.inputs as { values(): IterableIterator<MidiInputLike> }).values();
     for (const input of [...later]) attach(input);
@@ -177,12 +162,10 @@ export function resetMidi(): void {
  * A controller, as a pattern.
  *
  * The same shape slider() returns: a value read at query time, so moving the
- * fader moves the light on the next tick rather than on the next run.
+ * fader moves the light on the next tick without a re-run.
  *
- * A controller nobody has touched reads as its fallback rather than as zero.
- * Zero would mean a scene comes up black and stays black until every fader has
- * been wiggled, which is the wrong way round for something you reach for
- * mid-show.
+ * An untouched controller reads as its `start` value, so a scene can come up
+ * lit before every fader has been moved.
  */
 export function midiCC(cc: number, opts: { channel?: number; start?: number } = {}): PatternLike {
   if (!Number.isInteger(cc) || cc < 0 || cc > 127) {

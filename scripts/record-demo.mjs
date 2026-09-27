@@ -3,13 +3,12 @@
  * Record docs/media/demo.gif, docs/media/screenshot.png and the link preview,
  * packages/ui/public/og.png, from the real app.
  *
- * The README's GIF is the first thing anyone sees of gobo, and the last one
- * went a whole release showing a top bar that no longer existed, because
- * recording it was a manual job nobody remembered to redo. This makes it one
+ * The README's GIF is the first thing anyone sees of gobo, and a recording made
+ * by hand goes stale as soon as the interface changes. This makes it one
  * command, run against the build that is about to ship.
  *
- * What it records is the point of the tool rather than a tour of it: a scene
- * running, an edit typed into it, ctrl+enter, and the lights answering. The
+ * It records the core loop rather than a tour: a scene running, an edit typed
+ * into it, ctrl+enter, and the lights responding. The
  * edit is typed a character at a time through the real editor, so what the
  * GIF shows is what happens: the autocomplete, the brackets closing, the flash
  * on run.
@@ -211,7 +210,7 @@ async function status() {
   return evaluate(`document.getElementById('eval-status')?.textContent ?? ''`);
 }
 
-// Run it with the button, which is the new thing on the bar worth showing.
+// Run it with the run button, so the GIF shows it.
 const run = await rectOf(`document.getElementById('transport-run')`);
 await click(run.x + run.w / 2, run.y + run.h / 2);
 await sleep(600);

@@ -2,18 +2,17 @@
  * Functions the scene declares, for the completion list.
  *
  * A performance file is one document holding a whole show, and the looks in it
- * are functions the operator wrote: verse, chorus, breakdown, blackoutAll. The
- * completion list knew every name gobo ships and every light the scene
- * declared, and nothing at all about those — so the one set of names that is
- * different in every file, and the one you actually type to change what the
- * rig is doing, was the set you had to remember unaided.
+ * are functions the operator wrote: verse, chorus, breakdown, blackoutAll.
+ * Those names differ in every file, and they are the ones you type to change
+ * what the rig is doing, so the completion list offers them alongside every
+ * name gobo ships and every light the scene declares.
  *
- * Text, not types. This is the same kind of scan as declared-lights.ts: it
- * reads the shapes a function is written in rather than parsing the document,
- * because the document is usually half-typed and a parser would have nothing
- * to say about it. A shape it does not recognise costs a completion, which is
- * why it errs towards recognising too few rather than offering a name that is
- * not there.
+ * This is a text scan of the same kind as declared-lights.ts: it reads the
+ * shapes a function is written in and does not parse the document, because
+ * the document is usually half-typed and a parser would have nothing to say
+ * about it. A shape it does not recognise costs a completion, which is why it
+ * errs towards recognising too few rather than offering a name that is not
+ * there.
  */
 
 import { stripNonCode } from './source-scan.js';
@@ -29,10 +28,10 @@ export interface FunctionDecl {
 /**
  * `function verse(…)`, in a document that mostly does not use it.
  *
- * Kept because a look named after one of gobo's own — strobe, flash, red — can
+ * Kept because a look named after one of gobo's own (strobe, flash, red) can
  * only be declared this way: const and let collide with the sandbox parameter
- * of the same name and a function declaration does not. So a scene that hit
- * that clash and took the advice ends up here.
+ * of the same name and a function declaration does not. A scene that hit that
+ * clash and took the advice ends up here.
  */
 const FUNCTION_RE = /\bfunction\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/g;
 
@@ -42,7 +41,7 @@ const FUNCTION_RE = /\bfunction\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/g;
  * Covers an arrow with a parenthesised list, an arrow with one bare parameter,
  * and a function expression, each optionally async. Group 1 is the keyword and
  * its spacing, present only so the bound name's offset comes out without a
- * lookbehind — the same trick, for the same reason, as declared-lights.ts.
+ * lookbehind (the same trick, for the same reason, as declared-lights.ts).
  */
 const ARROW_RE = new RegExp(
   String.raw`\b((?:const|let|var)\s+)([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?(?:` +

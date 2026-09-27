@@ -1,21 +1,18 @@
 /**
  * Bundled example scenes.
  *
-  * The demos that ship with gobo. They are read-only content held in
- * the source and loaded into the working buffer on request; once the user
- * edits one it is their buffer, not our template. Earlier versions seeded
- * them into localStorage as ordinary saved scenes, which needed in-place
- * patching of stale seeds, a reset button, and a "protected" flag on the
- * default.
+ * The demos that ship with gobo. They are read-only content held in the
+ * source and loaded into the working buffer on request; once the user edits
+ * one, it is their buffer.
  *
- * The code strings are copied verbatim from the scenes they replace. These
- * are working, rehearsed scenes, so they are content, not code to tidy up.
+ * The code strings are working, rehearsed scenes: treat them as content and
+ * leave their formatting alone. buffer.ts also recognises an untouched copy of
+ * any of them by exact string match (see isStaleSeed), so any edit to a code
+ * string, comments included, makes existing untouched copies count as user work.
  *
- * EXAMPLES[0] is load-bearing: buffer.ts seeds a brand-new buffer from it, so
- * the first entry is what a first-time visitor sees. It is kept to two lines
- * on purpose. A wall of API in the editor is the wrong first impression when
- * the reference is one click away, and the tour that used to live there is
- * still here as its own entry.
+ * buffer.ts seeds a brand-new buffer from EXAMPLES[0], so the first entry is
+ * what a first-time visitor sees. It is kept to two lines on purpose: the
+ * reference is one click away, and the full tour is its own entry.
  */
 
 export interface Example {
@@ -35,14 +32,13 @@ export const EXAMPLES: Example[] = [
     id: 'hello',
     label: 'start here',
     blurb: 'Two lines: patch an RGB wash and fade a colour across it.',
-    // What a new browser opens on, so it is the whole first impression.
+    // What a new browser opens on.
     //
-    // Deliberately tiny, and deliberately the ordinary thing: patch a
-    // fixture, give a channel a pattern. The one extra comment is the way to
-    // real light, which is the next thing anyone asks. That is the shape of every scene
-    // after it. No output call, so the first run cannot warn about a rig that
-    // is not there, and the sim panel shows the result with nothing plugged
-    // in. The fuller tour is one tab away.
+    // Patch a fixture and give a channel a pattern, the same shape as every
+    // later scene. The second comment line says how to reach real lights,
+    // which is the usual next question. There is no output call, so the first
+    // run cannot warn about a rig that is not there, and the sim panel shows
+    // the result with nothing plugged in.
     code: `// ctrl+enter to run · ctrl+space to stop · ☰ top right for docs
 // real lights: click the connection light, top right, and pick an output
 const wash = fixture(1, 'rgb')
@@ -52,10 +48,10 @@ wash.color(sine.slow(2), 0, cosine.slow(2))
   {
     id: 'small-rig',
     label: 'four pars and a strobe',
-    blurb: 'A small real rig: patch by address, a palette across a group, a chase, a strobe fill.',
-    // The shape most people's first real rig takes, with built-in fixture
-    // types only, so it runs against hardware with nothing defined. Every
-    // alternate is written to be swapped in for the line above it.
+    blurb: 'A small hardware rig: patch by address, a palette across a group, a chase, a strobe fill.',
+    // A typical first rig, using built-in fixture types only so it runs
+    // against hardware with nothing defined. Each commented alternate swaps
+    // in for the line above it.
     code: `// four pars and a strobe · the usual first rig
 // patch each light at the DMX address set on the fixture itself
 // artnet('2.255.255.255')   // pick your network in the outputs panel
@@ -89,10 +85,9 @@ all(mul(slider(1)))
 `,
   },
   {
-    // The id stays 'starter': ids are persisted in menus and links, and reusing
-    // or changing one silently resolves an old reference to different code.
-    // Only the label changes, because "starter demo" now names the thing that
-    // is NOT what you start with.
+    // The id is 'starter' although the label is 'language tour': ids are
+    // persisted in menus and links, and changing one would break every saved
+    // reference to it. The first-run scene is 'hello'.
     id: 'starter',
     label: 'language tour',
     blurb: 'Most of the language in one scene: patching, mini-notation, waveforms, groups, layering.',

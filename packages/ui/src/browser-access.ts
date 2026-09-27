@@ -1,14 +1,13 @@
 /**
  * Whether the browser lets this page reach programs on this computer.
  *
- * THE PROBLEM THIS EXISTS TO FIX
- * Chrome now asks before a website may talk to anything on the visitor's own
+ * Chrome asks before a website may talk to anything on the visitor's own
  * machine, and the connector on localhost:3001 is exactly that. Until the
  * visitor allows it, the page's WebSocket fails inside the browser in about a
- * millisecond, before anything reaches the connector — so from the page it
- * looks precisely like no connector at all. The banner then offered a download
- * to someone who had the connector running, and the connector's own log said
- * nothing, because nothing ever arrived.
+ * millisecond, before anything reaches the connector, so from the page it
+ * looks the same as no connector at all. Without this check the banner offers
+ * a download to someone whose connector is running, and the connector's own
+ * log shows nothing, because nothing arrives.
  *
  * The page cannot tell "blocked" from "not running" by watching the socket. It
  * can ask the Permissions API, which is what this does, and it can hear the
@@ -16,7 +15,7 @@
  *
  * Only a page served from somewhere else is ever blocked. A page on localhost
  * talking to localhost is not reaching into another address space, so the
- * local routes — the desktop app, npm start, npm run dev — never meet this.
+ * local routes (the desktop app, npm start, npm run dev) never meet this.
  */
 
 import { bridgeHost } from '@gobo/core';
@@ -47,10 +46,11 @@ export function browserBlocksConnector(): boolean {
 
 /**
  * Permission names to ask about, most specific first. `loopback-network` is
- * this computer only, which is what localhost:3001 needs; earlier versions
- * of the same feature had one umbrella name for everything local. A browser
- * that knows neither (Firefox and Safari, as of writing) throws on the query,
- * and that is 'unknown' rather than a guess.
+ * this computer only, which is what localhost:3001 needs;
+ * `local-network-access` is the umbrella name for everything local that an
+ * earlier version of the feature used. A browser that knows neither (Firefox
+ * and Safari, as of writing) throws on the query, which leaves the answer at
+ * 'unknown'.
  */
 const PERMISSION_NAMES = ['loopback-network', 'local-network-access'];
 
@@ -98,8 +98,7 @@ export async function watchLocalAccess(): Promise<LocalAccess> {
 /**
  * What to tell someone whose browser is blocking the connector.
  *
- * Both ways out are named, because the second one is the one worth knowing
- * about: running gobo locally means there is no permission to give.
+ * Names both fixes. Running gobo locally avoids the permission altogether.
  */
 export const BLOCKED_BY_BROWSER =
   'Your browser is stopping this page from reaching programs on this computer, so it cannot '

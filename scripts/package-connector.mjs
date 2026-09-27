@@ -72,8 +72,8 @@ execFileSync(process.execPath, ['--experimental-sea-config', join(work, 'sea-con
 // Only a node that is the whole runtime in one file can become a single
 // executable. Homebrew builds node as a small launcher linked against a shared
 // libnode, so copying it copies a few kilobytes that cannot run on their own,
-// and the result used to sit in release/ looking like a connector. Say so
-// instead. The official builds from nodejs.org, and the one CI installs, are
+// and the result would sit in release/ looking like a connector. This stops
+// with a message instead. The official builds from nodejs.org, and the one CI installs, are
 // whole; anything under 20 MB is not.
 const nodeSize = statSync(process.execPath).size;
 if (nodeSize < 20 * 1024 * 1024) {
@@ -87,7 +87,7 @@ if (nodeSize < 20 * 1024 * 1024) {
 const target = join(out, exeName);
 console.log(`[package] building ${exeName}`);
 // A node binary is often installed read-only, and its copy inherits that, so
-// the second run could not overwrite the first and postject could not write
+// a second run could not overwrite the first and postject could not write
 // into either. Made writable on both sides of the copy.
 if (existsSync(target)) chmodSync(target, 0o755);
 copyFileSync(process.execPath, target);

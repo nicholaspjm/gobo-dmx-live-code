@@ -8,17 +8,19 @@
  *
  * Flow:
  *   1. At eval time, every `.flash() / .glow() / .wave()` call pushes an
- *      entry into _registry with a ref to the pattern that produced it.
- *   2. After eval, the UI layer scans the doc for `.flash(`, `.glow(`,
- *      `.wave(` call sites in top-to-bottom order and zips 1:1 with the
- *      registry (same trick as fixtures' .viz(), which avoids stack parsing).
+ *      entry into _registry with a ref to the pattern that produced it and,
+ *      when known, the call's offset in the document.
+ *   2. After eval, the UI layer places each entry at its offset. Entries
+ *      without one are matched to `.flash(`, `.glow(`, `.wave(` call sites in
+ *      top-to-bottom order (as fixtures' .viz() does, which avoids stack
+ *      parsing).
  *   3. On each scheduler tick, the UI samples each entry's pattern at the
  *      current cycle position and updates its editor decoration (background
  *      gradient, flash pulse, or sparkline).
  *
- * The methods are non-chain-breaking: `.flash()` / `.glow()` / `.wave()`
- * return the pattern itself, so you can still pass it into a fixture setter
- * on the same line.
+ * `.flash()` / `.glow()` / `.wave()` return the pattern itself, so the chain
+ * continues and the result can still go into a fixture setter on the same
+ * line.
  */
 
 import type { PatternLike } from './dmx.js';
@@ -44,15 +46,14 @@ export const PATTERN_VIZ_KINDS: readonly PatternVizKind[] =
   ['flash', 'glow', 'wave', 'roll', 'punchcard', 'spiral', 'spectrum'];
 
 /**
- * Strudel's spellings of the inline visuals gobo already has under the same
- * word, so a pattern pasted from its docs decorates rather than throwing.
- * Strudel marks the inline form with a leading underscore, and calls a wave
- * a scope.
+ * Strudel's spellings of inline visuals gobo also has, so a pattern pasted from
+ * its docs decorates instead of throwing. Strudel marks the inline form with a
+ * leading underscore, and calls a wave a scope.
  *
  * Only names that mean the same thing for light as for sound. Strudel's
- * pianoroll is deliberately not one: there are no pitches on a lighting
- * channel, and gobo's own picture of the same thing is .roll(), which
- * eval.ts's method hints point a pasted ._pianoroll() at.
+ * pianoroll is excluded because a lighting channel has no pitches; gobo's
+ * equivalent is .roll(), and eval.ts's method hints point a pasted
+ * ._pianoroll() at it.
  */
 export const PATTERN_VIZ_ALIASES: Readonly<Record<string, PatternVizKind>> = {
   scope: 'wave',
@@ -79,16 +80,15 @@ export interface PatternVizEntry {
   /**
    * Where the call was written, as a character offset into the document.
    *
-   * The UI used to pair these with call sites found in the source by counting:
-   * the nth `.glow(` in the text got the nth registration. That holds only
-   * while every call site in the buffer ran, and in a file where looks are
-   * functions and one of them is called it never does — a `.flash()` inside an
-   * uncalled look is a call site with no registration behind it, so the widget
-   * for the look that IS running is drawn on the look that is not.
+   * Pairing registrations with call sites by counting (the nth `.glow(` in the
+   * text gets the nth registration) only works when every call site in the
+   * buffer ran. In a file where looks are functions and only one is called, a
+   * `.flash()` inside an uncalled look is a call site with no registration, so
+   * counting would draw the running look's widget on a look that is not
+   * running.
    *
    * Undefined when the call could not be tagged, in which case the UI falls
-   * back to counting. A scene evaluated by something other than the editor
-   * has no offsets and wants none.
+   * back to counting. A scene evaluated outside the editor has no offsets.
    */
   at?: number;
 }
@@ -113,8 +113,8 @@ export function getPatternVizEntries(): readonly PatternVizEntry[] {
  * A pattern's value at one instant on the cycle timeline.
  *
  * Brightest wins among the events live at that instant, matching what the DMX
- * layer does with the same haps: a decoration reading only the first would
- * disagree with the light it is drawn beside whenever anything is layered.
+ * layer does with the same haps. Reading only the first event would make the
+ * decoration disagree with the light beside it whenever anything is layered.
  */
 export function samplePattern(pattern: PatternLike, cyclePos: number): number {
   try {
@@ -145,10 +145,10 @@ function levelOfHap(v: unknown): number | null {
  * A hap's time as a number.
  *
  * Strudel keeps time in exact rational arithmetic, so `whole.begin` is a
- * Fraction object rather than a number. Testing it with `typeof === 'number'`
- * quietly failed for every event, which collapsed each one to zero width and
- * drew the structural decorations as hairlines. Number() takes the valueOf,
- * and anything that will not convert falls back rather than becoming NaN.
+ * Fraction object. A `typeof === 'number'` test fails for every event,
+ * collapsing each to zero width and drawing the structural decorations as
+ * hairlines. Number() takes the valueOf, and anything that will not convert
+ * gets the fallback instead of NaN.
  */
 function toTime(v: unknown, fallback: number): number {
   if (v === null || v === undefined) return fallback;
@@ -165,11 +165,11 @@ export interface PatternSpan {
 
 /**
  * Every event of one whole cycle, for the decorations that draw structure
- * rather than a single instant.
+ * across the cycle.
  *
- * Handed back as plain spans so a widget can lay them out without knowing
- * anything about pattern internals. A pattern that throws yields nothing
- * rather than taking the decoration down with it.
+ * Returned as plain spans so a widget can lay them out without knowing
+ * pattern internals. A pattern that throws yields an empty list, so the
+ * decoration survives.
  */
 export function sampleCycle(pattern: PatternLike, cycle: number): PatternSpan[] {
   try {
@@ -182,8 +182,8 @@ export function sampleCycle(pattern: PatternLike, cycle: number): PatternSpan[] 
       if (value === null) continue;
       // A hap carries `whole` (the event's full extent) and `part` (the slice
       // this query returned). `whole` is what a person means by "the hit";
-      // fall back to part, then to a point, so a shape we do not recognise
-      // still draws something rather than nothing.
+      // fall back to part, then to a point, so an unrecognised shape still
+      // draws something.
       const hh = h as {
         whole?: { begin?: unknown; end?: unknown };
         part?: { begin?: unknown; end?: unknown };

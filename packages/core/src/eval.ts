@@ -5,14 +5,14 @@
  * Strudel pattern functions are loaded once and injected into the context.
  *
  * Example user code:
- *   ch(1, sine().slow(2))
- *   rgb(1, sine(), 0, cosine().slow(3))
+ *   ch(1, sine.slow(2))
+ *   rgb(1, sine, 0, cosine.slow(3))
  *
  * Evaluation is transactional (see evalCode() below). Everything a scene can
  * change about the rig's output, meaning channel definitions, the bridge output
  * config and the tempo, is applied together once the run finishes, or dropped
- * when it throws. What ties a call to a run is WHEN it is made, not
- * which run's context handed out the function. See `_activeBuffer` below, for
+ * when it throws. What ties a call to a run is when it is made, not which
+ * run's context handed out the function. See `_activeBuffer` below, for
  * calls that escape the eval that bound them and for what a call does when no
  * eval is in flight.
  *
@@ -151,8 +151,8 @@ function installPalette(proto: any): void {
  * `rig.dim(mini('1 - 1 -').jux(rev))` mirrors a chase across the room. On a
  * single light both copies land on it and the brighter wins.
  *
- * Replaced rather than left as strudel's, because strudel's copies the value
- * into an object of sound controls and a plain level does not survive it.
+ * Replaced, because strudel's jux copies the value into an object of sound
+ * controls and a plain level does not survive it.
  * juxBy's width has no meaning for two halves, so it is the same move.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -242,15 +242,13 @@ export async function initStrudel(): Promise<void> {
     // Dynamic import keeps build working even if strudel isn't installed yet
     const core = await import('@strudel/core');
 
-    // Strudel's signals are patterns, written bare: sine.slow(4). gobo has
-    // always written them called: sine().slow(4). Both have to work, because
-    // every gobo scene and doc uses the second and every strudel example the
-    // first, and a pattern pasted from strudel's docs failing on its first
-    // word ("sine.slow is not a function") is the worst first impression the
-    // two can make of each other.
+    // Strudel's signals are patterns, written bare: sine.slow(4). gobo scenes
+    // and docs write them called: sine().slow(4). Both work, so a pattern
+    // pasted from strudel's docs does not fail on its first word ("sine.slow
+    // is not a function").
     //
     // So each signal becomes a callable pattern: a function that returns the
-    // pattern, whose prototype IS the pattern. Calling it gives the pattern;
+    // pattern, whose prototype is the pattern. Calling it gives the pattern;
     // reading anything off it (.slow, .range, .queryArc) reads through to the
     // pattern, so the bare name is usable anywhere a pattern is, including as
     // a channel's value. An arrow function, because a plain function would
@@ -276,17 +274,17 @@ export async function initStrudel(): Promise<void> {
 
     // ── Named moves ────────────────────────────────────────────────────
     //
-    // Four gestures a lighting desk has a button for, each one strudel
-    // expression that you have to already know to write. Real patterns, built
-    // from the primitives above, so they chain and stack like anything else:
-    // `wash.dim(flash().mul(0.7))` and `stack(pulse(8), flash())` both work.
+    // Four gestures a lighting desk has a button for, each a strudel
+    // expression you would otherwise have to know to write. They are patterns
+    // built from the primitives above, so they chain and stack like anything
+    // else: `wash.dim(flash().mul(0.7))` and `stack(pulse(8), flash())` both
+    // work.
     //
-    // The negative floor in flash() and adsr() is the load-bearing trick and
-    // the one nobody guesses: a channel clamps below zero, so pushing most of
-    // a wave under the line leaves only its tip above, which is what makes a
-    // sharp hit out of a linear ramp.
+    // flash() relies on a negative floor: a channel clamps below zero, so
+    // pushing most of a wave under the line leaves only its tip above, which
+    // makes a sharp hit out of a linear ramp.
 
-    /** The slow swell. Breathing, on any channel. */
+    /** A slow swell on any channel: one sine wave every `cycles` cycles. */
     _strudelCtx.pulse = (cycles = 4): PatternLike =>
       (core.sine as PatternLike & { slow(n: number): PatternLike }).slow(cycles);
 
@@ -310,7 +308,7 @@ export async function initStrudel(): Promise<void> {
         .fast(per).range(1 - 1 / t, 1);
     };
 
-    /** Candle, fire, a lamp on its way out. Wanders around full by `amount`. */
+    /** A candle, a fire or a failing lamp: wanders below full by up to `amount`. */
     _strudelCtx.flicker = (amount = 0.3): PatternLike => {
       const a = Math.min(1, Math.max(0, amount));
       const perlin = _strudelCtx.perlin as (() => PatternLike) | undefined;
@@ -351,14 +349,12 @@ export async function initStrudel(): Promise<void> {
 
     // The rest of the pattern vocabulary, under the names strudel gives them.
     //
-    // These were all present in @strudel/core and simply never handed to the
-    // sandbox, so a scene that reached for one got "irand is not defined" and
-    // no hint that the function existed. Chain methods (.euclid, .degradeBy,
-    // .sometimesBy …) already arrive on the Pattern prototype; what needed
-    // wiring is the top-level functions and the remaining signals.
+    // Chain methods (.euclid, .degradeBy, .sometimesBy …) arrive on the
+    // Pattern prototype; this list hands the sandbox the top-level functions
+    // and the remaining signals from @strudel/core.
     //
-    // Names are strudel's, deliberately. Anything renamed here would be a
-    // dialect: a pattern copied out of the strudel docs should run.
+    // The names are strudel's, so a pattern copied out of the strudel docs
+    // runs.
     const passthrough = [
       // signals
       'tri', 'isaw', 'perlin',
@@ -373,16 +369,13 @@ export async function initStrudel(): Promise<void> {
       // the pattern rather than performed on a button, so the document still
       // says everything about what the rig will do.
       //
-      // The METHOD forms — mini('<0 1>').pick([verse, chorus]) — already
-      // worked, because strudel's register() puts them on the Pattern
-      // prototype and gobo shares that prototype. They were simply never
-      // documented, which made them missing in every way that matters to
-      // somebody trying to find them.
+      // The method forms, mini('<0 1>').pick([verse, chorus]), come from
+      // strudel's register(), which puts them on the Pattern prototype that
+      // gobo shares.
       //
-      // 'pick' itself is NOT here, and that is a dialect collision worth
-      // naming: gobo took pick() for the colour wheel before this was
-      // looked at. So the bare function is gobo's picker and the method is
-      // strudel's chooser. The method is the form strudel's own docs use.
+      // 'pick' itself is not here: the bare pick() is gobo's colour-wheel
+      // picker, and the method .pick() is strudel's chooser, which is the form
+      // strudel's own docs use.
       'pickmod', 'pickF', 'pickmodF', 'pickOut', 'pickRestart', 'pickReset',
       'pickSqueeze', 'inhabit', 'squeeze',
       // More of strudel's own vocabulary, so pasted code runs. seq is strudel's
@@ -417,20 +410,20 @@ export async function initStrudel(): Promise<void> {
     // scene code says tri() the way it says sine(). Everything else is already
     // a function, or is meant to be used bare.
     //
-    // silence is deliberately NOT in here. Strudel writes it without parens
-    // (`wash.red(silence)`), so wrapping it would turn the documented form
-    // into a function reaching the channel, which is now a rejected value.
+    // silence is left out: strudel writes it without parens
+    // (`wash.red(silence)`), and wrapping it would hand the channel a
+    // function, which is a rejected value.
     const signals = new Set([
       'tri', 'isaw', 'perlin',
       'sine2', 'cosine2', 'saw2', 'square2', 'tri2', 'isaw2', 'rand2', 'itri', 'berlin',
       'mouseX', 'mouseY',
     ]);
     for (const name of passthrough) {
-      // Each read is guarded on its own. A missing name must cost only that
+      // Each read is guarded on its own, so a missing name costs only that
       // name: reading an absent export off a module namespace can throw rather
       // than give undefined, and an escape from here lands in the outer catch,
       // which marks the whole engine failed and makes evalCode refuse every
-      // scene. One optional extra would take the entire pattern engine down.
+      // scene.
       try {
         const exported = (core as Record<string, unknown>)[name];
         if (exported === undefined) continue;
@@ -491,12 +484,11 @@ export async function initStrudel(): Promise<void> {
         const tokens = str.trim().split(/\s+/).map((t) => {
           if (t === '-' || t === '~') return 0;
           const n = Number(t);
-          // A token that is not a number is passed through as itself, so a
-          // colour name still reaches whatever consumes it. Mapping it to 0
-          // made every colour token silently black on a build where the real
-          // mini failed to load. Safe to pass a string on: the hook that
-          // parses one into a pattern is installed by @strudel/mini, which by
-          // definition is not here.
+          // A token that is not a number passes through as itself, so a
+          // colour name still reaches whatever consumes it; mapped to 0, every
+          // colour token would be black. Passing a string on is safe: the hook
+          // that parses one into a pattern is installed by @strudel/mini, which
+          // is not loaded here.
           return Number.isFinite(n) ? n : t;
         });
         return seq(...tokens);
@@ -598,13 +590,12 @@ export function getStrudelError(): string | null {
  *
  * Refuses while the engine is loading as well as after it has failed.
  * initStrudel() clears the previous error before it awaits the import, so a
- * gate that only looked at the error let every run during app start, and every
- * retry after a failure, through with an empty context. The scene then died on
- * "sine is not defined" instead of reporting the real problem.
+ * gate that only looked at the error would let every run during app start, and
+ * every retry after a failure, through with an empty context, and the scene
+ * would die on "sine is not defined" instead of reporting the engine.
  *
- * 'idle' (initStrudel() never called) proceeds. A host that never asked for a
- * pattern engine never had one to lose; scenes made of plain numbers are a
- * supported way to drive the DMX layer. The browser app calls initStrudel()
+ * 'idle' (initStrudel() never called) proceeds: scenes made of plain numbers
+ * are a supported way to drive the DMX layer without a pattern engine. The browser app calls initStrudel()
  * during startup, before a run can be triggered by anything, so 'idle' is not
  * a state it evaluates in.
  */
@@ -649,14 +640,13 @@ function mockConfig(): BridgeConfig {
  * Why each bridge output needs a program running on this machine.
  *
  * A scene that calls artnet() in a plain browser with nothing listening runs
- * clean and lights nothing, and on its own the only sign is the status line
- * reporting some seconds later that the target "was never reached", which reads
- * as a fault in the rig. Saying why, on the run that asked for the output, is
- * the difference between "gobo is broken" and "I have not started the connector
- * yet".
+ * clean and lights nothing. Otherwise the only sign is the status line
+ * reporting some seconds later that the target "was never reached", which
+ * reads as a fault in the rig. So the run that asked for the output says why,
+ * and points at the connector.
  *
  * Keyed by the `mode` of the config each helper builds, so a mode with no entry
- * (there is none today) simply produces no warning rather than a wrong one.
+ * (there is none today) produces no warning rather than a wrong one.
  */
 const OUTPUT_NEEDS_CONNECTOR: Record<string, string> = {
   artnet:
@@ -675,8 +665,8 @@ const OUTPUT_NEEDS_CONNECTOR: Record<string, string> = {
  *
  * Names only routes core can be sure of: the connector binary, and a checkout's
  * `npm start`, which serves the page and speaks UDP from one process. Both end
- * in the same place, a bridge on this machine, which is exactly what
- * isConnected() below reports on.
+ * in the same place, a bridge on this machine, which is what isConnected()
+ * below reports on.
  */
 const CONNECTOR_FIX =
   'Nothing is listening on this machine right now, so run the connector (or start gobo from a checkout with '
@@ -687,10 +677,10 @@ const CONNECTOR_FIX =
  * The plain-language reason a staged output is reaching nothing, or null when
  * it is arriving (or when the mode does not need the connector).
  *
- * A hint, not a verdict, which is why the calls that produce it still succeed.
- * The bridge socket reconnects on a timer, so "not connected at this instant"
- * also describes a connector that is three seconds from being up, and blacking
- * out a scene over that would be worse than the silence it replaces.
+ * A warning only, so the calls that produce it still succeed. The bridge
+ * socket reconnects on a timer, so "not connected at this instant" also
+ * describes a connector that is three seconds from being up, and blacking out
+ * a scene over that would be worse than the silence it replaces.
  */
 function unreachableOutputWarning(config: BridgeConfig): string | null {
   const mode = typeof config.mode === 'string' ? config.mode : null;
@@ -714,22 +704,23 @@ interface SideEffectBuffer {
 
 /**
  * The buffer belonging to the eval currently in flight, or null when there is
- * none. stageConfig()/stageBPM() below resolve it at CALL time.
+ * none. stageConfig()/stageBPM() below resolve it at call time.
  *
  * A module-level slot rather than a per-run closure, because the functions a
  * scene calls are not all the running eval's own. register() writes its body
  * onto the shared Pattern prototype, which survives across evals on purpose.
- * That body closes over the sandbox bindings of the eval that DEFINED it, and
+ * That body closes over the sandbox bindings of the eval that defined it, and
  * runs lazily, when a pattern chain is queried: a later scene's eval, or a
  * tick() long after every eval has finished. Bound by closure, such a call
- * found its defining eval's buffer already settled and applied immediately,
- * outside the running eval's transaction. The new scene's channel defs rolled
- * back while the tempo and output host its register() body set did not, leaving
- * the rig on the previous scene's defs at the new scene's tempo, pointed at a
- * new host. That is the state evalCode()'s flush ordering exists to prevent.
+ * would find its defining eval's buffer already settled and apply immediately,
+ * outside the running eval's transaction. The new scene's channel defs could
+ * then roll back while the tempo and output host its register() body set did
+ * not, leaving the rig on the previous scene's defs at the new scene's tempo,
+ * pointed at a new host: the state evalCode()'s flush ordering exists to
+ * prevent.
  *
- * Resolving through this slot instead, a call belongs to whichever eval is in
- * flight when it is made, whoever handed out the function.
+ * Resolved through this slot, a call belongs to whichever eval is in flight
+ * when it is made, whoever handed out the function.
  *
  * One slot is enough: evalCode() runs user code synchronously, so no second
  * eval and no tick can start while one is in flight.
@@ -742,8 +733,7 @@ let _activeBuffer: SideEffectBuffer | null = null;
  * With no eval in flight the call applies immediately, deliberately. A call
  * from a timer, or from a register() body that a tick invoked, has no run to be
  * committed or rolled back with, and parking it for whatever eval comes next
- * would fire it at a moment no scene asked for. Immediate is also what these
- * calls did before the buffering existed.
+ * would fire it at a moment no scene asked for.
  */
 function stageConfig(config: BridgeConfig): void {
   const buffer = _activeBuffer;
@@ -772,9 +762,9 @@ function stageBPM(value: number): void {
  * Sandbox stand-ins for artnet/sacn/osc/mock/setBPM.
  *
  * One shared set for every eval rather than a fresh set per run: they hold no
- * per-run state now that the run is resolved at call time, and a scene holding
- * on to one past its own eval is the case that has to behave. Signatures and
- * defaults are unchanged from the scene's point of view.
+ * per-run state, since the run is resolved at call time, and a scene can hold
+ * on to one past its own eval. Signatures and defaults match the functions
+ * they stand in for.
  */
 const sandboxOutputBindings: Record<string, unknown> = {
   artnet: (host?: string, port?: number): void => stageConfig(artnetConfig(host, port)),
@@ -784,13 +774,13 @@ const sandboxOutputBindings: Record<string, unknown> = {
   td: (host?: string, port?: number): void => stageDirect(host, port),
   usb: (universe?: number): void => requireUsb(universe),
   // A quoted tempo, setBPM('140'), is read as the number it spells rather than
-  // dropped with the other garbage below.
+  // dropped with the non-finite values stageBPM() filters out.
   setBPM: (value: number | string): void =>
     stageBPM(typeof value === 'string' && value.trim() !== '' ? Number(value) : value as number),
 };
 
 /**
- * Direct output to a WebSocket receiver, TouchDesigner in practice.
+ * Direct output to a WebSocket receiver, usually TouchDesigner.
  *
  * Unlike the other output calls this one does not go through the bridge: the
  * page opens the socket itself. The scene's frames land in TD, and TD puts
@@ -818,8 +808,8 @@ function stageDirect(host = 'localhost', port = 9980): void {
  * Select an already-connected USB DMX interface as the output.
  *
  * Choosing the device needs a user gesture, which scene code is not, so the UI
- * owns connecting and this call only asserts that it happened. Saying so here
- * beats a scene that looks like it runs while nothing is driven.
+ * owns connecting and this call only asserts that it happened. Failing here is
+ * clearer than a scene that looks like it runs while nothing is driven.
  */
 function requireUsb(universe?: number): void {
   // Checked before the connection, so a scene naming an impossible universe is
@@ -843,8 +833,8 @@ function requireUsb(universe?: number): void {
 
 /**
  * Chrome allows ws:// to localhost from an https page but blocks every other
- * host. Saying so beats a socket that never opens and looks like the receiver
- * is down, which is a fault no amount of restarting TouchDesigner fixes.
+ * host. The message says so; otherwise the socket never opens and it looks as
+ * if the receiver is down, which restarting TouchDesigner will not fix.
  */
 function mixedContentMessage(host: string): string {
   return (
@@ -874,8 +864,8 @@ function flushSideEffects(buffer: SideEffectBuffer): void {
 // any pattern, surviving .slow()/.fast()/.add() chains since those all
 // return the same Pattern class.
 //
-//   const punch = register('punch', (p) => p.range(-4, 1).flash())
-//   spot.white(mini('1 - - -').punch())
+//   register('punch', range(-4, 1))
+//   spot.white('1 - - -'.punch())
 //
 // Idempotent: re-registering overwrites the previous body so re-evaluating
 // a scene with edited register() bodies picks up the new code. Names persist
@@ -914,9 +904,9 @@ export interface EvalResult {
  *
  * JavaScript reports this as "Identifier 'red' has already been declared",
  * which says nothing about where the other declaration is or why it is
- * unmovable. Colours made the problem worth answering: `red`, `green`, `blue`
- * and `white` are plausible names for a scene's own variables in a way that
- * `sine` and `fixture` never were.
+ * unmovable. It matters most for colours: `red`, `green`, `blue` and `white`
+ * are plausible names for a scene's own variables, where `sine` and `fixture`
+ * are not.
  */
 export function reservedNameHint(message: string, reserved: Iterable<string>): string {
   const m = /Identifier '([^']+)' has already been declared/.exec(message);
@@ -927,15 +917,13 @@ export function reservedNameHint(message: string, reserved: Iterable<string>): s
   // JavaScript's message has no full stop, so one is added rather than running
   // the two sentences together.
   //
-  // The rename is suggested rather than the name simply refused, and it leads
-  // with what the name already is. "strobe" reads as a clash out of nowhere
-  // until you know gobo hands you a strobe() of its own; once you do, the
-  // message explains itself and you keep the shorter name for the thing that
-  // deserves it.
+  // The message suggests a rename and leads with what the name already is:
+  // "strobe" reads as a clash out of nowhere until you know gobo has a
+  // strobe() of its own.
   //
-  // Two suffixes, because the names that collide are the good ones and a scene
-  // uses them for two different things: a light called strobe, and a look
-  // called strobe. Neither suggestion fits both, so both are offered.
+  // Two suffixes, because a scene uses a colliding name for one of two things,
+  // a light called strobe or a look called strobe, and neither suggestion fits
+  // both.
   const Title = `${name[0].toUpperCase()}${name.slice(1)}`;
   // A colour is a value rather than something to call, so the advice above
   // would send someone to write red(…), which fails in its own way.
@@ -977,10 +965,9 @@ let _lineOffset: number | null | undefined;
  *
  * Both patterns are anchored on the marker an engine uses for code that came
  * from new Function, and nothing looser. A general "url:line:col" would also
- * match the URL of the module that did the compiling — under Vite that is a
- * path containing "@fs/", which read as a Firefox frame and returned the line
- * number of this file instead of the scene's. The answer was wrong rather
- * than missing, which is the failure mode this whole path exists to avoid.
+ * match the URL of the module that did the compiling: under Vite that is a
+ * path containing "@fs/", which reads as a Firefox frame and gives the line
+ * number of this file instead of the scene's. A wrong line is worse than none.
  */
 function frameLine(stack: string | undefined): number | null {
   if (!stack) return null;
@@ -998,9 +985,9 @@ function lineOffset(): number | null {
   if (_lineOffset !== undefined) return _lineOffset;
   _lineOffset = null;
   try {
-    // Compiled exactly the way a scene is — the same "use strict" prologue in
-    // front of the same kind of body — so the probe measures the mechanism
-    // rather than a model of it. The throw stands where line 1 of a scene
+    // Compiled the way a scene is, with the same "use strict" prologue in
+    // front of the same kind of body, so the probe measures the mechanism
+    // itself. The throw stands where line 1 of a scene
     // stands, so the frame it reports minus 1 is everything above line 1.
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     (new Function('"use strict";\nthrow new Error("probe");'))();
@@ -1030,50 +1017,39 @@ function sceneLine(err: unknown, code: string): number | null {
   return line >= 1 && line <= lines ? line : null;
 }
 
-/**
- * The error as the operator should read it: what went wrong, and where.
- *
- * The line matters more here than it looks. A scene used to be a handful of
- * lines, where "wash.dim is not a function" was the whole answer. A file that
- * holds a whole performance is long enough that the same message leaves you
- * scrolling, and the editor has no search to help.
- */
-/**
- * Offer a set of looks and run whichever one is selected.
- *
- *   const verse  = () => { wash.color(blue) }
- *   const chorus = () => { wash.color(red); bar.chase(white) }
- *   cue({ verse, chorus })
- *
- * The shorthand is the point: `{ verse, chorus }` names the looks after the
- * functions themselves, so the label on the button and the name in the code
- * cannot drift apart. Passing an explicit name is allowed for the same reason
- * a fixture can be called something other than its type — `cue({ 'big hit':
- * chorus })` when the look is called one thing and reads better as another.
- *
- * It calls the selected look rather than returning it. A scene ends up with
- * one line that means "run whichever look is up", which is what the operator
- * is choosing between; handing back a function to be invoked separately would
- * be the same thing with a way to forget the second half.
- *
- * With a second argument the choice is written instead of pressed:
- *
- *   cue({ verse, chorus }, mini('<verse chorus chorus verse>'))
- *   cue({ verse, chorus }, slider('which', 0, 1, { step: 1 }))
- *
- * That form reads the selector at query time, so the look changes without the
- * document being evaluated again — which is the difference between a cue you
- * perform and a cue that is part of the pattern. The chips, the number keys and
- * a MIDI program change still work without it.
- *
- * Returns the name it ran, which is worth having for a console.log during a
- * rehearsal and costs nothing.
- */
-/** Things cue() noticed during this run that are worth saying, not failing on. */
+/** Things cue() noticed during this run, to report as warnings rather than errors. */
 let _cueNotes: string[] = [];
 /** The looks this scene mutes, which a cue pattern may name on purpose. */
 let _mutedLooks = new Set<string>();
 
+/**
+ * Offer a set of looks and run whichever one is selected.
+ *
+ *   verse: { wash.color(blue) }
+ *   chorus: { wash.color(red); bar.chase(white) }
+ *   cue(verse, chorus)
+ *
+ * Each look is named after its block, so the label on the button and the name
+ * in the code cannot drift apart. The object form, cue({ verse, chorus }),
+ * works too, and can give a look an explicit name when it reads better as
+ * something else: `cue({ 'big hit': chorus })`.
+ *
+ * It calls the selected look rather than returning it, so a scene has one
+ * line that means "run whichever look is up"; handing back a function to be
+ * invoked separately would add a second half to forget.
+ *
+ * With a selector after the looks, the choice is written instead of pressed:
+ *
+ *   cue(verse, chorus, '<verse chorus chorus verse>')
+ *   cue(verse, chorus, slider('which', 0, 1, { step: 1 }))
+ *
+ * That form reads the selector at query time, so the look changes without the
+ * document being evaluated again, and the cue is part of the pattern instead
+ * of something performed. The chips, the number keys and a MIDI program change
+ * still work without it.
+ *
+ * Returns the name it ran, for a console.log during a rehearsal.
+ */
 function cue(...args: unknown[]): string | null {
   const [given, selector] = cueArgs(args);
   if (isQueryable(given)) {
@@ -1103,7 +1079,7 @@ function cue(...args: unknown[]): string | null {
   }
   registerCues(names, selector !== undefined);
   // A quoted selector is mini-notation, as a string is everywhere else,
-  // unless it is simply the name of one of the looks.
+  // unless it is the name of one of the looks.
   let chooser = selector;
   if (typeof chooser === 'string' && !(chooser in looks)) chooser = stringPattern(chooser, 'cue()') ?? chooser;
   if (isQueryable(chooser)) {
@@ -1138,7 +1114,7 @@ function cue(...args: unknown[]): string | null {
  *
  * cue(verse, chorus) passes the looks themselves, named by the blocks that
  * made them (looks.ts); a selector, if there is one, comes after them. The
- * original cue({ verse, chorus }, selector) still works. A signal is a
+ * object form, cue({ verse, chorus }, selector), works too. A signal is a
  * callable pattern (sine), so a function that is also a pattern is the
  * selector, not a look.
  */
@@ -1166,30 +1142,12 @@ function cueArgs(given: unknown[]): [unknown, unknown] {
 }
 
 /**
- * cue() with the choice written into the scene rather than pressed.
- *
- * Every look is run into a capture of its own, and then one value is written
- * per channel any of them drives. That value reads the selector when the frame
- * asks for it and resolves whichever look it names — so the switch is a pattern
- * like any other. `cue(looks, mini('<verse chorus>'))` alternates per cycle,
- * `cue(looks, slider('which'))` puts it under a fader, and neither re-runs the
- * document to do it.
- *
- * What reaches the staging map is ordinary channel values. The engine never
- * sees a partial picture: the merge happens here, before anything is staged, so
- * the commit, the rollback and hush() are exactly what they were.
- *
- * A channel a look does not drive reads zero while that look is up, which is
- * what makes switching a switch rather than a layering — the same rule as
- * running the file again with a different look called.
- */
-/**
  * What a capture hands back, per channel.
  *
  * Described here rather than imported: dmx.ts keeps its channel definition
- * private, and fixtures.ts already exports a ChannelDef that means something
- * else entirely — a channel in a fixture's layout rather than one write to the
- * rig. Only the three fields this needs are named.
+ * private, and fixtures.ts exports a ChannelDef that means something else, a
+ * channel in a fixture's layout rather than one write to the rig. Only the
+ * three fields this needs are named.
  */
 interface CapturedChannel {
   universe: number;
@@ -1197,6 +1155,24 @@ interface CapturedChannel {
   value: unknown;
 }
 
+/**
+ * cue() with the choice written into the scene rather than pressed.
+ *
+ * Every look is run into a capture of its own, and then one value is written
+ * per channel any of them drives. That value reads the selector when the frame
+ * asks for it and resolves whichever look it names, so the switch is a pattern
+ * like any other. `cue(looks, mini('<verse chorus>'))` alternates per cycle,
+ * `cue(looks, slider('which'))` puts it under a fader, and neither re-runs the
+ * document.
+ *
+ * What reaches the staging map is ordinary channel values. The merge happens
+ * here, before anything is staged, so the engine never sees a partial picture
+ * and the commit, the rollback and hush() work unchanged.
+ *
+ * A channel a look does not drive reads zero while that look is up, so
+ * switching replaces one look with the next instead of layering them, the
+ * same as running the file again with a different look called.
+ */
 function cueBySelector(
   looks: Record<string, unknown>,
   names: string[],
@@ -1217,7 +1193,7 @@ function cueBySelector(
     captured.push(endCapture());
   }
 
-  // One entry per channel ANY look drives. A look that leaves a channel alone
+  // One entry per channel any look drives. A look that leaves a channel alone
   // contributes nothing to it, and reads as zero when it is the one selected.
   const channels = new Map<string, { universe: number; channel: number }>();
   for (const map of captured) {
@@ -1232,8 +1208,8 @@ function cueBySelector(
         const value = pick === null ? undefined : perLook[pick];
         if (value === undefined) return [{ value: 0 }];
         // A pattern's own haps are passed straight through, so anything
-        // riding on them — the source locations the editor outlines, a gain
-        // from a strudel control object — survives the choice.
+        // riding on them (the source locations the editor outlines, a gain
+        // from a strudel control object) survives the choice.
         if (isQueryable(value)) return value.queryArc(begin, end);
         return [{ value }];
       },
@@ -1259,7 +1235,7 @@ function isQueryable(value: unknown): value is PatternLike {
  * Accepts what a scene would reach for: a pattern of indices, a pattern of
  * names, a live control, or a bare number or name. An index is wrapped rather
  * than clamped so a counter keeps cycling, and a name that matches nothing
- * selects nothing — that channel reads zero rather than guessing at a look.
+ * selects nothing: that channel reads zero rather than guessing at a look.
  */
 function selectedIndex(selector: unknown, names: string[], begin: number, end: number): number | null {
   let raw: unknown = selector;
@@ -1277,12 +1253,11 @@ function selectedIndex(selector: unknown, names: string[], begin: number, end: n
     return at === -1 ? null : at;
   }
   if (typeof raw === 'number' && Number.isFinite(raw)) {
-    // Always an index, never a fader position scaled across the set. Guessing
-    // between the two by whether the number is whole cannot work: 1.0 is a
-    // whole number, so a fader pushed to the top read as index 1 and picked
-    // the second look rather than the last — wrong exactly where a fader
-    // spends its time. A fader that should sweep the set says so itself, with
-    // slider('look', 0, 2, { step: 1 }), which is what that range is for.
+    // Always an index, never a fader position scaled across the set. Telling
+    // the two apart by whether the number is whole cannot work: a fader at the
+    // top reads 1.0, which as an index picks the second look instead of the
+    // last. A fader that should sweep the set says so with
+    // slider('look', 0, 2, { step: 1 }).
     const index = Math.floor(raw);
     return ((index % names.length) + names.length) % names.length;
   }
@@ -1335,11 +1310,11 @@ const FACTORY_NAMES = new Set([
 /**
  * Methods a scene reaches for on a light that no light has.
  *
- * Each one is a real mistake rather than a hypothetical. `.dim()` and
- * `.white()` are the first words anyone tries on a colour strip, and a strip
- * has neither channel: brightness lives in the colour, and white is the three
- * emitters together. Neither is quietly aliased onto `.mono()`, because the
- * two are not the same call — `.dim(0.5)` on a fixture with a dimmer leaves
+ * Each one is a mistake scenes make. `.dim()` and `.white()` are the first
+ * words anyone tries on a colour strip, and a strip has neither channel:
+ * brightness lives in the colour, and white is the three emitters together.
+ * Neither is aliased onto `.mono()`, because the two are not the same call:
+ * `.dim(0.5)` on a fixture with a dimmer leaves
  * the colour alone, and on a strip there is nothing to leave alone, so a
  * silent alias would turn a blue wash white and report success.
  */
@@ -1387,7 +1362,7 @@ const MUSIC_NAMES: Record<string, string> = {
  * JavaScript's own message names the variable and the method and stops there,
  * which is the least useful half: the scene already knows what it typed. Three
  * kinds of mistake arrive through this one message, and each has a different
- * answer — a missing pair of brackets on a factory, a gobo function used as a
+ * answer: a missing pair of brackets on a factory, a gobo function used as a
  * method, and a channel this light does not have.
  *
  * `globals` is the sandbox's own binding list rather than a second hardcoded
@@ -1587,6 +1562,13 @@ function chainOnStrings(code: string): string {
   return out;
 }
 
+/**
+ * The error as the operator should read it: what went wrong, and where.
+ *
+ * A file that holds a whole performance is long enough that "wash.dim is not
+ * a function" alone leaves you scrolling, and the editor has no search to
+ * help, so the scene line goes in front of the message.
+ */
 export function locatedError(
   err: unknown,
   code: string,
@@ -1597,7 +1579,7 @@ export function locatedError(
   try {
     looks = rewriteLooks(code).looks;
   } catch {
-    // The hint is worth less than the error it is attached to.
+    // Without the looks the hint is less specific; the error still goes out.
   }
   let message = methodHint(errorMessage(err), globals, methods, looks);
   // strudel's one-line label, verse: wash.dim(1), runs that line and names
@@ -1614,8 +1596,8 @@ export function locatedError(
 /**
  * Compile and run a scene, swapping it in only if the whole thing succeeds.
  *
- * The order here is the contract. Half-finished code is in the buffer most of
- * the time, and an eval that fails must be a no-op on the wire:
+ * The order matters. Half-finished code is in the buffer most of the time,
+ * and an eval that fails must be a no-op on the wire:
  *
  *   1. Refuse outright unless the pattern engine is usable.
  *   2. Compile. A syntax error returns before a single live byte is touched.
@@ -1640,10 +1622,10 @@ export function evalCode(code: string): EvalResult {
     // name: `wash.pixels.chase(red)`, not `chase('red')`.
     //
     // These are sandbox bindings, which are function parameters, so they are
-    // reserved: a scene writing `const red = …` gets a SyntaxError, the same
-    // way `const sine = …` always has. Eleven more reserved words is the price
-    // of naming a colour without quoting it. reservedNameHint() below turns
-    // that error into one that says so.
+    // reserved: a scene writing `const red = …` gets a SyntaxError, as
+    // `const sine = …` does. Eleven more reserved words is the cost of naming
+    // a colour without quoting it. reservedNameHint() below turns that error
+    // into one that says so.
     ...COLORS,
     // DMX API
     ch,
@@ -1672,8 +1654,8 @@ export function evalCode(code: string): EvalResult {
     //
     // Through stageBPM like setBPM, so the tempo belongs to the run's
     // transaction: a scene that calls setcps() and then fails on a later line
-    // leaves the tempo where it was. Calling the scheduler directly changed it
-    // anyway. Number() so a quoted value reads as the number it spells.
+    // leaves the tempo where it was. Number() so a quoted value reads as the
+    // number it spells.
     setcps: (cps: number | string) => stageBPM(Number(cps) * 4 * 60),
     setcpm: (cpm: number | string) => stageBPM(Number(cpm) * 4),
     // Fixture system
@@ -1691,7 +1673,7 @@ export function evalCode(code: string): EvalResult {
     /**
      * A MIDI controller, as a value a channel can take.
      *
-     * midi(74) is CC 74 on channel 1, 0..1, read live — so the fader moves the
+     * midi(74) is CC 74 on channel 1, 0..1, read live, so the fader moves the
      * light on the next tick rather than on the next run, the way slider()
      * does. A controller nobody has touched reads as `start` rather than zero,
      * so a scene does not come up black waiting to be wiggled.
@@ -1737,15 +1719,13 @@ export function evalCode(code: string): EvalResult {
   // The code parses, so it is worth building a scene from. Channel writes go to
   // the staging map, which the renderer cannot see until it is committed.
   //
-  // The three display-only registries work differently: user code fills them as
-  // it runs, so they have to be emptied first and there is no prior state left
-  // to restore if the run then throws. Emptying them again on the failure path
-  // is what is available from here, and it is the half that matters, so a
-  // failed run empties them rather than leaving a fragment of a scene that
-  // never went live. Best-effort, on the terms set out in the failure branch
-  // below. The UI reads them only on the success path today, so the fragment
-  // was never seen, but that is a calling convention in another package and
-  // this invariant should not rest on it.
+  // The display-only registries work differently: user code fills them as it
+  // runs, so they are emptied first and there is no prior state to restore if
+  // the run then throws. A failed run empties them again, best-effort (see the
+  // failure branch below), rather than leaving a fragment of a scene that
+  // never went live. The UI reads them only on the success path, but that is a
+  // calling convention in another package and this invariant should not rest
+  // on it.
   //
   // Every exit from the block below runs the finally, so the staging map is
   // always closed out, including when one of the clears is what threw.
@@ -1761,7 +1741,7 @@ export function evalCode(code: string): EvalResult {
   beginStaging();
   try {
     // Claim ownership of the output-changing calls. From here until the finally
-    // releases it, every artnet()/setBPM() made anywhere is buffered by THIS
+    // releases it, every artnet()/setBPM() made anywhere is buffered by this
     // run: by this code, or through a binding an earlier eval handed to a
     // register() body this code queries. Set inside the try so no path can
     // leave it standing.
@@ -1805,26 +1785,26 @@ export function evalCode(code: string): EvalResult {
       flushSideEffects(sideEffects);
       // The scene is live either way; this only says whether anything is
       // carrying it out of the page. Read after the flush so it reflects the
-      // output the run actually settled on.
+      // output the run settled on.
       const outputWarning =
         sideEffects.config === null ? null : unreachableOutputWarning(sideEffects.config);
       // Raising a dimmer changes what a scene puts on the wire without the
-      // scene saying so, which is the kind of help that is infuriating when it
-      // guesses wrong. So it is always said out loud.
+      // scene saying so, which is infuriating when the guess is wrong, so it is
+      // always reported.
       const impliedNote = implied.length === 0
         ? null
         : `brightness inferred: ${implied.join(', ')}. ` +
           `Write .dim(…) on the fixture to say otherwise.`;
-      // The same rule from the other end, and said just as loudly.
+      // The same rule from the other end, reported the same way.
       const impliedColourNote = impliedColour.length === 0
         ? null
         : `colour inferred: ${impliedColour.join(', ')} was dimmed but never coloured, ` +
           `so its emitters are at full. Write a colour on the fixture to say otherwise.`;
       // Two calls to one channel are an assignment and then another
-      // assignment: the later wins and nothing is mixed. That is intended, and
-      // invisible, and the shape that makes it bite is two looks over one rig
-      // — verse(); chorus() — where the shared channels come out as whatever
-      // the later one said and the earlier look is silently gone.
+      // assignment: the later wins and nothing is mixed. That is intended but
+      // invisible, and it bites with two looks over one rig, verse(); chorus(),
+      // where the shared channels come out as the later one said and the
+      // earlier look is gone.
       const overwriteNote = overwrittenNote();
       // A pattern on a line of its own plays in strudel and does nothing here.
       const dangling = danglingPatternLines(code, PATTERN_VIZ_METHOD_NAMES);

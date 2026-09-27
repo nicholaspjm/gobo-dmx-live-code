@@ -4,7 +4,8 @@
  * Renders 512 vertical bars representing channels 1-512.
  * Updates at ~30 fps with smooth interpolation toward the current value.
  *
- * Colors use the earth-tone palette; active channels glow in terracotta.
+ * Colours come from the active theme (COLORS): a bar blends from the accent
+ * to accent2 as its value rises.
  */
 
 import { COLORS } from './theme.js';
@@ -47,9 +48,9 @@ export function updateVisualizer(channels: number[]): void {
  * Match the backing store to the size CSS has given the canvas.
  *
  * Only the width/height ATTRIBUTES are set, never the style: the stylesheet
- * decides how big the strip is, and this follows it. It used to measure the
- * parent and write both, which meant any height set in CSS was overwritten on
- * the next resize and the canvas always filled its container.
+ * decides how big the strip is, and this follows it. Writing the style as
+ * well would overwrite any height set in CSS on the next resize, and the
+ * canvas would always fill its container.
  */
 function resize(): void {
   const rect = _canvas.getBoundingClientRect();
@@ -69,7 +70,7 @@ function renderLoop(now: number): void {
   // display:none, which the resize observer sees as a zero-sized canvas, and
   // resize() floors the backing store at one pixel. Smoothing 512 values and
   // drawing 512 bars into that, thirty times a second, on a machine that is
-  // also driving a show, buys nothing. A backgrounded tab needs no handling
+  // also driving a show, is wasted work. A backgrounded tab needs no handling
   // here: the browser stops calling rAF by itself.
   //
   // The values are carried across rather than frozen, so the strip shows the
@@ -121,7 +122,7 @@ function draw(): void {
     const x = i * barW;
     const y = h - barH;
 
-    // Color: blend accent (terracotta) → accent2 (amber) as value increases
+    // Colour: blend accent → accent2 as the value increases
     const r = Math.round(lerp(accentRgb[0], accent2Rgb[0], t));
     const g = Math.round(lerp(accentRgb[1], accent2Rgb[1], t));
     const b = Math.round(lerp(accentRgb[2], accent2Rgb[2], t));

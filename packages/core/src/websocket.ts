@@ -6,16 +6,16 @@
  * Wire format (JSON):
  *   { type: "dmx", universes: { "1": [0, 128, 255, ...], ... } }
  *
- * The bridge answers on the same socket, though only to say what it is. See
- * connector-version.ts for what arrives and what the page does about it.
+ * The bridge replies on the same socket only to announce its version. See
+ * connector-version.ts for that message and what the page does with it.
  */
 
 import { parseConnectorMessage, type ConnectorReport, type LocalNetwork } from './connector-version.js';
 
 // The UI reaches this package through its index, which re-exports this file, so
-// the version helpers travel out with it. They are pure and hold no socket;
-// they pass through here because the package exposes one entry point and this
-// is the file that owns the connection they describe.
+// the version helpers are re-exported here. They are pure and hold no socket;
+// this file owns the connection they describe, and the package has one entry
+// point.
 export {
   APP_VERSION,
   HANDSHAKE_SINCE,
@@ -35,7 +35,7 @@ export type {
  *    so phones/tablets on the LAN can reach the bridge on the dev machine.
  *  - When served from a public host (e.g. github.io), fall back to `localhost`.
  *    Browsers allow `ws://localhost` even from https pages (loopback exception),
- *    so the user just needs to run `npm run bridge` locally.
+ *    so the user only needs to run `npm run bridge` locally.
  */
 function pickBridgeHost(): string {
   const h = window.location.hostname;
@@ -49,11 +49,11 @@ function pickBridgeHost(): string {
 const BRIDGE_URL = `ws://${pickBridgeHost()}:3001`;
 
 /**
- * Where this page looks for the connector. The UI asks, rather than repeating
- * the ranges above, to decide whether the browser's local-network permission
- * is what stands in the way: it only governs a page reaching localhost from
- * somewhere public, and a page served from a LAN address looks for the
- * connector at that same address instead.
+ * Where this page looks for the connector. The UI calls this (instead of
+ * repeating the ranges above) to decide whether the browser's local-network
+ * permission is what blocks the connection: that permission only governs a
+ * page reaching localhost from a public host, and a page served from a LAN
+ * address looks for the connector at that same address.
  */
 export function bridgeHost(): string {
   return pickBridgeHost();
@@ -62,15 +62,15 @@ export function bridgeHost(): string {
 /**
  * Reconnect backoff.
  *
- * Most people who open gobo have no connector running and never will: the
- * browser build drives a USB interface and TouchDesigner on its own, and the
- * hosted page is the front door. A flat two-second retry meant their console
- * filled with failed-WebSocket errors at roughly twenty-four a minute, for as
- * long as the tab stayed open. The browser prints those itself and no page can
- * suppress them, so the only fix is to try less often.
+ * Most people who open gobo have no connector running: the browser build
+ * drives a USB interface and TouchDesigner on its own, and most visitors start
+ * at the hosted page. A flat two-second retry would fill their console with
+ * failed-WebSocket errors, about twenty-four a minute, for as long as the tab
+ * is open. The browser prints those itself and no page can suppress them, so
+ * the only remedy is to try less often.
  *
- * Doubling from two seconds to thirty keeps a bridge started a moment after
- * the page found within a couple of seconds, and settles to a quiet poll for
+ * Doubling from two seconds to thirty still finds a bridge started a moment
+ * after the page within a couple of seconds, and settles to a slow poll for
  * everyone else. Picking an output that needs the connector resets it, so
  * nobody waits half a minute for a bridge that is already running.
  */
@@ -79,32 +79,31 @@ const RECONNECT_MAX_MS = 30000;
 
 let _ws: WebSocket | null = null;
 let _connected = false;
-// A Set rather than one slot: several parts of the UI care about the
-// connection (the status dot, the run status line, the connector prompt), and
-// a single slot silently drops every listener but the last one registered.
+// A Set, because several parts of the UI watch the connection (the status dot,
+// the run status line, the connector prompt), and a single slot would silently
+// drop every listener but the last one registered.
 //
-// Listeners are handed the current state whenever anything about the connection
-// changes, which includes the moment the connector's version settles a beat
-// after the socket opens. So a listener can be called twice with the same
-// boolean, and every one of these has to be a repaint from current state rather
-// than a reaction to an edge.
+// Listeners get the current state whenever anything about the connection
+// changes, including the moment the connector's version settles shortly
+// after the socket opens. A listener can therefore be called twice with the
+// same boolean, so each one must repaint from current state and must not
+// react to an edge.
 const _onStatusChange = new Set<(connected: boolean) => void>();
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let _reconnectDelay = RECONNECT_MIN_MS;
 /** The URL currently being attempted, so a forced retry knows where to go. */
 let _url = BRIDGE_URL;
-/** Whether this run of disconnection has already been logged. One line per
- *  outage, not one per attempt. */
+/** Whether this outage has already been logged, so each outage logs one line
+ *  however many attempts it takes. */
 let _loggedOutage = false;
 
 /**
  * What the connector said it is, and when this connection opened.
  *
- * A connector built before the handshake existed sends nothing at all, so
- * silence here is an answer rather than a gap: the version stays null and the
- * clock is what turns that into "older than the build that started saying".
- * Both reset on every connection, because the next process to accept us can be
- * a different build from the last one.
+ * A connector built before the handshake sends nothing, so silence is itself
+ * an answer: the version stays null, and once the grace period passes that
+ * reads as "older than the handshake". Both reset on every connection, because
+ * the next process to accept us can be a different build from the last one.
  */
 let _connectorVersion: string | null = null;
 let _connectorUpdates = false;
@@ -117,19 +116,19 @@ let _helloTimer: ReturnType<typeof setTimeout> | null = null;
  *
  * The connector sends it from its own connection handler, so over loopback it
  * lands in the same millisecond the socket opens, and the LAN case this file
- * allows is a couple of hops more. Two seconds is a wide margin over that, and
- * most of it is there for a page whose main thread is busy evaluating a scene
- * when the answer arrives. It is also short enough to have settled long before
- * anyone can open the panel that reports it, which is where it is read.
+ * allows adds a couple of hops. Two seconds is a wide margin over that, mostly
+ * to cover a page whose main thread is busy evaluating a scene when the answer
+ * arrives. It is still short enough to have settled before anyone can open the
+ * panel that reports it.
  */
 const HELLO_GRACE_MS = 2000;
 
 // The last output config the scene asked for, kept so it can be re-sent.
 // The bridge only knows what it has been told since it started, and it falls
 // back to bridge.config.json on boot. Without this, restarting the bridge (tsx
-// watch does that on every file save) silently moves output back to the config
-// file's host while the UI still reads "bridge", so a rig goes quiet with
-// nothing on screen explaining why.
+// watch does that on every file save) would silently move output back to the
+// config file's host while the UI still read "bridge", and the rig would go
+// quiet with nothing on screen explaining why.
 let _lastConfig: Record<string, unknown> | null = null;
 let _configDelivered = false;
 
@@ -144,10 +143,9 @@ export function isConnected(): boolean {
 /**
  * What the connector announced about itself, or null when none is connected.
  *
- * `version` is null when nothing has been announced, which is the normal state
- * for every connector released so far. `settled` is what separates "it has not
- * arrived yet" from "it is never arriving", and only the second is worth
- * reporting to anyone.
+ * `version` is null when nothing has been announced, as with every connector
+ * older than HANDSHAKE_SINCE. `settled` separates "it has not arrived yet"
+ * from "it is never arriving"; only the second is reported.
  */
 export function getConnectorInfo(): ConnectorReport | null {
   if (!_connected) return null;
@@ -162,12 +160,11 @@ export function getConnectorInfo(): ConnectorReport | null {
  * The connector's identity has settled: a hello arrived, or the grace period
  * passed without one.
  *
- * This runs the connection listeners again rather than keeping a second list of
- * its own. Which connector is on the other end is part of what this connection
- * is, and it lands a moment after the socket opens, so everything painted at
- * connect was painted before there was an answer. One list means every surface
- * that reports on the connection corrects itself, rather than the ones that
- * remembered to subscribe twice.
+ * This runs the connection listeners again instead of keeping a second list.
+ * The connector's identity is part of the connection's state, and it lands a
+ * moment after the socket opens, so everything painted at connect was painted
+ * without it. With one list, every surface that reports on the connection
+ * repaints, including any that did not subscribe to a separate event.
  */
 function announceConnector(): void {
   for (const fn of _onStatusChange) fn(_connected);
@@ -175,7 +172,7 @@ function announceConnector(): void {
 
 /**
  * The networks the connector's computer is on, as it said in its hello. Empty
- * when none is connected, or when it is older than the build that says.
+ * when none is connected, or when the connector is older than 0.5.3.
  */
 export function getConnectorNetworks(): LocalNetwork[] {
   return _connected ? _connectorNetworks : [];
@@ -200,8 +197,8 @@ export function connectBridge(url = BRIDGE_URL): void {
     _ws.onmessage = null;
     _ws.close();
     _ws = null;
-    // Its onclose was just removed, so nothing else will retire what it told
-    // us. What a connector said belongs to the one connection it said it on.
+    // Its onclose was just removed, so clear what it announced here. What a
+    // connector said applies only to the connection it said it on.
     forgetConnector();
   }
   if (_reconnectTimer) {
@@ -222,8 +219,8 @@ export function connectBridge(url = BRIDGE_URL): void {
     _loggedOutage = false;
     _connectedAt = Date.now();
     forgetConnector();
-    // Nothing will arrive to announce an old connector, so the deadline is the
-    // only thing that can settle the question for one.
+    // An old connector sends nothing, so the deadline is the only thing that
+    // can settle its version.
     _helloTimer = setTimeout(() => {
       _helloTimer = null;
       announceConnector();
@@ -235,14 +232,13 @@ export function connectBridge(url = BRIDGE_URL): void {
     console.log('[gobo] bridge connected');
   };
 
-  // The bridge's own socket, not `_direct` further down: that one goes to
-  // TouchDesigner or whatever else the scene named, is never a connector, and
-  // is given no handler on purpose.
+  // The bridge's own socket. `_direct` further down goes to TouchDesigner or
+  // whatever else the scene named, is never a connector, and has no message
+  // handler.
   _ws.onmessage = (ev: MessageEvent) => {
-    // Everything unrecognised is dropped without a word. This direction carries
-    // one message today and will carry more, and a page that objected to the
-    // ones it had not been taught would break against the first connector newer
-    // than itself.
+    // Unrecognised messages are dropped silently. This direction carries one
+    // message type and will carry more, and a page that rejected unknown ones
+    // would break against the first connector newer than itself.
     const msg = parseConnectorMessage(ev.data);
     if (!msg) return;
     _connectorVersion = msg.version;
@@ -259,8 +255,8 @@ export function connectBridge(url = BRIDGE_URL): void {
     _connected = false;
     // The next bridge to accept us is a fresh process that has not been told
     // anything, so the config counts as undelivered until it is re-sent, and
-    // nothing learned about this one describes it. No announcement: the status
-    // change below already repaints everything that reads either.
+    // nothing learned about this one applies to it. No announceConnector(): the
+    // status change below already repaints everything that reads either.
     forgetConnector();
     _configDelivered = false;
     for (const fn of _onStatusChange) fn(false);
@@ -287,9 +283,9 @@ function scheduleReconnect(url: string): void {
  *
  * Called when the scene picks an output that needs the connector. By then the
  * backoff may have stretched to half a minute, and waiting that long to notice
- * a bridge that is already running reads as the connector being broken. Also
- * called by the page when the browser starts allowing it to reach this
- * computer, which is the same wait for the same bad reason.
+ * a bridge that is already running looks like a broken connector. Also called
+ * by the page when the browser starts allowing it to reach this computer, for
+ * the same reason.
  */
 export function retryBridgeNow(): void {
   if (_connected) return;
@@ -299,7 +295,7 @@ export function retryBridgeNow(): void {
     _reconnectTimer = null;
   }
   // A socket still in CONNECTING is already the attempt we want; restarting it
-  // would only push the answer further away.
+  // would only delay the answer.
   if (_ws && _ws.readyState === WebSocket.CONNECTING) return;
   connectBridge(_url);
 }
@@ -314,8 +310,8 @@ export function sendConfig(config: Record<string, unknown>): void {
   _lastConfig = config;
   _configDelivered = false;
   flushConfig();
-  // The scene has just asked for an output the connector has to carry, so this
-  // is the moment the connection starts mattering.
+  // The scene has just asked for an output the connector has to carry, so
+  // retry now instead of waiting out the backoff.
   if (!_configDelivered) retryBridgeNow();
 }
 
@@ -390,14 +386,14 @@ export function sendUniverseState(universes: Map<number, Uint8Array>): void {
 
 // ─── Direct output: browser straight to a WebSocket receiver ─────────────────
 //
-// A browser cannot open a UDP socket, so it can never speak Art-Net itself.
-// It can speak WebSocket, though, and anything already running on the machine
-// that receives WebSocket can do the UDP part. TouchDesigner's WebSocket DAT
-// is the usual one: the page sends frames straight to TD, and TD puts Art-Net
-// on the wire. That removes gobo's own bridge from the picture, so the hosted
-// build works with nothing installed beyond what is already open.
+// A browser cannot open a UDP socket, so it cannot send Art-Net itself. It can
+// open a WebSocket, and anything already running on the machine that receives
+// WebSocket can do the UDP part. TouchDesigner's WebSocket DAT is the usual
+// one: the page sends frames straight to TD, and TD puts Art-Net on the wire.
+// gobo's own bridge is not involved, so the hosted build works with nothing
+// installed beyond what is already open.
 //
-// The catch is mixed content. A page served over https may only open ws:// to
+// The limit is mixed content. A page served over https may only open ws:// to
 // localhost or 127.0.0.1, which browsers treat as trustworthy. A receiver on
 // another machine needs the page served over http, or the receiver behind wss.
 
@@ -427,9 +423,9 @@ function isDirectOpen(): boolean {
 }
 
 /**
- * True when the browser will refuse this connection as mixed content. Worth
- * reporting up front: the failure otherwise looks identical to "the receiver
- * is not running", and no amount of restarting the receiver fixes it.
+ * True when the browser will refuse this connection as mixed content. The UI
+ * reports this up front because the failure otherwise looks identical to "the
+ * receiver is not running", and restarting the receiver does not fix it.
  */
 export function isBlockedAsMixedContent(host: string): boolean {
   const secure = typeof window !== 'undefined' && window.location?.protocol === 'https:';
@@ -441,8 +437,8 @@ export function isBlockedAsMixedContent(host: string): boolean {
 export function connectDirect(host = 'localhost', port = 9980): void {
   const url = `ws://${host}:${port}`;
   _directUrl = url;
-  // A scene calling td() is someone acting on the connection, very often
-  // because they just opened the receiver. Start trying quickly again.
+  // A scene calling td() is someone acting on the connection, often because
+  // they just opened the receiver, so go back to retrying quickly.
   if (!_directRetrying) _directReconnectDelay = RECONNECT_MIN_MS;
 
   if (_directReconnectTimer) {
@@ -503,8 +499,8 @@ function scheduleDirectReconnect(): void {
   if (!_directUrl) return;
   if (_directReconnectTimer) return;
   // Same backoff as the bridge, for the same reason: a scene that names a
-  // receiver nobody is running should not spend the whole show failing at it
-  // twice a second. Reset on connect, and on the next td() call, which is what
+  // receiver nobody is running should not fail at it twice a second for the
+  // whole show. Reset on connect, and on the next td() call, which is what
   // someone who has just started TouchDesigner will run.
   const delay = _directReconnectDelay;
   _directReconnectDelay = Math.min(_directReconnectDelay * 2, RECONNECT_MAX_MS);
@@ -513,9 +509,9 @@ function scheduleDirectReconnect(): void {
     if (_directUrl) {
       const [, host, port] = /^ws:\/\/([^:]+):(\d+)$/.exec(_directUrl) ?? [];
       if (!host || !port) return;
-      // Marked so connectDirect knows this is the backoff continuing rather
-      // than a scene asking again, and does not reset itself to two seconds
-      // on every attempt it makes.
+      // Marked so connectDirect knows this is the backoff continuing (not a
+      // scene asking again) and does not reset the delay to two seconds on
+      // every attempt.
       _directRetrying = true;
       try {
         connectDirect(host, Number(port));

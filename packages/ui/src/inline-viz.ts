@@ -10,17 +10,17 @@
  * How the wiring works:
  *
  * 1. At eval time, each `.viz()` call pushes a VizEntry into a registry in
- *    @gobo/core. The registry contains channel layout but NOT source
- *    location. Capturing that at runtime would mean parsing stack traces,
- *    which is fragile, so it is deliberately not done.
+ *    @gobo/core. The registry holds the channel layout but no source
+ *    location, because capturing that at run time would mean parsing stack
+ *    traces, which is fragile.
  *
  * 2. After a successful eval, the main app calls `refreshViz(view)`. That
  *    scans the editor doc for `.viz(` call sites and zips those source
  *    locations against the registry (both are walked top-to-bottom so the
  *    orders line up). Each (line, entry) pair emits a line-end
  *    Decoration.widget. The scan runs over source with comments and string
- *    contents blanked out (source-scan.ts), which is what makes commenting a
- *    line out take its widget away.
+ *    contents blanked out (source-scan.ts), so commenting a line out removes
+ *    its widget.
  *
  * 3. Each widget is a `WidgetType` subclass that, on toDOM(), registers
  *    itself in a shared animation loop. The loop reads the live
@@ -230,9 +230,8 @@ class MeterWidget extends VizWidget {
 
 /**
  * Scrolling oscilloscope of the fixture's recent intensity history. Keeps
- * the last N samples in a ring buffer and redraws on every frame. Good for
- * seeing the shape of square/saw/sine patterns without looking at the
- * physical fixture.
+ * the last N samples in a ring buffer and redraws on every frame. Shows the
+ * shape of square/saw/sine patterns without looking at the physical fixture.
  */
 class WaveWidget extends VizWidget {
   private canvas: HTMLCanvasElement | null = null;
@@ -351,12 +350,12 @@ class StripWidget extends VizWidget {
  * to the core scheduler tick iterates the set and pokes each widget with its
  * own universe's buffer. Widgets unregister themselves on destroy().
  *
- * This piggy-backs on `onTick` rather than `requestAnimationFrame`. The core
- * scheduler runs in a Web Worker, so it keeps ticking when the tab is
- * backgrounded, and it is the same clock that drives the DMX output, so
- * widget visuals stay phase-locked with the fixtures. rAF also gets
- * throttled or paused in some embedded preview environments, which made
- * widgets appear static after the initial build.
+ * The loop runs on `onTick` instead of `requestAnimationFrame`. The core
+ * scheduler runs in a Web Worker, so it keeps ticking when the tab is in the
+ * background, and it is the same clock that drives the DMX output, so the
+ * widgets stay in phase with the fixtures. rAF is also throttled or paused in
+ * some embedded preview environments, where widgets would freeze after the
+ * first build.
  *
  * Multi-universe: widgets can live on any universe (the four-colour bar, for
  * example, is demo'd on universe 1). One number[] snapshot is cached per
@@ -387,9 +386,8 @@ onTick(() => {
 //
 // A slider() in the scene gets a handle at its call site. Dragging writes
 // straight into the control store, which the pattern reads on the next tick,
-// so the light moves with the handle and nothing is re-evaluated. That is the
-// point of it: during a show a re-run is a visible seam, and this has to be a
-// smooth fade.
+// so the light moves with the handle and nothing is re-evaluated. During a
+// show a re-run is a visible seam, and a fader move has to be a smooth fade.
 
 /** Draggable handle placed at the end of a slider() line. */
 class SliderWidget extends WidgetType {
@@ -481,32 +479,31 @@ class SliderWidget extends WidgetType {
  * Slider widgets that currently have DOM, so the tick can keep their handles
  * in step.
  *
- * Filled by toDOM and drained by destroy, for the reason spelled out at
+ * Filled by toDOM and drained by destroy, for the reason given at
  * _livePickers below: CodeMirror keeps the earlier run's DOM whenever the
- * replacement compares equal, so a list built during refreshViz reaches only
- * the handles nobody is looking at, and none of the ones on screen.
+ * replacement compares equal, so a list built during refreshViz would hold
+ * widgets that never rendered and miss every handle on screen.
  */
 const _liveSliders = new Set<SliderWidget>();
 
 /**
- * A colour, with the wheel behind it.
+ * Swatch for a pick() colour, which opens the colour wheel.
  *
- * A swatch showing what pick() is currently on. Clicking opens the wheel in
- * color-wheel.ts, which is drawn here rather than handed to the operating
- * system: the native picker is a wheel on most platforms but not all, and it
- * takes none of the editor's theme. The chosen colour is stored by name and
- * read live by the pattern the picker handed the scene, so the rig follows
- * the wheel without a re-run.
+ * The swatch shows the colour pick() is currently set to. Clicking opens the
+ * wheel in color-wheel.ts, which gobo draws itself instead of handing to the
+ * operating system: the native picker is a wheel on most platforms but not
+ * all, and it takes none of the editor's theme. The chosen colour is stored by
+ * name and read live by the pattern the picker handed the scene, so the rig
+ * follows the wheel without a re-run.
  *
- * The wheel speaks the same #rrggbb the native input did, and the colour
- * still reaches the store through fromHex(), so nothing downstream of pick()
- * can tell which control moved it.
+ * The wheel works in #rrggbb and the colour reaches the store through
+ * fromHex(), so nothing downstream of pick() can tell which control moved it.
  */
 class PickerWidget extends WidgetType {
   private swatch: HTMLButtonElement | null = null;
   private wheel: ColorWheel | null = null;
   /** Last hex painted on the swatch, so the per-tick sync does nothing on the
-   *  overwhelming majority of ticks, where the colour has not moved. */
+   *  ticks where the colour has not moved, which is most of them. */
   private shown = '';
 
   constructor(readonly entry: PickerEntry) {
@@ -546,10 +543,9 @@ class PickerWidget extends WidgetType {
     swatch.title = `${this.entry.name} · click for the colour wheel`;
     swatch.setAttribute('aria-label', `${this.entry.name}: colour`);
     swatch.setAttribute('aria-haspopup', 'dialog');
-    // Inline, because the shared rule paints no background of its own: it
-    // was written for an <input type="color">, which brings its own. The
-    // appearance reset goes with it, or a platform button style paints over
-    // the colour on the browsers that still have one.
+    // Set inline, because the shared CSS rule sets no background. The
+    // appearance reset is needed too, or a platform button style paints over
+    // the colour in browsers that still apply one.
     swatch.style.setProperty('-webkit-appearance', 'none');
     swatch.style.setProperty('appearance', 'none');
     swatch.style.background = hex;
@@ -608,8 +604,8 @@ class PickerWidget extends WidgetType {
   }
 }
 
-/** A colour to the #rrggbb the wheel speaks. Live components read once so a
- *  picker whose colour is itself a pattern still shows something. */
+/** A colour as the #rrggbb string the wheel uses. Live components are read
+ *  once, so a picker whose colour is itself a pattern still shows something. */
 function toHex(c: Color): string {
   const part = (v: unknown): string => {
     const n = typeof v === 'number' ? v : 0;
@@ -632,7 +628,7 @@ function fromHex(hex: string): Color {
  * the replacement compares equal, and the instance holding that DOM is then
  * the one from the earlier run, not the one the refresh just built. A list
  * built during the refresh would be full of widgets that never rendered, and
- * every sync() on them would quietly do nothing.
+ * every sync() on them would do nothing.
  */
 const _livePickers = new Set<PickerWidget>();
 
@@ -735,10 +731,10 @@ class PatternWaveWidget extends WidgetType {
  *
  * Tracked from toDOM and destroy for the reason the sliders and pickers are,
  * and keyed rather than a plain set because the tick reaches them by entry
- * index. The identity check on the way out earns its keep: CodeMirror builds
+ * index. destroy() checks identity before deleting because CodeMirror builds
  * the replacement before it drops what the replacement displaced, so when an
- * index is genuinely rebuilt the new widget registers first and the old one's
- * destroy runs second. A blind delete there would take the live sparkline
+ * index is rebuilt the new widget registers first and the old one's destroy
+ * runs second. A blind delete there would take the live sparkline
  * back out again.
  */
 const _liveSparklines = new Map<number, PatternWaveWidget>();
@@ -752,8 +748,8 @@ const _liveSparklines = new Map<number, PatternWaveWidget>();
  * single switch rather than four near-identical widgets.
  *
  * The cycle is re-queried only when the cycle number changes, not every tick:
- * the shape of a bar does not move within the bar, and querying a whole cycle
- * sixty times a second for a decoration would be real work for no gain.
+ * the shape of a bar does not change within the bar, and querying a whole
+ * cycle sixty times a second for a decoration would be wasted work.
  */
 class PatternShapeWidget extends WidgetType {
   private canvas: HTMLCanvasElement | null = null;
@@ -899,8 +895,7 @@ class PatternShapeWidget extends WidgetType {
    *
    * A plain magnitude transform over the value history, so a strobe shows a
    * peak at its rate and a slow fade sits at the left. It is a spectrum of the
-   * CHANNEL, not of any audio: there is no sound in this program to analyse,
-   * and pretending otherwise would be the wrong reading of the picture.
+   * channel values; the program has no audio to analyse.
    */
   private drawSpectrum(ctx: CanvasRenderingContext2D, w: number, h: number): void {
     const n = this.history.length;
@@ -950,12 +945,11 @@ const _liveShapes = new Map<number, PatternShapeWidget>();
  * their patterns' current sample values. Runs on the same worker-clock
  * schedule as the main pattern engine.
  *
- * Light-touch on the main thread: only CSS custom-property writes and, for
- * wave, a small canvas redraw. No attribute toggles and no forced reflows.
- * An earlier implementation used `void offsetWidth` to restart a keyframe
- * animation on each rising edge, and those synchronous layouts stalled the
- * DMX tick enough to jitter packet timing, which showed up as physical-light
- * flicker on Art-Net fixtures.
+ * Main-thread work is limited to CSS custom-property writes and, for wave, a
+ * small canvas redraw, with no attribute toggles or forced reflows.
+ * Restarting a keyframe animation with `void offsetWidth` on each rising edge
+ * forces a synchronous layout, which stalls the DMX tick enough to jitter
+ * packet timing and shows up as flicker on Art-Net fixtures.
  *
  * Flash is driven the same way glow is: a decaying intensity written as a
  * CSS custom property. Rising edge → bump intensity to 1. Each tick → decay
@@ -1055,24 +1049,24 @@ export const vizDecorationsField = StateField.define<DecorationSet>({
  *   3. Zip the two lists 1:1. Any excess on either side is ignored.
  *   4. For each (entry, line) pair, emit one widget per kind at line-end.
  *
- * Step 2 is the load-bearing one. The zip is positional, so a call site the
- * scan sees but the run never made pushes every later widget onto the wrong
- * line, and a widget lands on the very line that was supposed to have gone
- * quiet. Both lists have to be counted the same way for that not to happen.
+ * Step 2 decides whether widgets land on the right line. The zip is
+ * positional, so a call site the scan sees but the run never made pushes every
+ * later widget onto the wrong line, and a widget lands on the line that was
+ * supposed to have gone quiet. Both lists have to be counted the same way.
  *
- * Which is exactly what a performance file breaks. When looks are written as
- * functions and only the live one is called, every control inside an uncalled
- * look is a call site the scan sees and the run never made, so the zip is
- * wrong by construction — and defining a look above the one that runs inverts
- * the two orders even when the counts agree.
+ * A performance file breaks this. When looks are written as functions and
+ * only the live one is called, every control inside an uncalled look is a
+ * call site the scan sees and the run never made, so the zip is always wrong.
+ * Defining a look above the one that runs also inverts the two orders, even
+ * when the counts agree.
  *
  * So the zip is not used for the controls. slider() and pick() are declared
  * with a name, that name is unique within a run (declaring it twice throws),
  * and it is written at the call site in the source. Matching on it is exact,
- * order-independent, and immune to a look that did not run. Where the name
- * cannot be read the widget is dropped rather than guessed at, on the same
- * principle as everything else here: no widget beats a widget on the wrong
- * line, because that one is read as the truth about a light.
+ * order-independent, and unaffected by a look that did not run. Where the
+ * name cannot be read the widget is dropped instead of guessed at, as
+ * everywhere else here: a widget on the wrong line would be taken as showing
+ * that line's light.
  */
 export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}): void {
   // Settings can disable inline viz entirely. Dispatch an empty decoration
@@ -1154,12 +1148,11 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
   // writes that offset in on the way to eval (mini-locations.ts), so a
   // registration knows the line it came from and nothing has to be counted.
   //
-  // Counting is the fallback, and it is wrong in exactly the file this tool is
-  // for: with looks written as functions and one of them called, a `.flash()`
-  // inside a look that did not run is a call site the scan sees and the run
-  // never made, so every widget after it slides onto the wrong line. The
-  // fallback survives for a scene evaluated by something other than the
-  // editor, which has no offsets and wants none.
+  // Counting is the fallback, and it fails in a performance file: with looks
+  // written as functions and one of them called, a `.flash()` inside a look
+  // that did not run is a call site the scan sees and the run never made, so
+  // every widget after it slides onto the wrong line. The fallback remains for
+  // a scene evaluated outside the editor, which has no offsets.
   _patternVizEntries.clear();
   const patEntries = getPatternVizEntries();
   const patHits = findCalls(code, new RegExp(`\\.(${PATTERN_VIZ_METHOD_NAMES.join('|')})\\s*\\(`, 'g'));
@@ -1176,7 +1169,7 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
       const hit = patHits[nextHit++];
       if (hit === undefined) continue;
       // Skip if the source kind and the registered kind disagree; that is
-      // usually an identifier collision, not a real chain call.
+      // usually an identifier collision, not a chain call.
       if (patternVizKindOf(hit.match[1]) !== coreEntry.kind) continue;
       line = hit.line;
     }
@@ -1194,7 +1187,7 @@ export function refreshViz(view: EditorView, opts: { disabled?: boolean } = {}):
       });
     } else if (SHAPE_KINDS.has(coreEntry.kind)) {
       // Also end-of-line, and also fed by the tick. Several on one line
-      // simply become several widgets, in the order they were written.
+      // become several widgets, in the order they were written.
       const widget = new PatternShapeWidget(i, coreEntry.kind);
       ranges.push({
         from: lineObj.to,

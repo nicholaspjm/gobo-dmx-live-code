@@ -8,16 +8,14 @@
  *
  * A saved scene is the code and nothing else, written as a `.js` file.
  *
- * It used to be a JSON envelope carrying the name, the code and a timestamp.
- * JSON escapes the source into a single unreadable line, so the file could
- * not be read, edited, diffed or syntax-highlighted outside gobo. Everything
- * the envelope carried has a better home: the name is the filename, the save
- * time is the file's own mtime, and plain code has no format to version.
- * `.js` rather than `.txt` because the content is JavaScript, so editors
- * highlight it and formatters and diffs understand it.
+ * A JSON envelope would escape the source into a single unreadable line, and
+ * the file could not be read, edited, diffed or syntax-highlighted outside
+ * gobo. The name is the filename, the save time is the file's own mtime, and
+ * plain code has no format to version. `.js` because the content is
+ * JavaScript, so editors highlight it and formatters and diffs understand it.
  *
- * Opening still accepts the old envelope so files written by the previous
- * build keep working (see readLegacyEnvelope). The decision is made on
+ * Opening also accepts the legacy JSON envelope (name, code, timestamp) that
+ * builds up to 0.2.0 wrote (see readLegacyEnvelope). The decision is made on
  * CONTENT, not on the extension, so a `.gobo` file someone renamed still
  * opens and a `.js` file that happens to hold an old envelope still restores
  * its name. Anything else is raw code, named after the file it came from.
@@ -25,7 +23,7 @@
 
 /**
  * On-disk shape of a scene saved by builds up to 0.2.0. READ ONLY: nothing
- * here writes this shape any more, it exists so those files still open.
+ * writes this shape; it exists so those files still open.
  */
 export interface LegacySceneFile {
   goboScene: 1;
@@ -39,8 +37,8 @@ const LEGACY_SCENE_FILE_VERSION = 1;
 
 const FILE_EXTENSION = '.js';
 
-/** Extensions offered in the picker. `.gobo` is here for files written by the
- *  old build; `.txt` because people paste sets into scratch files. None of
+/** Extensions offered in the picker. `.gobo` is here for files written by
+ *  builds up to 0.2.0; `.txt` because people paste sets into scratch files. None of
  *  them are trusted: parseSceneText decides on content. */
 const ACCEPTED_EXTENSIONS = '.js,.txt,.gobo';
 
@@ -110,9 +108,9 @@ export function downloadScene(name: string, code: string): void {
  * codes, no trailing dot or space, not a reserved device name, and not
  * absurdly long. Falls back to a generic name when nothing usable survives.
  *
- * Now that the name lives ONLY in the filename, this function and
- * sceneNameFromFilename() are a matched pair, and the property that matters
- * is that they settle. Sanitising can rename a scene once (`50/50` saves as
+ * The name lives ONLY in the filename, so this function and
+ * sceneNameFromFilename() are a matched pair, and they must settle.
+ * Sanitising can rename a scene once (`50/50` saves as
  * `50 50.js` and reopens as `50 50`), but re-saving that reopened name
  * produces the identical filename, so a name cannot drift further on every
  * save/open cycle. Every rewrite is visible to the user: in the filename
@@ -152,7 +150,7 @@ export type ParsedScene =
  * Parse the text of an opened file. Never throws; every failure comes back
  * as `{ ok: false, reason }` with a sentence the UI can show verbatim.
  *
- * Raw code is the normal path; the legacy envelope is still read. Decided by
+ * Raw code is the normal path; the legacy envelope is also read. Decided by
  * content, never by the extension:
  *
  *   - Parses as a JSON object carrying a `goboScene` key → an envelope from
@@ -228,7 +226,7 @@ const CANCEL_GRACE_MS = 1000;
  * Detecting the dismissal is the awkward part: `<input type=file>` fires no
  * event at all on cancel in older engines. Two signals are used together:
  *
- *   1. The `cancel` event, which is unambiguous but only landed in Chrome
+ *   1. The `cancel` event, which is unambiguous but only exists from Chrome
  *      113 / Firefox 109 / Safari 16.4, so it cannot be the only signal.
  *   2. Window focus. The picker is modal, so focus returns to the page only
  *      once it has closed; if no `change` has arrived a beat after that, the
@@ -275,7 +273,7 @@ type EnvelopeRead =
  * Decide whether `text` is a legacy scene envelope, and validate it if so.
  *
  * `goboScene` is the marker: presence of the KEY, not the extension, because
- * a file written by the old build may have been renamed since. Once it is
+ * a legacy file may have been renamed since it was written. Once it is
  * there the file is claiming to be a scene file, so a problem from that point
  * on is an error rather than a reason to fall back to treating it as code.
  */

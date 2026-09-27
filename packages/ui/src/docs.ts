@@ -4,9 +4,8 @@
  * The content here mirrors what is available in the eval sandbox
  * (see packages/core/src/eval.ts). Keep this in sync when the API changes.
  *
- * The bundled examples live here too, under their own tab. They used to hang
- * off a separate top-bar menu, which put the working scenes and the reference
- * that explains them in two different places.
+ * The bundled examples live here too, under their own tab, next to the
+ * reference that explains them.
  */
 
 import { EXAMPLES } from './examples.js';
@@ -83,7 +82,7 @@ interface DocSection {
  */
 type DocCategory = 'welcome' | 'examples' | 'patterns' | 'fixtures' | 'viz' | 'output' | 'reference';
 
-// Tab layout: welcome · patterns · fixtures · viz · output · reference.
+// Tab layout: welcome · examples · patterns · fixtures · viz · output · reference.
 // The viz tab covers the inline editor decorations.
 const DOC_TABS: Array<{ id: DocCategory; label: string }> = [
   { id: 'welcome',   label: 'welcome' },
@@ -121,14 +120,14 @@ export const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'gobo',
     blurb:
-      'Live DMX coding in the browser, in strudel\'s pattern language. Patterns drive real fixtures: a USB DMX box, TouchDesigner, Art-Net or sACN hardware, or nothing but the simulation. Ctrl+Enter runs your code, Ctrl+. stops. Hover a fixture in the sim panel for its live channel values.',
+      'Live DMX coding in the browser, in strudel\'s pattern language. Patterns drive fixtures through a USB DMX box, TouchDesigner, Art-Net or sACN hardware, or the simulation alone. Ctrl+Enter runs your code, Ctrl+. stops. Hover a fixture in the sim panel for its live channel values.',
     entries: [],
   },
   {
     category: 'welcome',
     title: 'scenes and files',
     blurb:
-      "You edit one scene at a time. It autosaves to the browser as you type, so a refresh costs nothing. It has no name, because it is the only one. share copies a link carrying the whole scene, and that link is the durable copy. The dialog will also hand you the code as text, which is what to keep for a long scene. Bundled demos are on the examples tab here. Anything that replaces the buffer arrives stopped, and asks first.",
+      "You edit one scene at a time. It autosaves to the browser as you type, so a refresh loses nothing. It has no name, because it is the only one. share copies a link carrying the whole scene, and that link is the durable copy. The share dialog also gives you the code as text, which is the copy to keep for a long scene. Bundled demos are on the examples tab here. Anything that replaces the buffer arrives stopped, and asks first.",
     entries: [],
   },
   {
@@ -136,7 +135,7 @@ export const DOCS: DocSection[] = [
     title: 'steps',
     entries: [
       { name: 'connect your lights', signature: 'usb · td · artnet · sacn · osc · mock', description: '', panelLink: 'outputs' },
-      { name: 'how each output works', signature: 'artnet() · sacn() · usb() · td()',   description: '', tabLink: 'output' },
+      { name: 'output types',     signature: 'artnet() · sacn() · usb() · td()',   description: '', tabLink: 'output' },
       { name: 'define fixtures',  signature: 'fixture · rgbStrip · defineFixture',     description: '', tabLink: 'fixtures' },
       { name: 'write patterns',   signature: "sine · '1 - 1 -' · .slow · .every",       description: '', tabLink: 'patterns' },
       { name: 'chases and fades', signature: '.each · .fadeOut · .across · all',       description: '', tabLink: 'patterns' },
@@ -163,7 +162,7 @@ export const DOCS: DocSection[] = [
         name: 'osc',
         signature: "osc(host='127.0.0.1', port=9000)",
         description:
-          'Needs the connector: OSC travels as the same kind of network packet as Art-Net, so it is not an install-free option. Send every active channel as an OSC message through it. host is the DESTINATION: the machine running the receiver, or 127.0.0.1 if that is this machine. Address format: /gobo/<universe>/<channel>, one float arg in [0,1]. Works with the TouchDesigner OSC In CHOP.',
+          'Needs the connector, because OSC goes out as network packets, like Art-Net. Sends every active channel as an OSC message through it. host is the destination: the machine running the receiver, or 127.0.0.1 if that is this machine. Address format: /gobo/<universe>/<channel>, one float arg in [0,1]. Works with the TouchDesigner OSC In CHOP.',
         example: "osc('127.0.0.1', 9000)",
       },
       {
@@ -184,7 +183,7 @@ export const DOCS: DocSection[] = [
         name: 'usb',
         signature: 'usb()  ·  usb(universe)',
         description:
-          'Drives a USB DMX box straight from the browser, with nothing installed. Chrome or Edge. Open the outputs panel from the connection light and choose usb first to pick the device, because a browser needs a click for that and a scene cannot do it. Then call usb(). Speaks the Enttec DMX USB Pro protocol, which most interfaces use. Raw FTDI dongles that expect the host to time the DMX break are not supported. A DMX line carries one universe, and by default it is whichever universe the scene drives. Pass a number, as in usb(1), to fix it.',
+          'Drives a USB DMX box straight from the browser, with nothing installed, in Chrome or Edge. Open the outputs panel from the connection light and choose usb first to pick the device, because a browser needs a click for that and a scene cannot do it. Then call usb(). Speaks the Enttec DMX USB Pro protocol, which most interfaces use. Raw FTDI dongles that expect the host to time the DMX break are not supported. A DMX line carries one universe, and by default it is whichever universe the scene drives. Pass a number, as in usb(1), to fix it.',
         example: "usb()      // the universe the scene drives\nusb(1)     // that one, whatever the scene does",
       },
       {
@@ -197,14 +196,13 @@ export const DOCS: DocSection[] = [
     ],
   },
 
-  // Why four of the six need a program on this machine. Kept as its own
-  // section rather than repeated per entry: it is one rule, and it is the
-  // question someone asks once, when the rig stays dark.
+  // Why four of the six need a program on this machine. One section, so the
+  // explanation is not repeated in every entry.
   {
     category: 'output',
-    title: 'why a browser cannot send art-net',
+    title: 'browser limits',
     blurb:
-      'Art-Net, sACN and OSC go out as network packets, and a web page is not allowed to put packets on the network by itself. That is a rule every browser enforces, not something gobo can switch off. Something on this machine has to do the sending, and there are two ways to have it. The simpler is to run gobo locally, with the desktop app or npm start: one program serves the app and sends the packets, with nothing to connect. The other keeps this page and adds the connector beside it, a small program that starts with your computer; Chrome will ask whether the page may reach it. Either way, artnet(), sacn(), osc() and mock() all work. Without either, usb() and td() are the two outputs that reach real light from the page alone: a serial port is something a browser may open, and so is a WebSocket to TouchDesigner, which puts the Art-Net out for you.',
+      'Art-Net, sACN and OSC go out as network packets, and every browser stops a web page from sending those by itself; gobo cannot turn that off. A program on this machine has to do the sending, and there are two ways to set that up. The simpler is to run gobo locally, with the desktop app or npm start: one program serves the app and sends the packets. The other keeps this page and adds the connector, a small program that starts with your computer; Chrome asks whether the page may reach it. Either way, artnet(), sacn(), osc() and mock() all work. Without either, usb() and td() still reach lights from the page alone, because a browser may open a serial port, and a WebSocket to TouchDesigner, which sends the Art-Net for you.',
     entries: [],
   },
 
@@ -223,37 +221,34 @@ export const DOCS: DocSection[] = [
   },
 
   // ─── fixtures: orientation ──────────────────────────────────────────────
-  // Where a definition comes from, before what a fixture can do. The tab used
-  // to open on fixture() and close on the catalogue, with the four sources
-  // written down nowhere, so the first question anyone asks of a lighting tool
-  // was the one it did not answer. The catalogue at the foot of the tab is
-  // still the reference list; this is the orientation in front of it, and it
-  // points at that list rather than repeating it.
+  // Where a definition comes from, placed before what a fixture can do. The
+  // catalogue at the foot of the tab is the reference list; this section
+  // points at it rather than repeating it.
   {
     category: 'fixtures',
-    title: 'where fixtures come from',
+    title: 'fixture sources',
     blurb:
-      'A fixture definition is the map from a channel number to what that channel does, and there are four places one can come from: the generics that ship with gobo, the public library other people contributed, the fixtures you saved, and a defineFixture() written in the scene in front of you. They are the same thing once patched, so the difference is where it lives and who wrote it. The library panel tags every fixture with which of the four it is.',
+      'A fixture definition is the map from a channel number to what that channel does, and there are four places one can come from: the generics that ship with gobo, the public library other people contributed, the fixtures you saved, and a defineFixture() written in the scene in front of you. They behave the same once patched; they differ in where they are stored and who wrote them. The library panel tags every fixture with which of the four it is.',
     entries: [
       {
         name: 'defineFixture',
         signature: 'defineFixture(id, def)',
         tiers: ['session'],
         description:
-          "Write your own map and patch it like anything else: after this call, fixture(startChannel, id) works with your id. A def is { name, manufacturer, type, channelCount, channels }. name and manufacturer are labels, shown in the library panel and on hover in the sim. type says what the fixture is in general terms, one of 'dimmer', 'rgb', 'rgba', 'rgbw', 'moving-head', 'strobe' or 'generic'; it is used for searching and grouping and never for addressing. channelCount is the whole footprint, every channel the fixture occupies whether you named it or not, because that is what says whether the patch fits in the universe. channels is the list of the ones you want names for, and one you leave out never gets written.",
+          "Write your own map and patch it like anything else: after this call, fixture(startChannel, id) works with your id. A def is { name, manufacturer, type, channelCount, channels }. name and manufacturer are labels, shown in the library panel and on hover in the sim. type says what the fixture is in general terms, one of 'dimmer', 'rgb', 'rgba', 'rgbw', 'moving-head', 'strobe' or 'generic'; it is used for searching and grouping and never for addressing. channelCount is the whole footprint, every channel the fixture occupies whether you named it or not; it is what gobo checks to see whether the patch fits in the universe. channels lists the ones you want names for, and one you leave out is never written.",
         example:
           "defineFixture('house-par', {\n  name: 'House PAR',\n  manufacturer: 'Acme',\n  type: 'rgbw',\n  channelCount: 6,\n  channels: [\n    { offset: 0, name: 'dim',    type: 'intensity' },\n    { offset: 1, name: 'red',    type: 'color' },\n    { offset: 2, name: 'green',  type: 'color' },\n    { offset: 3, name: 'blue',   type: 'color' },\n    { offset: 4, name: 'white',  type: 'color' },\n    { offset: 5, name: 'strobe', type: 'strobe' },\n  ],\n})\n\nconst par = fixture(21, 'house-par')   // channels 21 to 26\npar.color(red)\npar.strobe(mini('1 - 1 -'))",
       },
       {
-        name: 'a channel is offset, name, type',
+        name: 'channel entries',
         signature: '{ offset, name, type }',
         description:
-          'offset is 0-based and counts from where the fixture was patched, so offset 0 of a fixture at channel 21 is channel 21. It is the only thing that sets the address: list the channels in any order, as long as each offset is right and no two share one. name is what a scene calls it, so name: \'red\' gives you .red(v), and the generic helpers read the names, which is how .color() knows what to paint and .off() knows what to darken. type is a hint, one of \'intensity\', \'color\', \'position\', \'strobe\', \'control\', \'generic\' or \'strip\'. It changes no address. It decides how the sim draws the fixture, and a channel typed \'intensity\' counts as light whatever it is called, which is how .off() reaches a blinder\'s warm1. Only \'strip\' takes more than one channel.',
+          'offset is 0-based and counts from where the fixture was patched, so offset 0 of a fixture at channel 21 is channel 21. It is the only thing that sets the address: list the channels in any order, as long as each offset is right and no two share one. name is what a scene calls it, so name: \'red\' gives you .red(v), and the generic helpers read the names, which is how .color() knows what to paint and .off() knows what to darken. type is a hint, one of \'intensity\', \'color\', \'position\', \'strobe\', \'control\', \'generic\' or \'strip\'. It changes no address; it decides how the sim draws the fixture, and a channel typed \'intensity\' counts as light whatever it is called, which is how .off() reaches a blinder\'s warm1. Only \'strip\' takes more than one channel.',
         example:
           "// the same par, patched twice\nconst a = fixture(21, 'house-par')   // dim on 21, white on 25\nconst b = fixture(41, 'house-par')   // dim on 41, white on 45",
       },
       {
-        name: 'what makes a channel a colour',
+        name: 'colour channels',
         signature: "name: 'red' · name: 'Red_1' · name: 'r', type: 'color'",
         description:
           'Name a colour channel red, green, blue or white and .color() finds it. Case, spaces, underscores, hyphens and a trailing number are ignored, so Red_1, RED and red are the same channel. .off() and .full() read names by the same rule, so a blackout cannot disagree with a colour call. Two kinds of channel are never a mix, however they are named: one with slots, which is a wheel picked by slot name, and one of type \'strip\', whose colour is per-pixel. The initials r, g, b and w work too, but only on a channel declared type: \'color\', because g is as likely to be a gobo wheel as green. Anything else is left alone, and .color() says so. .set(name, v) reaches any channel by its own name.',
@@ -269,16 +264,16 @@ export const DOCS: DocSection[] = [
           "// one channel entry inside a def, claiming channels 3 to 146\n{ offset: 2, name: 'pixels', type: 'strip', pixelCount: 48,\n  pixelLayout: 'rgb', columns: 12 }\n\nconst wash = fixture(1, 'my-wash')\nwash.dim(1)\nwash.pixels.chase(red)",
       },
       {
-        name: 'the built-in generics',
+        name: 'built-in generics',
         signature: "fixture(1, 'rgbw')",
         tiers: ['builtin'],
         description:
-          'Nine definitions ship with gobo for fixtures with no personality: dim, rgb, rgbw, rgba, dim-rgb, dim-rgbw, moving-head-basic, moving-head-spot and strobe. Nothing has to be imported or saved, and a scene written against one runs on anyone else\'s machine. A generic is enough whenever the channels you care about are contiguous and in the order the name implies, which covers most PARs, battens and cheap heads. Write your own when the fixture has channels the generic cannot name, when they sit in a different order, or when it has pixels. The channel list for each is under \'built-in fixture catalogue\' at the foot of this tab.',
+          'Nine definitions ship with gobo for fixtures with no personality: dim, rgb, rgbw, rgba, dim-rgb, dim-rgbw, moving-head-basic, moving-head-spot and strobe. Nothing has to be imported or saved, and a scene written against one runs on any machine. A generic is enough whenever the channels you care about are contiguous and in the order the name implies, which covers most PARs, battens and cheap heads. Write your own when the fixture has channels the generic cannot name, when they sit in a different order, or when it has pixels. The channel list for each is under \'built-in fixture catalogue\' at the foot of this tab.',
         example:
           "const par  = fixture(1, 'dim-rgb')      // 4 channels: dim, r, g, b\nconst head = fixture(5, 'moving-head-basic')\nconsole.log(listFixtures())            // every id currently registered",
       },
       {
-        name: 'the public library',
+        name: 'public library',
         signature: 'fixtures/ at the repo root',
         tiers: ['public'],
         description:
@@ -287,16 +282,16 @@ export const DOCS: DocSection[] = [
           "const atomic = fixture(1, 'atomic-strobe-154ch')\natomic.dim(1)\natomic.pixels.eachXY(sine.slow(4))\natomic.strip.fill(mini('1 - - -'))",
       },
       {
-        name: 'saved, or only this scene',
-        signature: 'the fixtures tab promotes one to the other',
+        name: 'saved and session fixtures',
+        signature: 'save a session fixture from the fixtures tab',
         tiers: ['saved', 'session'],
         description:
-          "A defineFixture() call lives exactly as long as the scene that holds it. Open another scene and the id is unknown again, which is what you want while you are still working out what the channels are. When it is right, open the library panel: the fixture is listed under 'Defined this session' with a save to library button, and saving pins it to this browser. Saved fixtures are registered again at startup, so fixture(1, 'house-par') works in a fresh scene with no defineFixture line in it at all. They are per browser and are not synced: export one to a file to carry it to another machine, or share it to propose it for the public library. Deleting one does not touch a scene that is already running.",
+          "A defineFixture() call lives exactly as long as the scene that holds it. Open another scene and the id is unknown again, which is what you want while you are still working out what the channels are. When it is right, open the library panel: the fixture is listed under 'Defined this session' with a save to library button, and saving pins it to this browser. Saved fixtures are registered again at startup, so fixture(1, 'house-par') works in a fresh scene with no defineFixture line in it. They are per browser and are not synced: export one to a file to carry it to another machine, or share it to propose it for the public library. Deleting one does not touch a scene that is already running.",
         example:
           "// in the scene: session only, gone when the scene is\ndefineFixture('house-par', { /* … */ })\n\n// after 'save to library': just this, in any scene\nconst par = fixture(21, 'house-par')",
       },
       {
-        name: 'which one is this',
+        name: 'source tags',
         signature: 'the tag on the row',
         tiers: ['builtin', 'public', 'saved', 'session'],
         description:
@@ -315,7 +310,7 @@ export const DOCS: DocSection[] = [
         name: 'fixture',
         signature: "fixture(startChannel, id, universe = 0)",
         description:
-          "Create a fixture instance. Returns an object with one setter per named channel (e.g. .red(), .dim(), .pan()) plus generic helpers .color(r,g,b[,w]), .off(), .full(). Built-in ids: dim, rgb, rgbw, rgba, dim-rgb, dim-rgbw, moving-head-basic, moving-head-spot, strobe. (The old `generic-*` ids still resolve via alias.) Universe defaults to 0 (matches Art-Net / TouchDesigner's first-universe convention).",
+          "Create a fixture instance. Returns an object with one setter per named channel (e.g. .red(), .dim(), .pan()) plus generic helpers .color(r,g,b[,w]), .off(), .full(). Built-in ids: dim, rgb, rgbw, rgba, dim-rgb, dim-rgbw, moving-head-basic, moving-head-spot, strobe. The `generic-*` ids resolve to these as aliases. Universe defaults to 0 (matches Art-Net / TouchDesigner's first-universe convention).",
         example:
           "const wash = fixture(1, 'rgbw')\nwash.color(1, 0, 0, 0.3)        // red + a touch of white\nwash.red(sine.slow(4))         // or pick channels directly\n\n// Second universe\nconst par2 = fixture(1, 'rgbw', 1)",
       },
@@ -360,9 +355,9 @@ export const DOCS: DocSection[] = [
 
   {
     category: 'output',
-    title: 'stopping, and getting dark for certain',
+    title: 'stopping',
     blurb:
-      "Ctrl+. and Ctrl+Space stop the clock. What happens to the rig after that is the stop action in settings, and whichever it is set to, pressing the key again always blacks out.",
+      "Ctrl+. and Ctrl+Space stop the clock. The stop action in settings decides what the rig does next, and whatever it is set to, a second press blacks out.",
     entries: [
       {
         name: 'blackout',
@@ -374,17 +369,17 @@ export const DOCS: DocSection[] = [
         name: 'freeze last frame',
         signature: 'for a stage you do not want dark',
         description:
-          'Stops the clock and leaves the rig on whatever it was doing, so fixing something in the code does not black the stage out. Nothing is being driven any more. The look is the last frame, held.',
+          'Stops the clock and leaves the rig on whatever it was doing, so fixing something in the code does not black the stage out. Nothing is driven after that; the rig holds the last frame.',
       },
       {
-        name: 'press it again to black out',
+        name: 'double stop',
         signature: 'ctrl+., then ctrl+. again',
         description:
           'Under freeze, pressing the key again clears everything, and the status line offers it while something is still lit. Freeze on its own leaves no key that can darken the rig, because the clock is stopped and hush() needs a scene to run.',
       },
       {
-        name: 'a usb interface carries one universe',
-        signature: 'and the run says which are missing',
+        name: 'usb and universes',
+        signature: 'one universe per DMX line',
         description:
           "A DMX line is one universe, so a USB box can only be handed one of them. Every call defaults to universe 0, so a scene only drives two if it names a second one, and if it does, a run over USB says which universes are not reaching the box. The connector sends every universe, so this only affects USB.",
       },
@@ -395,7 +390,7 @@ export const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'coming from strudel',
     blurb:
-      "gobo runs strudel's own pattern engine, so the language is the one you know: signals, mini-notation, method chains, curried changes. What changes is what a pattern is for. A channel takes a level from 0 to 1, not a note, so every idea strudel has about sound has a lighting meaning here, and that is the one gobo uses.",
+      "gobo runs strudel's own pattern engine, so the language is the one you know: signals, mini-notation, method chains, curried changes. The output differs: a channel takes a level from 0 to 1 instead of a note, so strudel's ideas about sound map to lighting ones, listed here.",
     entries: [
       {
         name: 'sounds → lights',
@@ -457,14 +452,14 @@ export const DOCS: DocSection[] = [
         name: '$: and labels → looks',
         signature: 'verse: { … }  ·  cue(verse, chorus)  ·  _verse:',
         description:
-          "A named block is a look, like a cue on a desk, and cue() switches between them with the chips, alt+1…9, a MIDI program change, or a pattern of names. An underscore mutes a block or a line, as in strudel. $: on a line just runs it.",
+          "A named block is a look, like a cue on a desk, and cue() switches between them with the chips, alt+1…9, a MIDI program change, or a pattern of names. An underscore mutes a block or a line, as in strudel. $: on a line runs it.",
         example: "verse: {\n  wash.color(blue)\n}\nchorus: {\n  wash.color(red)\n}\ncue(verse, chorus)",
       },
       {
-        name: 'the same, as written',
+        name: 'shared syntax',
         signature: 'sine.slow(4)  ·  .every(4, fast(2))  ·  setcpm(30)',
         description:
-          "Signals are written bare or called, both work. Changes are curried values, as in strudel. Tempo: one cycle is one bar of four beats, so setcpm(30) is 120 BPM, and setBPM(120) says the same in a lighting desk's words. hush() takes everything dark. Ctrl+Enter or Alt+Enter runs, Ctrl+. or Alt+. stops.",
+          "Signals work bare or called. Changes are curried values, as in strudel. Tempo: one cycle is one bar of four beats, so setcpm(30) is 120 BPM, and setBPM(120) says the same in a lighting desk's words. hush() takes everything dark. Ctrl+Enter or Alt+Enter runs, Ctrl+. or Alt+. stops.",
         example: "wash.dim(sine.slow(4))\nwash.dim('1 - 1 -'.every(4, fast(2)))",
       },
       {
@@ -475,7 +470,7 @@ export const DOCS: DocSection[] = [
         example: "wash.dim(sine.slow(2).roll())",
       },
       {
-        name: 'different on purpose',
+        name: 'deliberate differences',
         signature: 'ctrl+space  ·  sound effects',
         description:
           "Ctrl+Space stops too: it is the same stop as Ctrl+., on a second key. Effects that only make sense for sound (room, delay, crush, speed) are ignored rather than refused, so a pasted pattern still runs.",
@@ -485,39 +480,39 @@ export const DOCS: DocSection[] = [
 
   {
     category: 'welcome',
-    title: 'running part of a file',
+    title: 'partial runs',
     blurb:
-      "Ctrl+Enter runs the whole document, and that is usually right. Ctrl+Shift+Enter runs only the edits you pointed at, for when the rest of the file is not ready to go on stage. Settings can swap the two over, if the block is what you reach for most.",
+      "Ctrl+Enter runs the whole document. Ctrl+Shift+Enter runs only the edits in the block you point at, for when the rest of the file is not ready to go on stage. Settings can swap the two keys if you use the block run more.",
     entries: [
       {
         name: 'ctrl+shift+enter',
         signature: 'run only the edits in this block',
         description:
-          'Takes the document that is currently running and applies just the edits inside your selection. With nothing selected it takes the run of non-blank lines around the cursor, which in a performance file is one look. Everything else on the rig carries on as it was.',
+          'Takes the document that is currently running and applies only the edits inside your selection. With nothing selected it takes the run of non-blank lines around the cursor, which in a performance file is one look. Everything else on the rig carries on as it was.',
       },
       {
-        name: 'why it exists',
+        name: 'run scope',
         signature: 'ctrl+enter commits everything',
         description:
-          'Not for keeping other looks alive: a whole-document run already does that, invisibly. The clock is never reset by a run and every control keeps its position, so re-running unchanged code cannot be seen on the rig. This is about what a keypress commits. Nudge a level in the look that is lit and the half-written look you were drafting for the next part of the set goes live with it, as long as it happens to parse.',
+          'A whole-document run already keeps other looks going: it never resets the clock and every control keeps its position, so re-running unchanged code changes nothing on the rig. The difference is what a keypress commits. With Ctrl+Enter, nudging a level in the lit look also sends the half-written look you are drafting for the next part of the set, as long as it parses.',
       },
       {
-        name: 'a broken line elsewhere stops blocking you',
-        signature: 'the useful half',
+        name: 'broken lines elsewhere',
+        signature: 'edits outside the block are not compiled',
         description:
-          'The whole document is compiled as one unit, so a half-typed line anywhere refuses the entire run. You cannot change the level in the look that is up until the one you are drafting parses. Running the block you pointed at gets past that, because the line you are drafting is not in what gets compiled.',
+          'The whole document compiles as one unit, so a half-typed line anywhere refuses the entire run, and the look that is up cannot change until the draft parses. A block run avoids that, because the line you are drafting is not in what gets compiled.',
       },
       {
-        name: 'lines that are not on the rig are marked',
+        name: 'unrun edits',
         signature: 'a rule down the inside edge',
         description:
-          "Once the buffer and the rig can differ, you need to be able to see where. Every line edited since the run that is currently live carries a quiet rule on its inside edge, and the status bar says how many edits are not running. Debugging a light against source that is not running is worse than having no feature at all.",
+          "Every line edited since the live run carries a rule on its inside edge, and the status bar says how many edits are not running, so you can see where the buffer and the rig differ.",
       },
       {
-        name: 'what actually runs',
+        name: 'what runs',
         signature: 'always a whole document',
         description:
-          'The engine is never handed a fragment. What gets compiled is always a complete document: the last one that ran, plus your edits. The channel map is still replaced whole, patching still happens once, brightness is still inferred across the whole rig, and hush() still means blackout. Nothing about the output path changes.',
+          'The engine always compiles a complete document: the last one that ran, plus your edits. The channel map is replaced whole, patching happens once, brightness is inferred across the whole rig, and hush() means blackout, the same as in a full run.',
       },
     ],
   },
@@ -526,7 +521,7 @@ export const DOCS: DocSection[] = [
     category: 'patterns',
     title: 'choosing between patterns',
     blurb:
-      "The live-coding way to move between patterns: the switch is written into the pattern, so the document still says everything about what the rig will do and nobody has to press anything. These choose between plain patterns you named; to switch between looks, use cue().",
+      "Switching written into the pattern, so the document describes everything the rig will do and nobody has to press anything. These choose between plain patterns you named; to switch between looks, use cue().",
     entries: [
       {
         name: '.pick',
@@ -558,7 +553,7 @@ export const DOCS: DocSection[] = [
         example: "wash.red('<0 1>'.pickRestart([sparse, busy]))",
       },
       {
-        name: 'pick is two things here',
+        name: 'pick and .pick',
         signature: 'pick(name) vs .pick(list)',
         description:
           "Two different things share the name. Bare pick('warm') is gobo's colour wheel, a control with a swatch beside it. Chained .pick([…]) is strudel's chooser, described above. The dot tells them apart, and the chained form is the one strudel's own documentation uses.",
@@ -594,7 +589,7 @@ export const DOCS: DocSection[] = [
         example: "strb.dim('1 1 1 1'.settle(0.25))          // a flash per beat\nwash.dim('1 - 1 -'.settle(0.5, 0.3))     // hit, then hold at 30%",
       },
       {
-        name: 'a chase: .each(pattern)',
+        name: 'chase: .each',
         signature: 'group.each(pattern, spread = 1)',
         description:
           "Every light in the group runs the pattern, each a step later than the one before: a phase spread. The steps add up to spread cycles across the group. Set a colour first and the chase runs in it.",
@@ -608,33 +603,33 @@ export const DOCS: DocSection[] = [
         example: "pars.each('<red amber blue>')                     // each light a bar behind\nstrip.each(saw.slow(4).mul(3).palette(warm), 2)  // a palette rolling along",
       },
       {
-        name: 'where along the rig: .across',
+        name: 'position: .across',
         signature: '.across(position)',
         description:
           'Places each step at a position along a group, 0 the first light and 1 the last, shared between neighbours in between. A pattern of positions moves it.',
         example: "pars.dim('1*8'.across(saw))               // one light walks the rig\npars.dim('1*16'.across(rand).fadeOut(1)) // sparkle with tails",
       },
       {
-        name: 'fan the heads: .fan',
+        name: 'fanning heads: .fan',
         signature: 'heads.pan(pattern.fan(width))',
         description: 'A group of heads spread out around a centre position, which can move. On a dimmer it grades the brightness along the rig instead.',
         example: "const heads = group(head1, head2, head3, head4)\nheads.pan(sine.slow(8).range(0.3, 0.7).fan(0.4))\nheads.tilt('0.5'.fan(0.2))",
       },
       {
-        name: 'split the rig: .jux',
+        name: 'split rig: .jux',
         signature: '.jux(change)',
         description: 'The left half of a group runs the pattern and the right half runs it changed.',
         example: "pars.dim('1 - - -'.jux(rev))              // mirrored across the room",
       },
       {
-        name: 'colours from a palette: .palette',
+        name: 'palette colours: .palette',
         signature: '.palette(colours)',
         description:
           'Numbers pick colours: 0 the first, wrapping past the end, blending between two. The result goes to .color().',
         example: "const warm = [amber, orange, red]\nwash.color('<0 1 2>'.palette(warm))   // one colour a bar",
       },
       {
-        name: 'the grand master: all',
+        name: 'grand master: all',
         signature: 'all(change)',
         description:
           'A change for every light at once, after the rest of the scene. all(mul(slider(1))) is a grand master fader: it scales the dimmers, or the colour where there is no dimmer, and never moves a head.',
@@ -645,7 +640,7 @@ export const DOCS: DocSection[] = [
 
   {
     category: 'patterns',
-    title: 'looks you can switch between',
+    title: 'looks',
     blurb:
       "One file is one performance, and a look inside it is a block with a name, verse: { … }, like a cue on a desk. cue() is how you change which one is live without editing the file, with a chip under the editor, a key, or a button on a controller.",
     entries: [
@@ -658,45 +653,45 @@ export const DOCS: DocSection[] = [
           "const wash = rgbStrip(1, 8)\n\nverse: {\n  wash.color(blue)\n}\nchorus: {\n  wash.color(red)\n}\nbreakdown: {\n  wash.mono(pulse(4))\n}\n\ncue(verse, chorus, breakdown)",
       },
       {
-        name: 'writing the choice instead',
+        name: 'pattern selectors',
         signature: 'cue(verse, chorus, selector)',
         description:
-          "Something after the looks makes the switch part of the scene. The selector is read every frame, so the look changes without the document being evaluated again, which is the difference between a look you pick by hand and a look chosen by the pattern. Give it a pattern of names or indices, or a live control. A number is an index and wraps, so a fader between looks is declared with a range: slider('look', 0, 2, { step: 1 }).",
+          "A selector after the looks makes the switch part of the scene. It is read every frame, so the look changes without the document being evaluated again. Give it a pattern of names or indices, or a live control. A number is an index and wraps, so a fader between looks is declared with a range: slider('look', 0, 2, { step: 1 }).",
         example:
           "const wash = rgbStrip(1, 8)\n\nverse: {\n  wash.color(blue)\n}\nchorus: {\n  wash.color(red)\n}\n\ncue(verse, chorus, '<verse chorus chorus verse>')",
       },
       {
-        name: 'what a selector does to the bar',
-        signature: 'the chips become a cast list',
+        name: 'cue bar with a selector',
+        signature: 'names only, no lit chip',
         description:
-          "A scene that chooses its own look has no one look that is up, so no chip is lit and none can be pressed, the bar says 'chosen by the scene' and lists the names. A bar claiming a live look while a pattern quietly moved between them would be the screen disagreeing with the rig.",
+          "When the scene chooses its own look, no single look is up, so no chip is lit and none can be pressed; the bar says 'chosen by the scene' and lists the names. A lit chip there would show one look while the pattern moves between them.",
       },
       {
-        name: 'a look that is not selected is dark',
+        name: 'unselected looks',
         signature: 'switching, not layering',
         description:
           "Every look is run, and each channel any of them drives gets one value that resolves whichever look the selector names. A channel a look does not touch reads zero while that look is up, the same rule as running the file again with a different look called. Two looks that both want a control need one name each, because with a selector both are run.",
       },
       {
-        name: 'picking one',
+        name: 'picking a look',
         signature: 'a chip, alt+1..9, or a program change',
         description:
-          "Every look gets a chip on the cue bar under the editor, numbered. Click it, or press alt and its number, alt rather than a bare digit, because a bare digit is a number you are typing into a scene. A MIDI controller sends program change N for look N+1, which is the message desks and pad controllers already send for 'recall', so a hardware button works with no mapping. The bar is hidden entirely in a file that does not call cue().",
+          "Every look gets a chip on the cue bar under the editor, numbered. Click it, or press alt and its number (a bare digit would type into the scene). A MIDI controller sends program change N for look N+1, which is the message desks and pad controllers already send for 'recall', so a hardware button works with no mapping. The bar is hidden in a file that does not call cue().",
       },
       {
-        name: 'what happens when you pick',
+        name: 'switching looks',
         signature: 'the file runs again',
         description:
-          "Which look runs is decided when the file runs. A chip, key or program change runs the file again with that look selected; a selector in cue() switches without a re-run. Picking a look this way is not a seam: a run stages the whole scene and swaps it in at a tick boundary, so the rig holds the old look right up to the moment the new one is complete. Your document is not touched and not reformatted.",
+          "Which look runs is decided when the file runs. A chip, key or program change runs the file again with that look selected; a selector in cue() switches without a re-run. No gap shows on the rig: a run stages the whole scene and swaps it in at a tick boundary, so the rig holds the old look until the new one is complete. Your document is not edited or reformatted.",
       },
       {
-        name: 'a look that fails changes nothing',
+        name: 'failed looks',
         signature: 'the rig holds, the selection goes back',
         description:
-          "If the look you picked throws, the run is discarded and the rig stays exactly as it was, and the selection returns to the look that is actually lit, so the cue bar, the rig and the next run all agree. The error names the line.",
+          "If the look you picked throws, the run is discarded, the rig stays as it was, and the selection returns to the look that is lit, so the cue bar, the rig and the next run all agree. The error names the line.",
       },
       {
-        name: 'the selection outlives a run',
+        name: 'selection across runs',
         signature: 'like a slider position',
         description:
           "Re-running the file does not reset which look is up, so you can keep editing during a show. Rename the selected look and it falls back to the first rather than going dark; rename it back and the selection returns.",
@@ -706,31 +701,31 @@ export const DOCS: DocSection[] = [
 
   {
     category: 'viz',
-    title: 'the token that is lighting something',
+    title: 'live outlines',
     blurb:
-      "The one decoration that is always on. Everything else in this tab you ask for; this outlines, on every tick, the mini-notation tokens that actually reached a channel. Nothing is changed about the output and nothing needs to be chained: run a scene with a quoted pattern or mini() in it and watch the outline walk the string.",
+      "The one decoration that is always on. On every tick it outlines the mini-notation tokens that reached a channel. It changes nothing in the output and needs nothing chained: run a scene with a quoted pattern or mini() in it and the outline moves along the string.",
     entries: [
       {
-        name: 'why it exists',
-        signature: 'the code becomes its own playhead',
+        name: 'playhead in the code',
+        signature: 'which step fired',
         description:
-          "With sound you hear which step is playing. With light your eyes are on the rig, so when something looks wrong you are left counting tokens in a long string to work out which one fired. The outline says which one, while it is firing.",
+          "With sound you hear which step is playing. With light you are watching the rig, so finding the token that fired means counting through the string. The outline marks the token while it fires.",
         example:
           "const bar = rgbStrip(1, 8)\nbar.red('1 - 1 - 0 0 1 -')",
       },
       {
-        name: 'what gets outlined',
+        name: 'outlined tokens',
         signature: "tokens inside a quoted pattern or mini('…')",
         description:
-          "A token is outlined when a value it produced was written to a channel above zero on that tick. A rest, a zero, and a token inside a pattern nothing is listening to stay plain, so a string that lights nothing looks like one, which is usually the answer you were after. Two channels driven by one token outline it once; several patterns running at once each outline their own step.",
+          "A token is outlined when a value it produced was written to a channel above zero on that tick. A rest, a zero, and a token inside a pattern nothing is listening to stay plain, so a string that lights nothing shows no outline. Two channels driven by one token outline it once; several patterns running at once each outline their own step.",
         example:
           "const bar = rgbStrip(1, 8)\nbar.red('1 - 1 -')\nbar.blue('0 1 0 1')",
       },
       {
-        name: 'only plain quoted patterns',
+        name: 'supported strings',
         signature: "'1 0 1 0' or mini('1 0 1 0'), not mini(someString)",
         description:
-          "The offsets are found by reading the source, and it is deliberately timid about what it will read: a single quoted literal written straight into a setter, at the start of a chain, or into a mini() call. A string built from a variable, one carrying a backslash escape, or a call already given a second argument is left alone. Those scenes run exactly as before and get no outline: the scene is worth more than the decoration.",
+          "The offsets come from reading the source, which only handles simple cases: a single quoted literal written straight into a setter, at the start of a chain, or into a mini() call. A string built from a variable, one carrying a backslash escape, or a call already given a second argument gets no outline, and the scene runs normally.",
       },
     ],
   },
@@ -739,7 +734,7 @@ export const DOCS: DocSection[] = [
     category: 'viz',
     title: 'pattern viz',
     blurb:
-      "Opt-in per-pattern editor decorations. Chain one onto any pattern and the line shows what it is doing. Every method returns the pattern unchanged, so nothing about the output changes and you can chain as many as you like: two calls put two views on the line, side by side. Never on by default.",
+      "Opt-in per-pattern editor decorations. Chain one onto any pattern and the line shows what it is doing. Every method returns the pattern unchanged, so the output is unaffected and you can chain several: two calls put two views on the line, side by side.",
     entries: [
       {
         name: '.flash',
@@ -759,14 +754,14 @@ export const DOCS: DocSection[] = [
         name: '.wave',
         signature: 'sine.slow(6).wave()',
         description:
-          "The oscilloscope: a sparkline at the end of the line showing the last second or so of values as they went past. Best for anything continuous, where the shape of the curve is the thing you are checking. Like .viz('wave') but attached to one pattern rather than a whole fixture.",
+          "The oscilloscope: a sparkline at the end of the line showing the last second or so of values as they went past. Best for anything continuous, where you are checking the shape of the curve. Like .viz('wave') but attached to one pattern rather than a whole fixture.",
         example: 'washA.white(sine.slow(6).range(0, 0.4).wave())',
       },
       {
         name: '.roll',
         signature: "'1 - 1 -'.roll()",
         description:
-          "The bar drawn as blocks: every event of the current cycle laid left to right, block height by level, with the playhead sweeping across. This is the one that shows STRUCTURE, including things the wire cannot: '1@3 0.2' draws as one long block and a short one, where the light just sees a level.",
+          "The bar drawn as blocks: every event of the current cycle laid left to right, block height by level, with the playhead sweeping across. It shows structure the wire does not carry: '1@3 0.2' draws as one long block and a short one, where the light only sees levels.",
         example: "wash.red('1 - - -  - - 1 -'.roll())",
       },
       {
@@ -787,14 +782,14 @@ export const DOCS: DocSection[] = [
         name: '.spectrum',
         signature: 'sine.fast(8).spectrum()',
         description:
-          'Which rates the recent values are moving at: a fast strobe puts a peak on the right, a slow swell sits on the left. Useful for checking a strobe is running at the rate you meant. It analyses this CHANNEL, not audio; there is no sound in gobo to analyse.',
+          'Which rates the recent values are moving at: a fast strobe puts a peak on the right, a slow swell sits on the left. Useful for checking a strobe is running at the rate you meant. It analyses the values on this channel; gobo has no audio.',
         example: "strb.strobe('1*16'.spectrum())",
       },
       {
-        name: 'layering them',
+        name: 'stacking views',
         signature: 'chain as many as you like',
         description:
-          'Each call is matched to its own widget, so chaining several puts several views on the line in the order written. Nothing about the output changes: every one of these returns the pattern untouched.',
+          'Each call is matched to its own widget, so chaining several puts several views on the line in the order written.',
         example: "wash.red('1 - - -'.roll().punchcard().spectrum())",
       },
     ],
@@ -810,7 +805,7 @@ export const DOCS: DocSection[] = [
         name: 'slider',
         signature: "slider(value, min = 0, max = 1, step?)  ·  slider(name, min, max, opts?)",
         description:
-          "Returns a pattern whose value is whatever the handle is at. Strudel's form, slider(0.8), starts at that value and puts its handle on that line; it is named slider 1, slider 2 and so on in order. The named form, slider('level'), labels the handle with the name. Because it is read fresh on every tick, dragging is a read of a number rather than a rebuild of the scene, which matters during a show where a re-run is a visible seam.",
+          "Returns a pattern whose value is whatever the handle is at. Strudel's form, slider(0.8), starts at that value and puts its handle on that line; it is named slider 1, slider 2 and so on in order. The named form, slider('level'), labels the handle with the name. It is read on every tick, so dragging changes a number without rebuilding the scene, which matters during a show, where a re-run can show as a seam.",
         example:
           "spot.dim(slider(0.8))              // a handle on this line, starting at 0.8\nconst level = slider('level')\nwash.dim(level)",
       },
@@ -823,10 +818,10 @@ export const DOCS: DocSection[] = [
           "const level = slider('level', 0, 1, { step: 0.05, start: 0.3 })\nspot.dim(level)\n\nconst warmth = slider('warmth')\nwash.white(warmth)",
       },
       {
-        name: 'positions are kept',
+        name: 'kept positions',
         signature: 'across re-evaluation',
         description:
-          'A control you have moved keeps its position when the scene is run again, so editing a line further down does not throw away a level you set by hand. The number in the source is the STARTING position: used the first time that name is seen, ignored after that.',
+          'A control you have moved keeps its position when the scene is run again, so editing a line further down does not throw away a level you set by hand. The number in the source is the starting position: used the first time that name is seen, ignored after that.',
       },
       {
         name: 'midi',
@@ -905,7 +900,7 @@ export const DOCS: DocSection[] = [
         name: '.full',
         signature: '.full()',
         description:
-          'Drive every light-emitting channel to 1, by the same rule as .off(). On dim-RGB(W) fixtures this brings the dimmer AND every colour channel up together.',
+          'Drive every light-emitting channel to 1, by the same rule as .off(). On dim-RGB(W) fixtures this brings the dimmer and every colour channel up together.',
         example: 'wash.full()',
       },
       {
@@ -927,7 +922,7 @@ export const DOCS: DocSection[] = [
     category: 'fixtures',
     title: 'grids',
     blurb:
-      'A pixel wash is usually a rectangle, not a line. Tell a strip how wide it is and it can be addressed by position.',
+      'A pixel wash is usually a rectangle. Tell a strip how wide it is and it can be addressed by position.',
     entries: [
       {
         name: 'columns',
@@ -953,15 +948,15 @@ export const DOCS: DocSection[] = [
           "// 48 pixels wired from the bottom right, right to left, then upward\n{ name: 'pixels', type: 'strip', pixelCount: 48, pixelLayout: 'rgb',\n  columns: 12, origin: 'bottom-right' }",
       },
       {
-        name: 'picture order, always',
+        name: 'picture order',
         signature: '.pixel(i) and .each() too',
         description:
-          'Origin and serpentine apply to every way of addressing a strip, not just pixelXY. Counting with .pixel(i) or walking with .each() runs along the top row of the picture and continues onto the next, so a left-to-right chase reads left to right on the light even when the wire runs the other way. With the default origin and no serpentine this is the identity, so nothing written before grids existed changes.',
+          'Origin and serpentine apply to every way of addressing a strip, not just pixelXY. Counting with .pixel(i) or walking with .each() runs along the top row of the picture and continues onto the next, so a left-to-right chase reads left to right on the light even when the wire runs the other way. With the default origin and no serpentine, picture order and wire order are the same.',
         example:
           "seg.each(mini('1 - - -'))   // sweeps left to right on the light",
       },
       {
-        name: 'one channel per cell',
+        name: 'mono strips',
         signature: "pixelLayout: 'mono'  ·  monoStrip(start, count)",
         description:
           "A segmented white strobe strip, a bar of plain dimmers, a row of single-colour cells: one channel each, no colour to mix. It carries the same geometry as the colour strips, so a chase written for one works here, with a level in place of the colour.",
@@ -1005,7 +1000,7 @@ export const DOCS: DocSection[] = [
         name: 'picking a slot',
         signature: "head.color('red')",
         description:
-          'The setter takes a slot name as well as a level, so the manual stays shut. Names match regardless of case, spaces, hyphens and underscores. A name the channel does not have throws and lists the ones it does. A raw DMX number still works if you want one.',
+          'The setter takes a slot name as well as a level. Names match regardless of case, spaces, hyphens and underscores. A name the channel does not have throws and lists the ones it does. A raw DMX number still works if you want one.',
         example:
           "head.color('red')\nhead.gobo('dots')\nhead.prism('3-facet')\nconsole.log(head.slots('color'))   // list them",
       },
@@ -1018,10 +1013,10 @@ export const DOCS: DocSection[] = [
           "head.color(mini('<red blue green>'))       // one per bar\nhead.gobo(mini('open dots open star'))     // four per bar",
       },
       {
-        name: 'a slot is not a light',
+        name: 'slots and blackout',
         signature: 'off() and full() skip it',
         description:
-          'A channel carrying slots selects rather than emits, so .off() and .full() leave it exactly where it is, the same way they already leave pan and tilt. A blackout kills the output without spinning your colour wheel to whatever sits at 255.',
+          'A channel carrying slots selects rather than emits, so .off() and .full() leave it where it is, as they leave pan and tilt. A blackout kills the output without spinning your colour wheel to whatever sits at 255.',
         example: "head.color('red')\nhead.full()   // dimmer to full, wheel still on red",
       },
     ],
@@ -1029,7 +1024,7 @@ export const DOCS: DocSection[] = [
 
   {
     category: 'fixtures',
-    title: 'the screen as a light',
+    title: 'screen light',
     blurb:
       'A fixture with no DMX address. It claims a strip of the page and runs from the same patterns as everything else, so a look can be written and watched with no hardware in the room.',
     entries: [
@@ -1037,15 +1032,15 @@ export const DOCS: DocSection[] = [
         name: 'screen',
         signature: 'screen(pixels = 1, { columns, label })',
         description:
-          'With no arguments it is one colour wash: a rectangle that takes a colour. Give it a pixel count and it is a strip, add columns and it is a grid, addressable with pixelXY and eachXY exactly like a physical pixel wash. It answers every strip method, so a chase written for real hardware runs on it unchanged.',
+          'With no arguments it is one colour wash: a rectangle that takes a colour. Give it a pixel count and it is a strip, add columns and it is a grid, addressable with pixelXY and eachXY like a physical pixel wash. It answers every strip method, so a chase written for hardware runs on it unchanged.',
         example:
           "const room = screen()\nroom.fill(sine.slow(4), 0, cosine.slow(4))\n\nconst wall = screen(48, { columns: 12, label: 'wall' })\nwall.eachXY(sine.slow(4))",
       },
       {
-        name: 'why it is a real fixture',
+        name: 'how it renders',
         signature: 'same setters, same patterns',
         description:
-          'It renders from an ordinary DMX universe well above anything a rig uses, so nothing in the engine treats it specially and it can go into a group() beside real fixtures and be driven by one each(). It takes columns but not origin or serpentine: those describe how a strip is wired, and a screen has no wiring.',
+          'It renders from an ordinary DMX universe well above anything a rig uses, so nothing in the engine treats it specially and it can go into a group() beside hardware fixtures and be driven by one each(). It takes columns but not origin or serpentine: those describe how a strip is wired, and a screen has no wiring.',
         example:
           "const rig = group(washA, screen(8))\nrig.each(sine.slow(4))",
       },
@@ -1062,12 +1057,12 @@ export const DOCS: DocSection[] = [
         name: 'group',
         signature: 'group(member, member, …)',
         description:
-          "Takes fixtures, strips, a fixture's .pixels, and other groups. Members keep the order you write them in, which is the order .each() walks. A role a member does not have is skipped, so one line covers a mixed rig; a role NO member has throws, because that would otherwise be a silent no-op.",
+          "Takes fixtures, strips, a fixture's .pixels, and other groups. Members keep the order you write them in, which is the order .each() walks. A role a member does not have is skipped, so one line covers a mixed rig; a role no member has throws, because that would otherwise be a silent no-op.",
         example:
           "const rig = group(washA, washB, bar.pixels)\nrig.red(sine.slow(4))\nrig.color(1, 0, 0)\nrig.off()",
       },
       {
-        name: 'how members count',
+        name: 'member count',
         signature: 'rig.size',
         description:
           'A fixture is one element however many channels it has. A strip is one element per pixel. So pass the fixture to move it as a unit, and pass its .pixels to move the pixels. Nested groups flatten.',
@@ -1083,10 +1078,10 @@ export const DOCS: DocSection[] = [
           "const rig = group(washA, washB, bar.pixels, strip)\nrig.each(sine.slow(4), 4)                  // one ramp, whole rig\nrig.each(mini('1 - - -').fadeOut(2))       // a chase with tails",
       },
       {
-        name: 'brightness on a mixed rig',
+        name: 'mixed rig brightness',
         signature: 'a single-value .each()',
         description:
-          "A number from .each() means brightness, and each element expresses that its own way: a fixture with a dimmer moves the dimmer and keeps its colour, a fixture without one drives r/g/b together, and a pixel does the same. That is why a fade across a mixed rig does not repaint the look.",
+          "A number from .each() means brightness, and each element expresses that its own way: a fixture with a dimmer moves the dimmer and keeps its colour, a fixture without one drives r/g/b together, and a pixel does the same. So a fade across a mixed rig keeps every light's colour.",
         example:
           "washA.color(1, 0, 0)                 // dim-rgb par, red\ngroup(washA, bar.pixels).each(0.5)   // par half-bright, still red",
       },
@@ -1097,7 +1092,7 @@ export const DOCS: DocSection[] = [
     category: 'fixtures',
     title: 'built-in fixture catalogue',
     blurb:
-      'Short ids: write fixture(1, \'rgbw\'), not fixture(1, \'generic-rgbw\'). Old generic-* ids still resolve via alias, so legacy scenes keep working.',
+      'Short ids: fixture(1, \'rgbw\'). The longer generic-* ids resolve to the same definitions as aliases, so scenes that use them still run.',
     entries: [
       {
         name: 'dim',
@@ -1204,7 +1199,7 @@ export const DOCS: DocSection[] = [
         name: '.stut · .linger · .when',
         signature: '.stut(n, feedback, time) · .linger(fraction) · .when(pattern, change)',
         description:
-          'Three that come from strudel\'s Pattern. .stut repeats n times, each dimmer than the last, which is an echo that decays. .linger repeats the first fraction of a cycle for the whole cycle, a hold or a stutter. .when applies a transformation only on cycles where its test passes, so a scene can change every fourth bar without a second pattern.',
+          'Three methods from strudel\'s Pattern. .stut repeats n times, each dimmer than the last, which is an echo that decays. .linger repeats the first fraction of a cycle for the whole cycle, a hold or a stutter. .when applies a transformation only on cycles where its test passes, so a scene can change every fourth bar without a second pattern.',
         example:
           "wash.dim(flash().stut(4, 0.6, 0.125))\nwash.dim(mini('1 0 0 0').linger(0.25))\nwash.dim(sine.when(mini('<1 0 0 0>'), fast(4)))",
       },
@@ -1248,10 +1243,10 @@ export const DOCS: DocSection[] = [
           "strip.rainbowChase()\nstrip.rainbowChase({ cycles: 0.5, width: 0.06 })   // fast, tight band\nbar.pixels.rainbowChase({ waves: 2, hue: 4 })          // two crests, quicker hue",
       },
       {
-        name: 'a chase of your own',
+        name: 'custom chase',
         signature: 'strip.color(c) · strip.each(pattern)',
         description:
-          "Any chase the built-in helpers do not cover is a colour and a level pattern. Set the colour, then hand .each() the pattern: every pixel runs it a step later than the one before, in that colour. The pattern is the whole of the chase, so anything that makes a pattern shapes it: a fade, a hit with a tail, a sparkle.",
+          "Any chase the built-in helpers do not cover is a colour and a level pattern. Set the colour, then hand .each() the pattern: every pixel runs it a step later than the one before, in that colour. The pattern defines the chase, so anything that makes a pattern shapes it: a fade, a hit with a tail, a sparkle.",
         example:
           "strip.color(blue)\nstrip.each(cosine.slow(2).range(-8, 1))       // a wave\n\nstrip.color(amber)\nstrip.each(mini('1 - - -').fadeOut(2))        // a chase with tails",
       },
@@ -1273,7 +1268,7 @@ export const DOCS: DocSection[] = [
       'A colour is a value, and a run of colours is a plain array of them. The same value reaches a par, a strip, a group and a chase, so a look worked out once can be moved without rewriting it.',
     entries: [
       {
-        name: 'a colour is a value',
+        name: 'colour values',
         signature: 'wash.color(red)  ·  wash.color(1, 0.4, 0)',
         description:
           "Two ways to write a colour: one of the eleven predefined names, or three numbers from 0 to 1. A bare name is an identifier, so a misspelling is a scene error at the point you typed it rather than a light that reads dark; in quotes it is mini-notation, and a word that is not a colour is named when the scene runs. Either form is one value, and every call that takes a colour takes both, so a colour can be lifted into a const and reused.",
@@ -1281,7 +1276,7 @@ export const DOCS: DocSection[] = [
           "wash.color(red)\nwash.color(1, 0.4, 0)\n\nconst house = amber\nwash.color(house)\nstrip.fill(house)",
       },
       {
-        name: 'a palette is an array',
+        name: 'palette arrays',
         signature: 'const warm = [amber, orange, red]',
         description:
           "Several colours are a plain array, with no palette type to learn. Array operations work: warm[0] takes one stop and warm.slice(0, 2) shortens it, and '<0 1 2>'.palette(warm) puts it in time, a stop a bar. An array of numbers stays one colour, so [1, 0, 0.5] is a mix, not a palette.",
@@ -1300,7 +1295,7 @@ export const DOCS: DocSection[] = [
         name: '.mono · brightness on any light',
         signature: 'light.mono(v)  ·  light.mono(pulse(4))',
         description:
-          'Every emitter at one level: white, as bright as you ask. It works on any light, which .dim() does not. .dim() is a channel setter, so it exists only where the definition has a dimmer, and a bare rgb par keeps its brightness in its colour. .mono() drives whatever the light uses to make light, whether that is a master, three colours, four, or a strip of pixels. It takes a pattern, so .mono(pulse(4)) breathes.',
+          'Every emitter at one level, which gives white at that brightness. Unlike .dim(), it works on any light: .dim() is a channel setter, so it exists only where the definition has a dimmer, and a bare rgb par keeps its brightness in its colour. .mono() drives whatever the light uses to make light, whether that is a master, three colours, four, or a strip of pixels. It takes a pattern, so .mono(pulse(4)) breathes.',
         example: 'par.mono(0.5)          // half, in white\npar.mono(pulse(4))     // breathing, on a par with no dimmer\nbar.mono(0.2)          // a whole strip, evenly\nrig.mono(flicker())    // a mixed rig, together',
       },
       {
@@ -1311,22 +1306,22 @@ export const DOCS: DocSection[] = [
         example: 'wash.temp(3200)              // tungsten\nwash.temp(5600)              // daylight\nwash.temp(2700); wash.mono(0.4)   // a warm lamp, low\nrig.temp(4000)               // the whole rig matched',
       },
       {
-        name: '.solo · just this one',
+        name: '.solo · one light only',
         signature: 'spot.solo()',
         description:
-          'Darkens every other light this scene patched and leaves this one alone, the button every desk has, for answering "just that one, now" without unpicking the look around it. The others are darkened rather than forgotten, so running the scene again brings the whole thing back. Only lights this run patched are known, which is the same window the rest of the engine works in: a run re-patches what it uses.',
+          'Darkens every other light this scene patched and leaves this one as it is, like the solo button on a desk, for checking one light without unpicking the look around it. The others are darkened, not forgotten, so running the scene again brings the whole look back. It only knows the lights this run patched, because each run re-patches what it uses.',
         example: 'spot.solo()            // just the spot\nbar.pixels.solo()      // just the bar\n// ctrl+enter again puts the look back',
       },
       {
         name: '.color on a strip',
         signature: 'strip.color(warm)  ·  strip.color(red)',
         description:
-          'The same call as .fill(), under the word every other light answers to. A par takes .color(red), a group takes .color(red), and so does a strip. Both names are the same function. A mono strip has no colour to set and takes a level instead.',
+          'The same call as .fill(), under the name every other light uses. A par takes .color(red), a group takes .color(red), and so does a strip. Both names are the same function. A mono strip has no colour to set and takes a level instead.',
         example:
-          "bar.pixels.color(red)             // every pixel\nbar.pixels.color(warm)            // a gradient across them\nbar.pixels.color(red, blue)       // the same, as two stops\nbar.pixels.fill(red)              // the older spelling, unchanged",
+          "bar.pixels.color(red)             // every pixel\nbar.pixels.color(warm)            // a gradient across them\nbar.pixels.color(red, blue)       // the same, as two stops\nbar.pixels.fill(red)              // the same, as .fill()",
       },
       {
-        name: 'a palette across a group',
+        name: 'group palettes',
         signature: 'rig.color(warm)',
         description:
           'A group spreads the stops across its members in the order they were written, one colour each, by the same endpoint-to-endpoint rule the strips use. A single colour paints the whole group.',
@@ -1337,12 +1332,12 @@ export const DOCS: DocSection[] = [
         name: '.chase',
         signature: 'strip.chase(warm, { cycles: 2 })',
         description:
-          "The travelling band takes a palette wherever it takes a colour, and runs over the gradient instead of over one colour. The stops spread along the axis the chase runs on, so under .down() they re-sample onto the rows rather than the columns. Nothing else about the call changes: one colour is still one colour, and the options and the chained verbs mean what they meant.",
+          "The travelling band takes a palette wherever it takes a colour, and runs over the gradient instead of over one colour. The stops spread along the axis the chase runs on, so under .down() they re-sample onto the rows rather than the columns. One colour is still one colour, and the options and chained verbs work the same with a palette.",
         example:
-          "strip.chase(warm, { cycles: 2 })\nstrip.chase([blue, cyan]).down()   // stops across the rows\nstrip.chase(red)                   // unchanged",
+          "strip.chase(warm, { cycles: 2 })\nstrip.chase([blue, cyan]).down()   // stops across the rows\nstrip.chase(red)                   // one colour",
       },
       {
-        name: 'a run goes where there is room for it',
+        name: 'where palettes fit',
         signature: 'wash.color(warm) spreads · par.color(warm) is refused',
         description:
           "How many positions a light has decides what a run of stops does on it. A fixture with pixels has one position per pixel, so .color(warm) spreads the palette across them, the same as .fill(warm) on the strip underneath. A par is one position and has nowhere to put a gradient, so it refuses the palette rather than painting the first stop and dropping the rest. The message names the two things you probably meant: warm[0] for one stop, or '<0 1 2>'.palette(warm) for the whole palette in time. The same refusal covers .pixel(), which is one position wherever it sits. A single-channel strip refuses a colour outright and points at a level or at .each().",
@@ -1350,7 +1345,7 @@ export const DOCS: DocSection[] = [
           "wash.color(warm)                    // a wash with pixels: a gradient across them\nwash.color(red, blue)               // the same, written as two stops\npar.color(warm)                     // one position: refused, and told what to write\npar.color(warm[0])                  // one stop\npar.color('<0 1 2>'.palette(warm))  // the palette, in time\n\nseg.fill(0.5)                       // mono strip: a level, not a colour",
       },
       {
-        name: 'a palette in time',
+        name: 'palettes in time',
         signature: "'<0 1 2>'.palette(warm)",
         description:
           "A palette across a strip is a gradient; the same palette across time is a sequence. '<0 1 2>' steps through one number a cycle, .palette(warm) turns each number into its colour, and .slow(n) holds each for n cycles, which is how a single light works through a palette. Colour names in the pattern do the same without a palette. The result is a pattern of colours, so it goes anywhere a colour goes, including the calls that refuse the array itself.",
@@ -1369,7 +1364,7 @@ export const DOCS: DocSection[] = [
         name: 'bands',
         signature: 'strip.pixelGrid([[…], […]]).repeat()',
         description:
-          'Hard bands rather than a blend, which is the other thing a palette on a strip is usually for: list the pixels once and repeat them along the strip.',
+          'Hard bands instead of a blend: list the pixels once and repeat them along the strip.',
         example:
           "strip.pixelGrid([[1, 0.5, 0], [1, 0.25, 0], [1, 0, 0]]).repeat()   // amber, orange, red, again and again\nstrip.fill(warm)                                                     // the same three, blended",
       },
@@ -1382,18 +1377,18 @@ export const DOCS: DocSection[] = [
           "wash.color(mini('r - g - b'))\nwash.color(mini('cy ma ye'))\nstrip.fill(mini('<red blue>'))    // one colour, alternating per bar",
       },
       {
-        name: 'a number is a grey',
+        name: 'numbers as grey',
         signature: "mini('1 - 1 -')  ·  mini('0.5')",
         description:
-          "A bare number in a colour position is a grey at that level: 1 is white, 0.5 is mid grey, 0 is dark. That is what makes a level string mean the same shape wherever it is used. mini('1 - 1 -') is a strobe on a dimmer and a white strobe on a colour, so moving it from one to the other keeps the rhythm you wrote.",
+          "A bare number in a colour position is a grey at that level: 1 is white, 0.5 is mid grey, 0 is dark. So a level string keeps its shape wherever it is used: mini('1 - 1 -') is a strobe on a dimmer and a white strobe on a colour, so moving it from one to the other keeps the rhythm you wrote.",
         example:
           "wash.dim(mini('1 - 1 -'))      // a strobe\nwash.color(mini('1 - 1 -'))    // the same strobe, in white\nwash.color(mini('0.5'))        // mid grey",
       },
       {
-        name: 'a rest is a gap',
+        name: 'rests in colour',
         signature: "'-' writes nothing",
         description:
-          "A rest writes nothing, which is not the same as black. On its own the two look identical, because nothing is written and the channel stays dark. They part company the moment something else is running: layers merge highest-takes-precedence, so a gap lets the layer underneath show through where a black would have held it down. '-' looks like an off switch and is not one.",
+          "A rest writes nothing, which differs from black. On their own the two look the same, because nothing is written and the channel stays dark. They differ when something else is running: layers merge highest-takes-precedence, so a gap lets the layer underneath show through where a black would have held it down.",
         example:
           "wash.color(mini('r - g'))                       // dark on the rests\nwash.color(stack(mini('r - g'), mini('0.2')))   // the rests show the bed",
       },
@@ -1401,15 +1396,15 @@ export const DOCS: DocSection[] = [
         name: 'white on an RGBW strip',
         signature: 'bar.pixels.fill(warm)  ·  bar.pixels.white(v)',
         description:
-          "Every colour path writes r, g and b, because a colour is three components and the fourth is a dedicated emitter that a three-component mix has no business touching. A fill, a pixel, a chase or a group colour therefore leaves W wherever the scene last put it, and .full() is still the call that lights every emitter a fixture has. Every one of them agrees, rainbowChase() included.",
+          "Every colour path writes r, g and b, because a colour has three components and W is a separate emitter. A fill, a pixel, a chase or a group colour therefore leaves W wherever the scene last put it, and .full() is the call that lights every emitter a fixture has. rainbowChase() follows the same rule.",
         example:
           "bar.pixels.fill(warm)     // r, g, b; W left as it was\nbar.pixels.white(0.3)     // set it yourself\nbar.full()                // every emitter, W included\nbar.pixels.chase(warm)    // r, g, b; W left as it was",
       },
       {
-        name: 'colour implies brightness',
-        signature: 'a master dimmer nobody set',
+        name: 'implied dimmer',
+        signature: 'an unset master dimmer',
         description:
-          "On a fixture whose master dimmer gates everything else, painting a colour and never touching the dimmer is a perfect picture on a dark light. So at the end of a run, any dimmer that gated an emitter the scene drove and that the scene never set itself is raised to full, and the run names the ones it raised. Set dim() yourself, anywhere in the scene, and it stands exactly as written, a deliberate blackout included.",
+          "On a fixture whose master dimmer gates everything else, painting a colour and never touching the dimmer leaves the light dark. So at the end of a run, any dimmer that gated an emitter the scene drove and that the scene never set itself is raised to full, and the run names the ones it raised. Set dim() yourself, anywhere in the scene, and it stays as written, a deliberate blackout included.",
         example:
           "const wash = fixture(1, 'dim-rgb')\nwash.color(red)   // dimmer raised at the end of the run, and reported\n\nwash.dim(0.4)     // said out loud, so left alone",
       },
@@ -1480,7 +1475,7 @@ export const DOCS: DocSection[] = [
         name: 'subdivisions',
         signature: "[a b c]",
         description:
-          "Wrap tokens in brackets to compress them into the time of ONE outer slot. [a b] plays at 2× the outer step rate, [a b c d] at 4×. Nest freely. A fill, in chase terms: the steps inside the brackets share one step's time.",
+          "Wrap tokens in brackets to compress them into the time of one outer slot. [a b] plays at 2× the outer step rate, [a b c d] at 4×. Nesting works to any depth. A fill, in chase terms: the steps inside the brackets share one step's time.",
         example:
           "wash.red(mini('1 [1 1] 1 -'))          // 5 hits per cycle\nstrb.strobe(mini('- [1 1 1 1] - [1 1 1 1]'))  // bursts on 2 and 4",
       },
@@ -1488,7 +1483,7 @@ export const DOCS: DocSection[] = [
         name: 'repetition',
         signature: "a*N",
         description:
-          "Repeat one token N times inside its slot. 'a*4' plays a four times in the space of one step. Difference from brackets: brackets compress multiple DIFFERENT tokens, *N repeats the SAME token.",
+          "Repeat one token N times inside its slot. 'a*4' plays a four times in the space of one step. Brackets compress several different tokens; *N repeats one token.",
         example:
           "strb.strobe(mini('1*16'))             // 16 evenly-spaced hits per cycle\nwash.red(mini('0 0.5*3 1'))            // mixes speeds inside one pattern",
       },
@@ -1510,7 +1505,7 @@ export const DOCS: DocSection[] = [
         name: 'polymeter',
         signature: '{a b, c d e}',
         description:
-          'Curly braces run sequences of different lengths against each other, all stepping at the same rate, so they drift in and out of phase instead of being squeezed to fit. Add %N to set the step rate explicitly. Long phrases out of short strings.',
+          'Curly braces run sequences of different lengths against each other, all stepping at the same rate, so they drift in and out of phase instead of being squeezed to fit. Add %N to set the step rate explicitly. This builds long phrases out of short strings.',
         example:
           "wash.red(mini('{1 0, 0.5 0.5 0.5}'))\nwash.red(mini('{1 0 0.5}%4'))",
       },
@@ -1526,7 +1521,7 @@ export const DOCS: DocSection[] = [
         name: 'alternation',
         signature: "<a b c>",
         description:
-          "Angle brackets pick ONE token per cycle, advancing each cycle. '<0 0.5 1 0.5>' gives brightness 0 on cycle 1, 0.5 on cycle 2, 1 on cycle 3, 0.5 on cycle 4, then loops. Useful for slowly changing patterns without writing a long string.",
+          "Angle brackets pick one token per cycle, advancing each cycle. '<0 0.5 1 0.5>' gives brightness 0 on cycle 1, 0.5 on cycle 2, 1 on cycle 3, 0.5 on cycle 4, then loops. Useful for slowly changing patterns without writing a long string.",
         example:
           "wash.red(mini('<0 0.5 1 0.5>'))        // brightness cycles each 4 beats",
       },
@@ -1550,7 +1545,7 @@ export const DOCS: DocSection[] = [
         name: 'stack',
         signature: 'stack(pat1, pat2, …)',
         description:
-          "Run patterns in parallel on one channel. Every pat is queried each tick and the BRIGHTEST value wins, the same highest-takes-precedence merge a lighting desk uses. That makes layers additive in the useful sense: adding one can only raise the channel, never darken it. A slow swell under a fast strobe is the usual reason to reach for it.",
+          "Run patterns in parallel on one channel. Every pat is queried each tick and the brightest value wins, the same highest-takes-precedence merge a lighting desk uses, so adding a layer can only raise the channel. A typical use is a slow swell under a fast strobe.",
         example:
           "spot.dim(stack(sine.slow(8).range(0.2, 0.5), mini('1 - - - 1 - - -')))",
       },
@@ -1566,7 +1561,7 @@ export const DOCS: DocSection[] = [
         name: 'step grid',
         signature: "one mini() per channel, same length",
         description:
-          'Split the same 16-step rhythm across R/G/B/W, or across several fixtures. Match the bar count between strings and group tokens in fours so the columns line up. The starter example has a live version on the wash fixture.',
+          'Split the same 16-step rhythm across R/G/B/W, or across several fixtures. Match the bar count between strings and group tokens in fours so the columns line up. The language tour example has a live version on the wash fixture.',
         example:
           "wash.red(  mini('1 - - -  - - 1 -  - - 1 -  - - - -'))\nwash.green(mini('- - 1 -  1 - - -  - - - -  - 1 - -'))\nwash.blue( mini('- 1 - -  - - - 1  - 1 - -  1 - - 1'))\nwash.white(mini('- - - 1  - - - -  - - - 1  - - - -'))",
       },
@@ -1596,7 +1591,7 @@ export const DOCS: DocSection[] = [
         name: '.range(lo, hi)',
         signature: 'pat.range(lo, hi)',
         description:
-          'Rescale the 0-1 output into [lo, hi]. Essential for dimming a colour without killing its motion: sine.range(0, 0.8).',
+          'Rescale the 0-1 output into [lo, hi]. Use it to dim a colour and keep its motion: sine.range(0, 0.8).',
         example: 'washA.red(sine.slow(4).range(0, 0.9))',
       },
       {
@@ -1615,7 +1610,7 @@ export const DOCS: DocSection[] = [
         name: '.range backwards',
         signature: 'pat.range(hi, lo)',
         description:
-          'A high-to-low range inverts the pattern. range(1, 0) is the cheapest way to make one fixture the negative of another without writing a second pattern.',
+          'A high-to-low range inverts the pattern. range(1, 0) is the simplest way to make one fixture the negative of another without writing a second pattern.',
         example:
           "washA.red(sine.slow(4).range(0, 1))\nwashB.red(sine.slow(4).range(1, 0))   // opposite swell",
       },
@@ -1676,7 +1671,7 @@ export const DOCS: DocSection[] = [
         name: '.iter(n)',
         signature: 'pat.iter(n)',
         description:
-          'Rotate the pattern one step to the left each cycle, back to the start after n. A four-step pattern becomes four bars of the same material entering at a different point. Cheap way to turn one bar into a phrase.',
+          'Rotate the pattern one step to the left each cycle, back to the start after n. A four-step pattern becomes four bars of the same material entering at a different point. A quick way to turn one bar into a phrase.',
         example: "bar.pixels.red(mini('1 0.6 0.3 0').iter(4))",
       },
       {
@@ -1727,7 +1722,7 @@ export const DOCS: DocSection[] = [
         name: '.superimpose(change)',
         signature: 'pat.superimpose(change)',
         description:
-          'Play the pattern and a transformed copy of it together. The copy is layered on top, not substituted, so this is how you thicken a pattern: the original stays exactly as it was.',
+          'Play the pattern and a transformed copy of it together. The copy is added on top and the original is unchanged, which thickens the pattern.',
         example:
           "wash.red(mini('1 - - -').superimpose(late(0.125)))",
       },
@@ -1748,10 +1743,10 @@ export const DOCS: DocSection[] = [
           "wash.red(mini('1 - - -').echoWith(4, 0.125, mul(0.5)))   // each repeat half the last",
       },
       {
-        name: 'per-channel, not per-fixture',
+        name: 'repeated setter calls',
         signature: 'two calls to one setter',
         description:
-          "Layering merges values on ONE channel. Two calls to the same setter do not merge: the second replaces the first, because the last call is the one that registers. To combine them, put both inside one stack() or one comma'd mini string.",
+          "Two calls to the same setter do not merge: the last call registered replaces the first. To combine them, put both inside one stack() or one comma'd mini string.",
         example:
           "wash.red(mini('1 - - -'))\nwash.red(sine)                                  // replaces the line above\nwash.red(stack(mini('1 - - -'), sine.mul(0.3)))  // combines them",
       },
@@ -1776,7 +1771,7 @@ export const DOCS: DocSection[] = [
         name: 'lines into bars',
         signature: 'mini(`…`).slow(n)',
         description:
-          'Since the whole string is one cycle, .slow(n) spreads it over n bars. Write n lines of 4 and slow by n and each line is a bar. This is exactly equivalent to cat() of the same bars, and much easier to read at eight bars than eight separate mini() calls.',
+          'Since the whole string is one cycle, .slow(n) spreads it over n bars. Write n lines of 4 and slow by n and each line is a bar. It is equivalent to cat() of the same bars, and easier to read at eight bars than eight separate mini() calls.',
         example:
           "// these two produce identical output\nwash.red(mini(`1 - - -\\n- - 1 -`).slow(2))\nwash.red(cat(mini('1 - - -'), mini('- - 1 -')))",
       },
@@ -1789,7 +1784,7 @@ export const DOCS: DocSection[] = [
           "wash.red(mini('1 - <0.3 0.6 1 0.6> -'))   // third beat climbs over 4 bars",
       },
       {
-        name: 'a section at a time',
+        name: 'sections with cat',
         signature: 'cat(hold, hold, hit, …)',
         description:
           'cat() takes one cycle from each argument in turn, so naming your bars and listing them is a workable running order for a whole set. Repeat a name to repeat the bar.',
@@ -1836,7 +1831,7 @@ export const DOCS: DocSection[] = [
         name: 'rand · perlin',
         signature: 'rand  ·  perlin',
         description:
-          'Two kinds of noise. rand is a new random level every moment, which reads as sparkle or fault (add .segment(n) for steps); perlin wanders smoothly, which reads as flicker, candlelight or drift. perlin is almost always the one you want for something meant to look alive.',
+          'Two kinds of noise. rand is a new random level every moment, which reads as sparkle or fault (add .segment(n) for steps); perlin wanders smoothly, which reads as flicker, candlelight or drift. perlin is usually the better choice for something meant to look alive.',
         example: 'wash.red(perlin.slow(4).range(0.3, 1))\nstrb.strobe(rand.range(-6, 1))',
       },
       {
@@ -1863,7 +1858,7 @@ export const DOCS: DocSection[] = [
       'Ways to pick, reorder or vary, all with strudel\'s own names so a pattern copied from its docs runs here.',
     entries: [
       {
-        name: 'what a pattern about sound does here',
+        name: 'sound methods',
         signature: "sine.gain(0.5)  ·  .room(…)  ·  .s('bd')",
         description:
           'Patterns copied from strudel mostly run, because gobo runs strudel\'s own engine under strudel\'s names; the coming from strudel page on the welcome tab has the differences. Many of those methods describe sound. What happens is decided where a value reaches a channel: a plain number is the level, and a wrapped value is unwrapped so the level underneath still drives the light instead of reading as nothing. gain is kept, because gain is amplitude and amplitude is level, and so is velocity, which is how strudel accents a step. Both multiply, which is what makes .stut() and .echo() decay instead of repeating at full. speed, pan, room, crush, note and the sample name are ignored. Nothing errors, so a pasted pattern runs.',
@@ -2001,7 +1996,7 @@ export const DOCS: DocSection[] = [
         name: 'nothing',
         signature: 'wash.red()',
         description:
-          'An omitted value means full. Naming a channel and no level reads as "on", so the shortest way to get a light on is to say so. Works on every setter, on .color() and .fill() (full white), and on ch() / dim() / uni().',
+          'An omitted value means full. A channel named with no level reads as "on", so wash.red() is the shortest way to turn a channel on. Works on every setter, on .color() and .fill() (full white), and on ch() / dim() / uni().',
         example: 'wash.red()\nspot.dim()\nbar.pixels.fill()',
       },
       {
@@ -2055,7 +2050,7 @@ export const DOCS: DocSection[] = [
       {
         name: 'hover a name',
         signature: 'hover',
-        description: 'Any built-in shows its signature and an example. A light you patched yourself shows the fixture it resolved to, how many channels it took, and every setter it turned out to have. Custom ids from defineFixture resolve once the scene has run.',
+        description: 'Any built-in shows its signature and an example. A light you patched yourself shows the fixture it resolved to, how many channels it took, and every setter it has. Custom ids from defineFixture resolve once the scene has run.',
         example: "const wash = fixture(1, 'rgb')   // hover 'wash'",
       },
       {
@@ -2158,10 +2153,9 @@ interface Hit {
  * `rgbStrip`. Several joined by `·` or `/` still count, since that is how the
  * reference pairs `sine · cosine` and `.late / .early`.
  *
- * Everything else is a heading over a paragraph: "picking a slot", "why it is
- * a real fixture", "brightness on a mixed rig". Worth reading, and worth
- * finding, but not what someone searching mid-scene is reaching for. Those go
- * below the divider.
+ * Everything else is a prose label over a paragraph: "picking a slot",
+ * "mixed rig brightness". Those are still found, but they go below the
+ * divider, because someone searching mid-scene usually wants a name to type.
  */
 const CODE_NAME = /^\.?[A-Za-z_$][\w$-]*(\([^)]*\))?$/;
 
@@ -2182,13 +2176,12 @@ function wordIndex(text: string, re: RegExp | null): number {
  * Build the matcher for finding a query inside prose: the word itself, not a
  * run of letters inside a longer one.
  *
- * Searching "red" used to return `.punchcard`, `.superimpose` and half the
- * grid section, because their descriptions say "required", "restored" and
- * "coloured". A trailing s/es/ed/ing is allowed so "pattern" still finds a
- * sentence about patterns.
+ * Without word boundaries, "red" would match descriptions that say
+ * "required", "restored" or "coloured". A trailing s/es/ed/ing is allowed so
+ * "pattern" still finds a sentence about patterns.
  *
- * Returns null when the query has no word in it to match, which is what
- * someone typing just "." or "(" has so far given us. Exported for its test.
+ * Returns null when the query has no word in it to match, such as "." or "("
+ * on its own. Exported for its test.
  */
 export function proseMatcher(q: string): RegExp | null {
   const word = q.replace(/^[^\w$]+/, '').replace(/[^\w$)\s]+$/, '');
@@ -2244,7 +2237,7 @@ function scoreEntry(
   ) return named(2_500 - sig.length / 20);
   if (sig.includes(q)) return named(1_500 - sig.length / 20);
 
-  // Below here the entry is not called this, it just talks about it.
+  // Below here the entry only mentions the query.
   if (sectionTitle === q) return { score: 1_200, tier: 'mention' };
   if (wordIndex(sectionTitle, prose) >= 0) return { score: 900, tier: 'mention' };
 
@@ -2289,9 +2282,9 @@ function renderResultEntry(entry: DocEntry, section: DocSection): string {
 /**
  * How many "also mentions" rows to show before summarising the rest.
  *
- * Every entry that merely says the word is a match, and for a common one like
- * "pattern" that is most of the reference. Showing all of them buried the four
- * entries actually called that under forty that were not.
+ * Every entry that says the word is a match, and for a common one like
+ * "pattern" that is most of the reference. Showing all of them would bury the
+ * few entries named that under dozens that only mention it.
  */
 const MENTION_LIMIT = 8;
 
@@ -2469,10 +2462,9 @@ export function renderDocs(body: HTMLElement): void {
     if (next) switchTab(next);
   });
 
-  // Focus search whenever this page comes into view. It used to watch the
-  // panel's class list with a MutationObserver, which no longer says what it
-  // said: the panel opens for five different tabs now, and only one of them is
-  // this one. The shell raises an event on the page it is showing instead.
+  // Focus search whenever this page comes into view. The panel hosts several
+  // pages, so its open state alone does not say this one is showing; the
+  // shell raises PANEL_OPEN_EVENT on the page it shows.
   body.addEventListener(PANEL_OPEN_EVENT, () => {
     // Deferred so the slide-in transition does not fight the focus.
     setTimeout(() => input.focus(), 50);

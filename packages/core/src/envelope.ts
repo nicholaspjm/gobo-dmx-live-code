@@ -22,11 +22,10 @@
  * units strudel uses, so a pattern pasted from its docs shapes the light the
  * way it shaped the note.
  *
- * The release is the reason this is not a per-hap calculation in the tick: a
- * tail lives in the time after its step, where the pattern has no event at
- * all. So a faded pattern looks back as far as its longest tail when it is
- * queried, finds the steps that have ended recently, and lets the brightest of
- * them win.
+ * The release cannot be computed per hap in the tick: a tail lives in the
+ * time after its step, where the pattern has no event. So a faded pattern
+ * looks back as far as its longest tail when it is queried, finds the steps
+ * that have ended recently, and lets the brightest of them win.
  */
 
 import { levelOf } from './dmx.js';
@@ -69,7 +68,7 @@ function patternAmount(p: NonNullable<Span['pattern']>, from: number, to: number
       if (Number.isFinite(n) && n > most) most = n;
     }
   } catch {
-    // A length that cannot be read is no length.
+    // A length that cannot be read counts as 0.
   }
   return most;
 }
@@ -321,10 +320,9 @@ function levelArg(v: unknown, what: string, example: string): number {
 /**
  * Put the fade methods on strudel's Pattern prototype.
  *
- * Strudel's attack, decay, sustain, release and adsr are replaced rather than
- * joined: on a pattern they only ever attached a field a light ignores, so a
- * scene that used them did nothing, and now it fades. Nothing inside strudel
- * calls them; they exist for code a person writes.
+ * Strudel's attack, decay, sustain, release and adsr are replaced outright:
+ * strudel's versions only attach a field that a light ignores. Nothing inside
+ * strudel calls them; they exist for code a person writes.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function installFades(kit: StrudelKit, proto: any): void {
@@ -335,7 +333,7 @@ export function installFades(kit: StrudelKit, proto: any): void {
       const amount = amountOf(v, `.${name}`, unit);
       return fade(kit, this, { [key]: { amount, unit } });
     };
-  // Not hold or drop, which read well for light but are strudel's own
+  // hold and drop would read well for light, but they are strudel's own
   // methods (a hold on the value, and dropping steps) and in use.
   proto.fadeIn = stage('attack', 'beats', 'fadeIn');
   proto.fadeOut = stage('release', 'beats', 'fadeOut');

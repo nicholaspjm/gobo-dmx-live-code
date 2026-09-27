@@ -1,32 +1,25 @@
 /**
  * The side panel: one sliding surface with a row of tabs.
  *
- * There used to be five of these, each with its own button in the top bar,
- * its own header, its own close, its own Escape handler and its own copy of
- * "close the other four so we do not stack". Five buttons is five words to
- * read before pressing anything, and the five things behind them — the
- * reference, the fixture library, the log, the outputs and the settings — are
- * all the same kind of thing: something you look at beside the code, not
- * something you do to the rig.
- *
- * So there is one panel and one button. Mutual exclusion stops being a rule
- * every panel has to remember and becomes what a tab strip is.
+ * The reference, the fixture library, the log, the outputs and the settings
+ * are all things you look at beside the code, so they share one panel and one
+ * top-bar button. The tab strip gives mutual exclusion for free: only one page
+ * shows at a time.
  *
  * This module owns the shell: which tab is showing, the tab strip itself, the
  * close button and the Escape key. It owns no content. Each page is an element
- * the caller has already filled, and the modules that fill them no longer know
- * they are in a panel at all — they ask `isOpen()` when they want to skip work
- * that nobody can see, and listen for PANEL_OPEN_EVENT on their own body when
- * they want to do something the moment they come into view.
+ * the caller has already filled, and the modules that fill them do not know
+ * they are in a panel. They call `isOpen()` to skip work nobody can see, and
+ * listen for PANEL_OPEN_EVENT on their own body to act when they come into
+ * view.
  */
 
 /**
  * Dispatched on a page's own element each time that page becomes visible.
  *
- * Bubbles, so a delegated listener higher up hears it too. It replaces the
- * MutationObserver the reference panel used to keep on the shell's class list:
- * the observer was watching for a class that no longer means what it did,
- * since the shell is open for every tab now and not just that one.
+ * Bubbles, so a delegated listener higher up hears it too. Watching the
+ * shell's `open` class cannot tell pages apart, because the shell is open for
+ * every tab.
  */
 export const PANEL_OPEN_EVENT = 'gobo:panel-open';
 
@@ -48,7 +41,7 @@ export interface PanelHost {
   close(): void;
   /** Open `id`, or close the panel if `id` is already the one showing. */
   toggle(id: string): void;
-  /** Whether the panel is open, and — with an id — showing that page. */
+  /** Whether the panel is open (and, given an id, showing that page). */
   isOpen(id?: string): boolean;
 }
 
@@ -62,8 +55,7 @@ export function mountPanel(opts: {
   const { shellEl, tabsEl, closeEl, toggleEl, pages } = opts;
 
   // The tab that opens when the button is pressed with no page in mind. It
-  // survives a close, so going away and coming back lands where you left,
-  // rather than sending you to the reference every time.
+  // survives a close, so reopening lands on the page you left.
   let current = pages[0]?.id ?? '';
   let open = false;
 
@@ -88,8 +80,8 @@ export function mountPanel(opts: {
     current = id;
     open = true;
     render();
-    // After render, so a listener that measures or focuses is looking at the
-    // page as it will actually be.
+    // After render, so a listener that measures or focuses sees the page as
+    // it will be shown.
     const page = pages.find((p) => p.id === id);
     page?.bodyEl.dispatchEvent(new CustomEvent(PANEL_OPEN_EVENT, { bubbles: true }));
   }

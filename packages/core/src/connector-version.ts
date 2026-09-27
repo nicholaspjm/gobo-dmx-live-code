@@ -1,23 +1,18 @@
 /**
- * Who the connector says it is, and whether that is old enough to say something
- * about.
+ * The connector's announced version, and what the page should say about it.
  *
- * THE PROBLEM THIS EXISTS TO FIX
- * A blackout reached the rig a bar late. The fix had shipped days earlier, but
- * the connector doing the sending was built before it, downloaded once and
- * relaunched by a login item at every login since. The page had no way to know
- * and nothing on screen said so, and the same stale connector has now started
- * two separate investigations. The connector announces its version on connect;
- * this decides what, if anything, the page should say about it.
+ * A connector is downloaded once and relaunched by a login item at every
+ * login, so it can run for months without the fixes the page expects (a
+ * blackout reaching the rig a bar late, for one). The connector announces its
+ * version on connect; this decides what, if anything, the page says about it.
  *
- * WHY IT IS ITS OWN MODULE
- * websocket.ts reads window.location the moment it is imported, so nothing in
- * it can be loaded without a DOM, and every route from @gobo/core into the UI
- * goes through that file or through strudel, which will not load under vitest
- * either. Parsing the message, comparing the versions and deciding what to say
- * are the parts worth testing and the parts with no socket in them, so they
- * live here, where a test can import them on their own. osc.ts in the connector
- * was split out of index.ts for the same reason.
+ * Kept apart from websocket.ts so it can be tested: websocket.ts reads
+ * window.location on import, so it cannot load without a DOM, and every other
+ * route from @gobo/core into the UI goes through it or through strudel, which
+ * does not load under vitest either. Parsing, version comparison and the
+ * notice text have no socket in them, so they live here where a test can
+ * import them alone. osc.ts in the connector is split from index.ts for the
+ * same reason.
  */
 
 /**
@@ -25,40 +20,39 @@
  *
  * The page has no version of its own to read: vite bundles it from source with
  * no build-time define for one, and every package in this repository is
- * released together on a single tag. So this stands for the app.
- * connector-version.test.ts checks it against the package files on disk, so it
- * cannot quietly drift away from what actually shipped.
+ * released together on a single tag, so this stands for the app.
+ * connector-version.test.ts checks it against the package files on disk so it
+ * cannot drift from what shipped.
  */
 export const APP_VERSION = '0.6.0';
 
 /**
  * The first connector that announces itself.
  *
- * Silence is the whole reason this constant exists. No connector released so
- * far sends anything toward the page, so hearing nothing does not mean the
- * version is unknown, it means the connector predates the handshake. Naming the
- * version that started it stays true as the app moves on, which comparing
- * against APP_VERSION would not: a 0.3.0 connector talking to a 0.9.0 page is
- * behind, but it is not silent.
+ * Connectors older than this send nothing to the page, so a connector that
+ * stays silent predates the handshake. This names the version that started
+ * it, which stays correct as the app moves on; comparing against APP_VERSION
+ * would not, since a 0.3.0 connector talking to a 0.9.0 page is behind but
+ * still announces itself.
  */
 export const HANDSHAKE_SINCE = '0.3.0';
 
 /**
  * The first connector that refuses pages from other websites.
  *
- * Everything before it listened on every network interface and accepted a
+ * Earlier connectors listened on every network interface and accepted a
  * WebSocket from anything, so any site open in the same browser could drive
- * the rig through it. A connector that is merely behind is missing fixes; one
- * that is behind this is a reason to act today, and the notice says so.
+ * the rig through them. A connector older than this needs replacing at once,
+ * and the notice says so.
  */
 export const ORIGIN_CHECK_SINCE = '0.5.0';
 
 /** Said after the usual reason when the connector predates the origin check. */
 const OPEN_TO_ANY_SITE =
   ' It is also old enough to accept connections from any website open in this browser, and from '
-  + 'anything on the same network, so replace it now rather than later.';
+  + 'anything on the same network, so replace it now.';
 
-/** The only message the connector sends today. */
+/** The only message the connector sends. */
 export interface ConnectorHello {
   type: 'hello';
   version: string;
@@ -70,7 +64,7 @@ export interface ConnectorHello {
   /**
    * The IPv4 networks the connector's computer is on, so the outputs panel
    * can say which artnet() line reaches them. Empty from connectors before
-   * 0.5.3, which never said.
+   * 0.5.3, which do not send it.
    */
   networks: LocalNetwork[];
 }
@@ -110,15 +104,15 @@ export function onNetwork(host: string, net: LocalNetwork): boolean {
 /**
  * Read one frame off the bridge socket.
  *
- * Returns null for everything that is not a hello worth acting on, and says
- * nothing about it. This channel opened with one message type and will grow
- * more, so a page that objected to the ones it had not been taught yet would
- * break against the first connector newer than itself. Binary frames, malformed
- * JSON, a bare number, an array, a hello with no usable version: all null.
+ * Returns null, silently, for everything that is not a usable hello. The
+ * channel has one message type and will gain more, so a page that rejected
+ * unknown ones would break against the first connector newer than itself.
+ * Binary frames, malformed JSON, a bare number, an array and a hello with no
+ * usable version all return null.
  */
 export function parseConnectorMessage(raw: unknown): ConnectorHello | null {
-  // Text frames only. A Blob or an ArrayBuffer is not something this end asked
-  // for, and reading one is asynchronous, which the caller is not.
+  // Text frames only. This end never asks for a Blob or an ArrayBuffer, and
+  // reading one is asynchronous, which the caller is not.
   if (typeof raw !== 'string') return null;
 
   let parsed: unknown;
@@ -132,8 +126,8 @@ export function parseConnectorMessage(raw: unknown): ConnectorHello | null {
   const msg = parsed as Record<string, unknown>;
   if (msg.type !== 'hello') return null;
   if (typeof msg.version !== 'string' || msg.version.trim() === '') return null;
-  // Rebuilt rather than passed through, so whatever else rode along cannot end
-  // up stored and later displayed.
+  // Rebuilt field by field, so extra fields in the message are never stored
+  // or displayed.
   return {
     type: 'hello',
     version: msg.version.trim(),
@@ -147,11 +141,10 @@ export function parseConnectorMessage(raw: unknown): ConnectorHello | null {
  * same, positive when `a` is newer, and null when either is not a version this
  * can read.
  *
- * As much of semver as the question needs and no more. A -rc or +build suffix
- * is dropped rather than ordered, because a release candidate of a version
- * carries that version's fixes, and telling someone otherwise sends them
- * chasing an update they already have. Comparison is numeric per part, so 0.10
- * is correctly newer than 0.9, which a string compare gets backwards.
+ * A subset of semver. A -rc or +build suffix is dropped, because a release
+ * candidate of a version carries that version's fixes, and ordering it lower
+ * would send someone after an update they already have. Comparison is numeric
+ * per part, so 0.10 is newer than 0.9, which a string compare gets backwards.
  */
 export function compareVersions(a: string, b: string): number | null {
   const left = versionParts(a);
@@ -214,7 +207,7 @@ export function connectorAge(report: ConnectorReport, appVersion: string = APP_V
 }
 
 export interface ConnectorNotice {
-  /** 'stale' is the one that costs a show. 'note' is worth a glance at most. */
+  /** 'stale' can affect a show. 'note' is informational. */
   level: 'stale' | 'note';
   /** Two or three words, for a badge beside "connector running". */
   badge: string;
@@ -225,35 +218,35 @@ export interface ConnectorNotice {
 }
 
 /**
- * Replacing the connector, said once so both stale cases say it the same way.
- *
- * The second sentence is the trap the original investigation fell into. The
- * login item is a file naming one path, and a connector only writes it when
- * there is none, so downloading a new binary and running it replaces the
- * process but leaves the old one starting tomorrow morning.
- */
-/**
  * For a connector that replaces itself. It only does that while nothing is
- * connected, so it never restarts under a show, and the page saying so is the
- * one thing connected: the way to let it happen is to close the page.
+ * connected, so it never restarts during a show; the page showing this notice
+ * is the one thing connected, so closing the page lets the update run.
  */
 const LET_IT_UPDATE =
   'It updates itself while nothing is connected to it, so close gobo for a couple of minutes '
   + 'and it restarts as the new version. Nothing to download.';
 
+/**
+ * Replacing the connector by hand, shared by both stale cases.
+ *
+ * The second sentence covers the easy mistake. The login item is a file naming
+ * one path, and a connector only writes it when there is none, so downloading
+ * and running a new binary replaces the process but the old one still starts
+ * at the next login.
+ */
 const REPLACE_IT =
   'Download the current connector and run it, which replaces the one running now. '
-  + 'The copy that starts when you log in is a separate thing and is still the old file, so run the '
-  + 'new one once with --uninstall and then once normally to move that over too.';
+  + 'The copy that starts when you log in is a separate file and is still the old version, so run the '
+  + 'new one once with --uninstall and then once normally to replace that too.';
 
 /**
- * What to say about this connector, or null when there is nothing worth saying.
+ * What to say about this connector, or null when there is nothing to say.
  *
- * Nothing here is an error and nothing here blocks: a connector behind the page
- * still carries every frame, it is only missing whatever has been fixed since.
- * A connector ahead of the page is not a problem at all, so it gets one quiet
- * line. A version that cannot be read is left alone: whatever it says, it is
- * new enough to have announced itself, which is the part that mattered.
+ * Nothing here is an error or blocks output: a connector behind the page
+ * still carries every frame and is only missing later fixes. A connector
+ * ahead of the page is harmless, so it gets one informational line. An
+ * unreadable version gets no notice, because a connector that announces
+ * itself at all is past the handshake.
  */
 export function connectorNotice(
   report: ConnectorReport | null,
@@ -294,7 +287,7 @@ export function connectorNotice(
         badge: 'newer than this page',
         reason:
           `The connector on this computer is version ${report.version}, ahead of this page at ${appVersion}. `
-          + 'Nothing to do: it is the page that is behind.',
+          + 'Nothing to do: the page is the older of the two.',
         fix: null,
       };
 

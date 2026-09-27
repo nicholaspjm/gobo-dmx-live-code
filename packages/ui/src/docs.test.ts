@@ -23,20 +23,20 @@ describe('isCodeName', () => {
   // entry names from the reference, on both sides of that line.
   const code = [
     'fixture', 'sine', 'rgbStrip', 'setBPM', 'screen', 'slider',
-    '.slow(n)', '.range(lo, hi)', '.every(n, fn)', '.chunk(n, fn)', '.echoWith(n, t, fn)',
+    '.slow(n)', '.range(lo, hi)', '.every(n, change)', '.chunk(n, change)', '.echoWith(n, t, change)',
     'dim-rgb', 'moving-head-basic', 'atomic-strobe-154ch',
     'sine · cosine', 'rand · perlin', 'chooseCycles · randcat',
     '.late / .early', '.pixelXY / .row / .column', '.rev / .palindrome',
   ];
   const prose = [
-    'picking a slot', 'stepping through slots', 'a slot is not a light',
-    'why it is a real fixture', 'how members count', 'brightness on a mixed rig',
-    'positions are kept', 'picture order, always', 'one channel per cell',
-    'manual chase', 'drum grid', 'ranges and steps', 'layering them',
+    'picking a slot', 'stepping through slots', 'slots and blackout',
+    'how it renders', 'member count', 'mixed rig brightness',
+    'kept positions', 'picture order', 'mono strips',
+    'custom chase', 'ranges and steps', 'stacking views',
     'strip channel (in defineFixture)', 'layering (comma)', 'fixture library',
-    '.range backwards', '.add / .mul with a pattern', 'per-channel, not per-fixture',
+    '.range backwards', '.add / .mul with a pattern', 'repeated setter calls',
     'one string, many lines', 'lines into bars', 'bar-to-bar variation',
-    'Ctrl+Enter', 'hover a name', 'pick an output',
+    'Ctrl+Enter', 'hover a name', 'connect your lights',
   ];
 
   for (const name of code) {

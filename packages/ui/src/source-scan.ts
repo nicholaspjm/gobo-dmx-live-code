@@ -8,22 +8,20 @@
  * source is stripped before it is searched: comment bodies and string
  * contents become spaces, and only what is left counts as a call.
  *
- * The whole point of the strip is that commenting a line out takes its widget
- * away. Line comments were already handled where the scans used to live, by
- * cutting each line at its first pair of slashes. Block comments were not,
- * and Shift+Alt+A is bound to toggleBlockComment in the editor's default
- * keymap, so a whole section can be silenced without typing a slash. Those
- * lines kept their widgets, and worse, kept their place in the zip, which
- * slid every widget after them onto the wrong line.
+ * The strip exists so that commenting a line out takes its widget away, for
+ * block comments as well as line comments. Shift+Alt+A is bound to
+ * toggleBlockComment in the editor's default keymap, so a whole section can be
+ * silenced without typing a slash. A commented-out call left in the scan would
+ * keep its widget and its place in the zip, sliding every widget after it onto
+ * the wrong line.
  *
  * Blanking is character for character rather than by deletion, so line
  * lengths and the order matches come out in are both unchanged. The zips
  * downstream depend on that order.
  *
- * Regex literals are not tracked. In gobo source a slash is division, and the
- * one thing that could go wrong, a literal holding two adjacent slashes,
- * reads as a comment and drops a widget rather than keeping a dead one alive.
- * That is the safer way round.
+ * Regex literals are not tracked. In gobo source a slash is division. A regex
+ * literal holding two adjacent slashes reads as a comment and drops a widget,
+ * which is safer than keeping a dead widget alive.
  */
 
 /** What the scanner is currently inside. */

@@ -11,9 +11,9 @@
  * it comes into view.
  *
  * A search field in the toolbar filters every tier at once, ranked by
- * rankFixtures() at the bottom of this file. It shares nothing with the docs
- * panel's search except the look of the input: what a library holds is
- * fixture definitions, and the question asked of it is a different one.
+ * rankFixtures() at the bottom of this file. It shares only the look of the
+ * input with the docs panel's search, because it searches fixture definitions
+ * and answers a different question.
  *
  * Every row carries a tag saying which of the four tiers its fixture came
  * from. The class names are shared with the docs panel and the colours behind
@@ -66,8 +66,7 @@ const PUBLIC_REPO_SLUG = 'nicholaspjm/gobo-dmx-live-code';
 export type RowTier = 'builtin' | 'public' | 'saved' | 'session';
 
 /** What the tag on a row says for each tier. Saved fixtures say "yours"
- *  because the question a row answers is whose fixture this is, not what
- *  happened to it. */
+ *  because the tag names whose fixture it is. */
 const TIER_LABEL: Record<RowTier, string> = {
   builtin: 'built-in',
   public: 'public',
@@ -109,12 +108,11 @@ export function mountLibraryPanel(opts: {
   // take the field, its text and the caret with it. It also means a banner
   // survives the refresh that follows the action it is reporting on.
   //
-  // The field is styled by the reference's own .doc-search rules: every page
-  // of the panel shares that chrome, so the search looks like the one people
-  // have already used. Three properties are set
-  // here because that bar is a sticky full-width row of its own and this one
-  // shares the toolbar. Nothing but the appearance is shared; the ranking
-  // lives at the bottom of this file.
+  // The field uses the reference's .doc-search rules, which every page of the
+  // panel shares, so it looks like the search people already know. Three
+  // properties are set inline because that bar is a sticky full-width row and
+  // this one shares the toolbar. Only the appearance is shared; the ranking is
+  // at the bottom of this file.
   bodyEl.innerHTML = `
     <div class="lib-toolbar">
       <button type="button" class="lib-action lib-primary" data-lib-action="import">import from file…</button>
@@ -165,9 +163,9 @@ export function mountLibraryPanel(opts: {
   // the action is read off the clicked element's data attributes.
   bodyEl.addEventListener('click', (ev) => {
     // The template's copy button, which is not a lib-action: it touches no
-    // library state, it just puts the code on the clipboard to paste into a
-    // scene. Says "copied" on itself, the way the share button does, because
-    // a clipboard write is otherwise invisible.
+    // library state and only copies the code, to paste into a scene. It says
+    // "copied" on itself, the way the share button does, because a clipboard
+    // write is otherwise invisible.
     const copyBtn = (ev.target as HTMLElement).closest<HTMLElement>('[data-copy-id]');
     if (copyBtn) {
       const code = copyBtn.parentElement?.querySelector('.lib-row-template-code')?.textContent ?? '';
@@ -215,8 +213,7 @@ export function mountLibraryPanel(opts: {
   /**
    * The patch form under a row: how many, from which address, on which
    * universe, and what to call them. The lines it will write are shown as the
-   * fields change, so what goes into the scene is never a surprise. See
-   * patch-builder.ts.
+   * fields change, before anything goes into the scene. See patch-builder.ts.
    */
   function togglePatchForm(id: string, btn: HTMLElement): void {
     const row = btn.closest<HTMLElement>('.lib-row');
@@ -252,7 +249,7 @@ export function mountLibraryPanel(opts: {
       return input;
     };
     const nameEl = field('name', 'name', baseName(id, def.type), { size: '10' });
-    const countEl = field('how many', 'count', '1', { type: 'number', min: '1', max: '64' });
+    const countEl = field('count', 'count', '1', { type: 'number', min: '1', max: '64' });
     const startEl = field('address', 'start', String(nextFreeAddress(doc, 0, channelsOf)), { type: 'number', min: '1', max: '512' });
     const uniEl = field('universe', 'universe', '0', { type: 'number', min: '0' });
     const preview = document.createElement('pre');
@@ -325,7 +322,7 @@ export function mountLibraryPanel(opts: {
   }
 
   function handleDelete(id: string): void {
-    if (!confirm(`Remove "${id}" from your library? This doesn't affect any currently running code.`)) return;
+    if (!confirm(`Remove "${id}" from your library? Running code is not affected.`)) return;
     removeFromLibrary(id);
     flashBanner(`Removed "${id}" from library.`);
     refresh();
@@ -373,8 +370,8 @@ export function mountLibraryPanel(opts: {
     const confirmed = confirm(
       `Propose "${id}" for the public library?\n\n` +
       `A new tab will open on GitHub with the fixture pre-filled into fixtures/${id}.json. ` +
-      `You'll click "Propose change"; GitHub forks the repo for you and opens a pull request. ` +
-      `Once reviewed and merged, the fixture ships to everyone using gobo.`,
+      `Click "Propose change" there; GitHub forks the repo for you and opens a pull request. ` +
+      `Once it is reviewed and merged, the fixture ships to everyone using gobo.`,
     );
     if (!confirmed) return;
 
@@ -466,16 +463,14 @@ export function mountLibraryPanel(opts: {
     const extraClass =
       tier === 'session' ? ' lib-row-unsaved' :
       tier === 'builtin' ? ' lib-row-builtin' : '';
-    // Every row says where its fixture came from. The grouped view has a
-    // heading over each block, but a heading scrolls away and a search
-    // result is out of its block entirely, so provenance belongs on the
-    // row rather than on the list around it.
+    // Every row says where its fixture came from. A block heading scrolls
+    // away and a search result sits outside its block, so provenance goes on
+    // the row.
     //
     // A search result adds a second tag for the field the query landed on.
-    // Without it a fixture found by a sentence about one of its channels
-    // reads as a mistake, since nothing visible on the row says the word.
-    // That one is the plain pill: it is not provenance, and it should not
-    // read as a fifth tier.
+    // Without it, a fixture found through a channel description looks like a
+    // wrong match, since the word is not visible on the row. That tag uses
+    // the plain pill so it does not read as a fifth tier.
     const tags =
       ` ${provenanceTag(tier)}` +
       (match ? ` <span class="fx-tag">${MATCH_LABEL[match]}</span>` : '');
@@ -489,7 +484,7 @@ export function mountLibraryPanel(opts: {
           <div class="lib-row-sub">${escapeText(channelSummary(entry.def))} · ${escapeText(channelNamesSummary(entry.def))}</div>
           <pre class="lib-row-usage">${escapeText(usageExample(entry.id, entry.def))}</pre>
           <details class="lib-row-template">
-            <summary class="lib-row-template-summary">the code that makes it</summary>
+            <summary class="lib-row-template-summary">definition</summary>
             <pre class="lib-row-template-code">${escapeText(defineFixtureSource(entry.id, entry.def))}</pre>
             <button type="button" class="scene-action lib-template-copy" data-copy-id="${escapeText(entry.id)}">copy</button>
           </details>
@@ -507,14 +502,12 @@ export function mountLibraryPanel(opts: {
   /**
    * A worked example of patching and driving this fixture.
    *
-   * The list used to say what a fixture HAS without ever saying how to reach
-   * it, so the next step was to guess a name or go and read the docs for
-   * something already on screen. Written out with the real id and a real
-   * channel from this def, so it can be copied straight into a scene.
+   * The row lists what a fixture has; this shows how to use it. It is written
+   * with the fixture's own id and one of its channels, so it can be copied
+   * straight into a scene.
    *
-   * The channel chosen to demonstrate is the first one that emits light,
-   * because driving a pan or a gobo wheel proves nothing about whether the
-   * patch is right.
+   * The channel shown is the first one that emits light, because driving a
+   * pan or a gobo wheel proves nothing about whether the patch is right.
    */
   function usageExample(id: string, def: FixtureDef): string {
     const lines = [`const light = fixture(1, '${id}')`];
@@ -532,9 +525,8 @@ export function mountLibraryPanel(opts: {
       lines.push(`light.${strip.name}.fill(${args})`);
       lines.push(`light.${strip.name}.each(sine.slow(2))`);
     }
-    // A slotted channel is the one thing here that reads nothing like the
-    // rest, so it is worth showing even on a fixture that already has an
-    // emitter to demonstrate.
+    // A slotted channel is written differently from every other kind, so it
+    // is shown even when the fixture already has an emitter example.
     const slotted = def.channels.find((c) => c.slots !== undefined && c.slots.length > 0);
     if (slotted) {
       lines.push(`light.${slotted.name}('${slotted.slots?.[0]?.name ?? 'open'}')`);
@@ -569,7 +561,7 @@ export function mountLibraryPanel(opts: {
 
     // One flat list of everything on show, tagged with the block it belongs
     // to. The search runs over this, so a query reaches all four tiers at
-    // once: at a gig you want the fixture, not the tier it happens to be in.
+    // once.
     const all: Array<{ id: string; def: FixtureDef; tier: RowTier }> = [
       ...builtIns.map((e) => ({ ...e, tier: 'builtin' as const })),
       ...publicFixtures.map((e) => ({ ...e, tier: 'public' as const })),
@@ -591,7 +583,7 @@ export function mountLibraryPanel(opts: {
 
     const savedBlock = saved.length
       ? saved.map((e) => renderRow(e, 'saved')).join('')
-      : `<div class="lib-empty">Nothing pinned locally yet. Save a session fixture or import one.</div>`;
+      : `<div class="lib-empty">No saved fixtures. Save a session fixture or import one.</div>`;
 
     const runtimeBlock = runtime.length
       ? `<h3 class="lib-heading">Defined this session</h3>${runtime.map((e) => renderRow(e, 'session')).join('')}`
@@ -603,11 +595,11 @@ export function mountLibraryPanel(opts: {
       ${builtInBlock}
 
       <h3 class="lib-heading">Public library</h3>
-      <p class="lib-note">Community-contributed, bundled with the app. Use any of these in your code without clicking anything.</p>
+      <p class="lib-note">Community-contributed, bundled with the app. Any of these works in a scene as it is.</p>
       ${publicBlock}
 
       <h3 class="lib-heading">Your library</h3>
-      <p class="lib-note">Pinned to this browser. Restored on reload.</p>
+      <p class="lib-note">Saved in this browser and restored on reload.</p>
       ${savedBlock}
 
       ${runtimeBlock}
@@ -633,8 +625,8 @@ export function mountLibraryPanel(opts: {
   function flashBanner(msg: string, kind: 'ok' | 'error' = 'ok'): void {
     bannerEl.textContent = msg;
     bannerEl.className = `lib-banner visible lib-banner-${kind}`;
-    // One timer, restarted: two messages in quick succession used to leave
-    // the first one's timeout to hide the second early.
+    // One timer, restarted for each message, so the first message's timeout
+    // cannot hide a second one early.
     clearTimeout(bannerTimer);
     bannerTimer = setTimeout(() => { bannerEl.className = 'lib-banner'; }, 2400);
   }
@@ -651,27 +643,25 @@ function escapeAttr(s: string): string {
 
 // ─── Searching the library ───────────────────────────────────────────────────
 //
-// The docs panel searches too, and this is deliberately not that search. There
-// the thing being looked for is a name half-remembered from a scene, ranked
-// over the prose written about an API. Here it is a fixture definition, and
-// the person asking has the light in front of them: they know the make on the
-// badge, or the channel count the desk is asking for, or roughly what the
-// thing is called.
+// This is a separate search from the docs panel's. That one looks for a name
+// half-remembered from a scene, ranked over the prose written about an API.
+// This one looks for a fixture definition, and the person typing usually has
+// the light in front of them: they know the make on the badge, the channel
+// count the desk is asking for, or roughly what it is called.
 //
-// So the order is what a fixture IS before what is written about it. Identity
-// first (id, name, make), then what it amounts to (its type, its channel
-// layout, the colour mix its channels add up to), then its channel names, and
-// only last the sentences describing individual channels. A fixture whose name
-// carries the word beats one that merely mentions it three levels down.
+// So identity ranks first (id, name, make), then what the fixture amounts to
+// (its type, its channel layout, the colour mix its channels add up to), then
+// its channel names, and last the sentences describing individual channels. A
+// fixture whose name carries the word beats one that mentions it three levels
+// down.
 //
-// A number is read as a channel count before it is read as text, because
-// "8" typed into a fixture library means an 8-channel fixture far more often
-// than it means anything else.
+// A number is read as a channel count before it is read as text, because "8"
+// typed into a fixture library usually means an 8-channel fixture.
 
 /**
  * Where a query term landed. Carried on every hit so a result row can say why
  * it is in the list: a fixture matched by a sentence about one of its channels
- * reads as a mistake until the row admits that is what happened.
+ * looks like a wrong match unless the row says where it matched.
  */
 export type MatchField =
   | 'id'
@@ -754,10 +744,10 @@ function searchWords(s: string | undefined): string[] {
 /**
  * The colour mix a def adds up to, spelled the way a person says it: a def
  * with red, green, blue and white channels is an rgbw fixture whether or not
- * anything in it says so. Worth deriving, because "rgbw" is exactly what gets
- * typed when that is the light in front of you, and plenty of fixtures are
- * named after the product rather than the mix. Returns null unless all three
- * primaries are there, since two of them are not a mix anyone asks for.
+ * anything in it says so. Derived because "rgbw" is what people type for that
+ * light, and many fixtures are named after the product and never mention the
+ * mix. Returns null unless all three primaries are there, since two of them
+ * are not a mix anyone searches for.
  */
 const MIX_ROLES: Array<[role: string, letter: string]> = [
   ['red', 'r'], ['green', 'g'], ['blue', 'b'],
@@ -820,10 +810,10 @@ function isWordChar(c: string): boolean {
 /**
  * Where `term` appears in `text` as a whole word, or -1.
  *
- * Whole words only: plain containment made "red" match "required" and "off"
- * match "offset", which in a panel of channel descriptions is most of the
- * library. Done by hand rather than with a regex because a query is typed,
- * not authored, and "c++" must not compile as a quantifier.
+ * Whole words only, because plain containment makes "red" match "required"
+ * and "off" match "offset", which across channel descriptions is most of the
+ * library. Done by hand because a query is typed by the user, and "c++" must
+ * not compile as a regex quantifier.
  */
 function wordIndex(text: string, term: string): number {
   let at = text.indexOf(term);
@@ -852,10 +842,10 @@ const UNIT_WORDS = new Set([
 ]);
 
 /**
- * A numeric term against the counts a fixture actually has. Returns null for
+ * A numeric term against the counts a fixture has. Returns null for
  * anything that is not a number, and for a number this fixture does not
- * carry, leaving the text ladder to have its go: "154" still finds
- * atomic-strobe-154ch by its id.
+ * carry, so the text ladder can still match: "154" finds atomic-strobe-154ch
+ * by its id.
  */
 function scoreNumber(term: string, t: SearchText): TermHit | null {
   const m = NUMBER_TERM.exec(term);
@@ -912,9 +902,9 @@ function scoreText(term: string, t: SearchText): TermHit | null {
   if (t.channelNames.some((n) => n.startsWith(f))) return { score: 3_000, where: 'channel' };
   if (t.channelNames.some((n) => n.includes(f))) return { score: 2_600, where: 'channel' };
 
-  // Last resort: the fixture is not called this, it just says it somewhere.
-  // Earlier in the sentence scores higher, which is a weak signal, but the
-  // whole tier sits below everything above it either way.
+  // Last resort: the term appears only in a channel description. An earlier
+  // position scores higher, which is a weak signal; this whole tier ranks
+  // below everything above it.
   const at = wordIndex(t.notes, term);
   if (at >= 0) return { score: 1_000 - Math.min(at, 900), where: 'description' };
 
@@ -961,8 +951,7 @@ function queryTerms(query: string): string[] {
  * Ties break on id so the list is stable while typing: a result that has not
  * changed rank must not jump.
  *
- * A blank query ranks nothing at all. The panel shows its normal grouped list
- * in that case, rather than a flat one in some arbitrary order.
+ * A blank query ranks nothing, and the panel shows its normal grouped list.
  */
 export function rankFixtures<T extends { id: string; def: FixtureDef }>(
   entries: readonly T[],

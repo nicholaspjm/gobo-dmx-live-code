@@ -1,17 +1,17 @@
 /**
- * "Report a problem": an issue form with the boring half already filled in.
+ * "Report a problem": an issue form with the setup details already filled in.
  *
  * A bug report without the version, the browser and the route is a question
  * back to the reporter, and a first-time reporter who is asked a question
  * usually does not answer it. The app knows all of those, so it writes them.
  *
- * What it writes is deliberately short of everything it could. Not the scene:
- * a scene carries node addresses, venue names and whatever its comments say,
- * and a report is public. Not the log, for the same reason. Not the output's
- * host, only which kind of output it is. The form asks for the scene and the
- * log separately, where the person pasting them can see what they are
- * publishing. Everything here travels in a URL, so nothing here may be
- * anything that belongs to the person rather than to their setup.
+ * It writes less than it could. The scene is left out, because a scene
+ * carries node addresses, venue names and whatever its comments say, and a
+ * report is public. The log is left out for the same reason. The output is
+ * named by kind, without its host. The form asks for the scene and the log
+ * separately, where the person pasting them can see what they are publishing.
+ * Everything here travels in a URL, so it may describe the setup and nothing
+ * that belongs to the person.
  */
 
 export const ISSUE_FORM = 'https://github.com/nicholaspjm/gobo-dmx-live-code/issues/new';
@@ -61,7 +61,7 @@ export function browserName(ua: string, brands?: readonly Brand[]): string {
   return 'unknown browser';
 }
 
-/** The operating system, as a family. Versions are left out: the user agent lies about them. */
+/** The operating system, as a family. Versions are left out: user agent strings misreport them. */
 export function systemName(ua: string, platform?: string): string {
   const p = `${platform ?? ''} ${ua}`;
   if (/iPhone|iPad|iOS/i.test(p)) return 'iOS';

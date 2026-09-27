@@ -1,6 +1,7 @@
 /**
  * Semantic colour coding for the editor: one decoration class per gobo token
- * category, so a scene reads as lighting rather than as generic JavaScript.
+ * category, so the lighting vocabulary in a scene stands out from the
+ * JavaScript around it.
  *
  * The default `@codemirror/lang-javascript` highlighter paints every function
  * call and identifier the same. That suits a language whose verbs are
@@ -26,9 +27,9 @@
  *   gobo-pattern-chain  pattern TRANSFORMS: .slow .fast .early .late .range
  *                       .add .mul, plus bare `register` (it defines a new
  *                       chain method, so it belongs to this family)
- *   gobo-color          .color, the multi-channel setter that is no one hue,
- *                       plus bare mix and pick: both answer with a colour, and
- *                       neither answers with a fixed one
+ *   gobo-color          .color, the multi-channel setter with no single hue,
+ *                       plus bare mix and pick, which return a colour that
+ *                       is not fixed in advance
  *   gobo-color-red      .red, red      \
  *   gobo-color-orange   orange          |  one class per colour, tinted
  *   gobo-color-amber    .amber, amber   |  towards the colour it names. The
@@ -40,9 +41,9 @@
  *   gobo-color-magenta  magenta         |  only, because no fixture has a
  *   gobo-color-pink     pink            |  magenta emitter to drive
  *   gobo-color-white    .white, white  /
- *   gobo-intensity      .dim .strobe .full .off: how much light, not what
- *                       colour. Note bare `dim` is the low-level DMX function
- *                       and takes gobo-dmx instead; only `.dim` is intensity
+ *   gobo-intensity      .dim .strobe .full .off: how much light. Bare `dim`
+ *                       is the low-level DMX function and takes gobo-dmx;
+ *                       only `.dim` is intensity
  *   gobo-move           beam aim and optics: .pan .tilt .panFine .tiltFine
  *                       .speed .zoom .focus .gobo .colorWheel .prism
  *                       .direction
@@ -60,10 +61,10 @@
  *
  * CodeMirror's RangeSetBuilder requires ranges added in ascending order with
  * no overlap; two marks over one range from a single builder throws or renders
- * unpredictably. Rather than emit a category per regex and reconcile overlaps
- * afterwards, this walks the document once with a single identifier regex and
- * classifies each occurrence. A token can then only receive one class, and the
- * ranges are ascending and disjoint by construction.
+ * unpredictably. So this walks the document once with a single identifier
+ * regex and classifies each occurrence. A token can only receive one class,
+ * and the ranges are ascending and disjoint by construction, with no overlaps
+ * to reconcile afterwards.
  *
  * Classification, in precedence order:
  *
@@ -88,20 +89,19 @@
  * `red` is the colour of that name, and the dot has already decided which
  * table is consulted before either is looked in.
  *
- * ## Strings and comments are not code
+ * ## Strings and comments
  *
- * The walk runs over stripNonCode() output rather than the raw buffer, so a
- * token written inside a string or a comment is not there to be found. What it
- * costs is one more pass over the document per change; what it buys is that
- * the buffer stops lying about its strings.
+ * The walk runs over stripNonCode() output, so a token written inside a
+ * string or a comment is not there to be found. The cost is one more pass
+ * over the document per change.
  *
- * The colour names are where that mattered most. `head.color('red')` names a
- * colour WHEEL SLOT: a mechanical position with a manufacturer's label on it,
- * which is why slot names stay strings rather than becoming values (the header
- * of packages/core/src/colors.ts has the reasoning). Painting that label the
- * colour red claims it is the colour red, and it is not one. The same
- * blindness painted `rgb` inside `fixture(1, 'rgb')` as a raw DMX write, and
- * painted every command name written in a comment.
+ * The colour names are the main case. `head.color('red')` names a colour
+ * WHEEL SLOT: a mechanical position with a manufacturer's label on it, which
+ * is why slot names stay strings rather than becoming values (the header of
+ * packages/core/src/colors.ts has the reasoning). Painting that label red
+ * would present it as the colour value `red`, which it is not. Scanning the
+ * raw text would also paint `rgb` inside `fixture(1, 'rgb')` as a raw DMX
+ * write, and every command name written in a comment.
  *
  * A `${…}` interpolation is code again in the stripped text, so a token inside
  * one is still painted. The template's literal segments around it are not.
@@ -221,7 +221,7 @@ const METHOD_TOKENS = buildTable([
   [colorWhiteMark,   ['white']],
   [colorAmberMark,   ['amber']],
   [intensityMark,    ['dim', 'strobe', 'full', 'off']],
-  // panFine/tiltFine/speed/zoom/gobo/colorWheel/prism/focus are real channels
+  // panFine/tiltFine/speed/zoom/gobo/colorWheel/prism/focus are channels
   // on moving-head-spot; `direction` reaches no built-in but is honoured by
   // collectMovement() in packages/core/src/fixtures.ts for defineFixture users.
   [moveMark,         ['pan', 'tilt', 'panFine', 'tiltFine', 'speed', 'zoom', 'focus', 'gobo', 'colorWheel', 'prism', 'direction']],
@@ -265,18 +265,17 @@ export function classifyTokens(source: string): TokenSpan[] {
   // exactly as long as the source. One character shorter and every token after
   // the first string is painted one column to the left, and a range past the
   // end of the document throws inside CodeMirror. stripNonCode blanks
-  // character for character and is tested to, and the check costs one length
-  // comparison, so it is made rather than assumed. Falling back to the raw
-  // source paints strings and comments again, which is the bug this fixes, but
-  // a wrong colour is a better failure than a broken editor.
+  // character for character and is tested for it; the check here costs one
+  // length comparison. Falling back to the raw source paints strings and
+  // comments again, but a wrong colour is a better failure than a broken
+  // editor.
   const code = stripped.length === source.length ? stripped : source;
 
   // Pass 1: fixture bindings. Collect the bound names, and the exact offset of
   // each declaration site so pass 2 can tell a declaration from a reference.
-  // The scan is shared with hover and autocomplete. Each of the three used to
-  // keep its own copy of it, and two had never learned about `monoStrip` or
-  // `screen`, so a strip of white cells was painted as an ordinary variable.
-  // Handed the stripped text for the same reason as pass 2: a declaration that
+  // The scan is shared with hover and autocomplete, so all three recognise the
+  // same factories, `monoStrip` and `screen` included.
+  // It gets the stripped text for the same reason as pass 2: a declaration that
   // has been commented out binds nothing, so it must not turn every later use
   // of that name into a fixture reference.
   const fixtureNames = new Set<string>();

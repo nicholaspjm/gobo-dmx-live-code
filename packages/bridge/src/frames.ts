@@ -6,8 +6,7 @@
  * test. This module holds no sockets and no config: it is handed a `send` and
  * decides what to hand back.
  *
- * The rule it exists for: going dark is the only frame in a show that cannot
- * afford to be dropped. Art-Net, sACN and OSC all ride on UDP, which does not
+ * Going dark is the only frame in a show that cannot afford to be dropped. Art-Net, sACN and OSC all ride on UDP, which does not
  * retransmit, and a DMX receiver holds its last value indefinitely. Every
  * other frame is corrected by the next one 30 milliseconds later; after a
  * blackout both ends consider the universe idle and nothing further is sent,

@@ -1,11 +1,11 @@
 /**
  * The entire boundary between the desktop app and the page.
  *
- * One frozen object, two fields, nothing callable. The page runs with
+ * One frozen object with two fields and nothing callable. The page runs with
  * contextIsolation on and nodeIntegration off, and the UI already talks to the
  * bridge over its WebSocket, so there is nothing else it needs from here. The
- * flag exists so the app can say the connector download is beside the point in
- * this build: every output works, because the bridge is in the same process.
+ * flag lets the app say the connector download is unnecessary in this build:
+ * every output works, because the bridge is in the same process.
  *
  * A .cts file, and so a CommonJS dist/preload.cjs: Electron loads a sandboxed
  * preload as CommonJS regardless of the package being type: module.

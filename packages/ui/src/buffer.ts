@@ -1,22 +1,18 @@
 /**
  * The working buffer: one editor document, autosaved to the browser.
  *
- * This replaces the old multi-scene model (scenes.ts), which had a
- * dropdown of named buffers the user had to remember to switch plus a
- * protected "default" they could not overwrite. gobo behaves like a text
- * editor instead: one document open, saved to localStorage on every
- * keystroke so a crash costs nothing. The durable copy is the text itself:
- * copied to the clipboard, or carried whole in a share link (share.ts),
- * rather than a browser key nobody can back up.
+ * gobo behaves like a text editor: one document open, saved to
+ * localStorage on every keystroke so a crash costs nothing. The durable
+ * copy is the text itself, copied to the clipboard or carried whole in a
+ * share link (share.ts). A browser key cannot be backed up.
  *
- * The buffer has no name. It had one until 0.5.0, editable in the top bar
- * and carried in share links, and it named nothing: there is one document,
- * it is always the one on screen, and no other buffer exists for a name to
- * tell it apart from.
+ * The buffer has no name. There is one document, it is always the one on
+ * screen, and there is no other buffer for a name to tell it apart from.
  *
- * Storage keys are new (gobo-buffer-*). The old scene keys are read here
- * for the one-time migration notice and are NEVER written. See
- * listLegacyScenes() below for why that matters.
+ * Storage keys are gobo-buffer-*. The legacy scene keys (from the
+ * multi-scene store that preceded the buffer) are read here for the
+ * one-time migration notice and are NEVER written. See listLegacyScenes()
+ * below for why that matters.
  */
 
 import { EXAMPLES } from './examples.js';
@@ -42,8 +38,7 @@ function readKey(key: string): string | null {
 
 /** Write a key, swallowing failures. Called on every keystroke, so a full
  *  quota or private-browsing mode must degrade to "this session is
- *  in-memory only" rather than throwing into the editor's change handler
- *  (same posture the old scenes.ts took). */
+ *  in-memory only" instead of throwing into the editor's change handler. */
 function writeKey(key: string, value: string): void {
   try {
     localStorage.setItem(key, value);
@@ -61,9 +56,9 @@ function writeKey(key: string, value: string): void {
  * and written straight back. The next load is then an ordinary load, and
  * the seed is never re-applied over anything the user has typed.
  *
- * One exception, and it is narrow. A returning browser holding an UNTOUCHED
- * copy of demo content that is no longer the opening example is holding a
- * stale seed, not work: changing what gobo opens on would otherwise never
+ * The exception is a returning browser holding an UNTOUCHED copy of a
+ * bundled scene other than the opening example. That is a stale seed, and
+ * it is replaced; otherwise a change to what gobo opens on would never
  * reach anyone who had visited before. Only exact, unedited matches against
  * the bundled scenes qualify, so nothing a person typed can be caught by it.
  */
@@ -122,8 +117,8 @@ export function saveBuffer(code: string): void {
  * towards true. With no reference point recorded (storage was unwritable,
  * or the key was cleared), any non-empty buffer counts as unsaved.
  *
- * It compares the full text rather than tracking a dirty flag, so editing
- * something and then undoing it reads as "no changes".
+ * It compares the full text, so editing something and then undoing it
+ * reads as "no changes".
  */
 export function isUnsavedSinceFileSave(): boolean {
   const code = readKey(BUFFER_KEY) ?? '';
@@ -146,19 +141,20 @@ export function markSavedToFile(): void {
 /** The pre-buffer scene store. Named here so the keys sit in one place,
  *  next to the read-only rule below. */
 const LEGACY_SCENES_KEY = 'gobo-scenes-v1';
-/** Same store under the pre-rename name. scenes.ts used to copy this
- *  forward on import; once that module is gone nothing does, so read it
- *  as a fallback. Read only: the copy is not ours to make either. */
+/** The same store under the project's earlier name. Nothing copies it
+ *  forward to gobo-scenes-v1, so it is read as a fallback, under the same
+ *  read-only rule. */
 const LEGACY_SCENES_KEY_PRERENAME = 'lumen-scenes-v1';
 
 /**
- * The user's scenes from the old model, for the one-time migration notice.
+ * The user's scenes from the legacy scene store, for the one-time migration
+ * notice.
  *
  * !!! READ-ONLY. NEVER WRITE OR DELETE THESE KEYS. !!!
  *
  * gobo-scenes-v1 (and its lumen-* predecessor, and the sibling
  * gobo-active-scene-v1 / gobo-scene-meta-v1) hold work that exists only
- * in this browser. There is no server copy to restore from. If the new
+ * in this browser. There is no server copy to restore from. If the
  * buffer code has a bug, those keys are all that stands between the user
  * and losing months of work, so they are left as they are. Do not "clean
  * up" after the migration notice is dismissed; dismissing the notice is
@@ -181,8 +177,8 @@ export function listLegacyScenes(): Array<{ name: string; code: string }> {
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
   const out: Array<{ name: string; code: string }> = [];
   for (const [name, code] of Object.entries(parsed as Record<string, unknown>)) {
-    // Skip entries whose value was mangled rather than dropping the whole
-    // set. One bad key should not hide the rest of the user's scenes.
+    // Skip only the entries whose value is mangled: one bad key should not
+    // hide the rest of the user's scenes.
     if (typeof code === 'string') out.push({ name, code });
   }
   // Sorted so the notice lists the same scenes in the same order every

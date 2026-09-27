@@ -12,12 +12,14 @@
  * a look written above the one that runs inverts the two orders even when the
  * counts agree.
  *
- * slider() and pick() do not need the zip. They are declared with a name, that
- * name is unique within a run — declaring it twice throws — and it is written
- * at the call site. Matching on it is exact and order-independent.
+ * slider() and pick() do not need the positional pairing. They are declared
+ * with a name, that name is unique within a run (declaring it twice throws),
+ * and it is written at the call site. Matching on it is exact and
+ * order-independent.
  *
- * Pure text, no engine: this reads source and returns line numbers, which is
- * why it sits beside the other scanners rather than inside the widget code.
+ * This reads source text and returns line numbers without touching the
+ * engine, which is why it sits beside the other scanners and outside the
+ * widget code.
  */
 
 import { findCalls } from './source-scan.js';
@@ -31,10 +33,10 @@ import { findCalls } from './source-scan.js';
  * string contents and the stripped copy has no name left in it. The two views
  * are the same length line for line, which is what makes that offset valid.
  *
- * A name written twice in the source is dropped rather than guessed at. Only
- * one of the two can have run — declaring a name twice in one run throws — and
- * nothing in the text says which, so placing the handle on the first is a coin
- * toss, and a handle on the wrong look is read as the truth about a light.
+ * A name written twice in the source is dropped. Only one of the two can have
+ * run (declaring a name twice in one run throws), and nothing in the text says
+ * which, so placing the handle on the first would be a guess, and a handle on
+ * the wrong look misreports what a light is doing.
  */
 export function declaredLines(
   doc: { line: (n: number) => { text: string } },
@@ -53,8 +55,8 @@ export function declaredLines(
   for (const name of ambiguous) {
     found.delete(name);
     console.warn(
-      `[gobo] "${name}" is declared in more than one place, so its handle has nowhere `
-      + 'certain to sit and has been left off. Give each control its own name.',
+      `[gobo] "${name}" is declared in more than one place, so its handle is left off. `
+      + 'Give each control its own name.',
     );
   }
   return found;

@@ -2,11 +2,10 @@
  * Looks and mutes, written the way strudel writes its blocks.
  *
  * A look is a state of the rig with a name: the verse is blue, the chorus is
- * red. gobo's cue() switches between them, and until now each one had to be
- * written as a JavaScript function, `const verse = () => { … }`, which is the
- * one piece of programming syntax in a scene that says nothing about light.
- * Strudel names a block with a label instead (`name:`), and mutes one with an
- * underscore (`_name:` or `name_:`). The same here:
+ * red, and cue() switches between them. A look is a labelled block, the way
+ * strudel names one (`name:`), so a scene needs no function syntax, which says
+ * nothing about light. An underscore mutes, also as in strudel (`_name:` or
+ * `name_:`):
  *
  *   verse: {                 a look called verse, run when cue() picks it
  *     wash.color(blue)
@@ -305,7 +304,7 @@ export function rewriteLooks(code: string): LookRewrite {
       continue;
     }
     // A look needs a block, and a name a person would give one. `$:` and a
-    // label on a single statement run as they always did.
+    // label on a single statement are left as plain JavaScript labels.
     if (code[body] !== '{' || name === '$' || name.startsWith('$')) continue;
     const close = matchingBrace(code, body);
     if (close === -1) continue;

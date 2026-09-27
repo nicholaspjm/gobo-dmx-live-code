@@ -12,13 +12,15 @@
  *   - 'fixture-method': calls on a fixture / strip (.red, .pixel, …)
  *   - 'property':       non-callable members (.pixelCount, etc.)
  *
- * Six labels appear twice on purpose, because the name really is two things:
+ * Eight labels appear twice on purpose, because each name is two things.
  * `red` is a colour value and a channel setter, and so are green, blue, white,
- * strobe and flash. Both surfaces use `context` to tell them apart — findHelp()
- * at the bottom of this file picks by whether a dot precedes the word, and
- * autocomplete narrows its suggestions the same way. Any other repeated label
- * is a mistake: a plain Map keyed by label keeps whichever comes last, so a
- * second entry silently replaces the first.
+ * strobe and flash. The bare dim(channel, value) writes a raw DMX channel and
+ * .dim() is the brightness of a fixture with a dimmer. pick(name) is the colour
+ * wheel and .pick(list) is strudel's choice between patterns. Both surfaces use
+ * `context` to tell them apart: findHelp() at the bottom of this file picks by
+ * whether a dot precedes the word, and autocomplete narrows its suggestions the
+ * same way. Any other repeated label is a mistake, because a Map keyed by label
+ * keeps whichever entry comes last and the first is lost.
  */
 
 export type HelpContext =
@@ -43,8 +45,8 @@ export interface HelpEntry {
 
 export const HELP_ENTRIES: HelpEntry[] = [
   // ─── Colours ───────────────────────────────────────────────────────────────
-  // One entry per predefined colour. They are values, not strings: a colour
-  // reaches every call that takes one, and a quoted name is refused.
+  // One entry per predefined colour. Each is a value, usable in every call
+  // that takes a colour; a quoted name is refused.
   {
     label: 'red',
     signature: 'red: Color',
@@ -138,7 +140,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'pulse',
     signature: 'pulse(cycles = 4)',
-    description: 'The slow swell. Breathing, on any channel.',
+    description: 'A slow rise and fall, like breathing. Works on any channel.',
     example: 'wash.dim(pulse(4))',
     context: 'command',
     kind: 'function',
@@ -146,7 +148,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'strobe',
     signature: 'strobe(per = 8)',
-    description: 'Hard on and off, `per` times a cycle. A software strobe for a fixture without one.',
+    description: 'Switches hard on and off, `per` times a cycle: a software strobe for a fixture that has no strobe channel.',
     example: 'wash.dim(strobe(16))',
     context: 'command',
     kind: 'function',
@@ -162,7 +164,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'flicker',
     signature: 'flicker(amount = 0.3)',
-    description: 'Wanders around full. Candles, fire, a lamp on its way out.',
+    description: 'Wanders around full, for candles, fire or a lamp on its way out.',
     example: 'wash.dim(flicker(0.4))',
     context: 'command',
     kind: 'function',
@@ -181,7 +183,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'fadeIn',
     signature: '.fadeIn(beats)',
     description:
-      'Each step comes up over this many beats instead of snapping on: the fade in a desk gives every step of a chase. Strudel calls it attack, in seconds, and .attack() does the same here.',
+      'Each step fades up over this many beats, like the fade-in time a desk gives every step of a chase. Strudel calls it attack, in seconds, and .attack() does the same here.',
     example: "rig.dim('1 - 1 -'.fadeIn(0.5))",
     context: 'pattern-method',
     kind: 'method',
@@ -190,7 +192,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'fadeOut',
     signature: '.fadeOut(beats)',
     description:
-      'Each step keeps glowing for this many beats after it ends, going out as the next one comes up: the tail that makes a chase look like one. Strudel calls it release, in seconds, and .release() does the same here. The length can be a pattern, read at each step: .fadeOut(\'<0.5 2>\').',
+      'Each step keeps glowing for this many beats after it ends, fading out as the next one comes up, which gives a chase its tail. Strudel calls it release, in seconds, and .release() does the same here. The length can be a pattern, read at each step: .fadeOut(\'<0.5 2>\').',
     example: "rig.each('1 - - -'.fadeOut(2))",
     context: 'pattern-method',
     kind: 'method',
@@ -199,7 +201,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'clip',
     signature: '.clip(fraction)',
     description:
-      "How much of each step is lit, from its start. strudel's note length, as a light's: '1*8'.clip(0.25) is eight short flashes. .legato() reads the same.",
+      "How much of each step is lit, measured from its start: strudel's note length, applied to a light. '1*8'.clip(0.25) is eight short flashes. .legato() does the same.",
     example: "strb.dim('1*8'.clip(0.25))",
     context: 'pattern-method',
     kind: 'method',
@@ -225,7 +227,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'palette',
     signature: '.palette(colours)',
     description:
-      "Numbers pick colours: 0 the first in the palette, 1 the next, wrapping past the end, and a number between two blends them. Strudel's .scale() turns numbers into notes; this turns them into the colours a designer picks from. The result goes to .color() or .fill(). A list, [red, amber, white], or a string of names, 'red amber white'.",
+      "Turns numbers into colours from a palette: 0 is the first colour, 1 the next, wrapping past the end, and a number between two blends them. It works like strudel's .scale(), which turns numbers into notes. Pass the result to .color() or .fill(). The palette is a list, [red, amber, white], or a string of names, 'red amber white'.",
     example: "wash.color('<0 1 2>'.palette(warm))          // one colour a bar\nwash.color(saw.slow(8).mul(3).palette(warm))      // a slow sweep through them",
     context: 'pattern-method',
     kind: 'method',
@@ -234,7 +236,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'fan',
     signature: '.fan(width)',
     description:
-      'Spread a group out around the value: the first light width/2 below it, the last width/2 above, the way a desk fans a row of heads out from a centre. The centre can move, so the fan moves with it. On a dimmer it grades the brightness across the rig.',
+      'Spread a group out around the value, the first light width/2 below it and the last width/2 above, the way a desk fans a row of heads out from a centre. If the centre moves, the fan moves with it. On a dimmer it grades the brightness across the rig.',
     example: "heads.pan(sine.slow(8).range(0.3, 0.7).fan(0.4))   // a fan that sweeps\nheads.tilt('0.5'.fan(0.2))                  // held still\npars.dim('0.6'.fan(0.8))                    // brighter along the rig",
     context: 'pattern-method',
     kind: 'method',
@@ -243,7 +245,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'jux',
     signature: '.jux(change)',
     description:
-      "Split the rig: across a group the left half runs the pattern and the right half runs it changed. Strudel's jux puts a changed copy in the right speaker; here the lights are the speakers. On one light both land on it and the brighter wins.",
+      "Across a group, the left half runs the pattern and the right half runs it with the change applied. Strudel's jux puts a changed copy in the right speaker; here the lights take the place of the speakers. On a single light both land on it and the brighter wins.",
     example: "rig.dim('1 - - -'.jux(rev))       // a chase mirrored across the room\nrig.dim('1 - 1 -'.jux(fast(2)))   // right half double time",
     context: 'pattern-method',
     kind: 'method',
@@ -252,7 +254,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'across',
     signature: '.across(position)',
     description:
-      "Where across a group each step lands: 0 the first light, 1 the last, and a position between two lights shared between them. A pattern of positions places every step on its own, so .across(saw) walks along the rig and .across(rand) scatters. Strudel calls this .pan(), its stereo position with the lights as the speakers, and a pasted .pan() does the same; on a moving head .pan() is the head's own pan channel.",
+      "Where across a group each step lands: 0 the first light, 1 the last, and a position between two lights shared between them. A pattern of positions places every step on its own, so .across(saw) walks along the rig and .across(rand) scatters. Strudel calls this .pan(), its stereo position, and a pasted .pan() does the same, except on a moving head, where .pan() is the head's own pan channel.",
     example: "rig.dim('1*8'.across(saw))               // one light walks the rig\nrig.dim('1*16'.across(rand).fadeOut(1))  // sparkle with tails",
     context: 'pattern-method',
     kind: 'method',
@@ -260,7 +262,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'stut',
     signature: '.stut(n, feedback, time)',
-    description: 'Repeat n times, each dimmer than the last: an echo that decays. The trail effect, already built in.',
+    description: 'Repeat n times, each repeat dimmer than the last: a decaying echo that leaves a trail.',
     example: "wash.dim(flash().stut(4, 0.6, 0.125))",
     context: 'pattern-method',
     kind: 'method',
@@ -268,7 +270,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'linger',
     signature: '.linger(fraction)',
-    description: 'Repeat the first part of a cycle for the whole cycle. A hold, or a stutter.',
+    description: 'Repeat the first part of a cycle for the whole cycle, as a hold or a stutter.',
     example: "wash.dim('1 0 0 0'.linger(0.25))",
     context: 'pattern-method',
     kind: 'method',
@@ -284,7 +286,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'hush',
     signature: 'hush()',
-    description: 'Everything dark, from inside the scene. Drops every channel the scene has driven.',
+    description: 'Blacks out from inside the scene by dropping every channel the scene has driven.',
     example: "hush()",
     context: 'command',
     kind: 'function',
@@ -292,7 +294,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'setcps',
     signature: 'setcps(cyclesPerSecond)',
-    description: 'Tempo as strudel writes it, so pasted code runs. One cycle is one bar of four beats.',
+    description: 'Tempo in cycles per second, as strudel writes it, so pasted code runs. One cycle is one bar of four beats.',
     example: "setcps(0.5)",
     context: 'command',
     kind: 'function',
@@ -310,8 +312,8 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'pick',
     signature: 'pick(name, { start })',
     description:
-      'A colour with a wheel behind it. Shows a swatch beside the call; clicking opens the colour picker, '
-      + 'and turning it moves the rig live without a re-run. Reads as a colour anywhere a colour is taken.',
+      'A colour set from a colour wheel. A swatch appears beside the call; clicking it opens the picker, '
+      + 'and changes there move the rig live without a re-run. Works as a colour anywhere a colour is taken.',
     example: "const warm = pick('warm', { start: amber })\nwash.color(warm)",
     context: 'command',
     kind: 'function',
@@ -322,7 +324,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     signature: 'mix(a, b, t)',
     description:
       'Blend two colours, t of the way from the first to the second. Use it when the even spread across a '
-      + 'palette is not the curve you want. Both endpoints come back as themselves, so mix(red, blue, 0) is red.',
+      + 'palette is not the curve you want. Both endpoints come back unchanged, so mix(red, blue, 0) is red.',
     example: 'wash.color(mix(red, amber, 0.3))\nwash.color(mix(red, blue, sine.slow(4)))   // crossfade, four bars',
     context: 'command',
     kind: 'function',
@@ -407,7 +409,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'mock',
     signature: 'mock()',
-    description: 'Log-only output, no network: needs the connector, and prints the channels in its log. Useful for headless dev.',
+    description: 'Log-only output with no network traffic. It needs the connector, and prints the channels in the connector log. For headless development.',
     example: 'mock()',
     context: 'command',
     kind: 'function',
@@ -416,7 +418,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'usb',
     signature: 'usb(universe?)',
     description:
-      'Drive a USB DMX box (Enttec DMX USB Pro type) from the browser, nothing installed. Chrome or Edge. Pick the box once in the outputs panel first.',
+      'Drive a USB DMX box (Enttec DMX USB Pro type) from the browser, with nothing to install. Needs Chrome or Edge. Pick the box once in the outputs panel first.',
     example: 'usb()',
     context: 'command',
     kind: 'function',
@@ -425,7 +427,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'td',
     signature: "td(host = 'localhost', port = 9980)",
     description:
-      'Send every frame straight to a TouchDesigner WebSocket DAT, nothing installed. TouchDesigner puts the Art-Net on the network.',
+      'Send every frame straight to a TouchDesigner WebSocket DAT, with nothing else to install. TouchDesigner then sends the Art-Net out on the network.',
     example: 'td()',
     context: 'command',
     kind: 'function',
@@ -445,7 +447,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'sine',
     signature: 'sine',
-    description: 'Sine waveform 0..1. One full cycle per pattern cycle, which is one bar of four beats, so .fast(4) gives one per beat. Strudel writes signals without the brackets, sine.slow(4), and that works too, for every signal.',
+    description: 'Sine waveform 0..1. One full cycle per pattern cycle, which is one bar of four beats, so .fast(4) gives one per beat. The bracket-free form strudel uses, sine.slow(4), works for every signal.',
     example: 'wash.red(sine.slow(4).range(0.2, 1))',
     context: 'command',
     kind: 'function',
@@ -469,7 +471,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'saw',
     signature: 'saw',
-    description: 'Sawtooth ramp 0→1. Useful for sweeps and phase indexing.',
+    description: 'Sawtooth ramp 0→1, for sweeps and phase indexing.',
     example: 'wash.red(saw.slow(8))',
     context: 'command',
     kind: 'function',
@@ -477,7 +479,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'rand',
     signature: 'rand',
-    description: 'Uniform random 0..1: a new random level every moment; add .segment(n) for steps.',
+    description: 'Uniform random 0..1, a new level at every moment. Add .segment(n) for steps.',
     example: 'spot.red(rand.range(-6, 1))',
     context: 'command',
     kind: 'function',
@@ -546,7 +548,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'dim',
     signature: 'dim(channel, value?)',
-    description: 'Alias for ch(). Same semantics, clearer intent.',
+    description: 'Alias for ch(), with the same behaviour.',
     example: 'dim(1, 0.8)',
     context: 'command',
     kind: 'function',
@@ -563,7 +565,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'screen',
     signature: 'screen(pixels?, { columns?, label? })',
     description:
-      'A light made of screen: no DMX address, drawn on the page. One colour wash by default; give it pixels and columns for a grid. Answers every strip method.',
+      'A light drawn on the page, with no DMX address. By default it is one colour wash; give it pixels and columns for a grid. It takes every strip method.',
     example: "const room = screen()\nroom.fill(sine.slow(4), 0, cosine.slow(4))",
     context: 'command',
     kind: 'function',
@@ -579,7 +581,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'isaw',
     signature: 'isaw',
-    description: 'Ramp down, 1 to 0 across the cycle. The mirror of saw.',
+    description: 'Ramp down, 1 to 0 across the cycle: saw reversed.',
     example: 'strip.blue(isaw.slow(2))',
     context: 'command',
     kind: 'function',
@@ -588,7 +590,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'mouseX',
     signature: 'mouseX · mouseY',
     description:
-      'Where the pointer is across the window, 0 at the left or top and 1 at the right or bottom, read live. Two of them make an XY pad for a moving head.',
+      'Where the pointer is across the window, 0 at the left or top and 1 at the right or bottom, read live. mouseX and mouseY together make an XY pad for a moving head.',
     example: 'head.pan(mouseX)\nhead.tilt(mouseY)',
     context: 'command',
     kind: 'variable',
@@ -632,7 +634,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'perlin',
     signature: 'perlin',
     description:
-      'Smooth noise: wanders rather than jumping, so it reads as flicker or drift where rand reads as sparkle.',
+      'Smooth noise that wanders instead of jumping, so it reads as flicker or drift where rand reads as sparkle.',
     example: 'wash.red(perlin.slow(4).range(0.3, 1))',
     context: 'command',
     kind: 'function',
@@ -640,7 +642,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'irand',
     signature: 'irand(n)',
-    description: 'A whole number below n, at random. Usually wants dividing down into a level.',
+    description: 'A random whole number below n. Divide it down to use it as a level.',
     example: 'wash.red(irand(4).div(4).segment(8))',
     context: 'command',
     kind: 'function',
@@ -664,7 +666,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'silence',
     signature: 'silence',
-    description: 'Nothing at all. Written without parentheses.',
+    description: 'An empty pattern. Written without parentheses.',
     example: "wash.red(cat(mini('1 - 1 -'), silence))",
     context: 'command',
     kind: 'variable',
@@ -712,7 +714,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'brand',
     signature: 'brand',
-    description: 'Random zero or one rather than a level between. brandBy(p) biases it.',
+    description: 'A random 0 or 1. brandBy(p) sets the odds.',
     example: 'wash.red(sine.mul(brand.segment(8)))',
     context: 'command',
     kind: 'variable',
@@ -729,7 +731,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'shuffle',
     signature: '.shuffle(n)',
     description:
-      'Cut the cycle into n parts and reorder them, using each exactly once. The material is preserved; only the order changes.',
+      'Cut the cycle into n parts and reorder them, using each part exactly once.',
     example: "bar.pixels.red('1 0.6 0.3 0'.shuffle(4))",
     context: 'pattern-method',
     kind: 'method',
@@ -745,7 +747,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'slowcat',
     signature: 'slowcat(pattern, pattern, …)',
-    description: 'Each pattern gets a whole cycle in turn. What plain cat() does.',
+    description: 'Each pattern gets a whole cycle in turn, the same as cat().',
     example: "wash.red(slowcat('1 - - -', '1 1 1 1'))",
     context: 'command',
     kind: 'function',
@@ -892,7 +894,7 @@ spot.white(mini('1 - - -').punch())`,
   {
     label: 'mul',
     signature: '.mul(n | pattern)',
-    description: 'Multiply the output by a number or pattern. Combine an envelope with a colour cycle.',
+    description: 'Multiply the output by a number or pattern, for example to put an envelope on a colour cycle.',
     example: 'wash.dim(sine.mul(saw.slow(4)))',
     context: 'pattern-method',
     kind: 'method',
@@ -942,7 +944,7 @@ spot.white(mini('1 - - -').punch())`,
   {
     label: 'iter',
     signature: '.iter(n)',
-    description: 'Rotate the pattern one step left each cycle, resetting after n. One bar becomes a phrase.',
+    description: 'Rotate the pattern one step left each cycle, resetting after n, which turns one bar into an n-bar phrase.',
     example: "bar.pixels.red('1 0.6 0.3 0'.iter(4))",
     context: 'pattern-method',
     kind: 'method',
@@ -966,7 +968,7 @@ spot.white(mini('1 - - -').punch())`,
   {
     label: 'palindrome',
     signature: '.palindrome()',
-    description: 'Alternate forwards and backwards each cycle. Turns any chase into a bounce.',
+    description: 'Alternate forwards and backwards each cycle, which turns a chase into a bounce.',
     example: "bar.pixels.red('1 0.6 0.3 0'.palindrome())",
     context: 'pattern-method',
     kind: 'method',
@@ -982,7 +984,7 @@ spot.white(mini('1 - - -').punch())`,
   {
     label: 'superimpose',
     signature: '.superimpose(change)',
-    description: 'Layer a transformed copy on top of the original. Merged brightest-wins, so nothing is lost.',
+    description: 'Layer a transformed copy on top of the original. The two merge brightest-wins, so neither is lost.',
     example: "wash.red('1 - - -'.superimpose(late(0.125)))",
     context: 'pattern-method',
     kind: 'method',
@@ -991,7 +993,7 @@ spot.white(mini('1 - - -').punch())`,
     label: 'echoWith',
     signature: '.echoWith(times, time, change)',
     description:
-      'n copies, each shifted a further `time` later with the change applied once more. A decaying tail in one line.',
+      '`times` copies, each a further `time` later with the change applied once more, which makes a decaying tail.',
     example: "wash.red('1 - - -'.echoWith(4, 0.125, mul(0.5)))   // each repeat half the last",
     context: 'pattern-method',
     kind: 'method',
@@ -1031,7 +1033,7 @@ spot.white(mini('1 - - -').punch())`,
   {
     label: 'swingBy',
     signature: '.swingBy(amount, subdivision)',
-    description: 'Push every other subdivision late, so a straight grid stops marching.',
+    description: 'Push every other subdivision late, so a straight grid swings.',
     example: "strb.strobe('1*8'.swingBy(1/3, 2))",
     context: 'pattern-method',
     kind: 'method',
@@ -1084,7 +1086,7 @@ spot.white(mini('1 - - -').punch())`,
     label: 'all',
     signature: 'all(change)',
     description:
-      "A change for every light at once, after the rest of the scene: all(mul(slider(1))) is a grand master fader. It scales what makes light, the dimmer of a fixture that has one and the colour of one that does not, and never pan, tilt or a wheel, so a master cannot move a head. Strudel's all() does the same across every pattern playing.",
+      "A change for every light at once, applied after the rest of the scene: all(mul(slider(1))) is a grand master fader. It scales the light output (the dimmer of a fixture that has one, the colour of one that does not) and leaves pan, tilt and wheels alone, so a master cannot move a head. Strudel's all() does the same across every pattern playing.",
     example: "all(mul(slider(1)))          // grand master\nall(mul(sine.slow(8).range(0.3, 1)))   // the whole rig breathing",
     context: 'command',
     kind: 'function',
@@ -1093,7 +1095,7 @@ spot.white(mini('1 - - -').punch())`,
     label: 'slider',
     signature: 'slider(value, min, max, step) · slider(name, min, max)',
     description:
-      "A fader in the code: a draggable handle at this point in the source. Moving it changes the light immediately, with nothing re-evaluated, and the position survives a re-run. Written strudel's way, slider(0.5), it starts at that value; given a name first, the name labels it and keeps its position however the code around it moves. It is a pattern, so it chains and can be handed to a method: .range(), .mul(), .fast(slider(1, 1, 8)).",
+      "A fader written in the code, drawn as a draggable handle at that point in the source. Moving it changes the light immediately, with nothing re-evaluated, and the position survives a re-run. Written strudel's way, slider(0.5), it starts at that value; given a name first, the name labels it and keeps its position however the code around it moves. It is a pattern, so it chains and can be handed to a method: .range(), .mul(), .fast(slider(1, 1, 8)).",
     example: "wash.dim(sine.slow(2).mul(slider(0.8)))           // a master on the wave\nstrb.dim('1*4'.fast(slider(1, 1, 8, 1)))     // strobe rate on a fader\nconst level = slider('level')",
     context: 'command',
     kind: 'function',
@@ -1102,7 +1104,7 @@ spot.white(mini('1 - - -').punch())`,
     label: 'pick',
     signature: '.pick([a, b])',
     description:
-      "Choose between whole patterns with a pattern of indices. The switch is written into the pattern, so the document still says everything about what the rig will do.",
+      "Choose between whole patterns with a pattern of indices. The switching is part of the pattern, so the code describes everything the rig will do.",
     example: "const sparse = mini('1 0 1 0')\nconst busy   = mini('1 1 1 1')\nwash.red('<0 1 1 2>'.pick([sparse, busy]))",
     context: 'pattern-method',
     kind: 'method',
@@ -1147,7 +1149,7 @@ spot.white(mini('1 - - -').punch())`,
     label: 'ctrl+shift+enter',
     signature: 'run only the edits in the selection',
     description:
-      "Commits just the edits inside your selection, or the block around the cursor, on top of what is already running. The half-written look elsewhere in the file stays out of the rig, even when it is broken.",
+      "Runs only the edits inside the selection, or in the block around the cursor, on top of what is already running. Unfinished edits elsewhere in the file stay out of the rig, even when they are broken.",
     example: "// edit one look, put the cursor in it, ctrl+shift+enter",
     context: 'command',
     kind: 'variable',
@@ -1165,7 +1167,7 @@ spot.white(mini('1 - - -').punch())`,
     label: 'midi',
     signature: 'midi(cc, opts?)',
     description:
-      'A hardware fader as a value. Continuous controller cc, read live at query time, handed on as 0..1. opts: { channel = 1, start = 0 }. Turn on midi in under inputs in the outputs panel first.',
+      'Reads a hardware fader: MIDI continuous controller cc, read live at query time and scaled to 0..1. opts: { channel = 1, start = 0 }. Turn on midi in under inputs in the outputs panel first.',
     example: "const level = midi(74)\nspot.dim(level)",
     context: 'command',
     kind: 'function',
@@ -1225,9 +1227,9 @@ rig.color(warm)             // a palette across the members of a group`,
     label: 'dim',
     signature: '.dim(value | pattern)',
     description:
-      'Brightness on a fixture that has a dimmer, which most real pars and every moving head do. It is a channel setter like '
-      + '.red(), so it exists only when the definition has a channel for it: a bare rgb par has no dimmer and its brightness '
-      + 'lives in the colour, so scale the colour or use .full(). Not to be confused with the bare dim(channel, value), which '
+      'Brightness on a fixture that has a dimmer, as most pars and every moving head do. It is a channel setter like '
+      + '.red(), so it exists only when the definition has a channel for it. A bare rgb par has no dimmer and its brightness '
+      + 'lives in the colour, so scale the colour or use .full(). The bare dim(channel, value) is a different call: it '
       + 'writes a raw DMX channel by number.',
     example: 'wash.dim(0.8)\nwash.dim(sine.slow(4))\nrig.dim(0.5)      // every member that has one',
     context: 'fixture-method',
@@ -1240,7 +1242,7 @@ rig.color(warm)             // a palette across the members of a group`,
       'The pixel strip inside a fixture, under whatever name its definition gave that channel (pixels is the usual one). '
       + 'Everything a bare rgbStrip answers to, it answers to: .color(), .fill(), .pixel(i, …), .pixelXY(x, y, …), .each(pattern), '
       + '.chase(), .rainbowChase(), .off(), .full(). The fixture itself also answers .color() and .off() and passes them down, '
-      + 'so reach for this when you want the pixels individually rather than the light as one thing.',
+      + 'so use this to address the pixels one by one.',
     example: "const bar = fixture(1, 'pixel-bar-rgbw-8')\nbar.pixels.color(red)\nbar.pixels.each(sine)\nbar.color(red)   // the same light, as one",
     context: 'property',
     kind: 'property',
@@ -1249,10 +1251,10 @@ rig.color(warm)             // a palette across the members of a group`,
     label: 'mono',
     signature: '.mono(value | pattern)',
     description:
-      'Every emitter on this light at one level: white, as bright as you ask for. The brightness that works on any '
-      + 'fixture, because .dim() is a channel setter and only exists where the definition has that channel. A bare rgb '
-      + 'par keeps its brightness in its colour and has no dimmer at all. Drives a master, or three colours, or four, or '
-      + 'a strip of pixels, and takes a pattern like any other value. On a fixture, a group and a strip alike.',
+      'Sets every emitter on the light to one level, which gives white at the brightness you ask for. It works on any '
+      + 'fixture, unlike .dim(), a channel setter that exists only when the definition has that channel (a bare rgb '
+      + 'par keeps its brightness in its colour and has no dimmer). It drives a master, three colours, four, or '
+      + 'a strip of pixels, and takes a pattern like any other value. Works on a fixture, a group and a strip alike.',
     example: 'par.mono(0.5)        // half, in white\npar.mono(pulse(4))   // breathing\nrig.mono(0.3)        // a whole rig, evenly',
     context: 'fixture-method',
     kind: 'method',
@@ -1261,9 +1263,9 @@ rig.color(warm)             // a palette across the members of a group`,
     label: 'temp',
     signature: '.temp(kelvin)',
     description:
-      'White at a colour temperature, the way lighting has always said it. 2000 is candlelight, 3200 tungsten, 5600 '
-      + 'daylight, 6500 neutral, and above that it goes blue; warmer means a smaller number. It says what colour the '
-      + 'white is, not how bright, so pair it with .mono() or a dimmer. On a fixture, a group and a colour strip alike; '
+      'White at a colour temperature in kelvin. 2000 is candlelight, 3200 tungsten, 5600 '
+      + 'daylight, 6500 neutral, and above that it goes blue; warmer means a smaller number. It sets the colour of the '
+      + 'white and leaves brightness alone, so pair it with .mono() or a dimmer. On a fixture, a group and a colour strip alike; '
       + 'a single-channel strip has no colour to set.',
     example: 'wash.temp(3200)      // tungsten\nwash.temp(5600)      // daylight\nwash.temp(2700); wash.mono(0.4)',
     context: 'fixture-method',
@@ -1273,10 +1275,9 @@ rig.color(warm)             // a palette across the members of a group`,
     label: 'solo',
     signature: '.solo()',
     description:
-      'Darken every other light this scene patched, and leave this one alone. The button every desk has, for answering '
-      + '"just that one, now" without unpicking the look around it. The others are darkened rather than forgotten, so '
-      + 'running the scene again brings the whole thing back. Only lights this run patched are known, which is the same '
-      + 'window everything else works in.',
+      'Darken every other light this scene patched and leave this one as it is, like the solo button on a desk: it '
+      + 'isolates one light without unpicking the look around it. Running the scene again brings the others back. It '
+      + 'only knows the lights this run patched, the same as every other call.',
     example: 'spot.solo()          // just the spot\nbar.pixels.solo()    // just the bar',
     context: 'fixture-method',
     kind: 'method',
@@ -1350,7 +1351,7 @@ rig.color(warm)             // a palette across the members of a group`,
     label: 'pixel',
     signature: '.pixel(i, brightness) | .pixel(i, r, g, b [, w])',
     description:
-      'Set one pixel on a strip. One value = monochrome (R = G = B; W = 0 on RGBW). Three or four values = full colour control. For every pixel at once, .each() is the chase.',
+      'Set one pixel on a strip. One value = monochrome (R = G = B; W = 0 on RGBW). Three or four values = full colour control. To run a pattern across every pixel, use .each().',
     example: `strip.pixel(0, 1, 0, 0)          // the first pixel red
 strip.pixel(9, sine.slow(2))     // the tenth, breathing white`,
     context: 'fixture-method',
@@ -1365,7 +1366,7 @@ strip.pixel(9, sine.slow(2))     // the tenth, breathing white`,
       + 'A palette is a plain array of colours and spreads the same way. A pattern of colour tokens is one colour that '
       + 'changes in time, so the strip moves together. Three or more values that are not colours stay the per-component '
       + 'spelling, which on an RGB strip takes patterns as readily as numbers. On an RGBW strip a colour writes r, g '
-      + 'and b and leaves the dedicated white emitter where the scene last put it; .full() is still the call that '
+      + 'and b and leaves the dedicated white emitter where the scene last put it; .full() '
       + 'lights every emitter. A single-channel strip has no colour and takes a level.',
     example: `strip.fill(red)                  // one colour, every pixel
 strip.fill(red, blue)            // two stops, a gradient across the strip
@@ -1388,7 +1389,7 @@ strip.fill(0, 0, 0, 0)`,
     label: 'eachXY',
     signature: '.eachXY(pattern, across = 1, down = 0)',
     description:
-      'each() for when the shape matters: every pixel runs the pattern, later the further across and down it is. across and down are how many cycles that adds up to over the width and the height.',
+      'Like each(), spread over the grid: every pixel runs the pattern, later the further across and down it is. across and down are how many cycles that adds up to over the width and the height.',
     example: 'wash.pixels.eachXY(sine.slow(4))          // sweep across\nwash.pixels.eachXY(sine.slow(2), 0, 1)    // wipe down',
     context: 'fixture-method',
     kind: 'method',
@@ -1464,7 +1465,7 @@ strip.each(rand.range(-3, 1), 3.7)              // sparkle`,
     label: 'chase',
     signature: '.chase(color | palette, { cycles?, width?, waves?, reverse?, down?, early? })',
     description:
-      'A band of colour travelling along the strip, endlessly: the plain way to get a moving light. '
+      'A band of colour that travels along the strip on a loop, the simplest way to get a moving light. '
       + 'Colour by name (red, blue, amber...), three numbers 0 to 1, or a palette, whose stops spread '
       + 'along the strip so the band runs over a gradient. Under .down() the stops re-sample onto the rows instead of '
       + 'the columns. A pattern of colour tokens changes the whole band in time rather than across space. '
@@ -1549,17 +1550,13 @@ bar.pixels.chase(warm, { cycles: 2 }).down()     // stops onto the rows`,
 /**
  * Lookup by label, split by whether the name follows a dot.
  *
- * Six labels are deliberately two different things: `red` is a colour value and
- * also a channel setter, `strobe` a named move and also a channel, and the same
- * for green, blue, white and flash. One Map keyed by label kept whichever came
- * last in this file, which was the setter every time, so hovering the `red` in
- * `wash.color(red)` — a bare value, the most common way the word is written —
- * explained `.red(value | pattern)` instead of the colour.
- *
- * The file header already says the hover lookup is context-blind. It does not
- * have to be: a name preceded by a dot is a member and a name that is not is
- * not, which separates every one of these pairs. The fallback keeps a miss
- * working, so a member with only a bare entry still resolves.
+ * The labels listed in the header are each two things. A single Map keyed by
+ * label would keep whichever entry comes last in this file, which is the setter
+ * every time, so hovering the `red` in `wash.color(red)` (a bare value, the most
+ * common way the word is written) would explain `.red(value | pattern)` instead
+ * of the colour. A name preceded by a dot is a member and one without is not,
+ * which separates every pair. The fallback keeps a miss working, so a member
+ * with only a bare entry still resolves.
  */
 const indexOf = (keep: (c: HelpContext) => boolean): Map<string, HelpEntry> =>
   new Map(HELP_ENTRIES.filter((e) => keep(e.context)).map((e) => [e.label, e]));

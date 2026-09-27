@@ -1,16 +1,16 @@
 /**
- * Themes worked out from a few decisions rather than forty hand-picked hex values.
+ * Themes computed from a few decisions instead of forty hand-picked hex values.
  *
- * The first thirteen themes were drawn by hand, colour by colour. That does
- * not scale to the families a tool like this is asked for (monochrome, high
- * contrast, colour-blind safe, a dim booth, a bright outdoor screen), and hand
- * picking is exactly how one colour in forty slips under the contrast line.
+ * The hand-drawn themes are picked colour by colour. That does not scale to
+ * the families a tool like this is asked for (monochrome, high contrast,
+ * colour-blind safe, a dim booth, a bright outdoor screen), and hand picking
+ * is how one colour in forty slips under the contrast line.
  *
  * So a generated theme states its ground, its text, its accent and a plan for
  * hues, and each syntax colour is then found by holding its hue and saturation
  * and searching lightness until it reaches a contrast target against the
- * ground. Contrast is the guarantee, hue is the character: every colour here
- * clears its target by construction, on a dark ground or a light one.
+ * ground. Every colour here clears its target by construction, on a dark
+ * ground or a light one, and the hue plan sets the theme's character.
  *
  * The targets come in three tiers, as the hand-drawn themes use them: the
  * loudest tokens (a fixture's name where it is declared, where light goes), the
@@ -37,8 +37,8 @@ type Hue = readonly [number, number];
 
 /**
  * The house plan: the hue each role has in the hand-drawn themes, so a
- * generated theme reads like the rest of gobo. Colour names wear their own
- * colour; the quiet roles are the low-saturation ones.
+ * generated theme reads like the rest of gobo. Colour names are tinted their
+ * own colour; the quiet roles are the low-saturation ones.
  */
 export const STANDARD_HUES: Record<SyntaxKey, Hue> = {
   synFixtureDecl: [54, 0.75], synFixtureRef: [54, 0.45], synFactory: [298, 0.5], synOutput: [20, 0.85],

@@ -3,8 +3,7 @@
  *
  * All colours come from CSS custom properties so the active theme
  * (set via themes.ts → applyTheme()) propagates into the editor without
- * rebuilding the EditorView. These used to be JS constants, which meant
- * a rebuild on every switch.
+ * rebuilding the EditorView.
  *
  * Two colour families are in play and are kept separate:
  *   - the chrome vars (--bg, --accent, --text-muted …) style the editor
@@ -13,17 +12,17 @@
  *     below owns the base-JavaScript half of that (keywords, numbers,
  *     strings, comments, operators); the regex ViewPlugin in
  *     code-highlight.ts owns the gobo-specific half.
- * Base JS used to borrow --accent / --accent2 / --sage / --text-muted,
- * putting it in competition with the gobo tokens for the same three
- * colours. It has its own vars now.
+ * Base JS has its own vars and borrows none of the chrome colours
+ * (--accent, --accent2, --sage, --text-muted), so it never competes with
+ * the gobo tokens for the same colours.
  */
 
 import { EditorView } from '@codemirror/view';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags as t } from '@lezer/highlight';
 
-// Re-exported so existing `import { COLORS } from './theme.js'` callers
-// (notably visualizer.ts) keep working after the move to themes.ts.
+// Re-exported for callers that import COLORS from here (visualizer.ts).
+// The palette itself lives in themes.ts.
 export { COLORS } from './themes.js';
 
 /** Shorthand for `var(--x)` so the style object stays readable. */
@@ -35,8 +34,8 @@ export const goboTheme = EditorView.theme(
       backgroundColor: v('bg'),
       color: v('text'),
       height: '100%',
-      // Follows the text-size setting, falling back to what it has always
-      // been. The tooltips below keep their own sizes: those are chrome, and
+      // Follows the text-size setting, falling back to 13px. The tooltips
+      // below keep their own sizes: those are chrome, and
       // scaling a 440px-wide help panel with the code makes it unreadable at
       // the sizes this setting exists for.
       fontSize: 'var(--editor-font-size, 13px)',
@@ -64,12 +63,9 @@ export const goboTheme = EditorView.theme(
     },
     // Transparent, and no rule down the side.
     //
-    // The gutter used to be a panel: its own background, a border against the
-    // code, a visible seam a third of an inch in from the left. Strudel draws
-    // the line numbers over the same background the code sits on, so the
-    // editor reads as one surface and the numbers recede on their own, by
-    // being dimmer rather than by being fenced off. That is the change: the
-    // contrast does the separating, not a border.
+    // As in Strudel, the line numbers sit on the same background as the code,
+    // so the editor reads as one surface. The numbers are set apart by being
+    // dimmer, with no border or panel background.
     '.cm-gutters': {
       backgroundColor: 'transparent',
       color: v('text-muted'),
@@ -83,8 +79,8 @@ export const goboTheme = EditorView.theme(
       color: v('text-muted'),
     },
     // The find panel. CodeMirror ships it unstyled, which on a dark editor
-    // means a strip of system-grey with a white input across the top of the
-    // document — so it is dressed to match the panels the app already has.
+    // means a strip of system grey with a white input across the top of the
+    // document, so it is styled to match the app's other panels.
     '.cm-panels': {
       backgroundColor: v('surface'),
       color: v('text'),
@@ -128,9 +124,9 @@ export const goboTheme = EditorView.theme(
     '.cm-panel.cm-search .cm-button:hover': {
       color: v('text'),
     },
-    // Every other hit while you type, so a search reads as a shape down the
-    // document rather than one jump at a time. The .cm-searchMatch rules this
-    // pairs with were written further down long before search was installed.
+    // Every other hit while you type, so a search shows where its matches
+    // fall down the whole document. Pairs with the .cm-searchMatch rules
+    // further down.
     '.cm-selectionMatch': {
       backgroundColor: v('selection-bg'),
       outline: `1px solid ${v('border')}`,
@@ -253,9 +249,8 @@ export const goboTheme = EditorView.theme(
 export const goboHighlight = syntaxHighlighting(
   HighlightStyle.define([
     // Comments are the lowest-chroma colour in every palette so they
-    // recede, but --syn-comment is still solved to >= 4.5:1 rather than
-    // the usual near-invisible grey. They used to take --text-muted,
-    // which on some themes fails contrast against --bg.
+    // recede, but --syn-comment is still solved to >= 4.5:1. They do not
+    // use --text-muted, which on some themes fails contrast against --bg.
     { tag: t.comment, color: v('syn-comment'), fontStyle: 'italic' },
     { tag: t.lineComment, color: v('syn-comment'), fontStyle: 'italic' },
     { tag: t.blockComment, color: v('syn-comment'), fontStyle: 'italic' },
@@ -276,7 +271,7 @@ export const goboHighlight = syntaxHighlighting(
     { tag: t.null, color: v('syn-keyword') },
 
     // Strings are fixture ids and mini-notation, so they sit next to the
-    // pattern hue. Replaces --sage, which the gobo tokens now need.
+    // pattern hue.
     { tag: t.string, color: v('syn-string') },
     { tag: t.special(t.string), color: v('syn-string') },
     { tag: t.regexp, color: v('syn-string') },

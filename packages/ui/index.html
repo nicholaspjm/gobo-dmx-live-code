@@ -13,14 +13,12 @@
     />
 
     <!-- Link previews.
-         Sharing a scene is one of the things gobo is for: the share button
-         puts a whole scene in a URL. Without these, every one of those links
-         pastes into a chat as bare text, which reads as a dead link rather
-         than a lighting scene.
+         The share button puts a whole scene in a URL. Without these tags such
+         a link pastes into a chat as bare text and looks like a dead link.
 
          The image URL has to be absolute, because a crawler resolving it has
-         no page context to make a relative path from. It is spelled out here
-         rather than built from the base path for that reason. -->
+         no page context to make a relative path from, so it is spelled out
+         here and not built from the base path. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="gobo" />
     <meta property="og:title" content="gobo · live-code DMX lighting in your browser" />
@@ -29,8 +27,8 @@
       content="Write pattern code, watch 512 channels respond, and send it to real lights over Art-Net, sACN, USB DMX or TouchDesigner."
     />
     <meta property="og:url" content="https://gobolive.cc/" />
-    <!-- One address for search engines, now that the old github.io one
-         redirects here and copies are served from localhost as well. -->
+    <!-- One address for search engines: the github.io address redirects
+         here, and copies are also served from localhost. -->
     <link rel="canonical" href="https://gobolive.cc/" />
     <meta property="og:image" content="https://gobolive.cc/og.png" />
     <meta property="og:image:alt" content="The gobo editor, fixture simulator and channel meters running a pattern" />
@@ -85,11 +83,10 @@
       }
 
       /* Top bar */
-      /* Everything that moves, turned off in one place. It is deliberately
-         heavy-handed: a rule per component would leave anything added later
-         quietly exempt, and this is a setting somebody turns on because they
-         want the movement to stop, not mostly stop. The 0.01ms rather than 0
-         is so a transitionend listener still fires and nothing waiting on one
+      /* Everything that moves, turned off in one place. One broad rule,
+         because a rule per component would leave anything added later exempt,
+         and whoever turns this on wants all movement to stop. 0.01ms in place
+         of 0 keeps transitionend listeners firing, so nothing waiting on one
          hangs. */
       html.no-animations *,
       html.no-animations *::before,
@@ -111,9 +108,9 @@
         flex-shrink: 0;
       }
 
-      /* A button, not a label: clicking the mark is the way into minimal view.
-         Styled back down to text, because it should read as the logo and
-         reward being tried rather than advertise itself as a control. */
+      /* A button, because clicking the mark enters minimal view. Styled back
+         down to text so it reads as the logo and does not advertise itself as
+         a control. */
       .wordmark {
         font: inherit;
         font-size: 15px;
@@ -137,8 +134,7 @@
       /* Four block characters stepping from solid to nearly nothing: the edge
          of a beam, in the font the editor is already using. It is text, so it
          costs no asset, scales with the type and takes the theme's accent.
-         Letter-spacing is removed so the four read as one ramp rather than
-         four separate marks. */
+         Letter-spacing is removed so the four read as one ramp. */
       .wordmark-ramp {
         color: var(--accent);
         font-size: 13px;
@@ -152,14 +148,14 @@
         gap: 20px;
       }
 
-      /* Run and stop, as a pair, at the head of the row. Both keys have worked
-         since the beginning; the buttons are for the hand that is on the mouse,
-         and for anyone who has not read the status bar yet.
+      /* Run and stop, as a pair, at the head of the row. The keys do the same;
+         the buttons are for the hand on the mouse, and for anyone who has not
+         read the status bar yet.
 
-         Run is not disabled while a scene is running, because re-running is the
-         whole gesture of live coding: the button does what ctrl+enter does,
-         every time it is pressed. Stop is the one that changes, going quiet
-         when there is nothing to stop. */
+         Run stays enabled while a scene is running, because live coding means
+         re-running: the button does what ctrl+enter does, every time it is
+         pressed. Stop is the one that changes, going quiet when there is
+         nothing to stop. */
       .transport {
         display: inline-flex;
         align-items: center;
@@ -192,25 +188,21 @@
       }
 
       /* The bar is one row of a fixed height, so anything that wraps inside it
-         does not make it taller — it collides with the row above. The output
-         status is the only label long enough to wrap, and the two scene-file
-         buttons are what pushed the row past a narrow window. */
+         collides with the row above instead of making it taller. The output
+         status is the only label long enough to wrap. */
       #output-status,
       #ws-label {
         white-space: nowrap;
       }
 
-      /* The wordmark gives way before any control does, because it is the one
-         item in the row that is decoration rather than something you press.
-         It goes in two steps rather than one, since the word and the ramp cost
-         about fifty pixels each.
+      /* The wordmark gives way before any control does, because it is the only
+         item in the row that is decoration. It goes in two steps, since the
+         word and the ramp take about fifty pixels each.
 
-         Both numbers are measured, not guessed, and they moved a long way when
-         four top-bar buttons became one: the row now wants 864px with the
-         whole mark, 813px for the ramp alone and 750px for neither, against
-         1098 / 1047 / 1016 before. The breakpoints sit just above each. Below
-         750 the bar is out of room whatever the mark does, which is a fact
-         about how many controls are in it. */
+         Both numbers are measured: the row needs 864px with the whole mark,
+         813px for the ramp alone and 750px for neither, and the breakpoints
+         sit just above each. Below 750 the bar is out of room whatever the
+         mark does. */
       @media (max-width: 880px) {
         .wordmark-word { display: none; }
         .topbar-right { gap: 14px; }
@@ -220,14 +212,13 @@
         .wordmark { display: none; }
       }
 
-      /* A phone. Below 750px the row stops fitting, and the bar clips rather
-         than wraps, so what fell off the end was share, minimal view and the
-         menu: the one button that reaches the docs, the settings and the log. What gives
-         way instead is what a phone can live without — the tempo nudges, the
-         cycle bar, the connection light's words and the "view" in "minimal
-         view" — and run, stop, the tempo itself, share, minimal and the menu
-         stay. The light keeps its dot, and tapping it still opens the outputs
-         tab. */
+      /* A phone. Below 750px the row stops fitting, and the bar clips instead
+         of wrapping, which would cut off share, minimal view and the menu (the
+         only button that reaches the docs, the settings and the log). So what
+         a phone can do without goes first: the tempo nudges, the cycle bar,
+         the connection light's words and the "view" in "minimal view". Run,
+         stop, the tempo itself, share, minimal and the menu stay. The light
+         keeps its dot, and tapping it still opens the outputs tab. */
       @media (max-width: 749px) {
         .topbar { padding: 0 10px; }
         .topbar-right { gap: 8px; }
@@ -240,7 +231,7 @@
         .zen-toggle-more { display: none; }
       }
 
-      /* The smallest phones still about, 320px wide. What is left above needs
+      /* The smallest phones in use, 320px wide. What is left above needs
          357px, and tap tempo is the next thing a phone can do without. */
       @media (max-width: 359px) {
         #bpm-tap { display: none; }
@@ -332,8 +323,8 @@
       }
 
       /* The connection light, which is a button: it opens the outputs panel.
-         Styled to read as the status text it has always been, so promoting it
-         adds a control without adding a control's worth of furniture. */
+         Styled to read as status text, so it adds a control without a
+         control's worth of furniture. */
       .ws-status {
         display: flex;
         align-items: center;
@@ -360,8 +351,8 @@
       }
 
       /* Shown only while the scene's output needs a program on this machine and
-         none is listening. That state is the one worth a standing marker: the
-         banner saying the same thing can be dismissed, this cannot. */
+         none is listening. It is a standing marker because the banner saying
+         the same thing can be dismissed and this cannot. */
       .ws-lock {
         display: inline-flex;
         align-items: center;
@@ -383,8 +374,8 @@
         background: var(--sage);
       }
 
-      /* Connector running, nothing pointed at it yet. A ring rather than a
-         filled dot: something is there, no light is moving. */
+      /* Connector running, nothing pointed at it yet. A ring in place of a
+         filled dot: the connector is there, but no light is moving. */
       .ws-dot.ready {
         background: transparent;
         box-shadow: inset 0 0 0 1.5px var(--sage);
@@ -394,21 +385,20 @@
         background: var(--error);
       }
 
-      /* Editor. Takes whatever the panels below it do not need, which since
-         they became fixed-height is almost all of it. */
+      /* Editor. Takes whatever the panels below it do not need, which, since
+         they are fixed-height, is almost all of it. */
       .editor-wrap {
         flex: 1;
         /* Never collapses entirely: on a short window the panels below yield
-           first, and an editor you cannot see a line of is not an editor. */
+           first, so some of the code always stays in view. */
         min-height: 140px;
         overflow: hidden;
         position: relative;
       }
 
-      /* The flash a run leaves behind. An overlay rather than a background
-         change on the editor itself: the editor's own background is the
-         theme's, and a scene that takes a moment to swap in should not be able
-         to leave the wrong colour behind if the class outlives the frame. */
+      /* The flash a run leaves behind. An overlay, so the editor's own
+         background stays the theme's: if the class outlives the frame while a
+         scene takes a moment to swap in, no wrong colour is left behind. */
       .editor-wrap::after {
         content: '';
         position: absolute;
@@ -436,12 +426,10 @@
       }
 
       /* Visualizer.
-         Sized by what is in it, not by a share of the window. It used to take
-         a quarter of the height with `flex: 1`, which was about right when the
-         level strip was tall. Shrinking the strip left the box the same size
-         and the difference as dead space along the bottom, because both its
-         children are fixed height and neither grows to fill.
-         Capped so a rig with tall sim elements scrolls rather than eating the
+         Sized by its contents. Both children are fixed height and neither
+         grows to fill, so a share of the window (`flex: 1`) would leave dead
+         space along the bottom.
+         Capped so a rig with tall sim elements scrolls instead of eating the
          editor. */
       .viz-wrap {
         /* Grow never, shrink when there is nothing left to give: on a window
@@ -548,8 +536,7 @@
       }
 
       /* What just happened, in one line, at the top where the eye lands when
-         a modal opens. The link below it is the thing you check; this is the
-         thing you are told. */
+         a modal opens. The link below it is what to check. */
       .share-result {
         margin: 0 0 10px;
         font-size: 12px;
@@ -615,8 +602,8 @@
 
       .cue-chip:hover { color: var(--text); }
 
-      /* A scene choosing its own look: the chips are the cast list, not
-         buttons, so they read as labels and do not invite a press. */
+      /* A scene choosing its own look: the chips list the looks and are styled
+         as labels, so they do not invite a press. */
       .cue-chip:disabled {
         cursor: default;
         opacity: 0.75;
@@ -624,8 +611,8 @@
 
       .cue-chip:disabled:hover { color: var(--text-muted); }
 
-      /* Marked by more than the colour: this is read at a glance in a dark
-         room, and which look is live is the thing it exists to say. */
+      /* Marked by more than the colour, because this is read at a glance in a
+         dark room and its job is to show which look is live. */
       .cue-chip.live {
         color: var(--bg);
         background: var(--accent);
@@ -905,10 +892,9 @@
         display: none;
       }
 
-      /* 512 channel levels. A reference strip, not the main event: it used to
-         flex and take a fifth of the window, which is far more than a row of
-         level bars needs to be readable. Fixed and short, so the space goes to
-         the fixture sim above it. */
+      /* 512 channel levels, as a reference strip. Fixed and short, since a row
+         of level bars is readable at this height, so the space goes to the
+         fixture sim above it. */
       .viz-strip {
         position: relative;
         flex: 0 0 auto;
@@ -918,8 +904,8 @@
         width: 100%;
         height: 44px;
       }
-      /* Which universe is on screen. Sits over the bars rather than taking a
-         row of its own, since the strip is short now. */
+      /* Which universe is on screen. Sits over the bars instead of taking a
+         row of its own, since the strip is short. */
       .viz-strip-label {
         position: absolute;
         top: 3px;
@@ -958,11 +944,10 @@
       }
 
       /* Minimal view. The class goes on <body> so one rule takes out the
-         chrome, rather than main.ts reaching for each element. The screen
-         lights are deliberately left alone: a scene using screen() is aiming
-         at them, so they are output, not furniture.
-         Each piece is hidden by its own class rather than by the mode, so the
-         settings decide what the view does and the mode stays one switch. */
+         chrome, without main.ts reaching for each element. The screen lights
+         stay: a scene using screen() is aiming at them, so they are output.
+         Each piece is hidden by its own class, so the settings choose what
+         the view hides and the mode stays a single toggle. */
       body.zen-hide-chrome .divider,
       body.zen-hide-cues .cue-bar,
       body.zen-hide-sim:not(.zen-hide-levels) .fixture-panel,
@@ -970,11 +955,11 @@
         display: none;
       }
 
-      /* Hidden is tucked away, not gone: the top bar comes back while the
-         pointer is at the top edge, and the sim and level strip while it is
-         on the status bar. Out of the layout either way, so the code gets the
-         whole window. The short delay before they go again is so a pointer
-         that overshoots on the way to a button does not lose it. */
+      /* Hidden pieces come back on demand: the top bar while the pointer is at
+         the top edge, and the sim and level strip while it is on the status
+         bar. They are out of the layout either way, so the code gets the whole
+         window. The short delay before they go again keeps a pointer that
+         overshoots on the way to a button from losing it. */
       body.zen-hide-chrome .topbar {
         position: fixed;
         top: 0;
@@ -1055,9 +1040,9 @@
       }
 
       /* ─── Scene bar ──────────────────────────────────────────────────────
-         There is one working buffer, so the top bar carries a name plus three
-         verbs instead of a picker: rename in place, save to a file, open one,
-         copy a share link. */
+         There is one working buffer, so the top bar carries a share button
+         (and, in the desktop app, the update link) in place of a scene
+         picker. */
       .scene-bar {
         display: inline-flex;
         align-items: center;
@@ -1093,9 +1078,9 @@
       .scene-action.active {
         color: var(--accent);
       }
-      /* Momentary "copied" state on the share button. Green rather than the
-         accent, because it reports that something happened rather than that a
-         mode is on, and the two should not look alike. */
+      /* Momentary "copied" state on the share button. Green, because it
+         reports that something happened; the accent marks a mode that is on,
+         and the two should not look alike. */
       /* The one thing in the top bar that is news rather than a control, so it
          takes the accent. */
       .scene-action.app-update {
@@ -1109,13 +1094,11 @@
       }
 
 
-      /* ─── Untrusted-scene banner ─────────────────────────────────────────
-         Evaluating a scene that arrived in a share link gives someone else's
-         code full page privileges (see SECURITY.md). Such a scene is loaded
-         stopped; this banner says where it came from and stays up until the
-         user runs it or dismisses it. It takes a row in the layout rather
-         than floating over the editor, so it cannot be flicked away like an
-         overlay. */
+      /* ─── Warning banner ─────────────────────────────────────────────────
+         A row above the editor, used by the connector banner when a scene
+         asks for network output and nothing can send it. It takes a row in
+         the layout instead of floating over the editor, so it cannot be
+         flicked away like an overlay. */
       .share-banner {
         display: none;
         align-items: center;
@@ -1357,8 +1340,8 @@
         padding: 16px 0 4px;
       }
 
-      /* Is the connector running? A background process nobody remembers
-         starting deserves one plain sentence about itself. */
+      /* Connector status: whether it is running, in one plain sentence, since
+         it is a background process people forget starting. */
       .connector-status {
         border: 1px solid var(--border);
         border-radius: 3px;
@@ -1394,11 +1377,10 @@
         font-size: 10px;
         color: var(--text-muted);
       }
-      /* "how do I start it", shown only when the connector is down. Folded
-         away: three routes, and only one of them is the reader's. */
-      /* Colour picker: a swatch beside the pick() that made it. The wheel
-         itself is the operating system's, which is better at being a wheel
-         than anything drawn here would be. */
+      /* "starting the connector", shown only when the connector is down.
+         Folded away, because there are four routes and each reader needs
+         one. */
+      /* Colour picker: a swatch beside the pick() that made it. */
       .gobo-picker {
         display: inline-flex;
         align-items: center;
@@ -1411,11 +1393,11 @@
         letter-spacing: 0.06em;
         color: var(--text-muted);
       }
-      /* A button, not an <input type="color">. The wheel it opens is drawn in
-         color-wheel.ts, so it looks and behaves the same on every platform and
-         picks up the editor theme, which the operating system's picker could do
-         neither of. The chip colour is set inline from the stored value, along
-         with an appearance reset, so there is no background rule here. */
+      /* A button in place of <input type="color">: the wheel it opens is drawn
+         in color-wheel.ts, so it looks and behaves the same on every platform
+         and follows the editor theme, neither of which the operating system's
+         picker does. The chip colour is set inline from the stored value,
+         along with an appearance reset, so there is no background rule here. */
       .gobo-picker-swatch {
         width: 22px;
         height: 14px;
@@ -1426,10 +1408,10 @@
         cursor: pointer;
       }
 
-      /* The definition, written back out as the code that would make it. Every
-         fixture in the library is a worked channel map; this is how someone
-         starting their own gets to read one. Folded away: the list is for
-         browsing, and a dozen channel maps open at once is not browsable. */
+      /* The definition, written back out as the code that makes it, so
+         someone writing their own fixture can read a worked channel map.
+         Folded away because the list is for browsing, and a dozen open
+         channel maps would bury it. */
       .lib-row-template {
         margin-top: 6px;
       }
@@ -1539,7 +1521,7 @@
         border-radius: 3px;
       }
 
-      /* The output this scene actually asked for. */
+      /* The output this scene asked for. */
       .output-row.current {
         border-left-color: var(--accent);
       }
@@ -1639,8 +1621,8 @@
         flex-direction: column;
         gap: 18px;
       }
-      /* A heading between groups. There are twenty-five switches here, and a
-         flat list of twenty-five is one nobody reads to the end of. */
+      /* A heading between groups of settings, since one flat list of them is
+         too long to scan. */
       .settings-section {
         margin: 10px 0 -4px;
         font-size: 11px;
@@ -1898,9 +1880,9 @@
         gap: 8px;
         flex-wrap: wrap;
       }
-      /* Below this line, entries that only talk about the query rather than
-         being called it. Kept visible, because searching a concept is a fair
-         way to find the entry you could not name, but kept clearly apart. */
+      /* Below this line, entries that mention the query without being named
+         for it. Kept visible, because searching a concept is a fair way to
+         find an entry you could not name, and set clearly apart. */
       .doc-results-divider {
         display: flex;
         align-items: center;
@@ -2050,13 +2032,11 @@
          Where a fixture came from, on every row that shows one. Defined
          out here rather than inside the library panel's block because the
          docs panel tags the fixtures it documents with the same class
-         names, and one colour code kept in two places stops being one
-         colour code.
+         names, and a colour code kept in two places drifts apart.
 
-         The label is what says which tier a row is. The colour is a second
-         reading of the same fact, so nothing is lost by a reader who
-         cannot separate four hues, and nothing is lost on the monochrome
-         themes, where there are not four hues to separate.
+         The label says which tier a row is. The colour repeats it, so a
+         reader who cannot separate four hues loses nothing, and neither do
+         the monochrome themes, which have no four hues to separate.
 
          The four take their hue from the syntax palette rather than from
          --accent and friends. A theme's chrome is one accent pair plus a
@@ -2209,8 +2189,8 @@
       .lib-row-builtin .lib-row-id {
         color: var(--text);
       }
-      /* Inline code styling inside the library notes (used to highlight
-         the .color / .off / .full helpers in the built-in section blurb). */
+      /* Inline code inside the library notes (the .color / .off / .full
+         helpers in the built-in section note). */
       .lib-note code {
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 11px;
@@ -2393,13 +2373,12 @@
          declaration is the brightest thing on its line; refs are the same
          hue one step dimmer, still weighted so chain roots like
          `wash.red(…)` stay findable. */
-      /* The mini-notation token driving light right now. An outline rather
-         than a background, so it does not fight the syntax colour underneath,
-         and it is the accent rather than a new colour because the editor
-         already has enough of those. */
+      /* The mini-notation token driving light right now. An outline, so it
+         does not fight the syntax colour underneath, in the accent because
+         the editor already has plenty of hues. */
       /* An error on the status bar is a way into the log, which holds the
          whole message. Marked with a pointer and an underline so it reads as
-         something to press rather than as text that happens to react. */
+         something to press. */
       #eval-status.clickable {
         cursor: pointer;
         text-decoration: underline dotted;
@@ -2537,8 +2516,7 @@
       }
 
       /* Editor-only decorations (.viz .flash .glow .wave). Italic because
-         they emit no DMX: they annotate the buffer, they do not drive the
-         rig. The inline viz WIDGETS further down share this class name but
+         they emit no DMX and only annotate the buffer. The inline viz WIDGETS further down share this class name but
          contain only graphics, so the colour and italic are inert there. */
       .cm-content .gobo-viz {
         color: var(--syn-viz);
@@ -2546,7 +2524,7 @@
       }
 
       /* Raw channel writes that bypass the fixture layer. Plumbing, so the
-         styling is utilitarian rather than expressive. */
+         styling is plain. */
       .cm-content .gobo-dmx {
         color: var(--syn-dmx);
       }
@@ -2642,9 +2620,9 @@
         transition: background 60ms linear;
       }
       /* Flash: the tick loop maintains a decaying --gobo-flash 0..1 that is
-         multiplied into the background alpha. The previous approach restarted
-         a CSS animation on each trigger, and the forced reflows interfered
-         with DMX tick timing enough to flicker physical lights. */
+         multiplied into the background alpha. Restarting a CSS animation on
+         each trigger would force reflows that disturb DMX tick timing enough
+         to flicker physical lights. */
       .gobo-patviz-flash {
         background: rgba(196, 114, 74, calc(var(--gobo-flash, 0) * 0.32));
       }
@@ -2784,8 +2762,8 @@
           <!-- The connection light is also the door to the outputs panel. It is
                the thing a lighting person already looks at when the rig is
                dark, so the explanation of what this browser can and cannot
-               drive lives one click behind it. #ws-dot and #ws-label are kept
-               as its children: main.ts still writes those same nodes. -->
+               drive lives one click behind it. #ws-dot and #ws-label are its
+               children because main.ts writes those nodes. -->
           <button
             type="button"
             class="ws-status"
@@ -2798,7 +2776,7 @@
             <span class="ws-dot disconnected" id="ws-dot"></span>
             <span id="ws-label">disconnected</span>
             <!-- Shown only while the scene's output needs a program on this
-                 machine and none is listening. Silent the rest of the time. -->
+                 machine and none is listening. Hidden otherwise. -->
             <span class="ws-lock" id="ws-lock" hidden aria-label="needs the connector">
               <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="4" y="10" width="16" height="11" rx="2"></rect>
@@ -2807,14 +2785,14 @@
             </span>
           </button>
           <div class="scene-bar">
-            <!-- One button. It used to be two, copy and share, whose difference
-                 is a distinction about storage: not something to make somebody
-                 read a top bar to work out. Copying the code as text is still
-                 there, inside the dialog, where there is room to say what it is.
+            <!-- One share button. Copying the code as text is inside the
+                 dialog, where there is room to say what it is; a second button
+                 up here would ask people to work out a distinction about
+                 storage from the top bar.
 
-                 The scene has no name either. There is one working buffer, it
-                 is the document on screen, and nothing else exists for a name
-                 to tell it apart from. -->
+                 The scene has no name. There is one working buffer, the
+                 document on screen, and nothing else for a name to tell it
+                 apart from. -->
             <!-- Desktop app only, and only when a newer release is out. See
                  app-update.ts. -->
             <button type="button" class="scene-action app-update" id="app-update" hidden></button>
@@ -2824,15 +2802,13 @@
                  wherever focus happens to be. -->
 
             <!-- The bundled scenes live under the docs panel's examples tab,
-                 next to the reference that explains them, rather than behind
-                 a second menu up here. -->
+                 next to the reference that explains them. -->
           </div>
-          <!-- Choosing a USB interface lives in the outputs panel, next to the
-               other five outputs, rather than as a button of its own up here.
-               Reached by clicking the connection light. -->
-          <button type="button" class="docs-toggle" id="zen-toggle" title="minimal view: just the code, with the bars a hover away (alt+m, or click the mark on the left)" aria-pressed="false">minimal<span class="zen-toggle-more"> view</span></button>
-          <!-- The panel, all of it. Four buttons used to stand here; what
-               they opened is now five tabs behind this one. -->
+          <!-- Choosing a USB interface is in the outputs panel, next to the
+               other five outputs, reached by clicking the connection light. -->
+          <button type="button" class="docs-toggle" id="zen-toggle" title="minimal view: only the code, with the bars shown on hover (alt+m, or click the mark on the left)" aria-pressed="false">minimal<span class="zen-toggle-more"> view</span></button>
+          <!-- Opens the panel: docs, fixtures, log, outputs and settings, as
+               five tabs. -->
           <button type="button" class="docs-toggle panel-toggle" id="panel-toggle" title="docs, fixtures, log, outputs and settings" aria-label="panel" aria-expanded="false" aria-controls="panel">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
               <path d="M3 6h18"></path><path d="M3 12h18"></path><path d="M3 18h18"></path>
@@ -2841,11 +2817,9 @@
         </div>
       </header>
 
-      <!-- A scene arriving in a share link used to raise a banner here about
-           what running someone else's code can reach. It is gone: the scene is
-           still never auto-run and still asks before replacing the buffer, so
-           the banner was a paragraph in the way rather than a protection. See
-           the shared-scene section of main.ts. -->
+      <!-- A scene arriving in a share link gets no warning banner: it is
+           never auto-run and asks before replacing the buffer. See the
+           shared-scene section of main.ts. -->
 
       <!-- Shown when a scene asks for network output but nothing is there to
            send it. A browser cannot open a UDP socket, so this is the point at
@@ -2853,20 +2827,17 @@
       <div class="share-banner" id="connector-banner" role="alert" aria-hidden="true">
         <span class="share-banner-icon" aria-hidden="true">⚠</span>
         <span class="share-banner-text" id="connector-banner-text"></span>
-        <button type="button" class="scene-action" id="connector-banner-more">what works without this</button>
+        <button type="button" class="scene-action" id="connector-banner-more">other outputs</button>
         <a class="scene-action" id="connector-banner-link" href="#" target="_blank" rel="noopener">download</a>
         <button type="button" class="scene-action" id="connector-banner-dismiss">dismiss</button>
       </div>
 
-      <!-- One panel, five tabs. It used to be five panels with five buttons
-           in the top bar, each carrying its own close, its own Escape handler
-           and its own copy of "shut the other four first". The five things
-           behind them are all the same kind of thing — something you read
-           beside the code — so mutual exclusion stopped being a rule every
-           panel had to remember and became what a tab strip is.
+      <!-- One panel, five tabs. All five are read beside the code, so a tab
+           strip gives mutual exclusion without each page carrying its own
+           close, its own Escape handler and its own "shut the others first".
 
-           The tabs themselves are built in panel.ts, from the page list, so
-           there is one place that decides what the panel holds. -->
+           The tabs are built in panel.ts from the page list, so one place
+           decides what the panel holds. -->
       <aside class="panel" id="panel" aria-hidden="true">
         <div class="panel-header">
           <div class="panel-tabs" id="panel-tabs" role="tablist"></div>
@@ -2895,10 +2866,9 @@
 
       <!-- The looks the running scene offered through cue(). Rebuilt after
            every eval; hidden entirely when a scene offers none, so a file that
-           does not use cue() sees no new furniture. -->
-      <!-- Share dialog. The link used to go straight to the clipboard with a
-           status line, which gave you no way to see it, select part of it, or
-           tell a long link from a short one before sending it. -->
+           does not use cue() shows nothing extra. -->
+      <!-- Share dialog. Shows the link, so it can be read, partly selected,
+           and checked for length before it is sent. -->
       <dialog class="share-dialog" id="share-dialog">
         <form method="dialog">
           <h2 class="share-title">share this scene</h2>

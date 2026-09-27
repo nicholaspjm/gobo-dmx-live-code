@@ -7,8 +7,9 @@
  *
  *   npx gobo-connector@latest
  *
- * No download, no unsigned binary, no security warning to click through. It
- * points at the app and opens it, as the downloaded connector does.
+ * It needs no download and no unsigned binary, so there is no security warning
+ * to click through. It points at the app and opens it, as the downloaded
+ * connector does.
  *
  * A separate wrapper rather than a shebang in the source, so the compiled
  * output stays a plain module and tsc has nothing to preserve.

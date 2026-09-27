@@ -1,25 +1,23 @@
 /**
- * Teaching a scene where its mini-notation came from.
+ * Tagging a scene's mini-notation with where it is written.
  *
  * `@strudel/mini` ships two ways to build a pattern from a string.
  * `mini('1 0 1 0')` throws away where the string was; `m('1 0 1 0', offset)`
  * tags every leaf with the character range it came from, which is what the
- * editor needs to outline the token that is lighting something right now.
- * Strudel gets the offsets from a full parse of the document. This does not
- * have a parser and does not need one: it only has to find the calls and
- * measure the strings.
+ * editor needs to outline the live token. Strudel gets the offsets from a
+ * full parse of the document. This has no parser: it only has to find the
+ * calls and measure the strings.
  *
  * The rewrite is textual and length-preserving in the places it does not
- * touch — only the argument list of a matched call grows — and the offsets it
+ * touch (only the argument list of a matched call grows), and the offsets it
  * writes are into the ORIGINAL document, which is what the decorations are
  * placed against.
  *
- * It is deliberately timid. Anything it is not sure about it leaves alone: a
- * call whose argument is not a plain single-quoted or double-quoted literal, a
- * string carrying an escape, a call inside a comment or inside another string.
- * A missed call costs an outline. A wrong rewrite costs the scene, and this
- * runs on the path that currently guarantees a mistyped paren leaves the rig
- * exactly as it was.
+ * Anything it is not sure about is left alone: a call whose argument is not a
+ * plain single-quoted or double-quoted literal, a string carrying an escape, a
+ * call inside a comment or inside another string. A missed call costs an
+ * outline. A wrong rewrite costs the scene, and this runs on the path that
+ * guarantees a mistyped paren leaves the rig as it was.
  */
 
 import { stripNonCode } from './source-scan.js';
@@ -61,7 +59,7 @@ interface Call {
 }
 
 /**
- * Find `mini('…')` calls that are really code.
+ * Find `mini('…')` calls in code.
  *
  * The search runs over stripped source, where comment bodies and string
  * contents are blanked character for character, so a `mini(` written inside a
@@ -113,9 +111,9 @@ function findMiniCalls(source: string): Call[] {
 /**
  * Rewrite every mini call so its leaves carry document offsets.
  *
- * `mini('1 0')` becomes `m('1 0', N)`. The rename is not cosmetic: mini() has
- * no offset parameter at all — it is m() that takes one — so adding a second
- * argument to mini() would be silently ignored and nothing would ever light up.
+ * `mini('1 0')` becomes `m('1 0', N)`. The rename matters: mini() has no
+ * offset parameter (m() takes one), so a second argument to mini() would be
+ * silently ignored and nothing would ever light up.
  *
  * N is the offset of the OPENING QUOTE, because @strudel/mini re-adds the
  * quote itself before parsing and counts from there. Passing the offset of the
@@ -161,8 +159,8 @@ function miniEdits(source: string): Edit[] {
   try {
     calls = findMiniCalls(source);
   } catch {
-    // The stripper walks user text. If it ever throws, the scene is worth more
-    // than the outlines.
+    // The stripper walks user text. If it ever throws, the scene runs without
+    // outlines.
     return [];
   }
   return calls.map((c) => ({
@@ -253,7 +251,7 @@ function sliderEdits(source: string): Edit[] {
  * `'1 0'.fast(2)` becomes `m('1 0', offsetOfTheQuote).fast(2)`: strudel's chain
  * on a quoted pattern, outlined live like any other. The editor does not know
  * the engine's method list, so anything a string itself lacks counts; the
- * engine makes the same rewrite with the real list for code run without it.
+ * engine makes the same rewrite with its own list for code run without it.
  */
 function receiverEdits(source: string): Edit[] {
   try {
@@ -279,9 +277,9 @@ const VIZ_METHODS = new RegExp(`\\.(${PATTERN_VIZ_METHOD_NAMES.join('|')})\\s*\\
  * a `.flash()` inside a look that did not run shifts every later widget onto
  * the wrong line.
  *
- * Only an EMPTY argument list is rewritten. The methods take nothing today, so
+ * Only an EMPTY argument list is rewritten. The methods take no arguments, so
  * anything inside the parens is something this does not understand, and a call
- * left alone simply falls back to counting.
+ * left alone falls back to counting.
  */
 function vizEdits(source: string): Edit[] {
   let stripped: string;

@@ -9,7 +9,7 @@
  *   const par = fixture(1, 'rgb')
  *   par.red(sine())
  *   par.green(0)
- *   par.blue(cosine().slow(2))
+ *   par.blue(cosine.slow(2))
  *
  *   const head = fixture(10, 'moving-head-basic')
  *   head.pan(0.5)
@@ -100,7 +100,7 @@ export interface ChannelDef {
    *
    * A channel with slots is a selector, so it is never treated as something
    * that emits light: .off() and .full() leave it where it is, the same way
-   * they already leave pan and tilt alone.
+   * they leave pan and tilt alone.
    */
   slots?: ChannelSlot[];
 }
@@ -132,11 +132,9 @@ export interface FixtureDef {
 
 // ─── Which channels emit light ───────────────────────────────────────────────
 //
-// .off() and .full() need to know what to drive. They used to walk a hardcoded
-// six names, so a fixture whose emitters are called anything else was silently
-// skipped: a warm/cold blinder's .full() sent nothing, and worse, its .off()
-// left the bulbs lit. A blackout that does not black out is the worst failure
-// this API can have.
+// .off() and .full() need to know what to drive. An emitter this misses is
+// silently skipped: a warm/cold blinder's .full() sends nothing and its .off()
+// leaves the bulbs lit, which is the worst failure a blackout can have.
 //
 // Two ways in, because fixture defs in the wild use both conventions:
 //
@@ -147,12 +145,11 @@ export interface FixtureDef {
 //
 // A channel carrying `slots` is excluded from both: it selects rather than
 // emits, so a colour wheel stays put through a blackout the way pan and tilt
-// already do.
+// do.
 
 /**
- * Colour roles recognised by name. Longer than the old six because subtractive
- * and tunable-white fixtures are ordinary now, and a name that is missing here
- * is a light that will not respond to .off().
+ * Colour roles recognised by name, including subtractive and tunable-white
+ * fixtures. A name missing here is a light that will not respond to .off().
  */
 const EMITTER_NAMES = new Set([
   'red', 'green', 'blue', 'white', 'amber', 'dim', 'dimmer', 'intensity',
@@ -171,11 +168,9 @@ export function isEmitterChannel(ch: ChannelDef): boolean {
   if (ch.type === 'strip') return true;
   if (ch.type === 'intensity') return true;
   if (EMITTER_NAMES.has(bareName(ch.name))) return true;
-  // Whatever .color() will paint, .off() has to be able to darken. Widening
-  // one reader and not the other is how this asymmetry got here in the first
-  // place: a fixture spelled r/g/b lit under .color() and then survived a
-  // blackout, because .off() walked a list that had never heard of the
-  // initials. The two read a name through the same rules now.
+  // Whatever .color() will paint, .off() has to be able to darken, so both
+  // read a name through mixRole(). If they differ, a fixture spelled r/g/b
+  // lights under .color() and then survives a blackout.
   return mixRole(ch) !== null;
 }
 
@@ -197,9 +192,8 @@ type MixRole = 'red' | 'green' | 'blue' | 'white';
  * The short spellings of a mix role.
  *
  * Kept apart from the long words because they are ambiguous in a way the words
- * are not: `g` is as likely to be a gobo wheel as it is green, on a fixture
- * type this project is named after. A definition that means the colour says so
- * with `type: 'color'`, and that is the whole gate.
+ * are not: `g` is as likely to be a gobo wheel as it is green. An initial
+ * counts as a colour only when its channel is declared `type: 'color'`.
  */
 const MIX_ROLE_INITIALS: Readonly<Record<string, MixRole>> = Object.freeze({
   r: 'red', g: 'green', b: 'blue', w: 'white',
@@ -208,13 +202,10 @@ const MIX_ROLE_INITIALS: Readonly<Record<string, MixRole>> = Object.freeze({
 /**
  * Which component of a mix this channel drives, or null if it drives none.
  *
- * `.color()` used to compare channel names to the literals 'red', 'green',
- * 'blue' and 'white', while `.off()` and `.full()` went through
- * isEmitterChannel(), which reads a name through bareName() first. So a single
- * definition answered one call and refused the other: a fixture whose channels
- * are Red_1, Green_1 and Blue_1 lit under `.full()` and threw under `.color()`,
- * reporting that it had no red, green or blue channels while naming those three
- * in the same breath. Both calls read a name the same way now.
+ * `.color()`, `.off()` and `.full()` all read a name through bareName(), so a
+ * fixture whose channels are Red_1, Green_1 and Blue_1 answers every one of
+ * them. Comparing against the literal 'red' instead would light it under
+ * `.full()` and throw under `.color()`.
  *
  * A strip is excluded because its colour is per-pixel and reached through the
  * strip object, not through a scalar write.
@@ -226,8 +217,8 @@ function mixRole(ch: ChannelDef): MixRole | null {
   if (bare === 'red' || bare === 'green' || bare === 'blue' || bare === 'white') return bare;
   // An initial only counts when the definition declared the channel a colour,
   // per MIX_ROLE_INITIALS. Read as an own property: a plain index would reach
-  // the prototype, so a channel named `constructor` or `toString` came back
-  // with a function where a role belongs.
+  // the prototype, so a channel named `constructor` or `toString` would get a
+  // function where a role belongs.
   if (ch.type === 'color' && Object.hasOwn(MIX_ROLE_INITIALS, bare)) {
     return MIX_ROLE_INITIALS[bare];
   }
@@ -387,9 +378,9 @@ export const BUILT_IN_FIXTURES: Record<string, FixtureDef> = {
 };
 
 /**
- * Backward-compat: pre-rename fixture ids resolve to the new short names.
- * Scenes saved against `generic-rgbw` etc. keep working without a forced
- * migration. New code writes `fixture(1, 'rgbw')`.
+ * The long `generic-*` fixture ids resolve to the short names, so scenes saved
+ * against `generic-rgbw` etc. keep working. New code writes
+ * `fixture(1, 'rgbw')`.
  */
 const FIXTURE_ALIASES: Record<string, string> = {
   'generic-dimmer':   'dim',
@@ -439,8 +430,7 @@ export interface SimMovement {
  * the pixel index the hardware puts there. Serpentine wiring and a bottom-right
  * origin both live in that array, so the panel does not have to know the rules,
  * only which cell to read for the square it is painting. Without it a 12 x 4
- * wash drew as one row of 48 in wire order, which is neither its shape nor its
- * arrangement.
+ * wash would draw as one row of 48 in wire order.
  */
 export interface SimGrid {
   columns: number;
@@ -474,17 +464,14 @@ export interface SimFixture {
    * Absolute 1-based channel of a master dimmer sitting over this entry, when
    * the entry is a strip inside a fixture that has one.
    *
-   * A globe already scales itself by its own dim channel. A strip drew its
-   * pixel values raw, so a 154-channel wash with its master at zero, which
-   * emits no light at all, appeared on screen fully lit. The panel exists to
-   * be believed, and that is the one way it can be worse than nothing.
+   * A globe scales itself by its own dim channel. A strip's pixel values are
+   * raw, so without this a 154-channel wash with its master at zero, which
+   * emits no light, would appear fully lit in the panel.
    */
   master?: number;
   /**
    * What can be called on it: the named setters, or a strip's methods. Shown
-   * on hover, because knowing a fixture is there is not the same as knowing
-   * what it answers to, and the alternative is guessing or reading the docs
-   * for a fixture you already have in front of you.
+   * on hover, so what a fixture answers to is visible without the docs.
    */
   commands?: string[];
   /** Live movement channel hints; absent = element doesn't move. */
@@ -519,15 +506,13 @@ export function clearSimFixtures(): void {
  * A colour on a fixture with a master dimmer implies its own brightness.
  *
  * On a fixture whose dimmer gates everything else, driving an emitter and never
- * touching the dimmer is always a mistake. The picture on the pixels is
- * perfect, channel one is at zero, and nothing is visible at all. That failure
- * cost real time on a 154-channel wash whose own description says "nothing is
- * visible unless this is up", which is the definition of a value nobody should
- * have to remember.
+ * touching the dimmer is always a mistake: the pixels hold the picture, channel
+ * one is at zero, and nothing is visible. The typical case is a 154-channel
+ * wash whose own description says "nothing is visible unless this is up".
  *
- * Defaulting the dimmer to full was the other option and it is worse: a rig
- * comes up hot the moment a fixture is patched, on a half-written scene. So it
- * is inferred rather than defaulted, under rules that keep it honest:
+ * Defaulting the dimmer to full is worse: a rig would come up hot the moment a
+ * fixture is patched, on a half-written scene. So the dimmer is inferred, under
+ * these rules:
  *
  *   - only when the run drove an emitter on that fixture,
  *   - only when the run never set that dimmer itself, so dim(0) and dim(0.5)
@@ -535,11 +520,9 @@ export function clearSimFixtures(): void {
  *   - once at the end of the run rather than per call, so line order does not
  *     matter and a scene that sets the dimmer last is still left alone.
  *
- * What the run drove is read back off the staged channel definitions rather
- * than recorded as it happens. Everything that writes a channel ends up there:
- * a strip's pixels, a group's members and a bare ch() alike. Hooking the write
- * paths instead would have missed the strips, which is the case that started
- * this.
+ * What the run drove is read back off the staged channel definitions, where
+ * everything that writes a channel ends up: a strip's pixels, a group's members
+ * and a bare ch() alike. Hooking the write paths instead would miss the strips.
  */
 interface FixtureActivity {
   universe: number;
@@ -574,10 +557,9 @@ function registerPatchedLight(token: object, off: () => void): void {
 /**
  * Darken every patched light except this one.
  *
- * The button every desk has. A scene builds a look, then one line answers
- * "just this one, now" without unpicking the rest of it — and because the
- * others are darkened rather than deleted, running the scene again brings the
- * whole look back.
+ * A scene builds a look, then one line isolates a single light without
+ * unpicking the rest of it. The others are only darkened, so running the scene
+ * again brings the whole look back.
  *
  * Only lights patched in this run are known, which is the same window
  * everything else here works in: a run re-patches what it uses.
@@ -593,7 +575,7 @@ export function clearFixtureActivity(): void {
   _fixtureActivity.length = 0;
   _patchedLights.length = 0;
   // A run re-patches everything it patches, so the claims from the last one go
-  // with it. This is the reset eval.ts actually calls between runs.
+  // with it. eval.ts calls this reset between runs.
   clearPatchClaims();
 }
 
@@ -654,20 +636,18 @@ export function raiseImpliedDimmers(): string[] {
 /**
  * Raise the emitters of every fixture this run dimmed but never coloured.
  *
- * The mirror of raiseImpliedDimmers(), and the same argument. That one covers
- * a scene that sets a colour on a fixture whose brightness lives on a master:
- * the colour is the evidence the light was meant to be on, so the dimmer comes
- * up. This covers the other way round — a scene that drives the master and
- * nothing under it.
+ * The mirror of raiseImpliedDimmers(). That one covers a scene that sets a
+ * colour on a fixture whose brightness lives on a master: the colour is the
+ * evidence the light was meant to be on, so the dimmer comes up. This covers a
+ * scene that drives the master and nothing under it.
  *
- * The case that made it necessary: `group(par).each(p => sine().early(p))` on
- * a dim-rgb par, which is what most real pars are. A cell with a dimmer takes
- * the single value as brightness and deliberately leaves the colour alone,
- * because on a lit rig that is exactly right — the look survives the fade. On
- * a fixture nothing has coloured yet it fades black against black, so the
- * identical line that lights an rgb par leaves a dim-rgb par dark and says
- * nothing. Both halves of the rule now agree: drive either end and the other
- * follows.
+ * Example: `group(par).each(sine)` on a dim-rgb par, which is
+ * what most pars are. A cell with a dimmer takes the single value as
+ * brightness and leaves the colour alone, which is right on a lit rig because
+ * the look survives the fade. On a fixture nothing has coloured yet it fades
+ * black against black, so the line that lights an rgb par would leave a
+ * dim-rgb par dark with no message. Between the two rules, driving either end
+ * brings up the other.
  */
 export function raiseImpliedEmitters(): string[] {
   const raised: string[] = [];
@@ -788,20 +768,19 @@ const _customFixtures: Record<string, FixtureDef> = {};
 
 /** Register a custom fixture definition under a given id. */
 export function defineFixture(id: string, def: FixtureDef): void {
-  // Checked, rather than stored and hoped for. fixture-validator.ts has always
-  // held the rules and the messages — every channel type, every offset, the
-  // pixelCount a strip needs, the ids the built-ins already own — and nothing
-  // in the editor ever reached it: it ran in CI, over the JSON in fixtures/,
-  // and a def written in a scene went straight into the registry unexamined.
+  // Checked before it is stored. fixture-validator.ts holds the rules and the
+  // messages: every channel type, every offset, the pixelCount a strip needs,
+  // the ids the built-ins already own. It also runs in CI over the JSON in
+  // fixtures/.
   //
-  // Two mistakes in particular were silent. A channelCount smaller than the
-  // real span patched happily and then showed up as the NEXT light
-  // misbehaving, several addresses away. And defineFixture('rgbw', …) — the
-  // most natural first move from "my par is not the built-in one" — was
-  // accepted and then ignored, because resolveFixture() takes built-ins first;
-  // the scene went on using the four-channel built-in, and the first call to a
-  // channel the real fixture has came back as "par.dim is not a function",
-  // which names the variable and says nothing about the definition.
+  // Two mistakes would otherwise be silent. A channelCount smaller than the
+  // real span patches happily and then shows up as the NEXT light
+  // misbehaving, several addresses away. And defineFixture('rgbw', …), the
+  // natural first move when a par is not the built-in one, would be accepted
+  // and then ignored, because resolveFixture() takes built-ins first: the
+  // scene keeps using the four-channel built-in, and the first call to a
+  // channel the real fixture has fails as "par.dim is not a function", which
+  // names the variable and says nothing about the definition.
   const result = validateFixture(id, def);
   if (!result.ok) {
     throw new Error(`defineFixture(${JSON.stringify(id)}): ${result.error}`);
@@ -926,11 +905,11 @@ export type FixtureInstance = {
   /**
    * Every emitter on this light at one level, whatever it is made of.
    *
-   * The brightness that works on any fixture. `.dim()` is a channel setter and
-   * exists only where the definition has that channel, so a bare rgb par —
-   * whose brightness lives in its colour — has none. This drives a master, or
-   * three colours, or four, or a strip of pixels, to the same value, and takes
-   * a pattern like anything else.
+   * Works on any fixture. `.dim()` is a channel setter and exists only where
+   * the definition has that channel, so a bare rgb par (whose brightness lives
+   * in its colour) has none. This drives a master, or three colours, or four,
+   * or a strip of pixels, to the same value, and takes a pattern like anything
+   * else.
    *
    * @example
    *   par.mono(0.5)          // half, in white
@@ -942,8 +921,8 @@ export type FixtureInstance = {
    * White at a colour temperature, in Kelvin.
    *
    * 2000 is candlelight, 3200 tungsten, 5600 daylight, 6500 neutral; above
-   * that it goes blue. Says what colour the white is, not how bright — pair it
-   * with .mono() or a dimmer for that.
+   * that it goes blue. Sets the colour of the white only; pair it with .mono()
+   * or a dimmer for brightness.
    *
    * @example
    *   wash.temp(3200)              // tungsten
@@ -954,8 +933,8 @@ export type FixtureInstance = {
   /**
    * Darken every other light this scene patched, and leave this one alone.
    *
-   * The button every desk has. Because the others are darkened rather than
-   * forgotten, running the scene again brings the whole look back.
+   * The others are only darkened, so running the scene again brings the whole
+   * look back.
    */
   solo(): void;
 
@@ -1047,8 +1026,8 @@ function resolveSlots(
   // The mapped value is divided by 255 because the two value domains differ:
   // a bare number written to a channel is rescaled from 0-255 by the tick,
   // but a value arriving from a pattern is taken as an already-normalised
-  // 0-1 level. Handing the raw slot number straight through put every slot
-  // above 1, which clamps, so every named colour came out as full.
+  // 0-1 level. Passing the raw slot number through would put every slot above
+  // 1, which clamps, so every named colour would come out as full.
   const reported = new Set<string>();
   return {
     queryArc(begin: number, end: number) {
@@ -1111,7 +1090,7 @@ function carriesColour(pattern: unknown): boolean {
       }
     }
   } catch {
-    // A pattern that throws when asked is the tick's to report, not this.
+    // A pattern that throws when queried is left for the tick to report.
   }
   return false;
 }
@@ -1119,9 +1098,8 @@ function carriesColour(pattern: unknown): boolean {
 /**
  * A palette holding one stop is one colour.
  *
- * Narrowing a palette with `warm.slice(0, 1)` and handing it to a single light
- * came back as "takes one colour, not 1", which reads as a contradiction and
- * points at an array that already has exactly one thing in it.
+ * So `warm.slice(0, 1)` handed to a single light works, instead of failing
+ * with "takes one colour, not 1" on an array that holds exactly one thing.
  */
 function unwrapSingleStop(args: readonly unknown[]): readonly unknown[] {
   if (args.length === 1 && isPalette(args[0]) && (args[0] as unknown[]).length === 1) {
@@ -1159,20 +1137,19 @@ function isPatternLike(v: unknown): v is PatternLike {
  * Shared by .off() and .full(), which differ only in the level. Channels that
  * steer or shape rather than emit (pan, tilt, gobo, a slotted colour wheel)
  * are left where they are: an operator killing the lights mid-show wants the
- * rig to go dark, not to lose its aim and have to re-find it.
+ * rig to go dark and keep its aim.
  *
- * A fixture with nothing to drive throws. It used to return quietly, which is
- * how a blinder's .off() could leave both bulbs lit and report success.
+ * A fixture with nothing to drive throws, so a blinder's .off() cannot leave
+ * both bulbs lit and report success.
  */
 /**
  * Drive every light-emitting channel of a fixture, and say how many there were.
  *
- * Split out of driveEmitters() so a group can use the same rule. A group used
- * to decide what "off" meant by filtering role names against dim plus red,
- * green, blue and white, which left amber, UV, lime, the warm and cold halves
- * of a blinder and every mono strip cell burning through a blackout — on the
- * same fixture whose own .off() darkened all of them. group() is what a rig is
- * built from, so that was the blackout most likely to be the one anybody used.
+ * Separate from driveEmitters() so a group darkens exactly what the fixture's
+ * own .off() does. Filtering role names against dim plus red, green, blue and
+ * white would leave amber, UV, lime, the warm and cold halves of a blinder and
+ * every mono strip cell burning through a group blackout, and group() is what
+ * a rig is built from.
  */
 function driveEveryEmitter(inst: FixtureInstance, def: FixtureDef, level: PatternOrValue): number {
   let driven = 0;
@@ -1230,15 +1207,15 @@ export function fixtureCommands(def: FixtureDef): string[] {
       const v = ch.pixelLayout === 'rgbw' ? 'r,g,b,w' : ch.pixelLayout === 'mono' ? 'v' : 'r,g,b';
       const chase = ch.pixelLayout === 'mono' ? 'chase()' : 'chase(red)';
       out.push(`${ch.name}.fill(${v})`);
-      // The same call under the word the rest of the lights answer to. Listed
-      // because a call nothing advertises is a call nobody finds.
+      // The same call under the word the rest of the lights answer to, listed
+      // so it can be found.
       if (ch.pixelLayout !== 'mono') out.push(`${ch.name}.color(${v})`);
       out.push(`${ch.name}.${chase}`, `${ch.name}.each(pattern)`);
       continue;
     }
     if (ch.slots !== undefined && ch.slots.length > 0) {
-      // A slotted channel is picked by name, so show the names rather than a
-      // value: they are the whole reason it is easier than the manual.
+      // A slotted channel is picked by name, so show the first few names in
+      // place of a value.
       const names = ch.slots.slice(0, 3).map((s) => `'${s.name}'`).join(' | ');
       const more = ch.slots.length > 3 ? ' | …' : '';
       out.push(`${ch.name}(${names}${more})`);
@@ -1248,9 +1225,8 @@ export function fixtureCommands(def: FixtureDef): string[] {
   }
   // A fixture whose emitters are its pixels answers to the emitter names as
   // well: `wash.red(1)` drives every red channel the strip has. Listed because
-  // this is what the tooltip and the library panel both read, and a call that
-  // works and is not listed is a call nobody finds. Skipped when a scalar
-  // channel of that name already put it in the list.
+  // the tooltip and the library panel both read this list. Skipped when a
+  // scalar channel of that name already put it in the list.
   for (const role of stripEmitterRoles(def)) {
     if (!out.includes(`${role}(v)`)) out.push(`${role}(v)`);
   }
@@ -1326,10 +1302,9 @@ export function stripCommands(layout: 'rgb' | 'rgbw' | 'mono'): string[] {
     if (layout === 'rgbw') out.push('white(v)');
     out.push('rainbowChase()');
   }
-  // off() and full() are on every kind of light now, strips included. They
-  // were left off here on the grounds that fill(0) was the way instead, which
-  // it never was: fill(0) throws on a colour strip, there is no black to name,
-  // and so the only way to darken one was three zeros.
+  // off() and full() are on every kind of light, strips included. fill(0) is
+  // no substitute: it throws on a colour strip, and there is no black to name,
+  // which would leave three zeros as the only way to darken one.
   out.push('off()', 'full()', 'solo()', 'viz(kind)');
   return out;
 }
@@ -1379,7 +1354,7 @@ export interface StripOptions extends StripGeometry {
  * @param universe      DMX universe (default: 0). Art-Net / TouchDesigner
  *                      label the first universe as "Universe 0", so a node
  *                      configured for universe 0 works out of the box.
- *                      Pass 1, 2, 3, … to address additional universes. Note
+ *                      Pass 1, 2, 3, … to address additional universes.
  *                      sACN E1.31 requires universe ≥ 1.
  *
  * @example
@@ -1415,10 +1390,10 @@ export function fixture(
   const def = resolveFixture(fixtureId);
 
   // Patch-address guard, same contract as rgbStrip/rgbwStrip: a fixture that
-  // does not fit the universe is a patching mistake, not something to clamp.
-  // Clamping would light the channels that fit and drop the rest, which reads
-  // as a broken fixture rather than a bad patch. Throwing surfaces the address
-  // in the editor's error banner before the scene goes out.
+  // does not fit the universe is a patching mistake. Clamping would light the
+  // channels that fit and drop the rest, which looks like a broken fixture
+  // instead of a bad patch. Throwing surfaces the address in the editor's
+  // error banner before the scene goes out.
   if (!Number.isInteger(universe) || universe < 0) {
     throw new Error(`fixture: universe must be a non-negative integer (got ${universe})`);
   }
@@ -1511,17 +1486,16 @@ export function fixture(
       // A run of stops needs somewhere to go, and how many places this fixture
       // has depends on what it is made of. A par is one position and a run has
       // nowhere to land on it; a pixel bar is as many positions as it has
-      // pixels, and .fill() on its strip already spread a run across them,
-      // endpoint to endpoint. So the same call means "this colour" on the par
-      // and "this gradient" on the bar, which is the rule the rest of the
-      // colour paths already follow and the one .color() was missing: the
-      // 154-channel wash refused `.color(warm)` while `.pixels.fill(warm)`
-      // painted it.
+      // pixels, and .fill() on its strip spreads a run across them, endpoint to
+      // endpoint. So the same call means "this colour" on the par and "this
+      // gradient" on the bar, the rule the rest of the colour paths follow:
+      // `.color(warm)` on the 154-channel wash paints what
+      // `.pixels.fill(warm)` paints.
       //
-      // Refused rather than quietly painted with the first stop where there is
-      // nowhere to spread it, and decided BEFORE the single-colour branch
-      // below, which would otherwise take the first argument and drop the rest
-      // without saying so.
+      // Where there is nowhere to spread it, the run is refused instead of
+      // quietly painted with the first stop. Decided BEFORE the single-colour
+      // branch below, which would otherwise take the first argument and drop
+      // the rest without saying so.
       const stops = isPalette(args[0])
         ? (args[0] as unknown[]).length
         : (args.length > 1 && everyArgIsColour(args) ? args.length : 1);
@@ -1552,8 +1526,8 @@ export function fixture(
         return;
       }
       // A colour, whether branded or spelled as three numbers in an array. The
-      // array form is what .each() hands back, and it used to reach
-      // channelValues as a single argument and come back asking for all three.
+      // array form is what .each() hands back; passed on as one argument,
+      // channelValues would ask for all three.
       const asColour = toColorValue(args[0]);
       if (args.length === 1 && asColour !== null) {
         inst.color(
@@ -1577,13 +1551,11 @@ export function fixture(
         inst.set(slotChannel, args[0] as PatternOrValue | string);
         return;
       }
-      // A quoted colour on a fixture with no wheel to send it to. Handed on to
-      // the colour reader, which has said the useful thing about this since it
-      // was written — "colours are written without quotes. Use red rather than
-      // 'red'." A strip has always answered that way, because .fill() goes
-      // through it. A fixture fell past this to the component path instead and
-      // complained about arity: "needs all 3 of r, g, b (got 1)", which is
-      // true, and no help at all to someone who has just typed a colour.
+      // A quoted colour on a fixture with no wheel to send it to goes to the
+      // colour reader, the same path a strip's .fill() takes, so it gets the
+      // reader's messages. The component path would complain about arity
+      // ("needs all 3 of r, g, b (got 1)"), which is no help to someone who
+      // has typed a colour.
       // A quoted colour is mini-notation, as in strudel, so it reads the same as
       // a pattern of colour names: `wash.color('red')`, `wash.color('<red blue>')`.
       // A pattern of colour names on a fixture with no wheel: one colour that
@@ -1617,13 +1589,11 @@ export function fixture(
       paint('green', g);
       paint('blue', b);
       if (w !== undefined) paint('white', w);
-      // A fixture whose colour lives in its pixels still has colour, and this
-      // used to throw on it: the 154-channel wash answered .red(1) and refused
-      // .color(red), while the hover panel advertised the call. An emitter name
-      // means that emitter everywhere the fixture has one, so a mix means every
-      // pixel of every colour strip, which is what .fill() on that strip writes.
-      // A mono strip is one level per cell with no colour to mix, so it is left
-      // alone here exactly as the named setters leave it.
+      // A fixture whose colour lives in its pixels still has colour. An emitter
+      // name means that emitter everywhere the fixture has one, so a mix means
+      // every pixel of every colour strip, which is what .fill() on that strip
+      // writes. A mono strip is one level per cell with no colour to mix, so it
+      // is left alone here exactly as the named setters leave it.
       for (const ch of def.channels) {
         if (ch.type !== 'strip' || ch.pixelLayout === 'mono') continue;
         const strip = inst[ch.name] as { fill?: (...vs: PatternOrValue[]) => void } | undefined;
@@ -1660,11 +1630,11 @@ export function fixture(
     mono(...v) {
       // Brightness, on a light of any shape. .dim() is a channel setter and so
       // exists only where the definition has that channel: a bare rgb par has
-      // no dimmer and its brightness lives in the colour, which is why
-      // par.dim(0.5) came back as "not a function". This drives whatever the
-      // light uses to make light — a master, three colours, four, a strip of
-      // pixels — to one level, and takes a pattern like any other value, so
-      // par.mono(pulse(4)) breathes without needing a word of its own.
+      // no dimmer and its brightness lives in the colour, so par.dim(0.5) is
+      // "not a function" there. This drives whatever the light uses to make
+      // light (a master, three colours, four, a strip of pixels) to one level,
+      // and takes a pattern like any other value, so par.mono(pulse(4))
+      // breathes.
       const level = channelValue(v, `Fixture "${def.name}".mono()`);
       if (driveEveryEmitter(inst, def, level) === 0) {
         throw new Error(
@@ -1675,9 +1645,9 @@ export function fixture(
     },
 
     temp(kelvin) {
-      // Lighting has always talked in Kelvin: 3200 is tungsten, 5600 daylight,
-      // 2000 candlelight, and "warmer" means a smaller number. Mixing that out
-      // of r, g and b by eye is the arithmetic this call exists to stop.
+      // Lighting talks in Kelvin: 3200 is tungsten, 5600 daylight, 2000
+      // candlelight, and "warmer" means a smaller number. This saves mixing
+      // that out of r, g and b by eye.
       if (typeof kelvin !== 'number' || !Number.isFinite(kelvin)) {
         throw new Error(
           `Fixture "${def.name}".temp(): a colour temperature is a number in Kelvin, as in temp(3200). ` +
@@ -1718,9 +1688,8 @@ export function fixture(
         movement,
         // This strip is the fixture's visible part, so its tooltip speaks for
         // the whole fixture: the call that patched it and every channel it
-        // answers to, not just the pixels. Without this a 154-channel wash
-        // hovers as an anonymous run of pixels with its strobe channels
-        // nowhere in sight.
+        // answers to. Without this a 154-channel wash would hover as an
+        // anonymous run of pixels with no sign of its strobe channels.
         simFixtureId: fixtureId,
         simPatchChannel: startChannel,
         simCommands: fixtureCommands(def),
@@ -1742,37 +1711,37 @@ export function fixture(
     } else {
       // A channel must not take a generic method's name away from it. A def
       // with a channel called `color`, which is what the docs recommend for a
-      // colour wheel, used to overwrite the r,g,b mixer: `head.color(1, 0, 0)`
-      // then drove the wheel channel to full and dropped the green and blue
-      // arguments, with no error and the wrong light. The generic call stays,
+      // colour wheel, would otherwise overwrite the r,g,b mixer:
+      // `head.color(1, 0, 0)` would drive the wheel channel to full and drop
+      // the green and blue arguments, with no error. The generic call stays,
       // and dispatches to the channel when handed a slot name; anything else
-      // named after a method is still reachable through .set().
+      // named after a method is reachable through .set().
       if (RESERVED_METHODS.has(ch.name)) continue;
-      // Rest parameter, not a single value: a call with no argument has to stay
-      // distinguishable from one that passed undefined, so `par.red()` can mean
-      // full while `par.red(somethingBroken)` still reports.
+      // A rest parameter, so a call with no argument stays distinguishable
+      // from one that passed undefined: `par.red()` means full while
+      // `par.red(somethingBroken)` still reports.
       inst[ch.name] = (...args: [(PatternOrValue | string)?]) => inst.set(ch.name, ...args);
     }
   }
 
   // ── Emitter names reach the pixels too ──
   //
-  // The loop above only sees scalar channels, so on a fixture whose emitters
-  // ARE its strip, `wash.red(1)` reached nothing: no such method at all, or on
-  // a fixture that also has a scalar red, one channel lit while 48 pixels
-  // stayed dark. An emitter name on a fixture means that emitter everywhere the
-  // fixture has one, which is the rule .off() and .full() already follow and
-  // the rule a group already applies through the same fixture.
+  // The loop above only sees scalar channels. Without this, on a fixture whose
+  // emitters ARE its strip, `wash.red(1)` would reach nothing (no such
+  // method), or on a fixture that also has a scalar red, light one channel
+  // while 48 pixels stay dark. An emitter name on a fixture means that emitter
+  // everywhere the fixture has one, the same rule .off() and .full() follow
+  // and a group applies through the same fixture.
   //
-  // Only the roles a strip actually answers to are attached, so a mono strip,
-  // which is one level per cell with no colour, gains nothing.
+  // Only the roles a strip answers to are attached, so a mono strip, which is
+  // one level per cell with no colour, gains nothing.
   const stripInstances = def.channels
     .filter((c) => c.type === 'strip')
     .map((c) => ({ name: c.name, strip: inst[c.name] as Record<string, unknown> }));
   for (const role of stripEmitterRoles(def)) {
-    // A method on every fixture keeps its name. Nothing on that list is a strip
-    // role today; the guard is here because the list is free to grow, and a
-    // silently replaced .off() is the worst thing this file can ship.
+    // A method on every fixture keeps its name. No strip role is on that list;
+    // the guard covers the list growing, because a silently replaced .off() is
+    // the worst failure this file could have.
     if (RESERVED_METHODS.has(role)) continue;
     // A strip channel named for a role keeps its own object: it answers .fill()
     // and .pixel(), and a setter here would take its place.
@@ -1797,12 +1766,10 @@ export function fixture(
   const hasStrip = def.channels.some((c) => c.type === 'strip');
   if (!hasStrip) {
     // Resolved by role, not by literal name, so the panel draws whatever
-    // .color() can paint. These used to be looked up as the exact words 'red',
-    // 'green', 'blue', 'white' and 'dim', which stopped matching the moment
-    // .color() learned to read Red_1 and r/g/b: such a fixture drove correctly
-    // on the rig and drew nothing on screen — and with no channel named 'dim'
-    // either, it registered no sim element at all, so a light that worked was
-    // invisible in the one place you check before the doors open.
+    // .color() can paint. Matching the exact words 'red', 'green', 'blue',
+    // 'white' and 'dim' would miss a fixture spelled Red_1 or r/g/b: it would
+    // drive correctly on the rig and draw nothing on screen, and with no
+    // channel named 'dim' either, it would register no sim element at all.
     const byRole = (role: MixRole): number | undefined =>
       def.channels.find((c) => mixRole(c) === role)?.offset;
     const r = byRole('red');
@@ -1863,10 +1830,10 @@ export function listFixtures(): string[] {
 
 // ─── Strip geometry ──────────────────────────────────────────────────────────
 //
-// A 12x4 pixel wash is one strip channel as far as DMX is concerned, and every
-// scene that wanted a column sweep had to write `i % 12` and
-// `Math.floor(i / 12)` by hand. Declaring the width once moves that arithmetic
-// into the fixture, where it can also account for how the thing is wired.
+// A 12x4 pixel wash is one strip channel as far as DMX is concerned. Declaring
+// the width once keeps `i % 12` and `Math.floor(i / 12)` out of every scene
+// that wants a column sweep, and puts that arithmetic in the fixture, where it
+// can also account for how the thing is wired.
 //
 // A plain line of pixels is the same model with one row, so nothing needs a
 // special case: width defaults to pixelCount and height to 1.
@@ -1948,7 +1915,7 @@ function resolveGeometry(pixelCount: number, geo: StripGeometry, what: string) {
      *   serpentine  whether the run then folds back on alternate rows
      *
      * Callers always address the picture: (0, 0) is its top left. Everything
-     * below converts that to whatever order the strip is actually wired in.
+     * below converts that to whatever order the strip is wired in.
      */
     index(x: number, y: number): number {
       if (!Number.isInteger(x) || x < 0 || x >= width) {
@@ -1975,8 +1942,8 @@ function resolveGeometry(pixelCount: number, geo: StripGeometry, what: string) {
      * DMX order while pixelXY addressed the picture, so a reversed strip would
      * come out corrected through one method and not the other.
      *
-     * With the default origin and no serpentine this is the identity, so
-     * nothing written before grids existed changes.
+     * With the default origin and no serpentine this is the identity, so a
+     * plain strip is addressed in wire order.
      */
     seq(i: number): number {
       return this.index(i % width, Math.floor(i / width));
@@ -2021,14 +1988,12 @@ export interface PixelGridFill {
 /**
  * Every spelling of a colour, or of a run of them, that a colour call accepts.
  *
- * Written once and shared, because the implementations already read all of
- * these through the one ladder in readColorStops() while the declarations had
- * drifted behind it: `.fill()` and `.chase()` took a palette long before their
- * types admitted one, so a scene that ran correctly failed to typecheck, and
- * the type was the thing that was wrong.
+ * Written once and shared, because the implementations read all of these
+ * through the one ladder in readColorStops(). Separate declarations drift
+ * behind it, and a scene that runs correctly then fails to typecheck.
  *
- * `readonly Color[]` covers both ways to write a run — `color(red, blue)` as
- * separate arguments and `color([red, blue])` as one array — because a rest
+ * `readonly Color[]` covers both ways to write a run (`color(red, blue)` as
+ * separate arguments and `color([red, blue])` as one array), because a rest
  * parameter of colours and an array of colours are the same list.
  */
 export type ColorRunArgs =
@@ -2097,14 +2062,13 @@ export interface StripInstance {
   ): void;
 
   /**
-   * Run a callback per pixel with its grid position.
-   *
-   * The callback gets `(x, y, w, h)`. Return a level or `[r, g, b]`, the same
-   * as each(). This is each() for anything where the shape matters: a sweep
-   * across the columns, a wipe down the rows, a diagonal.
+   * Run a pattern per pixel, shifted by its grid position: `spreadX` and
+   * `spreadY` are how many cycles the shift adds up to over the columns and
+   * the rows. For a sweep, a wipe or a diagonal. A function of `(x, y, w, h)`
+   * returning a level or `[r, g, b]` also works.
    *
    * @example
-   *   wash.pixels.eachXY((x, y, w) => sine().early(x / w).slow(4))
+   *   wash.pixels.eachXY(sine.slow(4), 4)
    */
   eachXY(
     fn: EachXYArg<PatternOrValue | PatternOrValue[]>,
@@ -2124,10 +2088,8 @@ export interface StripInstance {
   /**
    * The same call as `.fill()`, under the word a scene reaches for.
    *
-   * A light has a colour, whatever it is made of, and `.color()` is how every
-   * other kind of light here is told what colour to be. A strip answered
-   * `.fill()` and nothing else, so a scene that had learned `par.color(red)`
-   * had to know that this one thing spelled it differently.
+   * `.color()` is how every other kind of light here is told what colour to
+   * be, so a scene written with `par.color(red)` uses the same word on a strip.
    */
   color(...args: ColorRunArgs): void;
 
@@ -2152,7 +2114,7 @@ export interface StripInstance {
 
   /**
    * Every pixel white at a colour temperature, in Kelvin. 3200 is tungsten,
-   * 5600 daylight. Says what colour the white is, not how bright.
+   * 5600 daylight. Sets the colour of the white; brightness is separate.
    */
   temp(kelvin: number): void;
 
@@ -2191,14 +2153,15 @@ export interface StripInstance {
   pixelGrid(rows: PatternOrValue[][]): PixelGridFill;
 
   /**
-   * Run a callback per pixel. Return a single value for a monochrome
-   * chase (applied to R=G=B) or `[r, g, b]` for full colour control.
-   * The callback receives `(phase, i, count)`, where phase is `i / count`,
-   * the common chase parameter you'd otherwise hand-compute every time.
+   * Run a pattern per pixel, a step later on each; `spread` is how many
+   * cycles those steps add up to along the strip. A function of
+   * `(phase, i, count)` also works, returning one level (R=G=B) or
+   * `[r, g, b]`, with phase as `i / count`.
    *
    * @example
-   *   strip.each(p => cosine().early(p).slow(2).range(-7, 1))   // monochrome walk
-   *   strip.each(p => [sine().early(p), 0, cosine().early(p)])  // colour chase
+   *   strip.each(cosine.slow(2).range(-7, 1), 2)   // monochrome walk
+   *   strip.color(red)
+   *   strip.each(sine.slow(2))                      // a chase in that colour
    */
   each(fn: EachArg<PatternOrValue | PatternOrValue[]>, spread?: number): void;
 
@@ -2246,7 +2209,7 @@ export interface StripInstance {
  *
  * Each pixel is 3 channels (R, G, B), laid out contiguously. A 40-pixel strip
  * occupies 120 channels. The pattern engine queries each channel on every tick,
- * so per-pixel patterns (e.g. phase-shifted chases) work just like PARs.
+ * so per-pixel patterns (e.g. phase-shifted chases) work as they do on PARs.
  *
  * Pass `columns` to treat it as a grid: a 48-pixel wash wired 12 across is
  * `rgbStrip(1, 48, 0, { columns: 12 })`, and gains pixelXY / row / column /
@@ -2260,14 +2223,14 @@ export interface StripInstance {
  *
  * @example
  *   const strip = rgbStrip(1, 40)
- *   strip.fill(sine().slow(4), 0, cosine().slow(4))
+ *   strip.fill(sine.slow(4), 0, cosine.slow(4))
  *
  *   // Per-pixel chase
- *   strip.each(p => sine().early(p).slow(4))
+ *   strip.each(sine.slow(4), 4)
  *
  *   // As a grid
  *   const wash = rgbStrip(1, 48, 0, { columns: 12 })
- *   wash.eachXY((x, y, w) => sine().early(x / w).slow(4))
+ *   wash.eachXY(sine.slow(4), 4)
  */
 export function rgbStrip(
   startChannel: number,
@@ -2343,8 +2306,8 @@ export function rgbStrip(
 
     fill(...args) {
       // Nothing at all is full, and three or more values that are not colours
-      // is the per-component spelling. Both keep the rung they always had, so
-      // the documented `.fill(sine(), 0, cosine())` cannot be captured below.
+      // is the per-component spelling. Both are handled here, so the
+      // documented `.fill(sine(), 0, cosine())` cannot be captured below.
       if (args.length === 0 || (args.length >= 3 && !everyArgIsColour(args))) {
         const [r, g, b] = channelValues(args, ['r', 'g', 'b'], '.fill()');
         for (let i = 0; i < pixelCount; i++) {
@@ -2357,7 +2320,7 @@ export function rgbStrip(
       }
       // A colour, several colours, a palette, or a pattern of colour tokens.
       // Several stops spread across the strip, endpoint to endpoint. One stop
-      // repeats, by identity, so `.fill(red)` writes what it always wrote.
+      // repeats by identity, so `.fill(red)` sets every pixel to red.
       const run = readColorRun(args, pixelCount, '.fill()');
       for (let i = 0; i < pixelCount; i++) {
         const base = startChannel + i * 3;
@@ -2370,12 +2333,9 @@ export function rgbStrip(
     },
 
     off() {
-      // Every fixture and every group answers .off(). A strip did not, so a
-      // scene that had learned par.off() got "bar.off is not a function" from
-      // the blackout verb. The note that used to justify leaving it out said
-      // fill(0) was the way instead, and fill(0) throws on a colour strip:
-      // there was no discoverable way to darken one at all, short of three
-      // zeros, and there is no black to name.
+      // Every fixture and every group answers .off(), so a strip does too.
+      // fill(0) throws on a colour strip and there is no black to name, which
+      // would leave three zeros as the only way to darken one.
       inst.fill(0, 0, 0);
     },
 
@@ -2615,7 +2575,7 @@ export interface MonoStripInstance {
  *
  * @example
  *   const seg = monoStrip(147, 8)           // eight white strobe segments
- *   seg.each(p => mini('1 - - -').early(p))
+ *   seg.each('1 - - -')
  */
 export function monoStrip(
   startChannel: number,
@@ -2658,12 +2618,7 @@ export function monoStrip(
     height: geo.height,
 
     off() {
-      // Every fixture and every group answers .off(). A strip did not, so a
-      // scene that had learned par.off() got "bar.off is not a function" from
-      // the blackout verb. The note that used to justify leaving it out said
-      // fill(0) was the way instead, and fill(0) throws on a colour strip:
-      // there was no discoverable way to darken one at all, short of three
-      // zeros, and there is no black to name.
+      // Every fixture and every group answers .off(), so a strip does too.
       inst.fill(0);
     },
 
@@ -2674,8 +2629,8 @@ export function monoStrip(
     },
 
     mono(...v) {
-      // A mono strip is already one level per cell, so this is just fill()
-      // under the word every other light answers to.
+      // A mono strip is one level per cell, so this is fill() under the word
+      // every other light answers to.
       inst.fill(...(v as [PatternOrValue?]));
     },
 
@@ -2686,12 +2641,12 @@ export function monoStrip(
     fill(...v) {
       // A single-channel strip has one level per pixel and no colour to put
       // anywhere. Refused by name, because a palette left to fall through
-      // lands in the options bag and comes back as "no options named 0, 1, 2",
-      // which teaches the wrong thing entirely.
-      // The three-number spelling is the same mistake in different clothes:
-      // .fill(1, 0, 0) means red everywhere else in this API, and here the
-      // extra arguments were simply dropped, so asking for red got full white
-      // on every cell and nothing said so.
+      // would land in the options bag and fail as "no options named 0, 1, 2",
+      // which points at the wrong thing.
+      // The three-number spelling is the same mistake: .fill(1, 0, 0) means
+      // red everywhere else in this API, and here the extra arguments would
+      // be dropped, so asking for red would give full white on every cell
+      // with no message.
       if (isColor(v[0]) || isPalette(v[0]) || v.length > 1) {
         throw new Error(
           `.fill(): a single-channel strip has no colour. Write a level with .fill(0.5), ` +
@@ -2708,9 +2663,10 @@ export function monoStrip(
       }
       // A single-channel strip has one level per pixel and no colour to put
       // anywhere. Refused by name, because a palette left to fall through
-      // lands in the options bag and comes back as "no options named 0, 1, 2",
-      // which teaches the wrong thing entirely.
-      // As above: .pixel(i, 1, 0, 0) read as a level and threw the colour away.
+      // would land in the options bag and fail as "no options named 0, 1, 2",
+      // which points at the wrong thing.
+      // As above: .pixel(i, 1, 0, 0) would be read as a level and the colour
+      // dropped.
       if (isColor(v[0]) || isPalette(v[0]) || v.length > 1) {
         throw new Error(
           `.pixel(): a single-channel strip has no colour. Write a level with .pixel(i, 0.5), ` +
@@ -2752,8 +2708,8 @@ export function monoStrip(
 
     chase(opts: ChaseOptions = {}): ChaseHandle {
       // Named here too. Left to fall through, a colour or a palette would be
-      // read as the options bag and come back as "no options named 0, 1, 2",
-      // which points at the wrong thing entirely.
+      // read as the options bag and fail as "no options named 0, 1, 2", which
+      // points at the wrong thing.
       if (isColor(opts) || isPalette(opts)) {
         throw new Error(
           '.chase(): a single-channel strip has no colour, so the chase takes only options. ' +
@@ -2890,7 +2846,7 @@ export interface RgbwStripInstance {
 
   /**
    * Every pixel white at a colour temperature, in Kelvin. 3200 is tungsten,
-   * 5600 daylight. Says what colour the white is, not how bright.
+   * 5600 daylight. Sets the colour of the white; brightness is separate.
    */
   temp(kelvin: number): void;
 
@@ -2930,14 +2886,15 @@ export interface RgbwStripInstance {
   pixelGrid(rows: PatternOrValue[][]): PixelGridFill;
 
   /**
-   * Run a callback per pixel. Return a single value for a monochrome
-   * chase (applied to R=G=B with W=0) or `[r, g, b, w]` for full colour
-   * control. The callback receives `(phase, i, count)`, where phase is
-   * `i / count`, the common chase parameter you'd otherwise hand-compute.
+   * Run a pattern per pixel, a step later on each; `spread` is how many
+   * cycles those steps add up to along the bar. A function of
+   * `(phase, i, count)` also works, returning one level (R=G=B, W=0) or
+   * `[r, g, b, w]`, with phase as `i / count`.
    *
    * @example
-   *   bar.pixels.each(p => cosine().early(p).slow(2).range(-7, 1))           // walk
-   *   bar.pixels.each(p => [0, sine().early(p), cosine().early(p), 0])       // chase
+   *   bar.pixels.each(cosine.slow(2).range(-7, 1), 2)   // walk
+   *   bar.pixels.color(green)
+   *   bar.pixels.each(sine.slow(2))                      // a chase in that colour
    */
   each(fn: EachArg<PatternOrValue | PatternOrValue[]>, spread?: number): void;
 
@@ -2974,10 +2931,10 @@ export interface RgbwStripInstance {
  *
  * Three is a mix: r, g and b, with W left undefined so the caller writes
  * nothing to it. The fourth channel is a dedicated white emitter, and a
- * three-component mix has no business touching it, which is the rule the colour
- * paths on this strip already follow and the rule .color() has always followed
- * on an RGBW fixture. Four is the explicit spelling, and none at all is full on
- * every channel, the way .full() means it.
+ * three-component mix has no business touching it, the same rule the colour
+ * paths on this strip follow and .color() follows on an RGBW fixture. Four is
+ * the explicit spelling, and none at all is full on every channel, the way
+ * .full() means it.
  *
  * One or two values is a half-written colour, and the message names both
  * spellings: channelValues on its own would ask for all four and never mention
@@ -3087,10 +3044,10 @@ export function rgbwStrip(
       // `strip.fill(pick('warm'))` reach the same place as fill(1, 0, 0, 0).
       //
       // A colour is three components, and the fourth is a dedicated white LED,
-      // which a three-component mix has no business touching: that is the rule
-      // .color() has always followed on an RGBW fixture. So this writes r, g
-      // and b and leaves w wherever the scene last put it. `.full()` is still
-      // the call that lights every emitter.
+      // which a three-component mix has no business touching: the same rule
+      // .color() follows on an RGBW fixture. So this writes r, g and b and
+      // leaves w wherever the scene last put it. `.full()` is the call that
+      // lights every emitter.
       // Several stops spread across the strip; one repeats by identity.
       if (everyArgIsColour(args) || (args.length === 1 && (isPalette(args[0]) || isPatternLike(args[0])))) {
         const run = readColorRun(args, pixelCount, '.fill()');
@@ -3104,10 +3061,9 @@ export function rgbwStrip(
         }
         return;
       }
-      // Three numbers are that same mix, spelled per component: rgbStrip takes
-      // three and this one demanded four, so `.fill(sine(), 0, cosine())`
-      // worked on one strip and threw on the other. W is written only when the
-      // call named it.
+      // Three numbers are that same mix, spelled per component, so
+      // `.fill(sine(), 0, cosine())` works here as it does on rgbStrip. W is
+      // written only when the call names it.
       const [r, g, b, w] = rgbwArgs(args, '.fill()');
       for (let i = 0; i < pixelCount; i++) {
         const base = startChannel + i * STRIDE;
@@ -3119,12 +3075,9 @@ export function rgbwStrip(
     },
 
     off() {
-      // Every fixture and every group answers .off(). A strip did not, so a
-      // scene that had learned par.off() got "bar.off is not a function" from
-      // the blackout verb. The note that used to justify leaving it out said
-      // fill(0) was the way instead, and fill(0) throws on a colour strip:
-      // there was no discoverable way to darken one at all, short of three
-      // zeros, and there is no black to name.
+      // Every fixture and every group answers .off(), so a strip does too.
+      // fill(0) throws on a colour strip and there is no black to name, which
+      // would leave explicit zeros as the only way to darken one.
       inst.fill(0, 0, 0, 0);
     },
 
@@ -3284,14 +3237,13 @@ export function rgbwStrip(
 
 // ─── Groups ──────────────────────────────────────────────────────────────────
 //
-// The one thing that cannot be written at any length otherwise: a single move
-// across a mixed rig. A phase ramp over a strip is `strip.each(…)`, over a
-// bar's pixels is `bar.pixels.each(…)`, and over two pars is two hand-written
-// offsets. Three vocabularies for one gesture, and no way at all to run one
+// A group runs a single move across a mixed rig. A phase ramp over a strip is
+// `strip.each(…)`, over a bar's pixels is `bar.pixels.each(…)`, and over two
+// pars is two hand-written offsets; without a group there is no way to run one
 // ramp through all of them in order.
 //
 // A group is a flat list of things that can be lit, and it answers the same
-// verbs a fixture does. The counting rule is the only thing to remember:
+// verbs a fixture does. The counting rule:
 //
 //   a fixture      one element, however many channels it has
 //   a strip        one element per pixel
@@ -3312,11 +3264,10 @@ export type GroupMember =
  * One addressable element of a group: a whole fixture, or one pixel.
  *
  * Named roles rather than channel numbers, so a par's `red` and a pixel's
- * first channel answer to the same word. That equivalence is the entire point
- * of the type.
+ * first channel answer to the same word.
  */
 interface GroupCell {
-  /** Roles this element can actually set. */
+  /** Roles this element can set. */
   roles: ReadonlySet<string>;
   set(role: string, value: PatternOrValue): void;
   /**
@@ -3329,8 +3280,8 @@ interface GroupCell {
    * Every emitter this element has, at 0 or 1. What off() and full() drive.
    *
    * Separate from level(), which is brightness and deliberately leaves colour
-   * alone on a fixture with a dimmer. Blackout cannot afford that distinction:
-   * it has to reach everything that makes light, under whatever name.
+   * alone on a fixture with a dimmer. Blackout has to reach everything that
+   * makes light, under whatever name.
    */
   all(level: PatternOrValue): void;
 }
@@ -3341,12 +3292,11 @@ const COLOUR_ROLES = ['red', 'green', 'blue', 'white'] as const;
 /**
  * Names that mean brightness, for a group reading a member's channels.
  *
- * A group kept its roles as literal channel names and then zeroed only the one
- * spelled exactly 'dim', so a fixture whose master is called `intensity` or
- * `dimmer` went dark under fixture.off() and stayed lit under group.off() —
- * which is the call someone builds a group for in the first place. The fixture
- * side has always read this through isEmitterChannel(), which takes the type as
- * well as the name.
+ * Zeroing only a channel spelled exactly 'dim' would leave a fixture whose
+ * master is called `intensity` or `dimmer` lit under group.off() while
+ * fixture.off() darkens it, and group.off() is the call a group is built for.
+ * The fixture side reads this through isEmitterChannel(), which takes the type
+ * as well as the name.
  */
 const DIM_NAMES = new Set(['dim', 'dimmer', 'intensity']);
 
@@ -3383,8 +3333,8 @@ function pixelCell(
   stride: number,
 ): GroupCell {
   // A one-channel cell has no colour to speak of: it is a level, and the only
-  // honest role for it is white, so a group asking for red skips it rather
-  // than lighting it a colour it cannot produce.
+  // role that fits it is white, so a group asking for red skips it instead of
+  // lighting it a colour it cannot produce.
   if (stride === 1) {
     return {
       roles: new Set(['white']),
@@ -3413,7 +3363,7 @@ function pixelCell(
       for (let i = 0; i < stride; i++) uni(universe, base + i, level);
     },
     level(value) {
-      // Matches what strip.each() already does with a single value: a colour
+      // Matches what strip.each() does with a single value: a colour
       // already set is scaled, and otherwise R = G = B with a white channel
       // held off so it does not wash out the mix.
       const channels = stride === 4 ? [base, base + 1, base + 2, base + 3] : [base, base + 1, base + 2];
@@ -3437,10 +3387,9 @@ function fixtureCell(inst: FixtureInstance): GroupCell {
     .filter(isStrip);
 
   // Which channel carries which mix role, for the fixtures that do not spell a
-  // role the way it is named. A group read these names literally while the
-  // fixture itself read them by role, so group(par).color(red) threw saying no
-  // member had a colour channel, on a par that answered par.color(red) on its
-  // own. Both sides resolve a role the same way now.
+  // role the way it is named. Resolved through mixRole(), as the fixture
+  // resolves them, so group(par).color(red) works on any par that answers
+  // par.color(red) on its own.
   const byRole = new Map<string, string[]>();
   for (const c of inst.def.channels) {
     const role = mixRole(c);
@@ -3492,9 +3441,9 @@ function fixtureCell(inst: FixtureInstance): GroupCell {
       driveEveryEmitter(inst, inst.def, level);
     },
     level(value) {
-      // A dimmer is what "brightness" means on a fixture that has one, and
-      // leaving the colour alone is the whole reason to prefer it: the look
-      // survives the fade. Only a fixture with no dimmer falls back to
+      // A dimmer is what "brightness" means on a fixture that has one, and it
+      // is preferred because it leaves the colour alone: the look survives the
+      // fade. Only a fixture with no dimmer falls back to
       // driving its colour channels together.
       if (dims.length > 0) {
         for (const name of dims) inst.set(name, value);
@@ -3557,7 +3506,7 @@ export interface GroupInstance {
 
   /**
    * Every member white at a colour temperature, in Kelvin. 3200 is tungsten,
-   * 5600 daylight. Says what colour the white is, not how bright.
+   * 5600 daylight. Sets the colour of the white; brightness is separate.
    */
   temp(kelvin: number): void;
 
@@ -3570,13 +3519,13 @@ export interface GroupInstance {
    * Run a callback per element, in the order the members were written.
    *
    * The callback gets `(phase, i, count)` with `phase = i / count`, the same
-   * signature the strips already use, so a chase written for one strip works
+   * signature the strips use, so a chase written for one strip works
    * unchanged across a whole rig. Return a single value for brightness, or
    * `[r, g, b]` / `[r, g, b, w]` for colour.
    *
    * @example
    *   const rig = group(washA, washB, bar.pixels, strip)
-   *   rig.each(p => sine().early(p).slow(4))
+   *   rig.each(sine.slow(4), 4)
    */
   each(fn: EachArg<PatternOrValue | PatternOrValue[]>, spread?: number): void;
 }
@@ -3678,7 +3627,7 @@ function eachXYFunction<R>(
  * between them, so `rig.dim(mini('1*8').across(saw))` walks one light along the
  * rig and a slow pan sweeps it smoothly rather than jumping.
  *
- * Steps with no pan reach every light as before. The wrapper reads each value
+ * Steps with no pan reach every light. The wrapper reads each value
  * as it comes, so a pattern of pans (`.pan(mini('0 1'))`, `.pan(rand)`)
  * places each step on its own.
  */
@@ -3744,8 +3693,8 @@ function placeAcross(value: PatternOrValue, index: number, count: number): Patte
  *
  * @example
  *   const rig = group(washA, washB, bar.pixels)
- *   rig.red(sine().slow(4))                  // same verb as a single fixture
- *   rig.each(p => sine().early(p).slow(4))   // one ramp across the whole rig
+ *   rig.red(sine.slow(4))                    // same verb as a single fixture
+ *   rig.each(sine.slow(4), 4)                // one ramp across the whole rig
  */
 export function group(...members: GroupMember[]): GroupInstance {
   if (members.length === 0) {
@@ -3779,9 +3728,8 @@ export function group(...members: GroupMember[]): GroupInstance {
    * Apply a role to every element that has it.
    *
    * Skipping elements that lack the role is what makes one line work across a
-   * mixed rig. A role no element has is a different thing: nothing would
-   * happen and nothing would say so, which is the failure this whole pass
-   * exists to remove, so that one throws.
+   * mixed rig. A role no element has is different: nothing would happen and
+   * nothing would say so, so that one throws.
    */
   const applyRole = (role: string, value: PatternOrValue, what: string): void => {
     let applied = 0;
@@ -3824,11 +3772,10 @@ export function group(...members: GroupMember[]): GroupInstance {
       // A colour, a palette, or a pattern of colour names. A run of stops
       // spreads across the members in order, so `rig.color(warm)` puts the
       // first colour on the first light and the last on the last. A single
-      // colour repeats, which is also what makes `rig.color(red)` work: it
-      // used to reach channelValues as one argument and come back asking for
-      // all three of r, g and b.
-      // Widened deliberately: the signature names the arities a scene should
-      // write, and a scene can still hand over anything at all.
+      // colour repeats, so `rig.color(red)` reaches every member; passed to
+      // channelValues as one argument it would ask for all three of r, g and b.
+      // Widened on purpose: the signature names the arities a scene should
+      // write, but a scene can hand over anything.
       const given = args as readonly unknown[];
       if (
         everyArgIsColour(given)
@@ -3857,9 +3804,9 @@ export function group(...members: GroupMember[]): GroupInstance {
         return;
       }
       const [r, g, b] = channelValues(args.slice(0, 3), ['r', 'g', 'b'], 'group.color()');
-      // Unlike a single role, a colour that lands on nothing is worth
-      // reporting once for the call rather than three times for its parts, so
-      // these are counted together.
+      // Unlike a single role, a colour that lands on nothing is reported once
+      // for the call instead of three times for its parts, so these are
+      // counted together.
       let applied = 0;
       const paint = (role: string, value: PatternOrValue): void => {
         for (const cell of cells) {
@@ -3935,12 +3882,9 @@ export function group(...members: GroupMember[]): GroupInstance {
 // than a thrown error, since the setup is otherwise automatic.
 
 /**
- * Spelled the way .chase() spells the same three ideas.
- *
- * They used to be `speed`, `narrow` and `packets` here and `cycles`, `width`
- * and `waves` next door, which made reaching for the neighbour's word the
- * likeliest mistake on the surface. `narrow` was also inverted against
- * `width`: bigger meant less lit, where width is the fraction that is.
+ * Spelled the way .chase() spells the same three ideas (`cycles`, `width` and
+ * `waves`), so the neighbour's word works on both. `width` is the fraction of
+ * the strip that is lit, as it is on .chase().
  */
 export interface RainbowChaseOptions {
   /** Cycles for one lap of the strip (default 2). Bigger is slower. */
@@ -4027,23 +3971,18 @@ function splitChaseArgs(args: readonly unknown[]): { stops: Color[]; opts: Chase
 /**
  * A band of one colour travelling along a strip, without writing a function.
  *
- * The same thing `.eachXY((x, y, w) => [sine.early(x / w).slow(4), 0, 0])`
- * does, which is the shape of every chase and the shape most people cannot
- * write from memory. Arrow functions, a phase expressed as a fraction of the
- * width, and a waveform chained three deep are a lot to know before your first
- * moving light.
+ * The same as `.color(red)` followed by `.eachXY(sine.slow(4), 4)`, in one
+ * call.
  */
 
 /**
  * What `.chase()` hands back.
  *
  * A chase is a command that writes every channel on the strip, not a pattern,
- * so `.slow()` and `.early()` had nothing to chain onto and threw a raw
- * TypeError. People reach for those verbs anyway, twice in one week here, and
- * telling them the option bag exists is losing an argument with the language
- * they already know.
+ * but scenes reach for `.slow()` and `.early()` on it anyway, and without a
+ * handle those throw a raw TypeError.
  *
- * So the verbs work, by meaning what they mean: each returns a fresh handle
+ * So the verbs work, with their pattern meanings: each returns a fresh handle
  * with one option changed and re-applies the chase. Re-applying overwrites the
  * same channel definitions, so the last spelling of a chain is what runs, and
  * they compose in any order.
@@ -4109,9 +4048,9 @@ function chaseImpl(
   const count = opts.down ? strip.height : strip.width;
   const brightAt = (step: number): unknown => {
     // Negative, so a cell further along the strip runs LATER and the crest
-    // travels left to right, or top to bottom with `down`. Positive made each
-    // successive cell lead the one before it, which ran the whole thing
-    // backwards: correct as a wave, and the wrong way round as a light.
+    // travels left to right, or top to bottom with `down`. A positive phase
+    // would make each cell lead the one before it and run the chase
+    // backwards.
     const phase = ((step * waves) / count) * (opts.reverse ? 1 : -1);
     // Per-cell phase goes on before .slow(), so it is a fraction of one lap.
     // The scene's own offset goes on after, so `early: 1` is one cycle of real
@@ -4130,11 +4069,11 @@ function chaseImpl(
       }
       // Where this cell sits along the axis the chase runs on, so a palette
       // spreads across the strip and re-spreads onto the rows under .down().
-      // One stop comes back by identity, which is what keeps the short cuts
-      // below firing and .chase(red) writing exactly what it always wrote.
+      // One stop comes back by identity, which keeps the short cuts below
+      // firing for a single colour such as .chase(red).
       const { r, g, b } = sampleStops(stops, phaseFor(step, count));
-      // A component is usually a number, and 0 and 1 are worth short-cutting:
-      // no multiply, and a dark component stays exactly dark.
+      // A component is usually a number, and 0 and 1 are short-cut: no
+      // multiply, and a dark component stays exactly dark.
       const scale = (c: ColorComponent): PatternOrValue => {
         if (c === 0) return 0 as PatternOrValue;
         if (c === 1) return bright as PatternOrValue;
@@ -4143,12 +4082,10 @@ function chaseImpl(
         }
         return scaleByPattern(bright as PatternLike, c as unknown as PatternLike) as PatternOrValue;
       };
-      // Three components, whatever the layout underneath. A chase used to pass
-      // 0 for W on an RGBW strip, so it cleared any white the scene had put up,
-      // where .fill() and .pixel() left it alone. A three-component mix never
-      // disturbs a dedicated white emitter, and .full() is the call that lights
-      // every emitter; the chase was the one outlier, so there is nothing to
-      // branch on here any more.
+      // Three components, whatever the layout underneath. A three-component
+      // mix never disturbs a dedicated white emitter (the rule .fill() and
+      // .pixel() follow), so a chase on an RGBW strip leaves any white the
+      // scene put up. .full() is the call that lights every emitter.
       (strip as StripInstance | RgbwStripInstance).pixelXY(x, y, scale(r), scale(g), scale(b));
     }
   }
@@ -4157,17 +4094,16 @@ function chaseImpl(
 /**
  * Scale a brightness envelope by a colour component that is itself a pattern.
  *
- * `.mul()` reads like the right verb here and is not. Strudel reifies a
+ * `.mul()` looks like the right verb here and is not. Strudel reifies a
  * duck-typed component with `pure()`, so the multiply becomes a union of two
  * control objects rather than a product: the result carries the envelope's own
  * level, with the colour hanging off it under a key nothing reads. The channel
- * then sees the envelope alone, which is a chase at full brightness in white.
- * It never threw and never queried wrong, so nothing said so, and the example
- * in the docs advertised it.
+ * then sees the envelope alone, which is a chase at full brightness in white,
+ * with no error.
  *
- * Querying both sides over the same arc and multiplying the levels is what the
- * multiply was meant to be. Several haps in one arc reduce by taking the
- * highest, which is how tick() already merges anything that overlaps.
+ * Querying both sides over the same arc and multiplying the levels gives the
+ * product. Several haps in one arc reduce by taking the highest, which is how
+ * tick() merges anything that overlaps.
  */
 function scaleByPattern(bright: PatternLike, c: PatternLike): PatternLike {
   return {
@@ -4203,7 +4139,7 @@ function rainbowChaseImpl(
     ['cycles', 'width', 'waves', 'hue'], '.rainbowChase()');
   const speed = opts.cycles ?? 2;
   // width is the lit fraction, the way .chase() means it. The envelope below
-  // wants the old inverted floor, so it is derived rather than asked for.
+  // needs an inverted floor, so it is derived from width.
   const width = Math.min(1, Math.max(0.02, opts.width ?? 1 / 9));
   const narrow = 1 / width - 1;
   const rainbowSpeed = opts.hue ?? 12;
@@ -4219,9 +4155,8 @@ function rainbowChaseImpl(
     const phase = -(i * packets) / strip.pixelCount;
     const bright = cosine().early(phase).slow(speed).range(-narrow, 1);
     // Three components on both strip kinds. A rainbow is a mix, and a mix has
-    // no business touching a dedicated white emitter, which is the rule
-    // .fill(), .pixel() and .chase() all follow. This used to pass 0 for W and
-    // was the last call that cleared a white the scene had put up.
+    // no business touching a dedicated white emitter, the rule .fill(),
+    // .pixel() and .chase() all follow.
     (strip as StripInstance | RgbwStripInstance).pixel(
       i,
       bright.mul(hueR),

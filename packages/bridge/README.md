@@ -1,12 +1,12 @@
 # gobo-connector
 
 Sends DMX from the [gobo](https://gobolive.cc/)
-browser app to real fixtures over Art-Net, sACN (E1.31) or OSC.
+browser app to lighting hardware over Art-Net, sACN (E1.31) or OSC.
 
-A browser cannot open a UDP socket, so it cannot speak Art-Net itself. This is
-the piece that can. Run it, open the app, and output works.
+A browser cannot open a UDP socket, so it cannot send Art-Net itself; the
+connector does that part. Run it, then open the app.
 
-## Use it
+## Usage
 
 ```bash
 npx gobo-connector@latest
@@ -16,7 +16,7 @@ Then open https://gobolive.cc/ and press
 `ctrl+enter`. Chrome asks before a website may reach a program on your
 computer; allow it for gobo. Nothing is installed and nothing starts at login.
 
-For one that starts with your computer, download it from
+To have it start at login, download it from
 [Releases](https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest),
 or on an Apple Silicon Mac or x86_64 Linux:
 
@@ -26,21 +26,21 @@ brew install gobo-connector
 brew services start gobo-connector
 ```
 
-Simpler still, if you have a copy of the repository: `npm start` there runs
-this and serves the app from one process.
+In a checkout of the repository, `npm start` runs the connector and serves the
+app from one process.
 
-Pick the output from your scene, not from here:
+The output is chosen in your scene:
 
 ```js
 artnet('2.255.255.255')   // broadcast to every node on that subnet
 artnet('2.0.0.100')       // or one node's IP
 sacn(1, 100)              // sACN, base universe and priority
-osc('127.0.0.1', 9000)    // OSC, for TouchDesigner and friends
+osc('127.0.0.1', 9000)    // OSC, for TouchDesigner and other OSC apps
 ```
 
-The host is the destination, never your own machine. That is the usual reason
-nothing arrives, along with your computer being on a different subnet from the
-rig.
+The host is the destination, never your own machine. Sending to your own
+machine, and being on a different subnet from the rig, are the usual reasons
+nothing arrives.
 
 ## Options
 
@@ -60,7 +60,7 @@ rig.
 The downloaded connector keeps itself up to date. When a release comes out it
 downloads the file for your system, checks its size and checksum against what
 GitHub published, runs it once to see it starts, and swaps it in the next time
-nothing has been connected for a minute and a half, so never under a show.
+nothing has been connected for a minute and a half, so never during a show.
 `--no-update` turns that off; copies from Homebrew or npm are updated by those
 instead.
 
@@ -73,13 +73,13 @@ network you trust.
 Defaults to `mock` with no config file, which sends nothing, and waits for the
 app to choose an output.
 
-## No Node?
+## Without Node
 
-The downloads above are single executables with Node inside. Nothing else to
-install.
+The downloads above are single executables with Node inside, with nothing else
+to install.
 
-Using a USB DMX interface? You need none of this. The browser drives it
-directly over WebSerial: click `usb` in the app.
+A USB DMX interface needs no connector: the browser drives it over WebSerial.
+Click `usb` in the app.
 
 ## Licence
 

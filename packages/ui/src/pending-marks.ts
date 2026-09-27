@@ -1,18 +1,18 @@
 /**
  * Marking the lines that are not on the rig.
  *
- * Ctrl+Shift+Enter commits only the edits you pointed at, which means the
- * buffer and the rig can legitimately differ — and an operator debugging a
- * light against source that is not running is worse off than one with no
- * feature at all. So the lines that have been edited since the run that is
- * currently live are marked, and the mark clears when they go live.
+ * Ctrl+Shift+Enter commits only the edits you pointed at, so the buffer and
+ * the rig can legitimately differ, and an operator debugging a light against
+ * source that is not running is worse off than one with no partial runs at
+ * all. So the lines edited since the run that is currently live are marked,
+ * and the mark clears when they go live.
  *
- * True of an ordinary edit too, and worth saying there as well: between typing
- * a line and pressing Ctrl+Enter, that line is not what the rig is doing. The
- * mark is deliberately quiet — a rule down the inside edge of the line, no
- * background, no colour of its own — because it is on screen most of the time
- * while somebody is working and it must not compete with the syntax underneath
- * or with the live-token outline.
+ * The same holds for an ordinary edit: between typing a line and pressing
+ * Ctrl+Enter, that line is not what the rig is doing, so it is marked too. The
+ * mark is quiet (a rule down the inside edge of the line, with no background
+ * and no colour of its own) because it is on screen most of the time while
+ * somebody is working, and it must not compete with the syntax underneath or
+ * with the live-token outline.
  */
 
 import { EditorView, Decoration, type DecorationSet } from '@codemirror/view';

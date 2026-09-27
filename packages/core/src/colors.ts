@@ -1,18 +1,14 @@
 /**
- * What a colour is.
+ * Colour values.
  *
- * There were three ways to say red, and they were not three spellings of one
- * idea: `wash.color(1, 0, 0)` mixed a colour, `wash.red(1)` drove a channel,
- * and `head.color('red')` picked a slot on a wheel. Only the first was a
- * colour at all. On top of that `.chase('red')` took a fourth form, a quoted
- * string, which is the one form that cannot be checked before it runs.
+ * A colour is a value. It comes from a predefined name written as an
+ * identifier (`red`), or from an r, g, b mix. Both can be checked at the point
+ * of use. A single quoted string is read as mini-notation or a hex code (see
+ * readColorStops()); other quoted colours are refused with a message pointing
+ * at the identifier of the same name.
  *
- * So: a colour is a value. It comes from a name that is an identifier, or from
- * an r, g, b mix. Those are the only two, and both are checkable at the point
- * of use. A quoted colour is refused with a message pointing at the identifier
- * of the same name.
- *
- * Slot names on a wheel stay strings, and stay out of this file. A slot is a
+ * `wash.red(1)` drives one channel and is not a colour. Slot names on a wheel
+ * (`head.color('red')`) stay strings and stay out of this file. A slot is a
  * mechanical position with a manufacturer's label on it: 'open', 'red/blue',
  * 'CTO'. Some are not valid identifiers, none of them mix, and the name means
  * only what the maker of the light decided it means.
@@ -24,10 +20,10 @@ import { stringPattern } from './string-patterns.js';
 /**
  * A colour, as an r/g/b mix with each component 0 to 1.
  *
- * A component may also be a pattern, which is what makes `pick()` live: every
+ * A component may also be a pattern, which is how `pick()` stays live: every
  * call that takes a colour writes its components to channels, and a channel
- * takes a pattern as readily as a number, so a colour whose components are
- * patterns reaches all of them and updates without a re-run.
+ * accepts a pattern as well as a number, so a colour whose components are
+ * patterns works everywhere and updates without a re-run.
  */
 export interface Color {
   readonly r: ColorComponent;
@@ -48,19 +44,17 @@ export function makeColor(r: number, g: number, b: number): Color {
 /**
  * The colour of white at a temperature, in Kelvin.
  *
- * Lighting talks in Kelvin and always has: 3200 is a tungsten lamp, 5600 is
- * daylight, 2000 is candlelight, and a designer asking for "a warmer white"
- * means a smaller number. Mixing that by eye out of r, g and b is the kind of
- * fiddling that belongs in the tool rather than in every scene.
+ * Lighting specifies white in Kelvin: 3200 is a tungsten lamp, 5600 is
+ * daylight, 2000 is candlelight, and "a warmer white" means a smaller number.
+ * This saves every scene mixing that by eye from r, g and b.
  *
- * Daniel Neumann's fit of the black-body curve, which is the one everybody
- * uses: accurate enough to look right between about 1000K and 40000K, and
- * cheap enough to sit in a pattern that re-evaluates every frame. Clamped to
- * that range rather than extrapolated, because the fit goes visibly wrong
- * outside it and a silently strange white is worse than a bounded one.
+ * Uses Daniel Neumann's widely used fit of the black-body curve: accurate
+ * enough to look right between about 1000K and 40000K, and cheap enough to run
+ * in a pattern every frame. Input is clamped to that range, because the fit
+ * goes visibly wrong outside it.
  *
- * Normalised so the brightest component is 1: this says what colour the white
- * is, not how bright. Brightness is .mono()'s or the dimmer's business.
+ * Normalised so the brightest component is 1: this sets the colour of the
+ * white and leaves brightness to .mono() or the dimmer.
  */
 export function kelvinToColor(kelvin: number): Color {
   const k = Math.min(40000, Math.max(1000, kelvin)) / 100;
@@ -82,15 +76,15 @@ export function kelvinToColor(kelvin: number): Color {
   else b = 138.5177312231 * Math.log(k - 10) - 305.0447927307;
 
   const c = [r, g, b].map((v) => Math.min(255, Math.max(0, v)));
-  // Normalised on the brightest component, so a warm white is a full-strength
-  // warm white rather than a dim one. Guarded against a zero peak, which the
-  // clamp above makes impossible and which would otherwise divide by nothing.
+  // Normalised on the brightest component, so a warm white comes out at full
+  // strength. The zero-peak guard is defensive: the clamp above rules it out,
+  // and it would otherwise divide by zero.
   const peak = Math.max(c[0], c[1], c[2]) || 255;
   return makeColor(c[0] / peak, c[1] / peak, c[2] / peak);
 }
 
-/** Build a colour whose components are read live, for `pick()`. Not frozen
- *  values but frozen references: the patterns answer differently each tick. */
+/** Build a colour whose components are read live, for `pick()`. The object is
+ *  frozen, but its component patterns answer differently each tick. */
 export function livingColor(r: ColorComponent, g: ColorComponent, b: ColorComponent): Color {
   return Object.freeze({ [COLOR_BRAND]: true, r, g, b } as unknown as Color);
 }
@@ -102,12 +96,12 @@ export function isColor(v: unknown): v is Color {
 /**
  * A palette is a plain array of colours. There is no Palette type.
  *
- * An array is a thing everyone already knows: `warm[0]` takes one stop,
- * `[...warm].reverse()` turns it round, `warm.slice(0, 2)` shortens it, and
- * `cat(...warm)` puts it in time. A dedicated palette object would have to
- * re-grow every one of those as a method, and a second branded type sitting
- * next to `Color` would need an ordering rule at every call site that takes
- * either, whose failure mode is a palette quietly flattening to its first stop.
+ * Arrays are already familiar: `warm[0]` takes one stop, `[...warm].reverse()`
+ * turns it round, `warm.slice(0, 2)` shortens it, and `cat(...warm)` puts it in
+ * time. A dedicated palette object would need each of those as a method, and a
+ * second branded type beside `Color` would need an ordering rule at every call
+ * site that takes either; getting one wrong silently flattens a palette to its
+ * first stop.
  *
  * An array of numbers stays a mix and is never a palette: `[1, 0, 0.5]` is one
  * colour. A colour is branded and a number never is, so the two cannot collide.
@@ -117,9 +111,9 @@ export type Palette = readonly Color[];
 /** The colour this value is or spells, or null if it is neither. */
 export function toColorValue(v: unknown): Color | null {
   if (isColor(v)) return v;
-  // Indexed rather than checked with every(), which skips holes: a sparse
-  // array built as warm[0] = red; warm[2] = blue passed a vacuously true test
-  // and came back as a colour of undefined components.
+  // Indexed loop, because every() skips holes: a sparse array built as
+  // warm[0] = red; warm[2] = blue would pass a vacuously true test and come
+  // back as a colour of undefined components.
   if (!Array.isArray(v) || v.length < 3) return null;
   for (let i = 0; i < v.length; i++) {
     if (typeof v[i] !== 'number') return null;
@@ -150,11 +144,9 @@ function isPatternLike(v: unknown): v is ColorPatternLike {
 /**
  * The predefined colours, and the only names that are colours.
  *
- * One table, exported, so the sandbox identifiers, the chase resolver and the
- * documentation all read from it. There used to be several lists that did not
- * agree: eleven names chase would take, twenty-three `.off()` recognised, four
- * `.color()` could actually paint. `amber` was on two of them and reachable
- * through none.
+ * One exported table, so the sandbox identifiers, the chase resolver and the
+ * documentation all read the same list. Keep every colour name here; a second
+ * list elsewhere will drift out of agreement with this one.
  */
 export const COLORS: Readonly<Record<string, Color>> = Object.freeze({
   red:     makeColor(1, 0, 0),
@@ -179,9 +171,8 @@ export const COLOR_NAMES: readonly string[] = Object.freeze(Object.keys(COLORS))
  * The colour a name spells, looking only at the table's own entries.
  *
  * A plain index would walk the prototype chain, so `constructor` and `toString`
- * came back as functions rather than as unknown names. Every one of them then
- * counted as a colour: a truthy value that is not a colour at all, handed
- * straight to whatever asked for one.
+ * would come back as functions and count as colours: truthy values that are
+ * not colours, handed to whatever asked for one.
  */
 function namedColor(key: string): Color | undefined {
   return Object.prototype.hasOwnProperty.call(COLORS, key) ? COLORS[key] : undefined;
@@ -193,9 +184,9 @@ function namedColor(key: string): Color | undefined {
  * Where stop `i` of `count` sits, 0 to 1, counting both ends.
  *
  * Endpoint-inclusive, so the first colour lands on the first pixel and the last
- * on the last, which is what a person means by "red to blue across the bar".
- * A cyclic phase would put the last stop one step short of the end and leave
- * the gradient looking clipped.
+ * on the last, which is what "red to blue across the bar" means. A cyclic
+ * phase would put the last stop one step short of the end and leave the
+ * gradient looking clipped.
  */
 export function phaseFor(i: number, count: number): number {
   return count < 2 ? 0 : i / (count - 1);
@@ -204,10 +195,10 @@ export function phaseFor(i: number, count: number): number {
 /**
  * The colour at a point along a run of stops.
  *
- * One stop is returned by identity rather than blended with itself. That is
- * load-bearing rather than an optimisation: `.chase(red)` reaches chaseImpl's
- * `c === 0` and `c === 1` short cuts only if the components are still the exact
- * literals, so a single stop has to come back as the same object it went in as.
+ * One stop is returned by identity, unblended. This is required for
+ * correctness: `.chase(red)` reaches chaseImpl's `c === 0` and `c === 1` short
+ * cuts only if the components are still the exact literals, so a single stop
+ * has to come back as the same object it went in as.
  */
 export function sampleStops(stops: Palette, phase: number): Color {
   if (stops.length === 1) return stops[0];
@@ -220,9 +211,9 @@ export function sampleStops(stops: Palette, phase: number): Color {
 /**
  * Blend two colours, `t` of the way from the first to the second.
  *
- * The escape hatch for any curve the built-in spread does not give:
+ * For any curve the built-in spread does not give:
  * `bar.each(p => mix(red, blue, p * p))`. Both endpoints come back by identity,
- * so a blend that lands on a stop is that stop rather than a rebuilt copy.
+ * so a blend that lands on a stop is that same object.
  */
 export function mix(a: Color, b: Color, t: number | ColorComponent): Color {
   if (!isColor(a) || !isColor(b)) {
@@ -267,9 +258,9 @@ function blendComponent(
 /**
  * One level from a component, whether it is a number or a pattern.
  *
- * Several haps in one arc reduce by taking the highest, which is the merge
- * tick() already applies to anything overlapping. No haps at all is dark,
- * which is what makes a rest in a mini string read as a gap.
+ * Several haps in one arc reduce to the highest, the same merge tick() applies
+ * to anything overlapping. No haps at all is dark, so a rest in a mini string
+ * reads as a gap.
  */
 function componentLevel(c: ColorComponent | number, begin: number, end: number): number {
   if (typeof c === 'number') return c;
@@ -292,9 +283,8 @@ function componentLevel(c: ColorComponent | number, begin: number, end: number):
  * The colour a single token names, by full name or by any prefix that names
  * only one colour.
  *
- * The prefixes are derived from COLOR_NAMES rather than listed, so a twelfth
- * entry in the table above updates the tokens, the suggestions and the error
- * text in one edit. That is the rule this file already sets for itself.
+ * The prefixes are derived from COLOR_NAMES, so a new entry in the table above
+ * updates the tokens, the suggestions and the error text in one edit.
  */
 export function colorFromToken(token: string, what: string): Color {
   const key = token.trim().toLowerCase();
@@ -332,11 +322,10 @@ function listOr(items: readonly string[]): string {
 /**
  * Turn a pattern whose haps name colours into one colour that changes with it.
  *
- * Shaped after resolveSlots() in fixtures.ts, which is the token resolution
- * this codebase already ships: wrap the source once per component and rewrite
- * each hap as it comes past, rather than rebuilding the pattern. That is what
- * lets `wash.color(mini('r - g - b'))` work without mini() knowing anything
- * about colour, and it keeps a rest a rest.
+ * Works like resolveSlots() in fixtures.ts: wrap the source once per component
+ * and rewrite each hap as it comes past, leaving the pattern itself untouched.
+ * That lets `wash.color(mini('r - g - b'))` work without mini() knowing
+ * anything about colour, and keeps a rest a rest.
  *
  * A number token is a grey, so `mini('1 - 1 -')` means the same shape in a
  * colour position as it already does in a level position.
@@ -346,15 +335,14 @@ export function colorPattern(pat: ColorPatternLike, what: string): Color {
 
   // One reading of the source per arc, shared by the three components.
   //
-  // Each component used to query the source itself and resolve the whole colour
-  // before keeping its own third, so a token was read three times for every
-  // pixel on every tick and two thirds of that work was thrown away. tick()
-  // asks every channel about the same instant, and every pixel of a strip holds
-  // the same colour object, so one reading answers the lot.
+  // tick() asks every channel about the same instant, and every pixel of a
+  // strip holds the same colour object, so one reading serves all of them.
+  // Without the memo each component would query the source and resolve the
+  // whole colour to keep its own third, three reads per pixel per tick.
   //
   // Keyed on the arc and holding exactly one, so the next tick, which asks
-  // about a later instant, reads the source again rather than replaying stale
-  // haps. A live source keeps moving, which is the whole point of pick().
+  // about a later instant, reads the source again instead of replaying stale
+  // haps. A live source such as pick() keeps moving.
   type ReadHap = { hap: object; rgb: readonly [number, number, number] };
   let memoBegin = NaN;
   let memoEnd = NaN;
@@ -374,24 +362,24 @@ export function colorPattern(pat: ColorPatternLike, what: string): Color {
 
   const wrap = (comp: 0 | 1 | 2): ColorComponent => ({
     queryArc(begin: number, end: number) {
-      // Spread rather than rebuilt, so whatever the source put on the hap
-      // reaches the channel writer intact.
+      // Spread, so whatever the source put on the hap reaches the channel
+      // writer intact.
       return readArc(begin, end).map(({ hap, rgb }) => ({ ...hap, value: rgb[comp] }));
     },
   });
 
   // Checked here, so a typo throws while the scene is being evaluated and
-  // the whole run rolls back. Left to query time it would report sixty times a
-  // second into a console nobody has open, and the light would just be dark.
+  // the whole run rolls back. At query time it would report sixty times a
+  // second into a console nobody has open, and the light would stay dark.
   // A token hidden behind an alternation is not visible in the first cycle and
-  // still reports late; that is the limit of checking without running.
+  // still reports late; checking without running cannot catch it.
   try {
     for (const hap of pat.queryArc(0, 1)) {
       if (typeof hap.value === 'string') colorFromToken(hap.value, what);
     }
   } catch (err) {
     if (err instanceof Error && err.message.startsWith(what)) throw err;
-    // A source that throws on its own is not this function's to report.
+    // A source that throws on its own reports through its own path.
   }
 
   return livingColor(wrap(0), wrap(1), wrap(2));
@@ -400,9 +388,9 @@ export function colorPattern(pat: ColorPatternLike, what: string): Color {
 /**
  * The three levels one hap's value spells, in one pass.
  *
- * All three rather than a named one: the work of deciding what the value is
- * happens once whichever component asked, so keeping the other two costs a
- * lookup each and saves reading the source twice more.
+ * All three at once: deciding what the value is happens once whichever
+ * component asked, so keeping the other two costs a lookup each and saves
+ * reading the source twice more.
  */
 function rgbOf(
   v: unknown,
@@ -425,7 +413,7 @@ function rgbOf(
   // A bare number is a grey, the same rule in every position. A control object
   // is read the same way: echo() and hurry() yield { value, gain }, which
   // dmx.ts already unwraps as a level, so a colour position reads it as the
-  // grey of that level rather than refusing it as "not a colour".
+  // grey of that level instead of refusing it as "not a colour".
   const level = levelOf(v);
   // strudel's .color() on a pattern tags each step with a colour: here that
   // is the step's colour, at the step's level, so '1 0.5'.color('red blue')
@@ -462,8 +450,8 @@ function rgbOf(
       return [0, 0, 0];
     }
   }
-  // Named rather than typed, because "object" for null is the least useful
-  // thing this could say about the value that caused it.
+  // Described by name, because typeof null is "object", which says nothing
+  // useful about the value.
   const described = v === null ? 'null' : v === undefined ? 'nothing' : typeof v;
   const tag = `type:${described}`;
   if (!reported.has(tag)) {
@@ -488,16 +476,13 @@ function levelsOf(c: Color, begin: number, end: number): readonly [number, numbe
  * One ordered ladder, first match wins, shared by everything that takes a
  * colour so the rules cannot drift apart between `.fill()` and `.color()`.
  *
- * The string refusal stays first. Moved any later, `.fill('red', 'green',
- * 'blue')` would be read as three arguments that are not colours and come back
- * with a worse message than the one this file was written to deliver.
+ * The string checks come first. Any later, `.fill('red', 'green', 'blue')`
+ * would be read as three arguments that are not colours and get the generic
+ * message instead of the one about quotes.
  */
 export function readColorStops(args: readonly unknown[], what: string): Color[] {
   const first = args[0];
 
-  // One string is mini-notation, as in strudel: '<red blue>' is a colour that
-  // changes each bar, and 'red' is red. Every word in it is checked now, so a
-  // misspelt colour is an error on the run rather than a dark step later.
   // A hex colour, as a web page writes one: '#ff8800' or '#f80'.
   const hex = typeof first === 'string' && args.length === 1
     ? /^\s*#([0-9a-f]{6}|[0-9a-f]{3})\s*$/i.exec(first)
@@ -508,8 +493,11 @@ export function readColorStops(args: readonly unknown[], what: string): Color[] 
   }
 
   if (typeof first === 'string' && args.length === 1) {
-    // colorFromToken throws the useful message for a word it cannot read,
-    // including a short form that could be two colours.
+    // Any other single string is mini-notation, as in strudel: '<red blue>' is
+    // a colour that changes each bar, and 'red' is red. Every word in it is
+    // checked now, so a misspelt colour is an error on the run instead of a
+    // dark step later. colorFromToken throws the specific message for a word
+    // it cannot read, including a short form that could be two colours.
     for (const word of first.match(/[A-Za-z]+/g) ?? []) colorFromToken(word, what);
     const parsed = stringPattern(first, what);
     if (parsed !== null) return [colorPattern(parsed, what)];
@@ -538,16 +526,15 @@ export function readColorStops(args: readonly unknown[], what: string): Color[] 
 
   // Three components. The same spelling as .color(r, g, b) and .fill(r, g, b),
   // so a mix reads the same wherever it appears.
-  // Every argument, not merely three of them somewhere in the list. Counting
-  // with a filter meant .chase(red, 0, 0, 0) quietly dropped the red and ran
-  // the strip black, with nothing said about the colour that was written first.
+  // Every argument must be a number. Counting numbers with a filter would let
+  // .chase(red, 0, 0, 0) drop the red and run the strip black without a word.
   if (args.length >= 3 && args.every((a) => typeof a === 'number')) {
     const nums = args as readonly number[];
     return [makeColor(clamp01(nums[0]), clamp01(nums[1]), clamp01(nums[2]))];
   }
 
-  // A pattern of colour tokens. One colour that changes over time, so every
-  // position gets it and the run moves together rather than across space.
+  // A pattern of colour tokens: one colour that changes over time, so every
+  // position gets it and the whole run changes together.
   if (args.length === 1 && isPatternLike(first)) return [colorPattern(first, what)];
 
   throw new Error(
@@ -560,9 +547,9 @@ export function readColorStops(args: readonly unknown[], what: string): Color[] 
 /**
  * Read exactly one colour.
  *
- * Refuses a palette rather than quietly taking its first stop, and names both
- * ways to get one, because a light that silently ignored the rest of a gradient
- * is the kind of wrong that looks like it worked.
+ * Refuses a palette instead of silently taking its first stop, and names both
+ * ways to get one colour from it, because a light that ignored the rest of a
+ * gradient would look as if it had worked.
  */
 export function readColor(args: readonly unknown[], what: string): Color {
   const stops = readColorStops(args, what);
@@ -574,7 +561,7 @@ export function readColor(args: readonly unknown[], what: string): Color {
 }
 
 /** Read a run of `count` positions, spreading whatever stops were given across
- *  them. One stop repeats, by identity, so nothing that works changes. */
+ *  them. A single stop repeats by identity (see sampleStops). */
 export function readColorRun(args: readonly unknown[], count: number, what: string): Color[] {
   const stops = readColorStops(args, what);
   return Array.from({ length: count }, (_, i) => sampleStops(stops, phaseFor(i, count)));
@@ -582,8 +569,8 @@ export function readColorRun(args: readonly unknown[], count: number, what: stri
 
 function clamp01(n: number): number {
   // Written as a positive test so NaN lands at 0. NaN fails both n < 0 and
-  // n > 1, so the obvious spelling let it through unclamped and a channel got
-  // a value nothing can render.
+  // n > 1, so the obvious spelling would pass it through unclamped and a
+  // channel would get a value nothing can render.
   if (!(n > 0)) return 0;
   return n > 1 ? 1 : n;
 }
@@ -591,23 +578,19 @@ function clamp01(n: number): number {
 /**
  * Reject option keys a call does not know.
  *
- * Not one options bag on the authoring surface checked its keys, and the
- * neighbouring bags spell the same idea differently, so the likeliest mistake
- * was passing the other one's key. `{ colums: 12 }` was a silent single row of
- * 48 pixels; `rainbowChase({ cycles: 2 })` silently ran at its default because
- * that bag calls it `speed`.
- *
- * The codebase already decided this class of failure is worth rejecting, for
- * channel writes and for group roles no member has. This is the same decision
- * for the last place that was still guessing.
+ * Neighbouring option bags spell the same idea differently, so the likeliest
+ * mistake is passing another call's key. Unchecked, `{ colums: 12 }` would be
+ * a silent single row of 48 pixels, and `rainbowChase({ cycles: 2 })` would run
+ * at its default because that bag calls it `speed`. Channel writes and group
+ * roles no member has are rejected the same way.
  */
 export function checkOptions(
   opts: Record<string, unknown> | undefined,
   allowed: readonly string[],
   what: string,
-  /** Keys that are legal but not a scene's business: the sim wiring that
-   *  fixture() and screen() pass to the strip they build. Accepted silently
-   *  and left out of the message, which would otherwise advertise them. */
+  /** Valid keys that scenes should not use: the sim wiring that fixture() and
+   *  screen() pass to the strip they build. Accepted silently and left out of
+   *  the error message so it does not advertise them. */
   internal: readonly string[] = [],
 ): void {
   if (!opts) return;

@@ -6,15 +6,14 @@
  *
  * The editor draws a control at the call site and dragging it changes the
  * light immediately. Nothing is re-evaluated: `slider()` returns a pattern
- * whose value is read fresh on every tick, so moving it is a read of a
- * number, not a rebuild of the scene. That matters during a show, where a
- * re-evaluation is a visible seam and this has to be a smooth fade.
+ * whose value is read on every tick, so moving it changes a number and leaves
+ * the scene as built. During a show a re-evaluation can be a visible seam, and
+ * a fader move has to be a smooth fade.
  *
- * Values live here, keyed by name, and survive re-evaluation. Someone who
- * sets a level by hand and then edits a line further down the scene keeps
- * the level they set; it would be useless if every run snapped every control
- * back to where the source says. The source value is the STARTING position,
- * used the first time a name is seen and ignored afterwards.
+ * Values live here, keyed by name, and survive re-evaluation, so a level set
+ * by hand stays put when someone edits a line further down the scene. The
+ * source value is the STARTING position, used the first time a name is seen
+ * and ignored afterwards.
  */
 
 import { checkOptions, isColor, makeColor, livingColor, type Color } from './colors.js';
@@ -37,8 +36,8 @@ export interface ControlEntry {
 let _entries: ControlEntry[] = [];
 
 /**
- * Current positions, by name. Deliberately NOT cleared between runs: a
- * control someone has moved keeps its position across an edit.
+ * Current positions, by name. NOT cleared between runs: a control someone has
+ * moved keeps its position across an edit.
  */
 const _values = new Map<string, number>();
 
@@ -127,10 +126,10 @@ export function slider(
     const step = typeof opts === 'number' ? opts : 0;
     _unnamed++;
     // Stored under the number written as well as the label: for these the
-    // number in the code is the position, as in strudel, so editing it starts
-    // the handle there, while a dragged position lasts as long as the code
-    // says the same. Nothing is deleted, so a run that fails leaves the scene
-    // still playing reading exactly what it read before.
+    // number in the code is the position, as in strudel, so editing it moves
+    // the handle there, and a dragged position lasts until the number in the
+    // code changes. Nothing is deleted, so if a run fails the scene still
+    // playing reads the same values as before.
     return declareSlider(`slider ${_unnamed}`, `slider ${_unnamed}@${value}`, lo, hi, { start: value, step });
   }
   if (typeof opts === 'number') opts = { step: opts };
@@ -149,13 +148,13 @@ slider.at = function at(offset: number, ordinal?: number) {
     if (typeof first !== 'number') return (slider as (...a: unknown[]) => PatternLike)(first, ...rest);
     const [min, max, step] = rest as [number | undefined, number | undefined, number | undefined];
     // The same call run twice (in a loop, or a helper used for each light)
-    // makes one handle per run rather than failing as a duplicate.
+    // makes one handle per call instead of failing as a duplicate.
     const base = `slider@${offset}`;
     const repeats = _entries.filter((e) => e.name === base || e.name.startsWith(`${base}#`)).length;
     const label = repeats === 0 ? base : `${base}#${repeats + 1}`;
-    // The position is stored by its place among the scene's unnamed sliders,
-    // counted down the page, not by the offset: typing on a line above moves
-    // the offset, and a dragged fader must not jump back when it does.
+    // The position is keyed by its place among the scene's unnamed sliders,
+    // counted down the page. Typing on a line above changes the offset, and a
+    // dragged fader must not jump back when it does.
     const again = repeats === 0 ? '' : `#${repeats + 1}`;
     const key = ordinal === undefined ? `${label}@${first}` : `slider ${ordinal + 1}${again}@${first}`;
     return declareSlider(label, key, min ?? 0, max ?? 1, { start: first, step: typeof step === 'number' ? step : 0 });
@@ -185,8 +184,7 @@ function declareSlider(
   }
 
   // Two sliders sharing a name would share a position and fight over it,
-  // each redrawing the other's handle. Better to say so than to let one
-  // silently win.
+  // each redrawing the other's handle, so this is an error.
   if (_entries.some((e) => e.name === name)) {
     throw new Error(`slider("${name}"): already declared in this scene. Give each control its own name.`);
   }
@@ -196,9 +194,8 @@ function declareSlider(
   // First sighting sets the position; later runs leave a moved control alone.
   if (!_values.has(key)) _values.set(key, initial);
 
-  // Read at query time, which is what makes dragging immediate: the tick
-  // asks for the value 60 times a second and gets whatever the handle is at
-  // right now.
+  // Read at query time, so dragging takes effect immediately: the tick asks
+  // for the value 60 times a second and gets the handle's current position.
   const read = (): number => _values.get(key) ?? initial;
   if (_live !== null) return _live(read);
   return {
@@ -256,8 +253,7 @@ export function resetPickers(): void {
  *
  * Reads as a colour anywhere a colour is taken, and its three components are
  * live: the tick asks for them sixty times a second, so turning the wheel
- * moves the rig without re-running the scene. That is the same trick slider()
- * uses, applied to three channels at once.
+ * moves the rig without re-running the scene, as slider() does for one value.
  *
  * @param name  what to label it, and the key its colour is stored under
  * @param opts  `start` for the opening colour, a predefined name or a mix
@@ -295,8 +291,8 @@ export function pick(name: string, opts: { start?: Color } = {}): Color {
     },
   });
 
-  // A colour whose components are patterns rather than numbers. Everything
-  // that takes a colour writes its components to channels, and a channel is
-  // just as happy with a pattern, so this reaches every one of them.
+  // A colour whose components are patterns. Everything that takes a colour
+  // writes its components to channels, and a channel accepts a pattern, so
+  // this works wherever a colour does.
   return livingColor(live('r'), live('g'), live('b'));
 }

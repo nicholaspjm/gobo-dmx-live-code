@@ -13,8 +13,9 @@
  * palette, one variable per token class the editor can paint, so the
  * highlighter never has to know which theme is active.
  *
- * Adding a theme: drop a new entry into THEMES with a name and all 44
- * colours. The settings panel populates its dropdown from the keys.
+ * Adding a theme: add an entry to THEMES with a label and the 40 colours
+ * ThemeBase requires (the other four are derived). The settings panel
+ * populates its dropdown from the keys.
  * Every syntax colour should clear 4.5:1 against that theme's own `bg`.
  * The values below sit at 4.87:1 or better so rounding cannot flip a pass
  * into a fail.
@@ -75,7 +76,7 @@ export interface ThemeVars {
   textMuted: string;
   accent: string;
   accent2: string;
-  sage: string;       // panel accents; no longer used for editor strings
+  sage: string;       // panel accents; editor strings use synString
   error: string;
   selection: string;
   lineHighlight: string;
@@ -155,7 +156,7 @@ export interface ThemeVars {
   /** `.gobo-color-orange`: the bare `orange` colour. */
   synColorOrange: string;
   /** `.gobo-color-yellow`: the bare `yellow` colour. Reads olive on the dark
-   *  themes: a true yellow is far brighter than the band every syntax colour
+   *  themes: a full yellow is far brighter than the band every syntax colour
    *  is held to, and brightness would read as importance. */
   synColorYellow: string;
   /** `.gobo-color-cyan`: the bare `cyan` colour. */
@@ -179,11 +180,10 @@ export interface ThemeVars {
   synPixel: string;
   /** `.gobo-viz`: editor-only decorations (.viz .flash .glow .wave).
    *  These change nothing on the rig, so they are the only gobo tokens in
-   *  italic, at low chroma: annotation, not command. */
+   *  italic, at low chroma: they are annotations. */
   synViz: string;
   /** `.gobo-dmx`: low-level DMX (ch, uni, dim, rgb, .set), raw channel
-   *  writes that bypass the fixture layer. Utilitarian: plumbing, not
-   *  language. */
+   *  writes that bypass the fixture layer. Low chroma. */
   synDmx: string;
   /** `.gobo-meta`: read-only introspection (.channels .def .universe
    *  .startChannel .channelCount .pixelCount). Reading a fixture never
@@ -198,31 +198,30 @@ export interface ThemeVars {
    *  competing with the verbs. */
   synNumber: string;
   /** `.gobo-string`: string literals, fixture ids and mini-notation. Hue
-   *  adjacent to --syn-pattern. Replaces the old use of `sage`. */
+   *  adjacent to --syn-pattern. */
   synString: string;
   /** `.gobo-comment`: comments. The lowest-chroma colour in every palette
-   *  so it recedes, but still held at >= 4.5:1 rather than the usual
-   *  near-invisible grey. Italic. */
+   *  so it recedes, but still held at >= 4.5:1. Italic. */
   synComment: string;
   /** `.gobo-operator`: operators, punctuation and separators, structure
-   *  you read past. Replaces the old use of `textMuted`. */
+   *  you read past. */
   synOperator: string;
 }
 
-/** Human-readable name + the variable values. */
 /**
- * The four a theme no longer states.
+ * The four variables a theme does not state.
  *
  * They are contrast steps rather than colours: a panel lifted off the page, a
- * border, the current line, an inset code block. Every theme was answering the
- * same question about each of them, thirteen times over, so the answer is
- * given once in derived() and each theme declares only its own ends.
+ * border, the current line, an inset code block. Every theme answers the same
+ * question about each of them, so the answer is given once in derived() and
+ * each theme declares only its own ends.
  */
 type DerivedVar = 'surface' | 'border' | 'lineHighlight' | 'codeBg';
 
 /** What a theme declares. The rest is worked out from it. */
 export type ThemeBase = Omit<ThemeVars, DerivedVar>;
 
+/** Human-readable name + the variable values. */
 export interface ThemeDef {
   id: ThemeId;
   label: string;
@@ -244,8 +243,7 @@ export const THEME_GROUPS: Array<{ id: ThemeGroup; label: string }> = [
 
 export const THEMES: Record<ThemeId, ThemeDef> = {
   // An incandescent tungsten lamp at ~3200K: the warm brown-amber ground
-  // theatres measure colour against. Default, and first in the list. The
-  // 14 chrome values are byte-identical to the old 'ember'.
+  // theatres measure colour against. Default, and first in the list.
   tungsten: {
     id: 'tungsten',
     label: 'tungsten (default)',
@@ -293,7 +291,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     },
   },
   // The moonbox: the cold blue-white fixture hung high to fake moonlight
-  // over a set. Chrome values byte-identical to the old 'slate'.
+  // over a set.
   moonbox: {
     id: 'moonbox',
     label: 'moonbox',
@@ -341,8 +339,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     },
   },
   // The greenroom: the offstage room performers wait in, traditionally
-  // painted green to rest the eye after stage light. Chrome values
-  // byte-identical to the old 'forest'.
+  // painted green to rest the eye after stage light.
   greenroom: {
     id: 'greenroom',
     label: 'greenroom',
@@ -390,7 +387,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     },
   },
   // A UV blacklight wash: the violet-into-pink glow of a blacklit stage.
-  // Chrome values byte-identical to the old 'midnight'.
   blacklight: {
     id: 'blacklight',
     label: 'blacklight',
@@ -438,8 +434,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     },
   },
   // Rosco Bastard Amber (R02): the pale warm gel that flatters skin and
-  // reads as 'no colour at all'. Chrome values byte-identical to the old
-  // 'paper'.
+  // reads as 'no colour at all'.
   bastardAmber: {
     id: 'bastardAmber',
     label: 'bastard amber (light)',
@@ -489,7 +484,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
   // A house blackout: every instrument dead, red panic lamp still lit.
   // Monochrome, so the twelve colour classes collapse to one value; a
   // brightness ladder would imply one channel matters more than another.
-  // Chrome values byte-identical to the old 'ikeda'.
   blackout: {
     id: 'blackout',
     label: 'blackout',
@@ -538,8 +532,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
   },
   // Photoluminescent glow tape: the green strips on stage edges and set
   // legs that let the crew find their marks in a blackout. Green phosphor
-  // on black. Monochrome, so the colour setters share one value. Chrome
-  // values byte-identical to the old 'datamatrix'.
+  // on black. Monochrome, so the colour setters share one value.
   glowtape: {
     id: 'glowtape',
     label: 'glow tape',
@@ -587,9 +580,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     },
   },
   // A darkroom safelight: the amber-red lamp you can work under without
-  // spoiling anything. Renamed because the old name collided with a theme
-  // in another live-coding tool. Monochrome, so the colour setters share
-  // one value. Chrome values byte-identical to the old 'terminal'.
+  // spoiling anything. Monochrome, so the colour setters share one value.
   safelight: {
     id: 'safelight',
     label: 'safelight',
@@ -637,9 +628,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     },
   },
   // A dimmer-rack patchbay: grey steel panel, blue and orange jumper
-  // leads, everything labelled. Replaces another audio product's name and
-  // stays a light theme for projection. Chrome values byte-identical to
-  // the old 'puredata'.
+  // leads, everything labelled. A light theme, for projection.
   patchbay: {
     id: 'patchbay',
     label: 'patchbay (light)',
@@ -686,11 +675,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#616971',
     },
   },
-  // New below this line. Appended rather than inserted so the dropdown
-  // order THEME_LIST produces stays stable for existing users.
+  // Themes from here on are appended after the set above, never inserted
+  // into it, so the dropdown order THEME_LIST produces stays stable for
+  // existing users.
 
   // A cyclorama wash: the deep saturated blue the back wall throws when
-  // the whole cyc is one colour. A real cyc blue, not a UI blue-grey; the
+  // the whole cyc is one colour. A saturated cyc blue, not a UI blue-grey; the
   // accent is the pale sky-blue where the cyc meets the floor lights.
   cyclorama: {
     id: 'cyclorama',
@@ -952,9 +942,6 @@ export const LEGACY_THEME_IDS: Record<string, ThemeId> = {
  */
 export const COLORS: ThemeVars = { ...THEMES.tungsten.vars, ...derived(THEMES.tungsten.vars) };
 
-/** Write a theme's variables onto `:root` so all `var(--...)` lookups
- *  pick them up, and refresh the shared COLORS object for canvas/JS
- *  consumers. Idempotent. */
 /** One channel of a hex colour, as a number. */
 function channel(hex: string, at: number): number {
   return parseInt(hex.slice(at, at + 2), 16);
@@ -964,10 +951,10 @@ function channel(hex: string, at: number): number {
  * `over` laid on `base` at `alpha`, flattened to an opaque hex.
  *
  * Strudel builds its contrast steps this way: one base colour, and the rest
- * derived from it with alpha — `lineBackground: '#22222299'`, `muted:
- * '#8a919966'`. The steps come out proportional to the theme rather than
- * hand-picked per theme, which is why their themes hold together at ten values
- * each while these needed forty-seven.
+ * derived from it with alpha (`lineBackground: '#22222299'`, `muted:
+ * '#8a919966'`). The steps come out proportional to the theme instead of
+ * hand-picked per theme, which is how Strudel's themes hold together at ten
+ * values each.
  *
  * Flattened rather than left as rgba because COLORS is read by canvas and other
  * JS, which expects a plain colour it can hand to a 2D context.
@@ -984,10 +971,8 @@ function blend(base: string, over: string, alpha: number): string {
 /**
  * The contrast steps every theme shares, derived from its own two ends.
  *
- * These used to be four more hand-picked hex values per theme, fifty-two across
- * the set, each one somebody's judgement about how far a panel should sit from
- * the page. Derived, they are the same judgement once, and a new theme is its
- * base colours rather than a full sheet.
+ * How far a panel sits from the page is one judgement, made here once for
+ * every theme, so a new theme needs only its base colours.
  */
 function derived(vars: ThemeBase): Pick<ThemeVars, DerivedVar> {
   const { bg, text } = vars;
@@ -995,11 +980,11 @@ function derived(vars: ThemeBase): Pick<ThemeVars, DerivedVar> {
   // A code block is one step further from the page than the panel it sits in,
   // which is what tells the two apart.
   //
-  // Stepping away from the text instead was tried, to keep a code block darker
-  // on a dark theme the way the old hand-picked values were. It cannot work on
-  // a near-white theme: the page is already at 250 of 255, so there is nowhere
-  // lighter to go and the block came out one shade from its panel, invisible.
-  // One direction has room on every theme.
+  // Stepping away from the text (to keep a code block darker on a dark theme)
+  // cannot work on a near-white theme: the page is already at 250 of 255, so
+  // there is nowhere lighter to go and the block would come out one shade
+  // from its panel, invisible. Stepping towards the text has room on every
+  // theme.
   return {
     surface: blend(bg, text, 0.04),
     border: blend(bg, text, 0.12),
@@ -1008,6 +993,9 @@ function derived(vars: ThemeBase): Pick<ThemeVars, DerivedVar> {
   };
 }
 
+/** Write a theme's variables onto `:root` so all `var(--...)` lookups
+ *  pick them up, and refresh the shared COLORS object for canvas/JS
+ *  consumers. Idempotent. */
 export function applyTheme(id: ThemeId, opts: { black?: boolean } = {}): void {
   const t = THEMES[id] ?? THEMES.tungsten;
   const root = document.documentElement;
@@ -1025,7 +1013,7 @@ export function applyTheme(id: ThemeId, opts: { black?: boolean } = {}): void {
     const cssName = '--' + key.replace(/([A-Z])/g, '-$1').toLowerCase();
     root.style.setProperty(cssName, value);
   }
-  // A boolean attribute on <html> lets CSS make tiny per-theme tweaks
+  // The data-theme attribute on <html> lets CSS make small per-theme tweaks
   // without inventing a new variable for every nuance.
   root.setAttribute('data-theme', id);
   // Native controls (scrollbars, the list a <select> drops) follow the

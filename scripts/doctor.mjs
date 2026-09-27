@@ -2,8 +2,8 @@
 /**
  * Output diagnostics: answers "why is nothing reaching my rig".
  *
- * Checks each link in the chain in order and stops guessing where it can
- * measure instead. Run it on the machine that is meant to be sending:
+ * Checks each link in the chain in order, measuring wherever it can rather
+ * than guessing. Run it on the machine that is meant to be sending:
  *
  *   npm run doctor
  *   npm run doctor -- --host 2.0.0.100
@@ -86,7 +86,7 @@ try {
   warn(`could not read ${CONFIG_PATH}: ${err.message}`);
 }
 
-// 3. Is a bridge actually running?
+// 3. Is a bridge running?
 head('3. bridge process');
 const bridgeUp = await new Promise((resolve) => {
   const sock = createSocket('udp4');
@@ -102,7 +102,7 @@ const bridgeUp = await new Promise((resolve) => {
 if (bridgeUp) ok(`something is listening on ${BRIDGE_PORT}, so the browser can reach a bridge`);
 else bad(`nothing is listening on ${BRIDGE_PORT}. The web app cannot send DMX without it. Start it with: npm run dev:bridge`);
 
-// 4. Can this machine actually put Art-Net on the wire?
+// 4. Can this machine put Art-Net on the wire?
 head('4. sending Art-Net');
 const targets = [];
 if (explicitHost) targets.push(explicitHost);
@@ -125,7 +125,7 @@ catch (err) { bad(`could not enable broadcast: ${err.message}`); }
 const ownAddresses = new Set(live.map((i) => i.address));
 for (const host of [...new Set(targets)]) {
   if (ownAddresses.has(host)) {
-    bad(`${host} is THIS machine's own address, so the frames never leave it. Use the node's IP, or the broadcast address of that subnet.`);
+    bad(`${host} is this machine's own address, so the frames never leave it. Use the node's IP, or the broadcast address of that subnet.`);
   }
   const err = await new Promise((resolve) => {
     sender.send(packet, port, host, (e) => resolve(e));
@@ -148,7 +148,6 @@ const held = await new Promise((resolve) => {
 if (held) warn(`port ${port} is in use, most likely by a receiver such as TouchDesigner. That is fine for sending, and only matters if you also want to receive here.`);
 else ok(`port ${port} is free, so nothing on this machine is receiving Art-Net`);
 
-// 6. Windows firewall profile, the usual cause of silently dropped broadcast.
 // ─── Art-Net discovery ───────────────────────────────────────────────────────
 
 /**
@@ -158,7 +157,7 @@ else ok(`port ${port} is free, so nothing on this machine is receiving Art-Net`)
  * "The IPs are right but nothing arrives" is usually a universe mismatch:
  * gobo puts fixtures on universe 0 by default, and plenty of nodes ship
  * configured for universe 1. A node answering ArtPoll proves the path works
- * in both directions and reports the number it actually wants.
+ * in both directions and reports the universe it listens on.
  */
 async function discoverNodes(timeoutMs = 2500) {
   const poll = Buffer.alloc(14);
@@ -212,14 +211,14 @@ head(`6. Art-Net nodes on the network`);
 const nodes = await discoverNodes();
 if (nodes.length === 0) {
   warn('no node answered ArtPoll within 2.5s.');
-  warn('Not proof of a fault: plenty of nodes never reply. But if yours does normally, check the cable, the subnet, and the firewall.');
+  warn('That is not proof of a fault, since many nodes never reply. If yours normally does, check the cable, the subnet, and the firewall.');
 } else {
   for (const n of nodes) {
     ok(`${n.ip}  ${n.short || '(no name)'}${n.long && n.long !== n.short ? ` / ${n.long}` : ''}`);
     if (n.universes.length) {
       console.log(`            listening on universe ${n.universes.join(', ')}`);
       if (!n.universes.includes(0)) {
-        warn(`this node does NOT listen on universe 0, which is where gobo puts fixtures by default.`);
+        warn(`this node does not listen on universe 0, which is where gobo puts fixtures by default.`);
         warn(`Either set the node to 0, or put your fixtures on ${n.universes[0]}: fixture(1, 'rgbw', ${n.universes[0]})`);
       }
     }
@@ -227,6 +226,7 @@ if (nodes.length === 0) {
   }
 }
 
+// 7. Windows firewall profile, the usual cause of silently dropped broadcast.
 if (platform() === 'win32') {
   head('7. windows firewall');
   const out = await new Promise((resolve) => {
@@ -239,7 +239,7 @@ if (platform() === 'win32') {
 }
 
 head('next');
-console.log(`  Send a real 5 second ramp to a target and watch the rig:
+console.log(`  Send a 5 second ramp to a target and watch the rig:
     npm run bridge:selftest -- --host ${explicitHost ?? live[0]?.bcast ?? '127.0.0.1'}
   That bypasses the browser and the bridge, so if the rig responds the wire is
   fine and the problem is in the app. If it does not, it is the network, the

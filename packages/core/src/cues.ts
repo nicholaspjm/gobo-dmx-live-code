@@ -1,26 +1,23 @@
 /**
- * Choosing which look is live, without typing.
+ * Look selection from buttons, keys and MIDI.
  *
  * A performance file holds the whole show, and the looks in it are functions
- * the operator wrote: verse, chorus, breakdown. Calling a different one meant
- * editing the call line and pressing Ctrl+Enter — which works, and is not
- * something you want to be doing with one hand while the other is on a fader.
+ * the operator wrote: verse, chorus, breakdown. Switching between them by
+ * editing the call line and pressing Ctrl+Enter is awkward with one hand on a
+ * fader.
  *
- * The obstacle was never storage. It is that a control cannot choose a look.
- * slider() and midi() are read at QUERY time, inside a pattern, sixty times a
- * second; which function runs is decided at EVAL time, once, and by then the
- * channels are already registered. A fader can ride a level inside the live
- * look and can never select the look itself.
+ * A control cannot choose a look directly. slider() and midi() are read at
+ * QUERY time, inside a pattern, sixty times a second; which function runs is
+ * decided at EVAL time, once, and by then the channels are already registered.
+ * A fader can ride a level inside the live look but cannot select the look.
  *
- * So this does not try to make selection a query-time value. It makes it a
- * reason to evaluate again. Evaluating is already atomic and seamless — the
- * staged scene replaces the live one at a tick boundary, so nothing blinks —
- * which means "run the file again with a different look selected" is a clean
- * whole-rig swap and needs no new machinery on the wire at all.
+ * So selecting a look triggers a fresh evaluation. Evaluation is atomic (the
+ * staged scene replaces the live one at a tick boundary, so nothing blinks),
+ * which makes "run the file again with a different look selected" a clean
+ * whole-rig swap with nothing new on the wire.
  *
- * The selection outlives a run the way a slider's position does. Re-running
- * the file does not reset which look is up, which is what makes it safe to
- * edit the document during a show.
+ * The selection persists across runs the way a slider's position does, so
+ * editing and re-running the file during a show keeps the same look up.
  */
 
 /** The names the running scene offered, in the order it offered them. */
@@ -29,11 +26,10 @@ let _names: string[] = [];
 /**
  * The name the operator picked, or null for "whatever comes first".
  *
- * Deliberately not cleared between runs. It is a position, like a fader's, and
- * a scene that re-registers the same names should come back up on the same
- * look. A name that is no longer offered is handled at read time rather than
- * by clearing here, so renaming a look and then renaming it back does not lose
- * the selection in between.
+ * Kept between runs. It is a position, like a fader's, and a scene that
+ * re-registers the same names should come back up on the same look. A name
+ * that is no longer offered is handled at read time instead of cleared here,
+ * so renaming a look and then renaming it back keeps the selection.
  */
 let _selected: string | null = null;
 
@@ -43,7 +39,7 @@ const _listeners = new Set<(name: string, previous: string | null) => void>();
  * Tell the host that the selection changed and the scene should run again.
  *
  * The re-run belongs to whoever owns the document, which is the UI; the engine
- * has no idea what the source text is. So this is an announcement, not a call.
+ * does not have the source text. So this only notifies listeners.
  */
 export function onCueChange(fn: (name: string, previous: string | null) => void): void {
   _listeners.add(fn);
@@ -57,9 +53,9 @@ export function getCues(): readonly string[] {
 /**
  * The look that is up: the picked one if it is still offered, else the first.
  *
- * Falling back rather than going dark matters. Rename the selected look, or
- * run a different file, and the selection points at something that is not
- * there; coming up on the first look is the behaviour that keeps a rig lit.
+ * Rename the selected look, or run a different file, and the selection points
+ * at something that is not there. Falling back to the first look keeps the rig
+ * lit instead of going dark.
  */
 export function getSelectedCue(): string | null {
   if (_selected !== null && _names.includes(_selected)) return _selected;
@@ -82,10 +78,10 @@ export function registerCues(names: readonly string[], drivenByPattern = false):
  * Whether the running scene is choosing its own look.
  *
  * With a selector the choice is written into the scene and read every frame,
- * so there is no one look that is "up" for the bar to highlight and nothing
- * for a chip or a key to decide. Saying so is not decoration: a bar claiming a
- * live look while a pattern quietly moves between them is the rig disagreeing
- * with the screen, which is the thing the chips exist to prevent.
+ * so there is no single look that is "up" for the bar to highlight and
+ * nothing for a chip or a key to decide. The bar must say so: highlighting one
+ * look while a pattern moves between them would show something other than
+ * what the rig is doing.
  */
 export function isCueDrivenByPattern(): boolean {
   return _driven;
@@ -96,21 +92,19 @@ let _driven = false;
 /**
  * Pick a look by name. Unknown names are ignored.
  *
- * Ignored rather than thrown: the callers are a click, a key and a MIDI
- * message, none of which is a place an operator can see an exception, and a
- * stale button pointing at a look that has been renamed should do nothing
- * rather than interrupt a show.
+ * No exception: the callers are a click, a key and a MIDI message, none of
+ * which can show one to the operator, and a stale button pointing at a renamed
+ * look should do nothing during a show.
  */
 export function selectCue(name: string): void {
-  // A scene choosing its own look does not take instructions from a button.
-  // Re-running it would change nothing, and pretending otherwise would move
-  // the highlight while the rig carried on doing something else.
+  // A scene choosing its own look ignores buttons. Re-running it would change
+  // nothing, and moving the highlight would misreport what the rig is doing.
   if (_driven) return;
   if (!_names.includes(name)) return;
-  // The EFFECTIVE selection, not the stored one: with nothing picked yet the
-  // first look is the one that is lit, and pressing its button should do
-  // nothing rather than re-run the file. It is also what the host needs to put
-  // back if the look it is about to ask for fails to run.
+  // The EFFECTIVE selection: with nothing picked yet the first look is the one
+  // that is lit, and pressing its button should do nothing instead of
+  // re-running the file. It is also what the host restores if the look it is
+  // about to ask for fails to run.
   const previous = getSelectedCue();
   if (previous === name) return;
   _selected = name;
@@ -120,8 +114,8 @@ export function selectCue(name: string): void {
 /**
  * Pick a look by position, 1-based.
  *
- * The 1-based count is the one on the buttons: cue 1 is the first look, the
- * way it is on every desk and on the number row of a keyboard.
+ * The 1-based count matches the buttons: cue 1 is the first look, as on a
+ * desk and on the number row of a keyboard.
  */
 export function selectCueIndex(oneBased: number): void {
   const name = _names[oneBased - 1];
@@ -133,12 +127,12 @@ export function selectCueIndex(oneBased: number): void {
  *
  * For the host to call when the run a selection asked for did not succeed. A
  * look that failed is not on the rig, and leaving it selected would put the
- * bar, the rig and the selection into three different states — the bar showing
- * the look that is actually lit, the selection holding one that never ran, and
- * the next Ctrl+Enter jumping somewhere the operator did not ask to go.
+ * bar, the rig and the selection into three different states: the bar showing
+ * the look that is lit, the selection holding one that never ran, and the next
+ * Ctrl+Enter jumping somewhere the operator did not ask to go.
  *
- * Silent because this is an undo, not a choice: announcing would ask the host
- * to run again, which is what just failed.
+ * Silent because this is an undo: notifying would ask the host to run again,
+ * which is what just failed.
  */
 export function restoreCue(name: string | null): void {
   _selected = name;

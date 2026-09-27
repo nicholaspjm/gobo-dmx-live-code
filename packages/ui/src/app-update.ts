@@ -1,12 +1,12 @@
 /**
  * Telling the desktop app that a newer gobo is out.
  *
- * The website is new on every load, and the connector replaces itself, but the
- * desktop app is an installer someone ran once, and nothing in it ever said a
- * release had come out. So it asks GitHub, at most twice a day, and when there
- * is a newer version it puts one quiet link in the top bar that goes to the
- * download. It never downloads anything itself: an app that replaced itself
- * would need signing to do it safely, which the installers do not have yet.
+ * The website is fresh on every load and the connector replaces itself, but the
+ * desktop app is an installer someone ran once. So it asks GitHub, at most
+ * twice a day, and when there is a newer version it puts one quiet link in the
+ * top bar that goes to the download. It never downloads anything itself: an
+ * app that replaced itself would need signing to do it safely, which the
+ * installers do not have yet.
  *
  * Only the desktop build asks. The website has nothing to update, and a copy
  * run from a checkout is updated with git.
@@ -80,16 +80,16 @@ function writeCache(c: Cached): void {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(c));
   } catch {
-    // Private mode or storage switched off: it asks again next time, no harm.
+    // Private mode or storage switched off: it asks again next time.
   }
 }
 
 /**
  * Check for a newer release and show `button` if there is one.
  *
- * Quiet on every failure. No network, GitHub's rate limit, a malformed
- * answer: the button stays hidden, which is exactly what "no update" looks
- * like, and none of them is worth a line in the log of a tool mid-show.
+ * Silent on every failure (no network, GitHub's rate limit, a malformed
+ * answer). The button stays hidden, as it does when there is no update, and
+ * nothing is logged: none of these is worth a line in the log mid-show.
  */
 export async function mountAppUpdate(opts: {
   button: HTMLButtonElement;
@@ -111,7 +111,7 @@ export async function mountAppUpdate(opts: {
       // Offline, blocked, or GitHub down. Treated as no answer.
     }
     // A failed ask is cached too, so an offline machine does not ask on every
-    // load; it keeps the last good answer rather than forgetting it.
+    // load. The last good answer is kept.
     cached = { checkedAt: now(), latest: latest ?? cached?.latest ?? null, seen: cached?.seen };
     writeCache(cached);
   }

@@ -1,13 +1,13 @@
 /**
  * The connector keeping itself current.
  *
- * THE PROBLEM THIS EXISTS TO FIX
- * The downloaded connector installs a login item and then runs for months. A
- * stale one has already started two investigations on this project, and 0.5.0
- * made the cost worse: every connector before it took connections from any
- * website. The page can say a connector is behind, but replacing one meant a
- * download, a security prompt and an --uninstall dance for the login item, and
- * most people will not do that for a patch release.
+ * WHY
+ * The downloaded connector installs a login item and then runs for months, and
+ * a stale one has already caused two investigations on this project. Every
+ * connector before 0.5.0 also took connections from any website, so an old one
+ * is a security problem too. The page can say a connector is behind, but
+ * replacing one by hand takes a download, a security prompt and an --uninstall
+ * for the login item, and most people will not do that for a patch release.
  *
  * WHAT IT DOES
  * Asks GitHub for the latest release, and if it is newer than this build,
@@ -17,14 +17,14 @@
  * executable. The login item names a path, not a version, so it goes on
  * pointing at the right thing.
  *
- * WHAT IT WILL NOT DO
- * Restart under a show. index.ts only swaps and restarts once nothing has been
+ * LIMITS
+ * It never restarts during a show. index.ts only swaps and restarts once nothing has been
  * connected for a while, so an update lands at login, or after the tab is
  * closed, never while a page is driving the rig. It does not run for a copy a
  * package manager owns (Homebrew upgrades those), for npm (npx fetches the
  * latest itself), inside the desktop app, or in CI.
  *
- * This module is the parts worth testing, with no timers and no process
+ * This module holds the testable parts, with no timers and no process
  * lifecycle in it. index.ts decides when.
  */
 
@@ -52,7 +52,7 @@ export interface LatestRelease {
  * Read GitHub's answer, or null if it is not one to act on.
  *
  * Drafts and prereleases are refused here as well as by the endpoint: a beta
- * tester opting into one is one thing, a login item pulling it in is another.
+ * tester may opt into one, but a login item must not pull one in.
  */
 export function parseRelease(json: unknown): LatestRelease | null {
   if (typeof json !== 'object' || json === null) return null;
@@ -120,8 +120,9 @@ export function planUpdate(release: LatestRelease | null, current: string, platf
   if (!name) return { update: false, reason: `no ${release.version} connector is built for ${platform} ${arch}` };
   const asset = release.assets.find((a) => a.name === name);
   if (!asset) return { update: false, reason: `${release.version} has no ${name} yet` };
-  // No checksum, no update. The file is about to be run without anyone looking
-  // at it, and a download that was cut short or altered must not be the one.
+  // Without a checksum there is no update. The file is about to be run without
+  // anyone looking at it, so a download that was cut short or altered must be
+  // caught.
   if (!asset.sha256) return { update: false, reason: `${release.version} published no checksum for ${name}` };
   return { update: true, version: release.version, asset };
 }

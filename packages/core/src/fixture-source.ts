@@ -1,15 +1,12 @@
 /**
- * A fixture definition, written back out as the code that would make it.
+ * Writes a fixture definition back out as the `defineFixture` code that makes it.
  *
- * Every fixture in the library is a worked example of the thing people find
- * hardest to start: a channel map. The definitions were already there and
- * only their summaries were shown, so the answer to "how do I write one of
- * these" was to read the docs and guess, with a dozen finished examples in the
- * panel and no way to see how any of them was built.
+ * Every fixture in the library is a worked channel map, the part people find
+ * hardest to write from scratch, so the panel can show any of them as a
+ * starting template.
  *
- * Generated from the def rather than stored beside it, so it cannot drift from
- * what the fixture actually is, and so it works for a fixture someone imported
- * five minutes ago as well as for the built-ins.
+ * The source is generated from the def so it always matches the fixture, and it
+ * works for imported fixtures as well as the built-ins.
  */
 
 import type { FixtureDef, ChannelDef, ChannelSlot } from './fixtures.js';
@@ -34,8 +31,8 @@ function slotSource(slot: ChannelSlot): string {
 
 function channelSource(ch: ChannelDef, indent: string): string {
   const parts: string[] = [`offset: ${ch.offset}`, `name: ${str(ch.name)}`, `type: ${str(ch.type)}`];
-  // Strip geometry, which is the part worth copying and the part nobody
-  // guesses right first time.
+  // Pixel-strip geometry: the fields most often copied, and most often wrong
+  // on a first attempt.
   if (ch.pixelCount !== undefined) parts.push(`pixelCount: ${ch.pixelCount}`);
   if (ch.pixelLayout !== undefined) parts.push(`pixelLayout: ${str(ch.pixelLayout)}`);
   if (ch.columns !== undefined) parts.push(`columns: ${ch.columns}`);
@@ -61,9 +58,8 @@ function channelSource(ch: ChannelDef, indent: string): string {
 /**
  * The `defineFixture(...)` call that would produce this definition.
  *
- * Round-trips: running the output defines a fixture equal to the input. That
- * is what makes it safe to offer as a template, since the first thing anyone
- * does with it is change one number and run it.
+ * Round-trips: running the output defines a fixture equal to the input, so it
+ * is safe to offer as a template to edit and run.
  */
 export function defineFixtureSource(id: string, def: FixtureDef): string {
   const head = [

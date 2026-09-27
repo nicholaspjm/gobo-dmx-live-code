@@ -5,10 +5,9 @@
  * connection control, the outputs panel and the connector prompt all read their
  * answers from here, so there is one table to correct when the answer changes.
  *
- * The rule underneath the whole table: a browser cannot open a UDP socket. No
- * browser offers an API for it, so Art-Net, sACN and OSC need a program on the
- * machine to put the packets on the wire. usb() and td() avoid that by using
- * APIs a page does have, WebSerial and WebSocket.
+ * A browser cannot open a UDP socket, and no browser offers an API for it, so
+ * Art-Net, sACN and OSC need a program on the machine to put the packets on
+ * the wire. usb() and td() use APIs a page does have: WebSerial and WebSocket.
  */
 
 import {
@@ -43,7 +42,7 @@ export type OutputTransport = 'serial' | 'websocket' | 'udp';
 /** What has to be true before the output can carry light. */
 export type OutputNeed = 'hardware' | 'receiver' | 'connector';
 
-/** 'conditional' means the code enforces a condition, not that we are hedging. */
+/** 'conditional' means the code checks a condition before the output can be used. */
 export type Support = 'yes' | 'conditional' | 'no';
 
 export interface OutputInfo {
@@ -56,7 +55,7 @@ export interface OutputInfo {
   /** Whether the desktop build can drive this. */
   desktop: Support;
   needs: OutputNeed;
-  /** One paragraph for someone who has never heard of any of this. */
+  /** One plain paragraph for someone new to all of this. */
   plain: string;
 }
 
@@ -155,10 +154,9 @@ export function isBridgeConnected(): boolean {
 /**
  * A released desktop build, or null while none exists.
  *
- * Data rather than markup so that a panel never offers a download no release
- * provides. It stayed null for a release after the first desktop build shipped,
- * so the panel went on saying "there is no desktop download yet" to everyone
- * while one sat on the releases page.
+ * Data rather than markup, so a panel never offers a download that no release
+ * provides. While this is null the panel says "there is no desktop download
+ * yet", so it has to be set when a desktop build ships.
  */
 export interface DesktopRelease {
   label: string;
@@ -189,9 +187,9 @@ export function connectorFileName(): string {
 /**
  * Whether a connector has ever reached this browser.
  *
- * Someone who already installed one does not need to be sold the download
- * again. If output is not arriving, their connector is simply not running, and
- * offering the file a second time reads as though the first install failed.
+ * Someone who already installed one does not need the download offered again.
+ * If output is not arriving, their connector is not running, and offering the
+ * file a second time suggests the first install failed.
  */
 const SEEN_CONNECTOR_KEY = 'gobo-seen-connector-v1';
 
@@ -206,7 +204,7 @@ export function rememberConnector(): void {
 // ─── Verdicts ────────────────────────────────────────────────────────────────
 
 export interface OutputVerdict {
-  /** True when running a scene with this output would reach real light now. */
+  /** True when running a scene with this output would reach physical lights now. */
   ready: boolean;
   /** Short state for the badge, lowercase to match the rest of the bar. */
   badge: string;
@@ -221,10 +219,10 @@ export function outputVerdict(id: OutputId): OutputVerdict {
   if (id === 'usb') {
     if (isUsbConnected()) {
       // A dropped frame means the interface could not keep up: sendUsbDmx holds
-      // the newest frame and only counts one when a newer frame displaces it
-      // before it reached the wire. So a number here is worth reading — it says
-      // the rig is running behind what the scene is asking for — and a zero is
-      // worth staying quiet about, which is the normal case.
+      // the newest frame and counts one only when a newer frame displaces it
+      // before it reaches the wire. A nonzero count means the rig is running
+      // behind the scene, so it is reported. Zero is the normal case and is not
+      // mentioned.
       const dropped = getUsbDroppedFrames();
       return {
         ready: true,
@@ -232,9 +230,8 @@ export function outputVerdict(id: OutputId): OutputVerdict {
         reason: dropped === 0
           ? 'An interface is connected, so usb() drives it on the next run.'
           : `An interface is connected, so usb() drives it on the next run. ${dropped} frame`
-            + `${dropped === 1 ? '' : 's'} could not be sent in time, which means the box is not `
-            + 'keeping up: the rig is running a little behind the scene. Lower the send rate in '
-            + 'settings if it climbs.',
+            + `${dropped === 1 ? '' : 's'} could not be sent in time, so the rig is running a `
+            + 'little behind the scene. Lower the send rate in settings if the count climbs.',
       };
     }
     if (!isWebSerialAvailable()) {
@@ -242,13 +239,13 @@ export function outputVerdict(id: OutputId): OutputVerdict {
         ready: false,
         badge: 'needs chrome or edge',
         reason:
-          'This browser has no WebSerial, so the page cannot open a USB interface at all. Chrome '
-          + 'and Edge have it, Firefox and Safari do not.',
+          'This browser has no WebSerial, so the page cannot open a USB interface. Chrome and Edge '
+          + 'support it; Firefox and Safari do not.',
       };
     }
     return {
       ready: false,
-      badge: 'needs a usb box',
+      badge: 'needs a usb interface',
       reason: 'Choose usb here and pick the interface.',
     };
   }
@@ -263,10 +260,10 @@ export function outputVerdict(id: OutputId): OutputVerdict {
     }
     return {
       ready: false,
-      badge: 'needs touchdesigner open',
+      badge: 'needs touchdesigner',
       reason:
-        'Open TouchDesigner here with a WebSocket DAT listening, then run td(). Over https a page '
-        + 'can only reach this machine.',
+        'Open TouchDesigner on this computer with a WebSocket DAT listening, then run td(). Over '
+        + 'https a page can reach only this computer.',
     };
   }
 
@@ -301,7 +298,7 @@ export function outputVerdict(id: OutputId): OutputVerdict {
     ready: false,
     badge: 'needs the connector',
     reason: id === 'mock'
-      ? 'The connector does the printing, so it has to be running.'
+      ? 'The connector prints the channels, so it has to be running.'
       : 'Nothing is listening yet. Run the connector, then press ctrl+enter again.',
   };
 }
@@ -340,14 +337,13 @@ export function needsConnectorUnlock(): boolean {
  * What to say about the connector's version, or null when there is nothing to
  * say.
  *
- * The case that matters is silence. No connector released so far announces
- * itself, so a page that hears nothing is talking to one built before the
- * handshake, and that is the build that cost a rig three rounds of debugging
- * over a fix it did not have. A connector ahead of the page is not a fault and
- * gets one quiet line.
+ * The important case is a connector that sends no version: it predates the
+ * handshake (see HANDSHAKE_SINCE in core), and a build like that cost a rig
+ * three rounds of debugging over a fix it did not have. A connector newer than
+ * the page is not a fault and gets one quiet line.
  *
- * Nothing here blocks anything. A connector behind the page carries every frame
- * it is given; it is only missing whatever has been fixed since.
+ * Nothing here blocks output. A connector older than the page carries every
+ * frame it is given and lacks only the fixes made since.
  */
 export function connectorVersionNotice(): ConnectorNotice | null {
   // The desktop build has its sender inside it, built from the same checkout,
@@ -360,9 +356,9 @@ export interface ConnectionSummary {
   /**
    * 'idle' means no output has been chosen, which is not a failure.
    * 'ready' means the connector is running and waiting, with no scene output
-   * pointed at it yet, which is also not a failure but is worth seeing: it is
-   * a background process, and the only way to know it is alive was to choose
-   * an output and find out.
+   * pointed at it yet. Also not a failure, but shown because the connector is
+   * a background process and otherwise the only way to know it is alive is to
+   * choose an output and find out.
    */
   state: 'connected' | 'disconnected' | 'ready' | 'idle';
   /** What the top-bar label reads. */
@@ -375,14 +371,13 @@ export interface ConnectionSummary {
  * One answer for the connection light, resolved from all three links at once.
  *
  * The bridge, direct output and a USB interface are independent, and a scene can
- * use two of them together. Reading only the bridge socket meant the label said
- * "disconnected" over a rig being driven happily over USB.
+ * use two of them together. Reading only the bridge socket would put
+ * "disconnected" over a rig being driven over USB.
  *
- * A stale connector is folded into the tooltip rather than the label. The label
- * has room for three words and this is not more urgent than the ones already in
- * it: output is going out either way. Only the facts go here, on their own line
- * so they do not run on from a sentence ending in "click for the full list".
- * What to do about it is a paragraph, and belongs in the panel that click opens.
+ * A stale connector goes in the tooltip. The label has room for three words,
+ * and output is going out either way. The tooltip gets the facts on their own
+ * line, so they do not run on from "click for the full list"; what to do about
+ * it belongs in the panel that click opens.
  */
 export function connectionSummary(): ConnectionSummary {
   const summary = resolveConnection();
@@ -419,12 +414,10 @@ function resolveConnection(): ConnectionSummary {
 
   const live: string[] = [];
   if (usb) live.push('usb');
-  // Named for the call a scene writes, not for the mechanism underneath. The
-  // top bar said 'direct' and 'bridge' — the first a word no panel or document
-  // shows the reader, the second a third name for the program this file calls
-  // the connector a few lines above and the docs, the package and the download
-  // all call the connector too. One program, three names, and the one on the
-  // most-read control in the app matched none of the others.
+  // Named for what the reader sees: 'td' is the call a scene writes, and
+  // 'connector' is what the docs, the package and the download call the
+  // program. 'direct' and 'bridge' are internal names no panel or document
+  // shows.
   if (direct && isDirectConnected()) live.push('td');
   if (config && isBridgeConnected()) live.push('connector');
 
@@ -446,8 +439,7 @@ function resolveConnection(): ConnectionSummary {
 
 export const WHY_BROWSER_CANNOT =
   'Art-Net, sACN and OSC go out as network packets, and a web page is not allowed to put packets '
-  + 'on the network by itself. That is a rule every browser enforces, not something gobo can '
-  + 'switch off.';
+  + 'on the network by itself. Every browser enforces this, and gobo cannot switch it off.';
 
 /**
  * The intro when gobo itself is running on this computer: the desktop app,
@@ -456,17 +448,17 @@ export const WHY_BROWSER_CANNOT =
  * program they do not need.
  */
 export const PANEL_INTRO_LOCAL =
-  'Where your light goes. gobo is running on this computer, so every output below works from here '
-  + 'with nothing else to start: Art-Net, sACN and OSC go straight out on the network.';
+  'gobo is running on this computer, so every output below works with nothing else to start. '
+  + 'Art-Net, sACN and OSC go straight out on the network.';
 
 export const PANEL_INTRO =
-  'Where your light goes. usb() and td() work in this browser. The rest send network packets, '
-  + 'which a page cannot do, so something has to run on this computer: the connector beside this '
-  + 'page, or gobo itself run locally, which needs nothing else.';
+  'usb() and td() work in this browser. The other outputs send network packets, which a page '
+  + 'cannot do, so they need a program running on this computer: the connector, or gobo itself '
+  + 'run locally.';
 
 export const DESKTOP_PITCH =
-  'The desktop version has the connector inside it. Art-Net, sACN, OSC and the dry run work '
-  + 'the moment it opens.';
+  'The desktop version has the connector built in. Art-Net, sACN, OSC and the dry run work '
+  + 'as soon as it opens.';
 
 /** Message for a scene whose output the page cannot carry on its own. */
 export function blockedOutputMessage(output: string): string {
@@ -555,7 +547,7 @@ export function mountOutputsPanel(opts: {
       pre.textContent = code;
       const me = document.createElement('span');
       me.className = 'artnet-target-me';
-      me.textContent = `you are ${n.address}`;
+      me.textContent = `this computer: ${n.address}`;
       line.append(pre, me);
       if (onUseCode && host !== n.broadcast) line.appendChild(useButton(code));
       wrap.appendChild(line);
@@ -563,24 +555,21 @@ export function mountOutputsPanel(opts: {
     return wrap;
   }
 
-  // Drawn from scratch each time it comes into view: every badge on it is a
-  // live verdict about hardware, and a stale one is the whole failure this
-  // page exists to prevent.
+  // Redrawn from scratch each time it comes into view, because every badge
+  // is a live verdict about hardware and a stale badge would misreport it.
   bodyEl.addEventListener(PANEL_OPEN_EVENT, () => render());
 
   /**
-   * Whether the connector is running, said out loud.
+   * Whether the connector is running, and which one it is.
    *
    * It is a background process that installs itself as a login item, so months
-   * can pass between setting it up and wondering about it. Nothing on screen
-   * answered "is it running, and what is it" except by choosing an output and
-   * seeing whether light came out.
+   * can pass between setting it up and checking on it. Without this box, the
+   * only way to tell is to choose an output and see whether light comes out.
    */
   function renderConnectorStatus(): HTMLElement {
     const box = document.createElement('div');
     const up = isBridgeConnected();
-    // Blocked is not the same answer as not running, and the fix is not the
-    // same either: see browser-access.ts.
+    // Blocked and not running have different fixes: see browser-access.ts.
     const blocked = !up && browserBlocksConnector();
     box.className = up ? 'connector-status up' : 'connector-status';
 
@@ -595,8 +584,8 @@ export function mountOutputsPanel(opts: {
     name.textContent = up ? 'connector running' : blocked ? 'connector blocked by this browser' : 'connector not running';
     head.append(dot, name);
 
-    // Deliberately the plain badge and not the sage one: being out of date is
-    // not a state to congratulate, and it is not a failure either.
+    // The plain badge: the sage one marks a good state, and an out-of-date
+    // connector is neither good news nor a failure.
     if (notice) {
       const flag = document.createElement('span');
       flag.className = 'output-badge';
@@ -606,9 +595,9 @@ export function mountOutputsPanel(opts: {
 
     const where = document.createElement('span');
     where.className = 'connector-status-where';
-    // The version reads as part of the address, since both answer "which one am
-    // I talking to". Left off when none was sent, which the line below explains
-    // rather than leaving as a blank to puzzle over.
+    // The version sits with the address, since both identify which connector
+    // this is. It is left off when none was sent, and the notice line below
+    // explains why.
     const version = up ? getConnectorInfo()?.version : null;
     where.textContent = up ? (version ? `${version} · localhost:3001` : 'localhost:3001') : '';
     head.appendChild(where);
@@ -628,11 +617,10 @@ export function mountOutputsPanel(opts: {
       : 'Art-Net, sACN and OSC need it. usb() and td() work without it.';
     box.append(head, what);
 
-    // Printed, not folded away: a connector missing fixes is the answer to a
-    // question nobody knew to ask, and someone who has to open something to
-    // find it never will. Two classes, for the spacing of one and the
-    // foreground colour of the other, so it reads as the answer rather than as
-    // more of the blurb above it.
+    // Shown in full: someone who does not know their connector is missing
+    // fixes will not open anything to find out. Two classes, for the spacing
+    // of one and the foreground colour of the other, so it stands apart from
+    // the description above it.
     if (notice) {
       const line = document.createElement('p');
       line.className = 'connector-status-what output-reason';
@@ -640,9 +628,9 @@ export function mountOutputsPanel(opts: {
       box.appendChild(line);
     }
 
-    // When it is not running, the next question is always "so how do I start
-    // it", and the answer was nowhere on screen. Folded away rather than
-    // printed, because it is four routes and only one of them is yours.
+    // When it is not running, the next question is how to start it. Folded
+    // into a details element, because there are four routes and each person
+    // needs only one.
     if (!up) box.appendChild(renderHowToStart());
     return box;
   }
@@ -651,9 +639,9 @@ export function mountOutputsPanel(opts: {
    * How to start the connector, in a details element the panel opens on
    * demand.
    *
-   * Three routes, because there genuinely are three: the packaged connector
-   * most people download, the npm package, and running it from a clone. Each
-   * says what you end up with, so nobody follows the wrong one and wonders why
+   * Four routes: the packaged connector most people download, Homebrew, the
+   * npm package, and the desktop app with the connector built in. Each says
+   * what you end up with, so nobody follows the wrong one and wonders why
    * there is no window.
    */
   function renderHowToStart(): HTMLElement {
@@ -666,46 +654,47 @@ export function mountOutputsPanel(opts: {
     icon.className = 'connector-how-icon';
     icon.textContent = 'i';
     icon.setAttribute('aria-hidden', 'true');
-    summary.append(icon, document.createTextNode('how do I start it?'));
+    summary.append(icon, document.createTextNode('starting the connector'));
     wrap.appendChild(summary);
 
-    // npx only since the package was published under this project's own
-    // account. Before that, an instruction to npx the name would have handed it,
-    // and everyone who followed the instruction, to whoever published it first.
+    // The npx route depends on gobo-connector being published under this
+    // project's own npm account. An instruction to npx an unclaimed name hands
+    // everyone who follows it to whoever publishes that name first.
     const mac = /Mac OS X|Macintosh/i.test(navigator.userAgent);
     const routes: Array<{ title: string; body: string; code?: string; link?: { href: string; label: string } }> = [
       {
-        title: 'the download',
+        title: 'download',
         body:
           'Download the connector for this computer and run it once. It registers itself to start '
-          + 'with your computer, keeps itself up to date, and otherwise stays out of the way: there '
-          + 'is no window, and this panel turning green is how you know it is up. It is not signed, '
+          + 'with your computer and keeps itself up to date. It has no window; this panel turns '
+          + 'green when it is up. It is not signed, '
           + (mac
-            ? 'so on a Mac make it runnable first, then open it from Finder with right-click, Open; '
-              + 'if macOS still refuses, System Settings, Privacy & Security has Open Anyway.'
+            ? 'so on a Mac make it runnable first (the command below), then open it from Finder '
+              + 'with right-click, Open. If macOS still refuses, use Open Anyway in System Settings, '
+              + 'Privacy & Security.'
             : 'so the first run asks you to confirm it.'),
         code: mac ? 'chmod +x ~/Downloads/gobo-connector-macos' : undefined,
         link: { href: connectorDownloadUrl(), label: `download ${connectorFileName()}` },
       },
       {
-        title: 'with Homebrew',
+        title: 'Homebrew',
         body:
-          'On an Apple Silicon Mac or x86_64 Linux. It skips the confirmation a download asks for, '
+          'For an Apple Silicon Mac or x86_64 Linux. It skips the confirmation a download asks for, '
           + 'and brew services starts it with the computer.',
         code: 'brew tap nicholaspjm/gobo https://github.com/nicholaspjm/gobo-dmx-live-code\n'
           + 'brew install gobo-connector\n'
           + 'brew services start gobo-connector',
       },
       {
-        title: 'with Node',
-        body: 'Runs the latest one without installing anything, until you close the terminal.',
+        title: 'Node',
+        body: 'Runs the latest version without installing anything. It stops when you close the terminal.',
         code: 'npx gobo-connector@latest',
       },
       {
-        title: 'or skip it: the desktop app',
+        title: 'desktop app',
         body:
-          'The desktop app is this same app with the connector inside it, so there is nothing to '
-          + 'start and nothing for the browser to allow.',
+          'This same app with the connector built in, so there is nothing to start and nothing for '
+          + 'the browser to allow.',
         link: { href: RELEASES_URL, label: 'download the desktop app' },
       },
     ];
@@ -741,10 +730,10 @@ export function mountOutputsPanel(opts: {
     const foot = document.createElement('p');
     foot.className = 'connector-how-body connector-how-foot';
     foot.textContent =
-      'It listens on localhost:3001, so only this computer can reach it, and it only answers gobo '
-      + 'itself: another website open in the same browser cannot drive your rig through it. '
-      + 'Whichever route you take, this panel goes green within a couple of seconds of it starting. '
-      + 'If it does not, something else is already on that port, usually a second connector.';
+      'It listens on localhost:3001, so only this computer can reach it, and it answers only gobo, '
+      + 'so another website open in the same browser cannot drive your rig through it. This panel '
+      + 'goes green within a couple of seconds of the connector starting. If it does not, something '
+      + 'else is already using that port, usually a second connector.';
     wrap.appendChild(foot);
     return wrap;
   }
@@ -827,9 +816,8 @@ export function mountOutputsPanel(opts: {
     bodyEl.appendChild(list);
 
     // ── Inputs ───────────────────────────────────────────────────────────
-    // Everything above is where light goes. This is the one place something
-    // comes back, and it belongs here because this panel is where a person
-    // looks for hardware, whichever direction it points.
+    // Everything above sends light out. MIDI comes in, and sits in this panel
+    // because this is where people look for hardware in either direction.
     const inHead = document.createElement('h3');
     inHead.className = 'outputs-subhead';
     inHead.textContent = 'inputs';
@@ -856,17 +844,18 @@ export function mountOutputsPanel(opts: {
     const midiPlain = document.createElement('p');
     midiPlain.className = 'output-plain';
     midiPlain.textContent =
-      'A fader or knob on a MIDI controller, as a value a scene can use: midi(74) is controller 74, '
-      + '0 to 1, read live. Nothing to install, and the browser asks for permission once.';
+      'Reads a fader or knob on a MIDI controller as a value from 0 to 1 that a scene can use: '
+      + 'midi(74) is controller 74, read live. There is nothing to install; the browser asks for '
+      + 'permission once.';
 
     const midiReason = document.createElement('p');
     midiReason.className = 'output-reason';
     if (!isMidiSupported()) {
       midiReason.textContent =
-        'This browser has no Web MIDI, so the page cannot see a controller at all. Chrome and Edge '
-        + 'have it, Firefox and Safari do not.';
+        'This browser has no Web MIDI, so the page cannot see a controller. Chrome and Edge '
+        + 'support it; Firefox and Safari do not.';
     } else if (!isMidiEnabled()) {
-      midiReason.textContent = 'Turn it on here and the browser will ask once. Then midi(74) works in a scene.';
+      midiReason.textContent = 'Turn it on here and allow the browser prompt. midi(74) then works in a scene.';
     } else {
       const names = getMidiInputNames();
       const seen = getSeenControllers();
@@ -874,7 +863,7 @@ export function mountOutputsPanel(opts: {
         ? ' Move a fader and the controller number appears here.'
         : ' Heard so far: ' + seen.slice(0, 8).map((s) => `cc ${s.cc}${s.channel === 1 ? '' : ` ch ${s.channel}`}`).join(', ') + '.';
       midiReason.textContent = (names.length === 0
-        ? 'Listening, but nothing is plugged in.'
+        ? 'Listening, but no controller is plugged in.'
         : `Listening to ${names.join(', ')}.`) + heard;
     }
 
@@ -904,20 +893,18 @@ export function mountOutputsPanel(opts: {
     why.textContent = WHY_BROWSER_CANNOT;
     foot.appendChild(why);
 
-    // Inside the desktop build the sender is already in the app, and a page
-    // served from this computer came from npm start or npm run dev, which run
-    // it alongside. Either way every download here would be an offer of
-    // something the user is already running.
-    // Nor while a connector is up: "download it" under a green light reads as
-    // though the one running were the wrong one.
+    // No download offers inside the desktop build (the sender is in the app),
+    // on a page served from this computer (npm start and npm run dev run the
+    // sender alongside), or while a connector is up, where a download offer
+    // under a green light suggests the running one is the wrong one.
     if (!isDesktopBuild() && !servedLocally() && !isBridgeConnected()) {
       const note = document.createElement('p');
       note.className = 'outputs-note';
       note.textContent = hasSeenConnector()
-        ? 'The connector has run on this computer before. If Art-Net or sACN is going nowhere, it '
-          + 'is not running just now. It normally starts itself when you log in.'
+        ? 'The connector has run on this computer before. If Art-Net or sACN output is not '
+          + 'arriving, it is not running right now. It normally starts when you log in.'
         : `The connector is one file, ${connectorFileName()}. Run it and leave it running; the `
-          + 'page finds it by itself.';
+          + 'page finds it automatically.';
       foot.appendChild(note);
 
       const actions = document.createElement('div');
@@ -945,12 +932,10 @@ export function mountOutputsPanel(opts: {
 
       const desktopLine = document.createElement('p');
       desktopLine.className = 'outputs-note';
-      // Only claim the desktop version once there is one to download. Saying
-      // "it all works in the desktop app" while no release exists would be a
-      // promise nothing here can keep.
+      // Mention the desktop version only when a release exists to download.
       desktopLine.textContent = DESKTOP_RELEASE
         ? DESKTOP_PITCH
-        : 'There is no desktop download yet, so the connector is how these three work today.';
+        : 'There is no desktop download yet, so Art-Net, sACN and OSC need the connector.';
       foot.appendChild(desktopLine);
     }
 

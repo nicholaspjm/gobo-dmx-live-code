@@ -1,30 +1,30 @@
-name: An idea
+name: Idea
 description: Something you wanted to write, or something that should work differently.
 labels: [enhancement]
 body:
   - type: markdown
     attributes:
       value: |
-        gobo is a live-coding tool: the code is the interface, and a performance is writing and running it. The ideas that land best make that better. A button or a panel that replaces writing code is a harder sell, and [CONTRIBUTING.md](https://github.com/nicholaspjm/gobo-dmx-live-code/blob/main/CONTRIBUTING.md) says why.
+        gobo is a live-coding tool: a performance is writing and running code. Ideas that improve that fit best. A button or a panel that replaces writing code is a harder sell, and [CONTRIBUTING.md](https://github.com/nicholaspjm/gobo-dmx-live-code/blob/main/CONTRIBUTING.md) says why.
 
-        Not sure yet, or want to talk it through first? [Discussions](https://github.com/nicholaspjm/gobo-dmx-live-code/discussions) is the place.
+        To talk an idea through first, use [Discussions](https://github.com/nicholaspjm/gobo-dmx-live-code/discussions).
 
   - type: textarea
     id: moment
     attributes:
-      label: What were you trying to do?
-      description: The moment you wanted it. Mid-set, while patching, while teaching someone.
+      label: Use case
+      description: What you were trying to do, and when you wanted it (mid-set, while patching, while teaching someone).
     validations:
       required: true
 
   - type: textarea
     id: code
     attributes:
-      label: What would you write?
-      description: A sketch is fine, even if it does not run today. Code says more than a description of it.
+      label: Code sketch
+      description: The code you would want to write, even if it does not run today.
       render: js
 
   - type: textarea
     id: today
     attributes:
-      label: How do you do it now, if you can?
+      label: Current workaround

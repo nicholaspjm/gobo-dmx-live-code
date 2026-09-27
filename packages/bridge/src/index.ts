@@ -45,7 +45,7 @@ if (process.argv.includes('--version')) {
 
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
   console.log(`gobo connector ${CONNECTOR_VERSION}
-Puts gobo's Art-Net, sACN and OSC on the network. Run it, then open gobo.
+Sends gobo's Art-Net, sACN and OSC output to the network. Run it, then open gobo.
 
   --no-open             do not open a browser
   --no-install          do not add the login item that starts it with the computer
@@ -77,11 +77,10 @@ interface BridgeConfig {
 }
 
 /**
- * An unrecognised mode used to fall through the router's `default:` branch
- * into mock, so a typo like "artnett" logged mock output while nothing reached
- * the rig. Both entry points (the config file and runtime config messages) check
- * this before assigning config.mode, so an invalid value cannot reach the
- * router.
+ * Both entry points (the config file and runtime config messages) check this
+ * before assigning config.mode, so an invalid value cannot reach the router.
+ * The router has no fallback branch: a fallback to mock would turn a typo like
+ * "artnett" into mock output while nothing reached the rig.
  */
 function isOutputMode(value: unknown): value is OutputMode {
   return typeof value === 'string' && (OUTPUT_MODES as readonly string[]).includes(value);
@@ -110,8 +109,8 @@ const PACKAGED = !/^node(\.exe)?$/i.test(basename(process.execPath));
  * resolved through symlinks, so under Homebrew it records the versioned Cellar
  * directory rather than the stable one. The next `brew upgrade` moves that out
  * from under it and the login item points at a connector that is stale or gone.
- * That is precisely the failure this project has already spent two
- * investigations on, so the connector does not install one here.
+ * That failure has been investigated twice already, so the connector does not
+ * install a login item here.
  *
  * Homebrew has its own answer, and the formula ships it:
  * `brew services start gobo-connector`, written against the opt path and
@@ -167,14 +166,14 @@ try {
     console.log(`[bridge] config loaded, mode: ${config.mode}`);
   } else {
     // Keep the rest of the file so correcting the mode is the only edit
-    // needed. Say so loudly: this must not look like a working output.
+    // needed. Logged as an error so it does not look like a working output.
     config = { ...loaded, mode: 'mock' };
     console.error(`[bridge] bridge.config.json: ${unknownModeMessage(loaded.mode)}`);
-    console.error('[bridge] falling back to mock. NOTHING will be sent to the rig until the mode is corrected.');
+    console.error('[bridge] falling back to mock: nothing reaches the rig until the mode is corrected.');
   }
 } catch (err) {
   // A missing file is a normal first run. Unreadable or malformed JSON is a
-  // mistake, and both otherwise land on the same silent default.
+  // mistake and is reported as one, so the two do not share a silent default.
   if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
     if (PACKAGED || VIA_NPM) {
       // Expected: a connector is configured by the app's artnet() / sacn() /
@@ -185,7 +184,7 @@ try {
     }
   } else {
     console.error(`[bridge] could not read ${configPath}: ${(err as Error).message}`);
-    console.error('[bridge] falling back to mock. NOTHING will be sent to the rig until that is fixed.');
+    console.error('[bridge] falling back to mock: nothing reaches the rig until that is fixed.');
   }
 }
 
@@ -395,9 +394,9 @@ const SACN_DEFAULT_BASE = 1;
 /**
  * Sequence numbers are per universe (E1.31 §6.2.5): a receiver compares each
  * packet against the last one it saw for that universe and discards anything
- * out of order. A single process-wide counter looked like a jump of however
- * many universes were in the rotation, and receivers dropped frames until the
- * numbers caught up, roughly 170ms of black per gap.
+ * out of order. A single process-wide counter would jump by the number of
+ * universes in the rotation, and receivers would drop frames until the numbers
+ * caught up, roughly 170ms of black per gap.
  *
  * Keyed on the WIRE universe, not the scene universe, because the wire number
  * is the only one the receiver sees. Two scene universes sharing one wire
@@ -448,12 +447,12 @@ function sacnBase(): number {
 /**
  * Map a scene universe onto the sACN universe that goes on the wire.
  *
- * ONLY scene universe 0 is remapped; everything else goes out verbatim.
+ * Only scene universe 0 is remapped; every other universe goes out unchanged.
  *
- * Every scene call defaults to universe 0 — the fixture family always did, and
- * the channel family (ch(), dim(), rgb()) was brought onto it rather than left
- * writing universe 1. E1.31 reserves 0, so a scene that never names a universe
- * would otherwise multicast to one conformant receivers drop. Remapping only
+ * Every scene call defaults to universe 0, the fixture family and the channel
+ * family (ch(), dim(), rgb()) alike. E1.31 reserves 0, so a scene that never
+ * names a universe would otherwise multicast to one that conformant receivers
+ * drop. Remapping only
  * that value leaves working rigs alone: scene uni 1 stays sACN uni 1, scene uni
  * 7 stays 7.
  *
@@ -486,7 +485,7 @@ function checkWireCollision(sceneUniverse: number, wireUniverse: number): void {
   _sacnCollisionWarned.add(wireUniverse);
   console.error(
     `[bridge] sACN: scene uni ${owner} and scene uni ${sceneUniverse} both map to sACN uni ${wireUniverse}. ` +
-    `They are NOT merged; each frame overwrites the other on the wire. Scene uni 0 is remapped to the base ` +
+    `They are not merged; each frame overwrites the other on the wire. Scene uni 0 is remapped to the base ` +
     `universe (currently ${sacnBase()}). Move one of them or pick another base with sacn(<base>).`,
   );
 }
@@ -654,8 +653,8 @@ function sendMock(universe: number, data: number[]): void {
 /**
  * One line describing where frames are going. The startup banner and the
  * runtime config log both use this, so they cannot drift from each other or
- * from the sender: the old sACN line printed a universe number the sender
- * never put on the wire.
+ * from the sender (a separate sACN line could print a universe number the
+ * sender never puts on the wire).
  */
 function describeOutput(): string {
   switch (config.mode) {
@@ -770,8 +769,8 @@ let _dmxMsgCount = 0;
  * Put one frame on the wire, whichever wire this bridge is configured for.
  *
  * No `default:` on purpose. Every mode is listed and config.mode is validated
- * before it is assigned; a catch-all branch is what used to route typo'd modes
- * into mock with no complaint.
+ * before it is assigned; a catch-all branch would route a mistyped mode into
+ * mock with no complaint.
  */
 function sendFrame(universe: number, channels: number[]): void {
   switch (config.mode) {
@@ -831,8 +830,8 @@ function handleDmxMessage(universes: Record<string, number[]>): void {
  * A browser cannot open a UDP socket, so a native process has to exist for
  * Art-Net to reach a rig at all. Serving the app from the bridge means that
  * process is the only thing to start, and the page's WebSocket is same-origin
- * rather than a second port to get wrong. Passed as `--ui <dir>`; without it
- * the bridge behaves exactly as before.
+ * rather than a second port to get wrong. Passed as `--ui <dir>`; without it,
+ * an HTTP request gets a one-line status reply.
  */
 const uiDirArg = process.argv.indexOf('--ui');
 const UI_DIR = uiDirArg !== -1 && process.argv[uiDirArg + 1]
@@ -856,11 +855,11 @@ const CONTENT_TYPES: Record<string, string> = {
 
 function serveUi(req: IncomingMessage, res: ServerResponse): void {
   const root = UI_DIR as string;
-  // decodeURIComponent throws URIError on a malformed escape, and this ran
-  // outside the try below, in a request handler with nothing above it. A single
-  // `GET /%` from anything that could reach this port therefore killed the
-  // connector — and killed it without blacking out, so every receiver held its
-  // last frame and the rig froze lit while the app went on showing a scene.
+  // decodeURIComponent throws URIError on a malformed escape, and nothing above
+  // this request handler catches it. Uncaught, a single `GET /%` from anything
+  // that could reach this port would kill the connector without a blackout, so
+  // every receiver would hold its last frame and the rig would freeze lit while
+  // the app went on showing a scene.
   let urlPath: string;
   try {
     urlPath = decodeURIComponent((req.url ?? '/').split('?')[0]);
@@ -919,11 +918,11 @@ wss.on('connection', (ws: WebSocket) => {
     console.error(`[bridge] client socket error: ${err.message}`);
   });
 
-  // Say what this connector is, before anything else happens on the socket. A
-  // page talking to a connector built before this existed hears nothing at all,
-  // which is the answer it needs: silence means older than the build that
-  // started saying. Sent after the error handler above is installed, so a client
-  // that vanishes during the write cannot take the process with it.
+  // Say what this connector is before anything else happens on the socket. A
+  // connector too old to send this sends nothing, and the page reads that
+  // silence as an old connector. Sent after the error handler above is
+  // installed, so a client that vanishes during the write cannot take the
+  // process with it.
   ws.send(JSON.stringify(connectorHello(AUTO_UPDATE, localNetworks(networkInterfaces()))), (err) => {
     // A callback rather than none, so a failed write lands here instead of on
     // the socket's shared error path. Nothing to do about it: the only page
@@ -948,7 +947,7 @@ wss.on('connection', (ws: WebSocket) => {
 
   ws.on('close', () => {
     console.log(`[bridge] client disconnected (${wss.clients.size} remaining)`);
-    // Last one out turns the lights off. A closed tab sends no final
+    // Black out when the last client leaves. A closed tab sends no final
     // frame, and receivers hold their last value indefinitely.
     if (wss.clients.size === 0) {
       blackoutAll('app disconnected');
@@ -1034,7 +1033,7 @@ function logRefusal(req: IncomingMessage, refusal: Refusal): void {
   }
   _refusalsSeen.add(key);
   console.warn(`[bridge] refused ${printable(who)}: ${refusal.reason}.`);
-  // Only where allowing the origin would actually let it in. A Host refusal is
+  // Only where allowing the origin would let it in. A Host refusal is
   // DNS rebinding or a misaddressed request, and no flag should be offered for
   // that.
   if (refusal.check === 'origin' && origin !== undefined && origin !== 'null') {
@@ -1045,10 +1044,9 @@ function logRefusal(req: IncomingMessage, refusal: Refusal): void {
 // ─── Self install (packaged connector only) ──────────────────────────────────
 //
 // A browser cannot open a UDP socket, so reaching a lighting node always needs
-// something native running. Asking someone to keep launching it defeats the
-// point of a browser tool, so the connector registers itself as a per-user
-// login item the first time it runs. After that, opening the app is the whole
-// workflow.
+// something native running. Launching it by hand every time would undercut a
+// browser tool, so the connector registers itself as a per-user login item the
+// first time it runs. After that, the user only has to open the app.
 //
 // Per-user only: no administrator rights, no registry, no system service, and
 // one flag to undo it.
@@ -1146,9 +1144,9 @@ function describeAccess(bound: string[]): void {
   if (accessArgs.lan) {
     console.warn(`[bridge] --lan: listening on ${bound.join(', ')}, port ${PORT}.`);
     console.warn('[bridge] web pages still have to be gobo\'s own, but any program on this network can connect');
-    console.warn('[bridge] and drive the rig. Use it on a network you trust, and leave it off otherwise.');
+    console.warn('[bridge] and drive the rig. Use it only on a network you trust.');
   } else {
-    console.log('[bridge] this computer only. Start with --lan (or GOBO_LAN=1) to let other devices on the network connect.');
+    console.log('[bridge] accepting this computer only. Start with --lan (or GOBO_LAN=1) to let other devices on the network connect.');
   }
   for (const bad of accessArgs.invalid) {
     console.warn(`[bridge] ignoring --allow-origin ${printable(bad)}: an origin looks like https://example.com`);
@@ -1218,7 +1216,7 @@ async function checkForUpdate(): Promise<void> {
       process.platform,
       process.arch,
     );
-    // Nothing to do is the normal answer, and not worth a line a day.
+    // No update is the usual result, and is not logged.
     if (!plan.update) return;
     console.log(`[gobo] ${plan.version} is out; downloading it in the background`);
     await download(plan.asset, file);

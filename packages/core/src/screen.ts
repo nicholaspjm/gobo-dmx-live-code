@@ -1,20 +1,20 @@
 /**
- * The screen as a light.
+ * Screen light.
  *
  * A fixture with no DMX address: `screen()` claims a region of the page and
- * drives it from the same patterns as everything else. It exists because the
- * rig is usually somewhere else. Writing a cue on a laptop with no hardware
- * attached, checking a chase reads the way you meant, showing someone what a
- * scene does: all of that needed a light in the room, and now it does not.
+ * drives it from the same patterns as everything else. It gives you a light in
+ * the room when the rig is elsewhere: writing a cue on a laptop with no
+ * hardware attached, checking that a chase reads the way you meant, showing
+ * someone what a scene does.
  *
- * It is a real fixture, not a preview. The same setters, the same patterns,
- * the same grid. A scene written against the screen runs on a wash by
- * changing which line built it.
+ * It is a fixture with the same setters, patterns and grid as any other, so a
+ * scene written against the screen runs on a wash by changing the line that
+ * builds it.
  *
- * Values live in an ordinary DMX universe, so nothing about the engine or the
- * scheduler is special-cased: the screen picks a universe well above anything
- * a real rig uses and renders whatever lands there. That also means a screen
- * fixture can be grouped with real ones and driven by one `each()`.
+ * Values live in an ordinary DMX universe, so the engine and scheduler need no
+ * special cases: the screen uses a universe well above anything a rig uses
+ * and renders whatever lands there. A screen fixture can also be grouped with
+ * hardware fixtures and driven by one `each()`.
  */
 
 import { getUniverseBuffer } from './dmx.js';
@@ -24,9 +24,9 @@ import { rgbStrip, type StripInstance } from './fixtures.js';
 /**
  * Universe the screen renders from.
  *
- * Deliberately far above the range a rig would use, so a scene that also
- * drives real fixtures never collides with it. Art-Net tops out at 32767 and
- * sACN at 63999; nothing sane addresses this one.
+ * Far above the range a rig would use, so a scene that also drives hardware
+ * fixtures never collides with it. Art-Net tops out at 32767 and sACN at
+ * 63999, and rigs do not address universes this high.
  */
 export const SCREEN_UNIVERSE = 30000;
 
@@ -61,9 +61,9 @@ export function getScreens(): readonly ScreenPanel[] {
 }
 
 /**
- * A light made of screen rather than lamps.
+ * A light drawn on the page.
  *
- * With no arguments it is a single colour wash, which is the common case: one
+ * With no arguments it is a single colour wash (the common case): one
  * rectangle that takes a colour. Give it a pixel count and it becomes a strip;
  * give it `columns` as well and it becomes a grid, addressable with pixelXY
  * and eachXY exactly like a physical pixel wash.
@@ -77,10 +77,10 @@ export function getScreens(): readonly ScreenPanel[] {
  *
  * @example
  *   const room = screen()                        // one big colour wash
- *   room.fill(sine().slow(4), 0, cosine().slow(4))
+ *   room.fill(sine.slow(4), 0, cosine.slow(4))
  *
  *   const wall = screen(48, { columns: 12 })     // a 12 x 4 video wall
- *   wall.eachXY((x, y, w) => sine().early(x / w).slow(4))
+ *   wall.eachXY(sine.slow(4), 4)
  */
 export function screen(
   pixels = 1,
@@ -103,8 +103,8 @@ export function screen(
 
   const strip = rgbStrip(startChannel, pixels, SCREEN_UNIVERSE, {
     columns: opts.columns,
-    // Kept out of the hardware sim panel: it draws itself, and a second ghost
-    // of it among the real fixtures would suggest there is hardware here.
+    // Kept out of the hardware sim panel: it draws itself, and a copy among
+    // the hardware fixtures would suggest there is hardware on these channels.
     skipSim: true,
   });
 
@@ -122,9 +122,9 @@ export function screen(
 /**
  * Read a panel's current colours, one `[r, g, b]` per cell in picture order.
  *
- * The renderer calls this every frame. It reads the universe buffer directly
- * rather than the pattern, so what is drawn is exactly what a real fixture on
- * those channels would receive, clamping and all.
+ * The renderer calls this every frame. It reads the universe buffer, so what
+ * is drawn is what a hardware fixture on those channels would receive,
+ * including clamping.
  */
 export function readScreen(panel: ScreenPanel): Array<[number, number, number]> {
   const buf = getUniverseBuffer(SCREEN_UNIVERSE);

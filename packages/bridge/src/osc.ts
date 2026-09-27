@@ -6,25 +6,25 @@
  * impossible to test. This module holds no sockets. It is handed a frame and
  * returns the datagrams to send.
  *
- * THE PROBLEM THIS EXISTS TO FIX
- * Every channel used to be its own UDP datagram, carrying one float. A fully
- * lit 512-channel universe at the tick rate is around seventeen thousand
- * packets a second, each with forty-odd bytes of headers wrapped around four
- * bytes of payload. Receivers drop them, queue them, or fall over. It looked
- * fine in testing because a channel that is zero, and was zero last frame, is
- * skipped: the flood only arrives once the rig is actually lit.
+ * WHY BUNDLES
+ * With one UDP datagram per channel, each carrying one float, a fully lit
+ * 512-channel universe at the tick rate is around seventeen thousand packets a
+ * second, each with forty-odd bytes of headers around four bytes of payload.
+ * Receivers drop them, queue them, or fall over. Testing hides it, because a
+ * channel that is zero, and was zero last frame, is skipped: the flood only
+ * arrives once the rig is lit.
  *
- * OSC has a container for exactly this. A bundle is one datagram holding many
- * messages, so the addresses stay per channel and anything already mapped to
- * /gobo/1/5 keeps working, while the packet count falls by a factor of fifty.
+ * An OSC bundle is one datagram holding many messages, so the addresses stay
+ * per channel and anything mapped to /gobo/1/5 keeps working, with about a
+ * fiftieth of the packets.
  *
  * WHY THE BUNDLES ARE CHUNKED
  * One bundle holding all 512 channels is about twelve kilobytes, which is well
  * inside UDP's limit and well outside a typical 1500-byte network MTU. IP
  * would fragment it, and a fragmented datagram is all or nothing: lose one
  * fragment and the whole frame goes. So bundles are filled to a budget that
- * fits inside one MTU instead, which is a handful of whole, independent
- * datagrams rather than one that can be destroyed in pieces.
+ * fits inside one MTU, giving a handful of independent datagrams that each
+ * arrive whole or not at all.
  */
 
 /** Payload budget for one datagram. A 1500-byte MTU less 20 bytes of IP header
@@ -85,7 +85,7 @@ const ELEMENT_OVERHEAD = 4;
  *
  * A channel is included when it is lit, or when it was lit last frame and has
  * gone out. Sending the ones that went out is what makes a blackout arrive:
- * a receiver holds its last value, so a channel that simply stops being
+ * a receiver holds its last value, so a channel that only stops being
  * mentioned stays where it was.
  *
  * Returns an empty array when nothing changed and nothing is lit, so a dark

@@ -2,7 +2,7 @@
 
 One JSON file per fixture, any of which can be pulled into the gobo app's
 library with one click. Contributions are welcome: open a PR adding your
-file here, and the automated validator plus a human review will gate it.
+file here, and it goes through the automated validator and a human review.
 
 ## File format
 
@@ -30,9 +30,9 @@ file here, and the automated validator plus a human review will gate it.
 }
 ```
 
-The version field was called `lumenFixture` before the project was renamed.
-It is still accepted as a deprecated alias, so fixture files exported by
-older builds keep importing. Write `goboFixture` in anything new, and
+`lumenFixture`, the version field's name before the project was renamed, is
+accepted as a deprecated alias, so fixture files exported by older builds
+still import. Write `goboFixture` in anything new, and
 don't set both.
 
 Channel `type` is one of `intensity`, `color`, `position`, `strobe`,
@@ -44,7 +44,7 @@ claim one of those either: the validator doesn't currently catch it, but
 a fixture named `generic-rgbw` would shadow the alias. Pick a
 manufacturer-and-model id.
 
-## Writing a fixture by exporting from the app
+## Exporting from the app
 
 Define it in the editor with `defineFixture('your-id', {…})`, run it, then
 use the **fixtures** tab's *share* (opens a pre-filled PR) or *export*
@@ -68,4 +68,4 @@ Enforced by the validator on every PR:
 | Total strip DMX channels | ≤ 512 |
 | Channel `slots` | ≤ 256 per channel |
 
-No unknown fields anywhere. Strict string types.
+Unknown fields are rejected at every level, and string fields must be strings.

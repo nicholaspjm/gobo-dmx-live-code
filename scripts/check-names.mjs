@@ -2,11 +2,11 @@
 /**
  * Refuse to ship an assistant or vendor name.
  *
- * The rule is absolute and it has been broken by accident before: a stray file
+ * The rule has no exceptions, and it is easy to break by accident: a stray file
  * committed from a tool's working directory, a co-author trailer added by
- * default, an attribution line in a generated commit message. Each was
- * invisible until it was already pushed, and the last of them left a name in a
- * contributor list that force-pushing cannot remove.
+ * default, an attribution line in a generated commit message. Each is
+ * invisible until it has been pushed, and a name that reaches a contributor
+ * list cannot be removed by force-pushing.
  *
  * So it is checked mechanically rather than remembered. This runs over the
  * working tree, the staged diff, the commit message and the branch name, and

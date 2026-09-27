@@ -1,14 +1,12 @@
 /**
  * Patching a rig from the fixtures tab.
  *
- * The fixtures tab listed every light gobo knows, with an example to copy, and
- * left the rest to the reader: pick addresses, name each light, work out where
- * the next one starts. That is the first ten minutes with a real rig, done by
- * hand, and it is arithmetic nobody should be doing while a room waits. So a
- * row can write the patch: how many, starting where, and the lines go into the
- * scene as ordinary code, one named light per line, the way a scene would be
- * written by hand. Nothing is hidden behind the panel. Edit an address in the
- * code and that is the patch.
+ * Patching by hand means picking addresses, naming each light and working out
+ * where the next one starts: slow arithmetic to do while a room waits. A row
+ * in the fixtures tab writes the patch instead. Given how many and starting
+ * where, it puts ordinary code into the scene, one named light per line, the
+ * way a scene would be written by hand. The patch lives in the code, so
+ * editing an address there changes it.
  *
  * This file is the planning, with no DOM in it. library.ts draws the form and
  * main.ts writes the lines into the editor.
@@ -39,7 +37,7 @@ export interface PatchPlan {
   last: number;
 }
 
-/** What the lines a plan writes look like when something is wrong with it. */
+/** A plan, or the reason the request cannot be patched. */
 export type PatchResult = { ok: true; plan: PatchPlan } | { ok: false; error: string };
 
 const IDENT = /^[A-Za-z_$][\w$]*$/;
@@ -48,8 +46,8 @@ const IDENT = /^[A-Za-z_$][\w$]*$/;
  * A short name for a light of this kind, as someone rigging would say it.
  *
  * Read off the id, which is where a fixture's kind is written in words; the
- * definition's type is the fallback. A name only has to be a good first guess:
- * it is one word in the code, and renaming it is typing.
+ * definition's type is the fallback. A name only has to be a good first guess,
+ * since it is one word in the code and easy to rename.
  */
 export function baseName(id: string, type?: string): string {
   const words = id.toLowerCase().split(/[^a-z]+/).filter(Boolean);
@@ -147,7 +145,7 @@ export function planPatch(req: PatchRequest, taken: ReadonlySet<string>): PatchR
     return { ok: false, error: 'A name is one word of letters and digits, starting with a letter, like par or frontWash.' };
   }
   if (!Number.isInteger(count) || count < 1 || count > 64) {
-    return { ok: false, error: 'How many is a whole number from 1 to 64.' };
+    return { ok: false, error: 'Count is a whole number from 1 to 64.' };
   }
   if (!Number.isInteger(start) || start < 1 || start > 512) {
     return { ok: false, error: 'The address is the one set on the first light, from 1 to 512.' };

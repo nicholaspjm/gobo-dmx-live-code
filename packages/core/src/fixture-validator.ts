@@ -6,24 +6,22 @@
  * that add to `fixtures/*.json`. Built-in fixtures hard-coded in
  * BUILT_IN_FIXTURES are trusted by construction and skip this path.
  *
- * The validator is strict on purpose: unknown keys, out-of-range values
- * and id collisions with built-ins are rejected with a specific error
- * message rather than coerced. Downstream code can rely on a validated
- * def having the shape it claims.
+ * Unknown keys, out-of-range values and id collisions with built-ins are
+ * rejected with a specific error message instead of being coerced, so
+ * downstream code can rely on a validated def having the shape it claims.
  *
- * What we're defending against:
+ * Guards against:
  *   - Denial of service via absurd sizes (50k-pixel strips, etc.)
  *   - Shadowing built-ins by submitting `rgbw` with a bogus def
  *   - Malformed content that would confuse downstream code paths
  *   - Path-traversal / shell-unsafe characters in ids (important because
  *     the id becomes a filename when exported)
  *
- * What this is NOT defending against:
+ * Out of scope here:
  *   - Arbitrary code execution: the def is pure JSON, never eval'd.
  *   - Rendered HTML injection: the library UI HTML-escapes all text.
- *   - Logic errors in an otherwise-valid def (e.g. wrong channel offset
- *     for a real-world fixture). That's a review concern, not a
- *     validation concern.
+ *   - Logic errors in an otherwise valid def (e.g. the wrong channel offset
+ *     for a physical fixture), which review has to catch.
  */
 
 import {
@@ -96,9 +94,9 @@ function isPlainObject(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x);
 }
 
-/** Guard against a contributor accidentally sneaking an extra top-level key
- *  that might match a future schema field. Strict parsing forces the issue
- *  to surface in review rather than being silently accepted. */
+/** Rejects any key not in `allowed`, so an extra field (one that might match a
+ *  future schema field, say) is caught in review instead of silently
+ *  accepted. */
 function rejectUnknownKeys(
   obj: Record<string, unknown>,
   allowed: Set<string>,
@@ -293,7 +291,7 @@ export function validateFixture(id: unknown, rawDef: unknown): ValidationResult 
 
       // Grid shape. A width that does not divide the pixel count would leave a
       // ragged last row, which puts every (x, y) after it on the wrong pixel,
-      // so it is rejected here rather than discovered on the rig.
+      // so it is rejected here before it reaches the rig.
       if (columns !== undefined) {
         if (typeof columns !== 'number' || !Number.isInteger(columns) || columns < 1) {
           return { ok: false, error: `Channel #${i}: columns must be an integer >= 1.` };
@@ -351,7 +349,7 @@ export function validateFixture(id: unknown, rawDef: unknown): ValidationResult 
 
     // Named slots on a selector channel (colour wheel, gobo wheel, prism).
     // A slot pointing outside 0-255 cannot be sent, and an unnamed one cannot
-    // be referred to, so both are refused rather than shipped to the rig.
+    // be referred to, so both are refused.
     if (slots !== undefined) {
       if (!Array.isArray(slots)) {
         return { ok: false, error: `Channel #${i}: slots must be an array.` };
