@@ -135,6 +135,12 @@ export function mountLibraryPanel(opts: {
     searchClearEl.classList.toggle('visible', searchEl.value.trim() !== '');
     refresh();
   });
+  // Escape empties the search first; only an empty one lets it close the panel.
+  searchEl.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || searchEl.value === '') return;
+    e.preventDefault();
+    searchClearEl.click();
+  });
   searchClearEl.addEventListener('click', () => {
     searchEl.value = '';
     searchClearEl.classList.remove('visible');

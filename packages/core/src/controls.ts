@@ -144,12 +144,16 @@ export function slider(
  * made it, whatever order the scene's calls run in. A named slider is keyed
  * by its name already and ignores the offset.
  */
-slider.at = function at(offset: number) {
+slider.at = function at(offset: number, ordinal?: number) {
   return function sliderAt(first: string | number, ...rest: unknown[]): PatternLike {
     if (typeof first !== 'number') return (slider as (...a: unknown[]) => PatternLike)(first, ...rest);
     const [min, max, step] = rest as [number | undefined, number | undefined, number | undefined];
     const label = `slider@${offset}`;
-    return declareSlider(label, `${label}@${first}`, min ?? 0, max ?? 1, { start: first, step: typeof step === 'number' ? step : 0 });
+    // The position is stored by its place among the scene's unnamed sliders,
+    // counted down the page, not by the offset: typing on a line above moves
+    // the offset, and a dragged fader must not jump back when it does.
+    const key = ordinal === undefined ? `${label}@${first}` : `slider ${ordinal + 1}@${first}`;
+    return declareSlider(label, key, min ?? 0, max ?? 1, { start: first, step: typeof step === 'number' ? step : 0 });
   };
 };
 

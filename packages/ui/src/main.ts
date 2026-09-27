@@ -771,7 +771,11 @@ document.addEventListener('keydown', (e) => {
     // block evaluation on changed nothing at all. Ctrl+Shift+Enter already
     // had this test; Ctrl+Enter did not, because until there was a setting
     // the two paths did the same thing and nobody could tell.
-    if (editorEl.contains(document.activeElement)) return;
+    // Only the editor's own text: an inline slider or swatch sits inside the
+    // editor but CodeMirror ignores keys from widgets, so "drag a fader, then
+    // run" has to be handled here or it does nothing.
+    const active = document.activeElement;
+    if (editorEl.contains(active) && !active?.closest('.gobo-slider, .gobo-picker')) return;
     e.preventDefault();
     e.stopPropagation();
     // Outside the editor there is no caret to watch, but the editor's own
@@ -1165,7 +1169,7 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const active = document.activeElement as HTMLElement | null;
   if (active?.closest(
-    '.cm-editor, input, textarea, [contenteditable="true"], [contenteditable="plaintext-only"]',
+    '.cm-editor, input, textarea, select, [contenteditable="true"], [contenteditable="plaintext-only"]',
   )) return;
   e.preventDefault();
   tap();

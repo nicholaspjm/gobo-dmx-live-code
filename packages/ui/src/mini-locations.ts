@@ -239,7 +239,7 @@ function sliderEdits(source: string): Edit[] {
   for (const match of stripped.matchAll(/(^|[^.\w$])slider\s*\(\s*(?=[-\d.])/g)) {
     const nameStart = (match.index ?? 0) + match[1].length;
     const open = stripped.indexOf('(', nameStart);
-    edits.push({ from: nameStart, to: open + 1, text: `slider.at(${nameStart})(` });
+    edits.push({ from: nameStart, to: open + 1, text: `slider.at(${nameStart}, ${edits.length})(` });
   }
   return edits;
 }

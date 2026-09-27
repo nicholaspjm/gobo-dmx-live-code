@@ -133,8 +133,13 @@ export function mountPanel(opts: {
     else show(current);
   });
 
+  // Escape closes the panel only when nothing nearer took it: autocomplete,
+  // the find bar, the add-to-rig form, a search field or the share dialog
+  // each close themselves first, and the panel stays where it was.
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && open) host.close();
+    if (e.key !== 'Escape' || !open || e.defaultPrevented) return;
+    if (document.querySelector('dialog[open]')) return;
+    host.close();
   });
 
   render();

@@ -115,8 +115,8 @@ describe("strudel's unnamed slider", () => {
   it('is stamped with where it is written, so its handle lands on that call', () => {
     const src = 'wash.dim(slider(0.5))\nstrb.dim(slider(0.2, 0, 1))';
     const out = tagLocations(src).code;
-    expect(out).toContain(`slider.at(${src.indexOf('slider(0.5')})(0.5)`);
-    expect(out).toContain(`slider.at(${src.lastIndexOf('slider(')})(0.2, 0, 1)`);
+    expect(out).toContain(`slider.at(${src.indexOf('slider(0.5')}, 0)(0.5)`);
+    expect(out).toContain(`slider.at(${src.lastIndexOf('slider(')}, 1)(0.2, 0, 1)`);
   });
 
   it('leaves a named slider, and one in a comment, alone', () => {

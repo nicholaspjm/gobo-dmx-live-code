@@ -2402,6 +2402,12 @@ export function renderDocs(body: HTMLElement): void {
     update();
     input.focus();
   });
+  // Escape empties the search first; only an empty one lets it close the panel.
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || input.value === '') return;
+    e.preventDefault();
+    clearBtn.click();
+  });
 
   /** Programmatically switch to a different tab. Used both by the tab bar
    *  and by the in-body `.doc-link` buttons on the welcome page. */

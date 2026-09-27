@@ -169,4 +169,13 @@ describe("an unnamed slider stamped with where it is written", () => {
     slider.at(3)('level', 0, 1, { start: 0.25 });
     expect(getControlValue('level')).toBe(0.25);
   });
+
+  it('keeps a dragged position when a line above is edited and the offset moves', () => {
+    slider.at(10, 0)(0.5);
+    setControlValue('slider@10', 0.9);
+    clearControls();
+    slider.at(14, 0)(0.5);
+    expect(getControlValue('slider@14')).toBe(0.9);
+  });
 });
+
