@@ -24,7 +24,7 @@
  * connector-version.test.ts checks it against the package files on disk so it
  * cannot drift from what shipped.
  */
-export const APP_VERSION = '0.7.2';
+export const APP_VERSION = '0.7.3';
 
 /**
  * The first connector that announces itself.
