@@ -19,6 +19,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   colour tuned to a contrast target, and a test holds every theme, old and
   new, to 4.5:1. Two of the originals missed it on their muted text (glow
   tape, safelight) and are fixed.
+- **The computer's own accessibility settings are the starting point.** With
+  reduce motion on, gobo starts with its animations off; with increase
+  contrast on, it starts on the high-contrast theme, light or dark to match.
+  Anything chosen in settings wins.
 - **A black background setting**, under the theme: the page on true black
   under any dark theme, all the time rather than only in minimal view.
   Lights drawn on screen keep their own colours.

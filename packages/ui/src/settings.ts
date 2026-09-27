@@ -237,6 +237,15 @@ function adoptRenamedKeys(raw: Record<string, unknown>): Partial<Settings> {
 
 /** Merge persisted values over defaults. Unknown keys are dropped and
  *  missing ones inherit defaults. Cached for fast repeat reads. */
+/** A media query the browser answers, or false where there is no browser. */
+function prefers(query: string): boolean {
+  try {
+    return typeof matchMedia === 'function' && matchMedia(query).matches;
+  } catch {
+    return false;
+  }
+}
+
 export function getSettings(): Settings {
   if (_cached) return _cached;
   const raw = readRaw();
@@ -250,6 +259,14 @@ export function getSettings(): Settings {
   }
   Object.assign(merged, adopted);
   merged.theme = resolveThemeId(raw.theme) ?? DEFAULTS.theme;
+  // What the computer already says about the person using it, for anything
+  // they have not chosen here: reduced motion turns the animations off, and
+  // more contrast starts on a high-contrast theme. A choice made in settings
+  // always wins, and nothing is written until they make one.
+  if (!('animations' in raw) && prefers('(prefers-reduced-motion: reduce)')) merged.animations = false;
+  if (raw.theme === undefined && prefers('(prefers-contrast: more)')) {
+    merged.theme = prefers('(prefers-color-scheme: light)') ? 'contrastLight' : 'contrastDark';
+  }
   // 60 and 120 Hz used to be offered, and both are above what DMX can carry.
   merged.sendRate = LEGACY_SEND_RATES[merged.sendRate as number] ?? merged.sendRate;
   _cached = merged;
