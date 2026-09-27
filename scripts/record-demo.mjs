@@ -45,8 +45,8 @@ const FPS = 12.5;
 /**
  * The scene. Short enough to be read at GIF size, and every line of it doing
  * something visible: the wash on mini-notation, the strip chasing, the strobe
- * on the offbeat. The edit swaps the strip's rainbow for a red and amber chase,
- * which is the one change in it that reads from across a room.
+ * on the offbeat. The edit turns the strip's amber chase cyan, which is the one
+ * change in it that reads from across a room.
  */
 const SCENE = `// gobo · write it, ctrl+enter, the rig follows
 setBPM(124)
@@ -55,13 +55,13 @@ const wash  = fixture(1, 'rgbw').viz('color')
 const strip = rgbStrip(5, 16).viz('strip')
 const strb  = fixture(60, 'strobe').viz('meter')
 
-wash.red(mini('1 - - -  - - 1 -').glow())
+wash.red('1 - - -  - - 1 -'.glow())
 wash.blue('- 1 - -  1 - - 1')
 
 strip.color(amber)
-strip.each(mini('1 - - -').fadeOut(2))
+strip.each('1 - - -'.fadeOut(2))
 
-strb.dim(mini('- - - -  - - 1 1').settle(0.25).flash())
+strb.dim('- - - -  - - 1 1'.settle(0.25).flash())
 `;
 
 // A colour swap on the chase: the one change in the scene that reads from
