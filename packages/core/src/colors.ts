@@ -490,6 +490,15 @@ export function readColorStops(args: readonly unknown[], what: string): Color[] 
   // One string is mini-notation, as in strudel: '<red blue>' is a colour that
   // changes each bar, and 'red' is red. Every word in it is checked now, so a
   // misspelt colour is an error on the run rather than a dark step later.
+  // A hex colour, as a web page writes one: '#ff8800' or '#f80'.
+  const hex = typeof first === 'string' && args.length === 1
+    ? /^\s*#([0-9a-f]{6}|[0-9a-f]{3})\s*$/i.exec(first)
+    : null;
+  if (hex) {
+    const h = hex[1].length === 3 ? hex[1].replace(/./g, '$&$&') : hex[1];
+    return [makeColor(parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255)];
+  }
+
   if (typeof first === 'string' && args.length === 1) {
     // colorFromToken throws the useful message for a word it cannot read,
     // including a short form that could be two colours.

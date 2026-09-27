@@ -321,6 +321,108 @@ describe('colour through the lighting ports', () => {
   });
 });
 
+describe('what the whole-project review found', () => {
+  const warnOf = (code: string): string => {
+    const r = core.evalCode(code);
+    if (!r.success) throw new Error(r.error);
+    return r.warning ?? '';
+  };
+  const errorOf = (code: string): string => core.evalCode(code).error ?? '';
+
+  it("strudel's curried changes and gobo's lighting ones go where a change goes", () => {
+    run("const w = fixture(1, 'dim')\nw.dim('1 - - -'.every(1, fadeOut(2)))");
+    expect(at(0.1)).toBe(255);
+    expect(at(0.4)).toBeGreaterThan(0);
+    run("const w = fixture(1, 'dim')\nw.dim('1'.every(1, struct('x ~')))");
+    expect(at(0.1)).toBe(255);
+    expect(at(0.6)).toBe(0);
+    run("const w = fixture(1, 'dim')\nw.dim('1 - - -')\nall(fadeOut(2))");
+    expect(at(0.4)).toBeGreaterThan(0);
+  });
+
+  it('a change chained after a setter says to put it inside', () => {
+    expect(errorOf("const w = fixture(1, 'dim')\nw.dim('1 0').fast(2)")).toContain("goes inside it, on the pattern: wash.dim('1 0'.fast(…))");
+  });
+
+  it('arrange and polymeter take quoted patterns', () => {
+    run("const w = fixture(1, 'dim')\nw.dim(arrange([1, '1 0'], [1, '0.5']))");
+    expect(at(0.1)).toBe(255);
+    expect(at(1.1)).toBe(128);
+    run("const w = fixture(1, 'dim')\nw.dim(polymeter('1 0.5', '0.2 0.2 0.2'))");
+    expect(at(0.1)).toBeGreaterThan(0);
+  });
+
+  it("'1'.sub(0.3) subtracts, and true is on", () => {
+    run("const w = fixture(1, 'dim')\nw.dim('1'.sub(0.5))");
+    expect(at(0.1)).toBe(128);
+    run("const w = fixture(1, 'dim')\nw.dim(pure(true))");
+    expect(at(0.1)).toBe(255);
+  });
+
+  it('.scale() points at .palette()', () => {
+    expect(errorOf("const w = fixture(1, 'rgb')\nw.color('0 1'.scale('C:major'))")).toContain('.palette(');
+  });
+
+  it('a one-line label says a look is a block', () => {
+    expect(errorOf("const w = fixture(1, 'dim')\nverse: w.dim(1)\ncue(verse)")).toContain('a look is a block, verse: { … }');
+  });
+
+  it('cue() given a pattern of looks says how to write it', () => {
+    expect(errorOf("const w = fixture(1, 'dim')\nverse: {\n  w.dim(1)\n}\nchorus: {\n  w.dim(0)\n}\ncue(cat(verse, chorus))")).toContain("cue(verse, chorus, '<verse chorus>')");
+  });
+
+  it('a cue pattern naming a look that is not there is said, a muted one is not', () => {
+    const looks = "const w = fixture(1, 'dim')\nverse: {\n  w.dim(1)\n}\n_bridge: {\n  w.dim(0.5)\n}\n";
+    expect(warnOf(looks + "cue(verse, bridge, '<verse bridge>')")).toBe('');
+    expect(warnOf(looks + "cue(verse, bridge, '<verse chrous>')")).toContain('"chrous" is not one of the looks');
+  });
+
+  it('a hex colour reads as a web page writes it', () => {
+    run("const p = fixture(1, 'rgb')\np.color('#ff8800')");
+    core.tick(0.1);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 3))).toEqual([255, 136, 0]);
+  });
+
+  it('a continuous signal under a fade is read at the moment asked', () => {
+    run("const w = fixture(1, 'dim')\nw.dim(sine.fadeOut(2))");
+    expect(at(0.25)).toBeGreaterThan(250);
+    expect(at(0.75)).toBeLessThan(5);
+  });
+
+  it('a colour step fades through each() too', () => {
+    run("const s = rgbStrip(1, 2)\ns.each('red -'.fadeOut(2))");
+    core.tick(0.6);
+    const [r, g] = core.getUniverseBuffer(0).slice(0, 2);
+    expect(r).toBeGreaterThan(0);
+    expect(g).toBe(0);
+  });
+
+  it('a level after the looks still scales the colour set before them', () => {
+    run("const s = rgbStrip(1, 1)\nconst w = fixture(10, 'dim')\ns.color(red)\ns.each(0.5)\na: {\n  w.dim(1)\n}\nb: {\n  w.dim(0)\n}\ncue(a, b, '<a b>')\ns.each(0.2)");
+    core.tick(0.1);
+    expect(core.getUniverseBuffer(0)[0]).toBe(51);
+  });
+
+  it('a wheel slot whose name has a space finds its slot through the editor rewrite', () => {
+    core.defineFixture('wheel-sp', { name: 'W', manufacturer: 'Test', type: 'generic', channelCount: 2, channels: [
+      { offset: 0, name: 'dim', type: 'intensity' },
+      { offset: 1, name: 'color', type: 'color', slots: [{ name: 'open', value: 0 }, { name: 'light blue', value: 60 }] },
+    ] });
+    run("const h = fixture(1, 'wheel-sp')\nh.color(m('light blue', 0))");
+    expect(at(0.1, 2)).toBe(60);
+  });
+
+  it('a quoted number handed to a setter keeps its raw value through the editor', () => {
+    run("const w = fixture(1, 'dim')\nw.dim('128')");
+    expect(at(0.1)).toBe(128);
+  });
+
+  it('an unnamed slider in a helper used twice makes two handles', () => {
+    run("const a = fixture(1, 'dim')\nconst b = fixture(2, 'dim')\nfor (const l of [a, b]) l.dim(slider.at(40, 0)(0.5))");
+    expect(core.getControls().map((c: { name: string }) => c.name)).toEqual(['slider@40', 'slider@40#2']);
+  });
+});
+
 describe('a fan', () => {
   it('spreads a group of heads out around a centre', () => {
     run("const a = fixture(1, 'moving-head-basic')\nconst b = fixture(9, 'moving-head-basic')\nconst c = fixture(17, 'moving-head-basic')\ngroup(a, b, c).pan(mini('0.5').fan(0.4))");

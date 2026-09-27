@@ -39,10 +39,15 @@ export function isMuteLabel(name: string): boolean {
  * once with enough knowledge of strings, comments and brackets not to be
  * fooled by them.
  */
+/** Characters that, ending a line, say the statement carries on below. */
+const CONTINUES = '?:=,+-*/%&|^!<>~(.[';
+
 function topLevelStarts(code: string): number[] {
   const starts: number[] = [];
   let depth = 0;
   let atStart = true;
+  /** The last character of code seen, for telling a new line from a carried one. */
+  let last = '';
   let i = 0;
   const n = code.length;
   while (i < n) {
@@ -57,8 +62,17 @@ function topLevelStarts(code: string): number[] {
       i = end === -1 ? n : end + 2;
       continue;
     }
-    if (c === '\n' || c === ';') {
+    if (c === ';') {
       if (depth === 0) atStart = true;
+      last = c;
+      i++;
+      continue;
+    }
+    if (c === '\n') {
+      // A line that ends on an operator carries on: `big ?\n  small : {…}` is
+      // one ternary, not a label on the second line. x++ and x-- still end.
+      const carried = CONTINUES.includes(last) && !(code.slice(0, i).trimEnd().endsWith('++') || code.slice(0, i).trimEnd().endsWith('--'));
+      if (depth === 0 && !carried) atStart = true;
       i++;
       continue;
     }
@@ -70,12 +84,15 @@ function topLevelStarts(code: string): number[] {
     atStart = false;
     if (c === '"' || c === "'" || c === '`') {
       i = skipString(code, i);
+      last = c;
       continue;
     }
     if (c === '/' && opensRegex(code, i)) {
       i = skipRegex(code, i);
+      last = 'x';
       continue;
     }
+    last = c;
     if (c === '(' || c === '[' || c === '{') depth++;
     else if (c === ')' || c === ']' || c === '}') {
       depth = Math.max(0, depth - 1);
@@ -159,6 +176,33 @@ function skipRegex(code: string, i: number): number {
   return j;
 }
 
+/** `code` with strings and comments blanked to spaces, the same length. */
+function codeOnly(code: string): string {
+  let out = '';
+  let i = 0;
+  while (i < code.length) {
+    const c = code[i];
+    const next = code[i + 1];
+    let end = i;
+    if (c === '/' && next === '/') {
+      end = code.indexOf('\n', i);
+      if (end === -1) end = code.length;
+    } else if (c === '/' && next === '*') {
+      const close = code.indexOf('*/', i + 2);
+      end = close === -1 ? code.length : close + 2;
+    } else if (c === '"' || c === "'" || c === '`') {
+      end = skipString(code, i);
+    } else {
+      out += c;
+      i++;
+      continue;
+    }
+    out += code.slice(i, end).replace(/[^\n]/g, ' ');
+    i = end;
+  }
+  return out;
+}
+
 /** The index of the `}` that closes the `{` at `open`, or -1. */
 function matchingBrace(code: string, open: number): number {
   let depth = 0;
@@ -218,6 +262,8 @@ export interface LookRewrite {
   labels: Array<{ name: string; from: number; to: number }>;
   /** What each mute covers, label to end of block or line, for the editor to dim. */
   muted: Array<{ from: number; to: number }>;
+  /** The looks that are muted (_chorus: { … }), by the name cue() knows them by. */
+  mutedLooks: string[];
 }
 
 /** Rewrite top-level labelled blocks into looks, and muted labels into if (0). */
@@ -227,6 +273,7 @@ export function rewriteLooks(code: string): LookRewrite {
   const looks: string[] = [];
   const labels: LookRewrite['labels'] = [];
   const muted: LookRewrite['muted'] = [];
+  const mutedLooks: string[] = [];
 
   for (const start of topLevelStarts(code)) {
     if (!IDENT_START.test(code[start])) continue;
@@ -245,6 +292,7 @@ export function rewriteLooks(code: string): LookRewrite {
       // look to declare.
       const bare = name.replace(/^_+|_+$/g, '');
       const declare = code[body] === '{' && /^[A-Za-z][\w]*$/.test(bare) ? `const ${bare} = null; ` : '';
+      if (declare) mutedLooks.push(bare);
       edits.push({ from: start, to: colon + 1, text: `${declare}if (0)` });
       // `if (0) const x = 1` is not JavaScript, but `if (0) var x = 1` is: the
       // muted line still names x, as nothing, and a later use of it goes on
@@ -265,7 +313,7 @@ export function rewriteLooks(code: string): LookRewrite {
     edits.push({ from: close + 1, to: close + 1, text: ';' });
     // `break verse` leaves the block early, which in a function is return.
     const breakOut = new RegExp(`\\bbreak\\s+${name.replace(/\$/g, '\\$')}\\b`, 'g');
-    for (const m of code.slice(body, close).matchAll(breakOut)) {
+    for (const m of codeOnly(code.slice(body, close)).matchAll(breakOut)) {
       const at = body + (m.index ?? 0);
       edits.push({ from: at, to: at + m[0].length, text: 'return' });
     }
@@ -273,12 +321,20 @@ export function rewriteLooks(code: string): LookRewrite {
     labels.push({ name, from: start, to: end });
   }
 
-  if (edits.length === 0) return { code, looks, labels, muted };
+  if (edits.length === 0) return { code, looks, labels, muted, mutedLooks };
   edits.sort((a, b) => b.from - a.from);
   let out = code;
   for (const e of edits) out = out.slice(0, e.from) + e.text + out.slice(e.to);
-  return { code: out, looks, labels, muted };
+  return { code: out, looks, labels, muted, mutedLooks };
 }
+
+/**
+ * String methods from the early web ('x'.sub() wraps it in <sub> tags) that
+ * nobody calls today and strudel uses for its own: '1'.sub(0.3) is subtraction.
+ */
+const HTML_STRING_METHODS = new Set([
+  'sub', 'sup', 'anchor', 'big', 'blink', 'bold', 'fixed', 'fontcolor', 'fontsize', 'italics', 'link', 'small', 'strike',
+]);
 
 /**
  * Quoted strings that are the start of a chain: `'1 0'.fast(2)`.
@@ -316,7 +372,9 @@ export function quotedReceivers(code: string, isMethod: (name: string) => boolea
       const plain = c !== '`' || !literal.includes('${');
       if (plain && code[end - 1] === c && end - i >= 2) {
         const chained = /^\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/.exec(code.slice(end, end + 80));
-        if (chained && !(chained[1] in String.prototype) && isMethod(chained[1])) found.push({ from: i, to: end });
+        if (chained && (!(chained[1] in String.prototype) || HTML_STRING_METHODS.has(chained[1])) && isMethod(chained[1])) {
+          found.push({ from: i, to: end });
+        }
       }
       i = end;
       continue;

@@ -181,7 +181,7 @@ function miniEdits(source: string): Edit[] {
  */
 const PATTERN_SETTERS = [
   'dim', 'red', 'green', 'blue', 'white', 'amber', 'uv', 'lime', 'cyan', 'color', 'mono', 'strobe',
-  'fill', 'pan', 'tilt', 'zoom', 'focus', 'speed', 'direction', 'struct', 'mask', 'velocity', 'gain',
+  'pan', 'tilt', 'zoom', 'focus', 'speed', 'direction', 'struct', 'mask', 'velocity', 'gain',
   'across', 'each',
 ];
 const SETTER_WITH_STRING = new RegExp(`\\.(${PATTERN_SETTERS.join('|')})\\s*\\(`, 'g');
@@ -218,6 +218,11 @@ function setterStringEdits(source: string): Edit[] {
     let j = closed + 1;
     while (j < source.length && (source[j] === ' ' || source[j] === '\t')) j++;
     if (source[j] !== ')') continue;
+    const body = source.slice(quote + 1, closed);
+    // A quoted number is that raw value ('128' is 128 of 255), not a step of
+    // a pattern, and a slash that is not a speed ('red/blue', a wheel slot)
+    // would not parse: both are left for the engine to read as written.
+    if (/^\s*-?(\d+\.?\d*|\.\d+)\s*$/.test(body) || /\/(?!\s*[\d.<[])/.test(body) || /^\s*#/.test(body)) continue;
     edits.push({ from: quote, to: closed + 1, text: `m(${source.slice(quote, closed + 1)}, ${quote})` });
   }
   return edits;

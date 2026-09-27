@@ -131,3 +131,11 @@ describe('a chain that starts on a quoted pattern', () => {
     expect(tagLocations(src).code).toBe(`wash.dim(m("1 0", ${src.indexOf('"')}).fast(2))`);
   });
 });
+
+describe('strings the editor leaves for the engine', () => {
+  it('a quoted number, a slash that is not a speed, a hex colour, and Array fill', () => {
+    for (const src of ["w.dim('128')", "h.color('red/blue')", "p.color('#ff8800')", "Array(4).fill('1')"]) {
+      expect(tagLocations(src).code).toBe(src);
+    }
+  });
+});

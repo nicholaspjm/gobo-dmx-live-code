@@ -148,11 +148,16 @@ slider.at = function at(offset: number, ordinal?: number) {
   return function sliderAt(first: string | number, ...rest: unknown[]): PatternLike {
     if (typeof first !== 'number') return (slider as (...a: unknown[]) => PatternLike)(first, ...rest);
     const [min, max, step] = rest as [number | undefined, number | undefined, number | undefined];
-    const label = `slider@${offset}`;
+    // The same call run twice (in a loop, or a helper used for each light)
+    // makes one handle per run rather than failing as a duplicate.
+    const base = `slider@${offset}`;
+    const repeats = _entries.filter((e) => e.name === base || e.name.startsWith(`${base}#`)).length;
+    const label = repeats === 0 ? base : `${base}#${repeats + 1}`;
     // The position is stored by its place among the scene's unnamed sliders,
     // counted down the page, not by the offset: typing on a line above moves
     // the offset, and a dragged fader must not jump back when it does.
-    const key = ordinal === undefined ? `${label}@${first}` : `slider ${ordinal + 1}@${first}`;
+    const again = repeats === 0 ? '' : `#${repeats + 1}`;
+    const key = ordinal === undefined ? `${label}@${first}` : `slider ${ordinal + 1}${again}@${first}`;
     return declareSlider(label, key, min ?? 0, max ?? 1, { start: first, step: typeof step === 'number' ? step : 0 });
   };
 };

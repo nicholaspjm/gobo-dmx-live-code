@@ -155,7 +155,12 @@ export function fade(kit: StrudelKit, pattern: unknown, shape: Shape): unknown {
     const from = Fraction(t - r);
     const to = Fraction(t + 1e-6);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const haps: any[] = src.query(state.setSpan(new TimeSpan(from, to)));
+    const stepped: any[] = src.query(state.setSpan(new TimeSpan(from, to))).filter((h: any) => h.whole);
+    // A continuous signal has no steps to shape, and a query as wide as the
+    // look back reads it at the far end of it: it is read again at t itself.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const flowing: any[] = src.query(state.setSpan(new TimeSpan(Fraction(t), to))).filter((h: any) => !h.whole);
+    const haps = [...stepped, ...flowing];
     let best: number | null = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let bestHap: any = null;

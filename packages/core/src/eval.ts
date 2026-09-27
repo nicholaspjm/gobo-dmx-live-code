@@ -404,6 +404,14 @@ export async function initStrudel(): Promise<void> {
       // are passed bare, as in .every(4, rev).
       'fast', 'slow', 'early', 'late', 'rev', 'palindrome', 'iter', 'ply', 'linger',
       'degradeBy', 'segment', 'mul', 'add', 'sub', 'brak', 'press', 'fastGap', 'hurry', 'range',
+      // The rest of strudel's curried changes, so .every(2, struct('x ~'))
+      // and .sometimes(chunk(4, rev)) read as they do there. Left out: names a
+      // scene is likely to give a look or a light (off, when, layer, mask,
+      // echo), since a binding would clash with its declaration.
+      'every', 'sometimes', 'often', 'rarely', 'almostNever', 'almostAlways', 'someCycles',
+      'sometimesBy', 'someCyclesBy', 'struct', 'swingBy', 'swing', 'euclid', 'euclidRot',
+      'euclidLegato', 'superimpose', 'chunk', 'inside', 'outside', 'firstOf', 'lastOf', 'stut',
+      'degrade', 'inv', 'bite', 'ribbon', 'compress',
     ] as const;
     // Signals are exported as Pattern instances; wrap() makes them callable so
     // scene code says tri() the way it says sine(). Everything else is already
@@ -440,7 +448,16 @@ export async function initStrudel(): Promise<void> {
     try {
       const miniMod = await import('@strudel/mini');
       _strudelCtx.mini = miniMod.mini;
-      _strudelCtx.m = miniMod.m ?? miniMod.mini;
+      // m() is what the editor turns a quoted setter argument into, for its
+      // outlines. The source rides along on the pattern, so a wheel slot whose
+      // name has a space in it ('light blue') still finds its slot rather than
+      // being read as two steps. See resolveSlots in fixtures.ts.
+      const rawM = (miniMod.m ?? miniMod.mini) as (src: string, ...rest: unknown[]) => Record<string, unknown>;
+      _strudelCtx.m = (src: string, ...rest: unknown[]) => {
+        const p = rawM(src, ...rest);
+        if (p && typeof p === 'object' && typeof src === 'string') p._goboSource = src;
+        return p;
+      };
       // Strudel's own switch: a string anywhere strudel takes a pattern is
       // mini-notation, so .fast('<1 2>') and stack('1 0', '0 1') read the way
       // they do in strudel. Only with the real parser; the shim below is not
@@ -449,6 +466,23 @@ export async function initStrudel(): Promise<void> {
         (core.setStringParser as ((p: unknown) => void) | undefined)?.(miniMod.mini);
       } catch {
         // An older strudel without the hook: strings stay plain values there.
+      }
+      // Two that read their arguments before strudel reifies them: arrange
+      // calls .fast on each section, and polymeter counts steps, which a
+      // plain string has none of. Strings are parsed first, as they would be
+      // anywhere else.
+      const asPattern = (x: unknown): unknown => (typeof x === 'string' ? miniMod.mini(x) : x);
+      for (const name of ['polymeter', 'pm', 'polyrhythm', 'pr'] as const) {
+        const fn = _strudelCtx[name];
+        if (typeof fn === 'function') {
+          _strudelCtx[name] = (...args: unknown[]) => (fn as (...a: unknown[]) => unknown)(...args.map(asPattern));
+        }
+      }
+      const arrange = _strudelCtx.arrange;
+      if (typeof arrange === 'function') {
+        _strudelCtx.arrange = (...sections: unknown[]) => (arrange as (...a: unknown[]) => unknown)(
+          ...sections.map((s) => (Array.isArray(s) ? s.map((x, i) => (i === 0 ? x : asPattern(x))) : asPattern(s))),
+        );
       }
     } catch {
       console.warn('[gobo] @strudel/mini unavailable, falling back to sequence()');
@@ -1035,8 +1069,19 @@ function sceneLine(err: unknown, code: string): number | null {
  * Returns the name it ran, which is worth having for a console.log during a
  * rehearsal and costs nothing.
  */
+/** Things cue() noticed during this run that are worth saying, not failing on. */
+let _cueNotes: string[] = [];
+/** The looks this scene mutes, which a cue pattern may name on purpose. */
+let _mutedLooks = new Set<string>();
+
 function cue(...args: unknown[]): string | null {
   const [given, selector] = cueArgs(args);
+  if (isQueryable(given)) {
+    throw new Error(
+      'cue(): the looks come first, then the pattern that chooses between them by name, as in '
+      + "cue(verse, chorus, '<verse chorus>'). cat(verse, chorus) is written as that quoted pattern.",
+    );
+  }
   if (given === null || typeof given !== 'object' || Array.isArray(given)) {
     throw new Error(
       'cue(): give it the looks to choose between, as in cue(verse, chorus), where each is a block '
@@ -1061,6 +1106,26 @@ function cue(...args: unknown[]): string | null {
   // unless it is simply the name of one of the looks.
   let chooser = selector;
   if (typeof chooser === 'string' && !(chooser in looks)) chooser = stringPattern(chooser, 'cue()') ?? chooser;
+  if (isQueryable(chooser)) {
+    // A name the looks do not have picks nothing, and the rig goes dark on
+    // those steps. A muted look is the one case that is meant; anything else
+    // is usually a typo, so it is said.
+    const unknown = new Set<string>();
+    try {
+      for (const hap of chooser.queryArc(0, 8)) {
+        const v = (hap as { value: unknown }).value;
+        if (typeof v === 'string' && !(v in looks) && !_mutedLooks.has(v)) unknown.add(v);
+      }
+    } catch {
+      // A selector that throws is the tick's to report.
+    }
+    if (unknown.size > 0) {
+      _cueNotes.push(
+        `cue(): ${[...unknown].map((n) => `"${n}"`).join(', ')} ${unknown.size === 1 ? 'is not one of the looks' : 'are not looks'} `
+        + `given to it (${names.join(', ')}), so the rig is dark there.`,
+      );
+    }
+  }
   if (chooser !== undefined) return cueBySelector(looks, names, chooser);
   const selected = getSelectedCue();
   if (selected === null) return null;
@@ -1289,6 +1354,7 @@ const METHOD_HINTS: Record<string, string> = {
   white:
     '.white() drives a dedicated white emitter, which an rgb strip does not have. '
     + '.mono(v) is white on one: all three emitters at the same level.',
+  scale: "a light has no notes to put in a key. .palette([amber, orange, red]) is the lighting form: the numbers in a pattern pick colours from it, as in '0 1 2'.palette(warm).",
   fade: 'there is no .fade(): .fadeIn(beats) brings each step up, .fadeOut(beats) lets it glow after it ends, and a slow swell is a pattern, as in .dim(sine.slow(4)).',
   play: 'a scene has no .play(). Ctrl+Enter runs it and Ctrl+. stops it.',
   // Strudel names that describe music. The lighting word is offered instead
@@ -1342,6 +1408,22 @@ export function methodHint(
     if (music) return `${message}. ${music}`;
     const near = nearestName(undefinedName[1], globals);
     return near ? `${message}. Did you mean ${near}?` : message;
+  }
+
+  // A setter changes a light and gives nothing back, so a change chained on
+  // the end of one, wash.dim('1 0').fast(2), reaches undefined.
+  const chainedOff = /^Cannot read properties of undefined \(reading '([\w$]+)'\)$/.exec(message);
+  if (chainedOff) {
+    const name = chainedOff[1];
+    const pure = _strudelCtx.pure as ((v: unknown) => Record<string, unknown>) | undefined;
+    const isPatternMethod = typeof pure === 'function' && typeof pure(0)[name] === 'function';
+    if (!isPatternMethod) {
+      return `${message}. What comes before .${name} is nothing: check that name is spelt the way it was declared, and that this light has it.`;
+    }
+    return (
+      `${message}. A setter like .dim() or .color() changes the light and hands nothing back to `
+      + `chain onto, so .${name}() goes inside it, on the pattern: wash.dim('1 0'.${name}(…)).`
+    );
   }
 
   // A name used above the line that makes it. With looks this is nearly
@@ -1472,6 +1554,15 @@ function knownMethodNames(): Set<string> {
   return names;
 }
 
+/** A pattern method as a curried change: fadeOut(2) is "fade each step out over 2 beats". */
+function changeOf(method: string): (...args: unknown[]) => (pattern: unknown) => unknown {
+  return (...args: unknown[]) => (pattern: unknown) => {
+    const fn = (pattern as Record<string, unknown> | null)?.[method];
+    if (typeof fn !== 'function') throw new Error(`${method}(): needs a pattern to change, as in .every(2, ${method}(…))`);
+    return (fn as (...a: unknown[]) => unknown).apply(pattern, args);
+  };
+}
+
 /**
  * `'1 0'.fast(2)` becomes `mini('1 0').fast(2)`: strudel's chain on a quoted
  * pattern (see quotedReceivers in looks.ts). Only for names a pattern answers
@@ -1502,7 +1593,14 @@ export function locatedError(
   } catch {
     // The hint is worth less than the error it is attached to.
   }
-  const message = methodHint(errorMessage(err), globals, methods, looks);
+  let message = methodHint(errorMessage(err), globals, methods, looks);
+  // strudel's one-line label, verse: wash.dim(1), runs that line and names
+  // nothing; a look is a block.
+  const missing = /^(\w+) is not defined/.exec(message);
+  if (missing && new RegExp(`^\\s*${missing[1]}\\s*:(?!\\s*\\{)`, 'm').test(code)) {
+    message = `${missing[1]} is not defined. ${missing[1]}: on one line runs that line and names nothing; `
+      + `a look is a block, ${missing[1]}: { … }, which cue(${missing[1]}, …) can pick.`;
+  }
   const line = sceneLine(err, code);
   return line === null ? message : `line ${line}: ${message}`;
 }
@@ -1527,6 +1625,7 @@ export function locatedError(
 export function evalCode(code: string): EvalResult {
   const refusal = strudelRefusal();
   if (refusal !== null) return { success: false, error: refusal };
+  _cueNotes = [];
 
   const sideEffects: SideEffectBuffer = { config: null, bpm: null, direct: null };
 
@@ -1548,6 +1647,16 @@ export function evalCode(code: string): EvalResult {
     /** Everything dark, from inside the scene. Strudel spells it this way. */
     hush: hushDefs,
     all,
+    // gobo's lighting changes as values, like strudel's fast(2), so they go
+    // where a change goes: .every(2, fadeOut(2)), .sometimes(across(saw)),
+    // all(fadeOut(1)). (fan and palette are left as methods: both are words a
+    // scene is likely to name a light or a list with.)
+    fadeIn: changeOf('fadeIn'),
+    fadeOut: changeOf('fadeOut'),
+    settle: changeOf('settle'),
+    adsr: changeOf('adsr'),
+    across: changeOf('across'),
+    jux: changeOf('jux'),
     /**
      * Tempo the way strudel writes it, so pasted code runs.
      *
@@ -1612,7 +1721,9 @@ export function evalCode(code: string): EvalResult {
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     // Labelled blocks become looks and _labels mute, before anything else
     // reads the code. See looks.ts.
-    fn = new Function(...keys, `"use strict";\n${chainOnStrings(rewriteLooks(code).code)}`) as (...args: unknown[]) => unknown;
+    const rewritten = rewriteLooks(code);
+    _mutedLooks = new Set(rewritten.mutedLooks);
+    fn = new Function(...keys, `"use strict";\n${chainOnStrings(rewritten.code)}`) as (...args: unknown[]) => unknown;
   } catch (err) {
     return { success: false, error: reservedNameHint(errorMessage(err), keys) };
   }
@@ -1697,7 +1808,7 @@ export function evalCode(code: string): EvalResult {
       const impliedNote = implied.length === 0
         ? null
         : `brightness inferred: ${implied.join(', ')}. ` +
-          `Write dim(…) on the fixture to say otherwise.`;
+          `Write .dim(…) on the fixture to say otherwise.`;
       // The same rule from the other end, and said just as loudly.
       const impliedColourNote = impliedColour.length === 0
         ? null
@@ -1709,7 +1820,7 @@ export function evalCode(code: string): EvalResult {
       // — verse(); chorus() — where the shared channels come out as whatever
       // the later one said and the earlier look is silently gone.
       const overwriteNote = overwrittenNote();
-      const warning = [outputWarning, impliedNote, impliedColourNote, overwriteNote]
+      const warning = [outputWarning, impliedNote, impliedColourNote, overwriteNote, ..._cueNotes]
         .filter((w) => w !== null).join(' ') || null;
       if (warning !== null) {
         // The status line is the UI's to write, and it may be showing something

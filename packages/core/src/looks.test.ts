@@ -131,3 +131,22 @@ describe('a chain that starts on a quoted pattern', () => {
     expect(spots("wash.dim('1 0')")).toEqual([]);
   });
 });
+
+describe('what the review found', () => {
+  it('a ternary carried across lines is not a label', () => {
+    const src = 'const cfg = big ?\n  small : { v: 0.5 }';
+    expect(rewriteLooks(src).code).toBe(src);
+    const muted = 'const x = night ?\n  _dark :\n  1';
+    expect(rewriteLooks(muted).code).toBe(muted);
+  });
+
+  it('break verse written in a string or comment is left alone', () => {
+    const out = rewriteLooks('verse: {\n  log("break verse") // break verse\n}');
+    expect(out.code).toContain('"break verse"');
+    expect(out.code).toContain('// break verse');
+  });
+
+  it('names the looks that are muted', () => {
+    expect(rewriteLooks('_bridge: { a() }\n_$: b()').mutedLooks).toEqual(['bridge']);
+  });
+});

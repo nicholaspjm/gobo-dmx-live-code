@@ -457,16 +457,28 @@ export function rgb(startChannel: number, ...args: [PatternOrValue?, PatternOrVa
 let _capture: Map<string, ChannelDef> | null = null;
 
 /** Send subsequent uni() writes to a map of their own. */
+// A look's writes are captured apart from the scene's, and so are the colours
+// a level in the look scales; the scene's own are put back when it ends, so a
+// level written after the looks still finds the colour set before them.
+let _levelBaseOutside: Map<string, PatternOrValue | null> | null = null;
+
 export function beginCapture(): void {
   _capture = new Map();
+  _levelBaseOutside = new Map(_levelBase);
   _levelBase.clear();
+}
+
+function restoreLevelBase(): void {
+  _levelBase.clear();
+  if (_levelBaseOutside) for (const [k, v] of _levelBaseOutside) _levelBase.set(k, v);
+  _levelBaseOutside = null;
 }
 
 /** Stop capturing and hand back what was written. */
 export function endCapture(): Map<string, ChannelDef> {
   const held = _capture ?? new Map<string, ChannelDef>();
   _capture = null;
-  _levelBase.clear();
+  restoreLevelBase();
   return held;
 }
 
@@ -479,7 +491,7 @@ export function endCapture(): Map<string, ChannelDef> {
  */
 export function abortCapture(): void {
   _capture = null;
-  _levelBase.clear();
+  restoreLevelBase();
 }
 
 /** The channel key for a def, so callers can merge maps without rebuilding it. */
@@ -692,8 +704,11 @@ function recordQueryFailure(def: ChannelDef, err: unknown): void {
  */
 export function levelOf(v: unknown): number | null {
   if (typeof v === 'number') return v;
+  // strudel's struct and inv work in booleans: true is on.
+  if (typeof v === 'boolean') return v ? 1 : 0;
   if (v === null || typeof v !== 'object') return null;
-  const inner = (v as { value?: unknown }).value;
+  const raw = (v as { value?: unknown }).value;
+  const inner = typeof raw === 'boolean' ? (raw ? 1 : 0) : raw;
   if (typeof inner !== 'number') return null;
   // velocity folds in the same way: strudel users reach for .velocity() to
   // accent a step, and it is a level by another name.

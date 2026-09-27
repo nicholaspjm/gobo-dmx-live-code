@@ -1019,13 +1019,26 @@ function resolveSlots(
 
   if (typeof value === 'string') {
     const hit = map.get(slotKey(value));
-    if (hit === undefined) {
+    if (hit !== undefined) return hit;
+    // Not one name: a pattern of them, '<red open>', read as mini-notation
+    // like any other quoted string.
+    const pattern = /[\s<>[\]*!?@,~]/.test(value) ? stringPattern(value, what) : null;
+    if (pattern === null) {
       throw new Error(`${what}: no slot named "${value}". Available: ${names()}.`);
     }
-    return hit;
+    return resolveSlots(pattern as PatternOrValue, slots, what);
   }
 
   if (typeof value === 'number' || !isPatternLike(value)) return value as PatternOrValue;
+
+  // A quoted name the editor turned into a pattern for its outlines: the
+  // whole string is tried as one name first, so 'light blue' is that slot and
+  // not the two steps 'light' and 'blue'.
+  const source = (value as { _goboSource?: unknown })._goboSource;
+  if (typeof source === 'string') {
+    const whole = map.get(slotKey(source));
+    if (whole !== undefined) return whole;
+  }
 
   // A pattern that may carry slot names. Unknown names would otherwise reach
   // the buffer as a non-number and read as 0, which is a dark light and no
@@ -1082,7 +1095,11 @@ function carriesColour(pattern: unknown): boolean {
   try {
     const haps = (pattern as { queryArc(b: number, e: number): Array<{ value: unknown }> }).queryArc(0, 1);
     for (const h of haps.slice(0, 8)) {
-      const v = h.value;
+      // A colour carried in a control object, as a fade or a place leaves it.
+      const raw = h.value;
+      const v = raw !== null && typeof raw === 'object' && toColorValue(raw) === null && 'value' in raw
+        ? (raw as { value: unknown }).value
+        : raw;
       if (toColorValue(v) !== null) return true;
       if (typeof v === 'string' && /^[a-z]+$/i.test(v)) {
         try {
