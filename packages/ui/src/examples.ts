@@ -43,7 +43,7 @@ export const EXAMPLES: Example[] = [
     // after it. No output call, so the first run cannot warn about a rig that
     // is not there, and the sim panel shows the result with nothing plugged
     // in. The fuller tour is one tab away.
-    code: `// ctrl+enter to run · ctrl+space to stop · 'docs' for everything else
+    code: `// ctrl+enter to run · ctrl+space to stop · ☰ top right for docs
 // real lights: click the connection light, top right, and pick an output
 const wash = fixture(1, 'rgb')
 wash.color(sine.slow(2), 0, cosine.slow(2))
@@ -96,7 +96,7 @@ all(mul(slider(1)))
     id: 'starter',
     label: 'language tour',
     blurb: 'Everything the language does: patching, mini notation, waveforms, groups, layering.',
-    code: `// gobo · ctrl+enter run · ctrl+space stop · 'docs' for the full reference
+    code: `// gobo · ctrl+enter run · ctrl+space stop · ☰ top right for the full reference
 // commented lines are alternates: swap one in and run again
 
 // pick an output when you have one · the sim below needs none

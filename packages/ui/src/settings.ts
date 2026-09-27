@@ -507,6 +507,8 @@ export function mountSettingsPanel(opts: {
     const t = (ev.target as HTMLElement).closest<HTMLElement>('[data-setting-action]');
     if (!t) return;
     if (t.dataset.settingAction === 'reset') {
+      // Every setting at once, with no undo, so it asks first.
+      if (!window.confirm('Reset every setting to its default?')) return;
       resetSettings();
       render();
     }

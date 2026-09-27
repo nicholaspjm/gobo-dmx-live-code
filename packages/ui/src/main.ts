@@ -93,7 +93,7 @@ import { browserName, reportUrl, routeName, systemName, type Environment } from 
 import { encodeShareLink, decodeShareFromLocation, clearShareFromLocation } from './share.js';
 import { getExample, type Example } from './examples.js';
 import { initVisualizer, updateVisualizer } from './visualizer.js';
-import { renderDocs } from './docs.js';
+import { OPEN_PANEL_EVENT, renderDocs } from './docs.js';
 import { refreshViz } from './inline-viz.js';
 import { mountLibraryPanel } from './library.js';
 import { registerPublicFixtures } from './public-fixtures.js';
@@ -113,6 +113,7 @@ import {
   needsConnectorUnlock,
   blockedOutputMessage,
   connectorFileName,
+  connectorDownloadUrl,
   hasSeenConnector,
   rememberConnector,
   RELEASES_URL,
@@ -272,8 +273,8 @@ async function runEval(code: string, opts: { format?: boolean } = {}): Promise<b
       .filter((n) => n !== null).join(' ') || null;
     const mark = note === null ? '' : ' · ⚠ one note, in the log';
     if (out && !out.delivered) {
-      setStatus('error', `running, but ${out.text} was never reached. ${undeliveredHint()}`);
-      if (!out.text.startsWith('direct')) showConnectorBanner(out.text);
+      setStatus('error', `running, but ${out.short} was never reached. ${undeliveredHint()}`);
+      if (out.short !== 'td()') showConnectorBanner(out.short);
     } else if (out) {
       setConnectorBannerOpen(false);
       setStatus('ok', `✓ running · ${out.text}${mark}`, note ?? undefined);
@@ -390,11 +391,11 @@ let _statusAtMs = 0;
  * nothing on screen says the rig is receiving nothing. The status line names
  * the target on every run, and says when it was never reached.
  */
-function describeOutput(): { text: string; delivered: boolean } | null {
+function describeOutput(): { text: string; short: string; delivered: boolean } | null {
   // Direct output bypasses the bridge entirely: the page holds the socket, so
   // its own connection state is what matters, not the bridge's.
   const direct = getDirectUrl();
-  if (direct) return { text: `direct to ${direct}`, delivered: isDirectConnected() };
+  if (direct) return { text: `td() → ${direct}`, short: 'td()', delivered: isDirectConnected() };
 
   const out = getOutputConfig();
   if (!out) return null;
@@ -423,7 +424,9 @@ function describeOutput(): { text: string; delivered: boolean } | null {
   else if (mode === 'osc') text = `osc ${c.osc?.host ?? '?'}:${c.osc?.port ?? 9000}`;
   else if (mode === 'sacn') text = `sacn base universe ${c.sacn?.universe ?? 1}`;
   else if (mode === 'mock') text = 'mock (console only)';
-  return { text, delivered: out.delivered };
+  // The call that chose it, for a sentence that goes on: "artnet() is going
+  // nowhere" reads, and the full description spliced in there did not.
+  return { text, short: `${mode}()`, delivered: out.delivered };
 }
 
 function setStatus(kind: '' | 'ok' | 'error', msg: string, full?: string): void {
@@ -1297,7 +1300,7 @@ function refreshOutputStatus(): void {
   const out = describeOutput();
   if (!out) return;
   if (out.delivered) setStatus('ok', `✓ running · ${out.text}`);
-  else setStatus('error', `running, but ${out.text} was never reached. ${undeliveredHint()}`);
+  else setStatus('error', `running, but ${out.short} was never reached. ${undeliveredHint()}`);
 }
 
 onStatusChange(refreshOutputStatus);
@@ -1314,7 +1317,7 @@ onDirectStatusChange(() => {
   const out = describeOutput();
   if (!out) return;
   if (out.delivered) setStatus('ok', `✓ running · ${out.text}`);
-  else setStatus('error', `running, but ${out.text} was never reached. Is the receiver listening?`);
+  else setStatus('error', `running, but ${out.short} was never reached. Is the receiver listening?`);
 });
 
 connectBridge();
@@ -2353,6 +2356,11 @@ _panel = mountPanel({
 // the question it raises. It is the thing a lighting person already looks at
 // when the rig is dark.
 outputStatusEl.addEventListener('click', () => _panel?.toggle('outputs'));
+// The welcome page's "connect your lights" goes to the live panel, not a doc.
+document.addEventListener(OPEN_PANEL_EVENT, (e) => {
+  const id = (e as CustomEvent<string>).detail;
+  if (id) _panel?.open(id);
+});
 
 // An error on the bar is usually longer than the bar. Clicking it opens the
 // log, which has the whole thing; the hover title has it too, for anyone who
@@ -2602,8 +2610,8 @@ let _connectorPromptTimer: ReturnType<typeof setTimeout> | null = null;
 
 function undeliveredHint(): string {
   const out = describeOutput();
-  if (out?.text.startsWith('direct')) return 'Is the receiver listening?';
-  if (out?.text.startsWith('usb')) return 'Open the outputs panel from the connection light and pick the interface.';
+  if (out?.short === 'td()') return 'Is the receiver listening?';
+  if (out?.short.startsWith('usb')) return 'Open the outputs panel from the connection light and pick the interface.';
   if (browserBlocksConnector()) {
     return 'Your browser is blocking this page from reaching this computer: allow local network '
       + 'access for this site, or run gobo locally.';
@@ -2632,7 +2640,7 @@ function showConnectorBanner(target: string): void {
 }
 
 function renderConnectorBanner(target: string): void {
-  connectorBannerLinkEl.href = RELEASES_URL;
+  connectorBannerLinkEl.href = connectorDownloadUrl();
 
   if (browserBlocksConnector()) {
     // Offering the download here would send someone to fetch a program they
@@ -2684,7 +2692,7 @@ if (!servedLocally()) {
     refreshOutputStatus();
     if (connectorBannerEl.classList.contains('open')) {
       const out = describeOutput();
-      if (out && !out.delivered) renderConnectorBanner(out.text);
+      if (out && !out.delivered) renderConnectorBanner(out.short);
       else setConnectorBannerOpen(false);
     }
   });

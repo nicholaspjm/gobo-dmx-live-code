@@ -306,7 +306,6 @@
       }
       .bpm-tap.flash {
         color: var(--accent);
-        border-color: var(--accent);
         background: rgba(196, 114, 74, 0.18);
       }
 
@@ -1109,59 +1108,6 @@
         color: var(--sage);
       }
 
-      /* Examples menu: a popover under its button. The wrapper is the
-         positioning context, so the menu tracks the button with no JS. */
-      .scene-menu-wrap {
-        position: relative;
-        display: inline-flex;
-      }
-      .scene-menu {
-        position: absolute;
-        top: calc(100% + 6px);
-        right: 0;
-        min-width: 280px;
-        max-width: 340px;
-        padding: 4px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-        /* Above the sliding panels, which sit at 100. */
-        z-index: 120;
-        display: none;
-      }
-      .scene-menu.open {
-        display: block;
-      }
-      .scene-menu-item {
-        display: block;
-        width: 100%;
-        text-align: left;
-        background: transparent;
-        border: none;
-        border-radius: 3px;
-        padding: 7px 9px;
-        font: inherit;
-        color: var(--text);
-        cursor: pointer;
-      }
-      .scene-menu-item:hover,
-      .scene-menu-item:focus {
-        background: rgba(196, 114, 74, 0.1);
-        outline: none;
-      }
-      .scene-menu-label {
-        display: block;
-        font-size: 12px;
-      }
-      .scene-menu-blurb {
-        display: block;
-        margin-top: 2px;
-        font-size: 10px;
-        line-height: 1.45;
-        color: var(--text-muted);
-        white-space: normal;
-      }
 
       /* ─── Untrusted-scene banner ─────────────────────────────────────────
          Evaluating a scene that arrived in a share link gives someone else's
@@ -2032,7 +1978,7 @@
         gap: 12px;
         width: 100%;
         background: transparent;
-        border: 1px solid var(--border);
+        border: none;
         border-radius: 3px;
         padding: 9px 12px;
         margin-bottom: 6px;
@@ -2040,11 +1986,10 @@
         text-align: left;
         cursor: pointer;
         color: var(--text);
-        transition: border-color 0.12s, background 0.12s;
+        transition: background 0.12s;
       }
       .doc-link:hover {
-        border-color: var(--accent2);
-        background: rgba(196, 114, 74, 0.06);
+        background: rgba(196, 114, 74, 0.08);
       }
       .doc-link:hover .doc-link-arrow {
         color: var(--accent);
@@ -2874,12 +2819,9 @@
                  app-update.ts. -->
             <button type="button" class="scene-action app-update" id="app-update" hidden></button>
             <button type="button" class="scene-action" id="scene-share" title="copy a link containing this whole scene">share</button>
-            <!-- No stop button. Stopping is ctrl+. / cmd+. (or ctrl+space),
-                 handled at the document so it fires wherever focus happens to
-                 be. It was briefly a button here, added when the shortcut was
-                 bound inside the editor and did nothing unless the editor had
-                 focus; the shortcut reaching the whole page is the fix, and
-                 the button was the workaround. -->
+            <!-- Stop lives in the transport at the left. Ctrl+. and
+                 ctrl+space stop too, handled at the document so they fire
+                 wherever focus happens to be. -->
 
             <!-- The bundled scenes live under the docs panel's examples tab,
                  next to the reference that explains them, rather than behind

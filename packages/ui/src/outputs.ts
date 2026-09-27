@@ -173,6 +173,11 @@ export const DESKTOP_RELEASE: DesktopRelease | null = {
 /** Where the connector binaries live. */
 export const RELEASES_URL = 'https://github.com/nicholaspjm/gobo-dmx-live-code/releases/latest';
 
+/** The connector file itself, so a click downloads it rather than opening a list of files. */
+export function connectorDownloadUrl(): string {
+  return `${RELEASES_URL}/download/${connectorFileName()}`;
+}
+
 /** Best guess at which file to offer, so the visitor is not made to choose. */
 export function connectorFileName(): string {
   const ua = navigator.userAgent;
@@ -637,7 +642,7 @@ export function mountOutputsPanel(opts: {
 
     // When it is not running, the next question is always "so how do I start
     // it", and the answer was nowhere on screen. Folded away rather than
-    // printed, because it is three routes and only one of them is yours.
+    // printed, because it is four routes and only one of them is yours.
     if (!up) box.appendChild(renderHowToStart());
     return box;
   }
@@ -667,22 +672,20 @@ export function mountOutputsPanel(opts: {
     // npx only since the package was published under this project's own
     // account. Before that, an instruction to npx the name would have handed it,
     // and everyone who followed the instruction, to whoever published it first.
-    const routes: Array<{ title: string; body: string; code?: string }> = [
-      {
-        title: 'or skip it: run gobo locally',
-        body:
-          'The simplest setup. The desktop app, or npm start in a copy of the repository, serves '
-          + 'this same app and does the sending from one process, so there is no connector to '
-          + 'start and nothing for the browser to allow.',
-        code: 'npm start',
-      },
+    const mac = /Mac OS X|Macintosh/i.test(navigator.userAgent);
+    const routes: Array<{ title: string; body: string; code?: string; link?: { href: string; label: string } }> = [
       {
         title: 'the download',
         body:
           'Download the connector for this computer and run it once. It registers itself to start '
           + 'with your computer, keeps itself up to date, and otherwise stays out of the way: there '
           + 'is no window, and this panel turning green is how you know it is up. It is not signed, '
-          + 'so the first run asks you to confirm it; the README says where.',
+          + (mac
+            ? 'so on a Mac make it runnable first, then open it from Finder with right-click, Open; '
+              + 'if macOS still refuses, System Settings, Privacy & Security has Open Anyway.'
+            : 'so the first run asks you to confirm it.'),
+        code: mac ? 'chmod +x ~/Downloads/gobo-connector-macos' : undefined,
+        link: { href: connectorDownloadUrl(), label: `download ${connectorFileName()}` },
       },
       {
         title: 'with Homebrew',
@@ -698,6 +701,13 @@ export function mountOutputsPanel(opts: {
         body: 'Runs the latest one without installing anything, until you close the terminal.',
         code: 'npx gobo-connector@latest',
       },
+      {
+        title: 'or skip it: the desktop app',
+        body:
+          'The desktop app is this same app with the connector inside it, so there is nothing to '
+          + 'start and nothing for the browser to allow.',
+        link: { href: RELEASES_URL, label: 'download the desktop app' },
+      },
     ];
 
     for (const r of routes) {
@@ -710,6 +720,15 @@ export function mountOutputsPanel(opts: {
       b.className = 'connector-how-body';
       b.textContent = r.body;
       row.append(t, b);
+      if (r.link) {
+        const a = document.createElement('a');
+        a.className = 'scene-action';
+        a.href = r.link.href;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = r.link.label;
+        row.appendChild(a);
+      }
       if (r.code) {
         const pre = document.createElement('pre');
         pre.className = 'connector-how-code';
@@ -820,9 +839,9 @@ export function mountOutputsPanel(opts: {
     midiRow.className = 'output-row';
 
     const midiTitle = document.createElement('div');
-    midiTitle.className = 'output-head';
+    midiTitle.className = 'output-row-head';
     const midiName = document.createElement('span');
-    midiName.className = 'output-label';
+    midiName.className = 'output-name';
     midiName.textContent = 'midi(cc)';
     midiTitle.appendChild(midiName);
 
@@ -889,7 +908,9 @@ export function mountOutputsPanel(opts: {
     // served from this computer came from npm start or npm run dev, which run
     // it alongside. Either way every download here would be an offer of
     // something the user is already running.
-    if (!isDesktopBuild() && !servedLocally()) {
+    // Nor while a connector is up: "download it" under a green light reads as
+    // though the one running were the wrong one.
+    if (!isDesktopBuild() && !servedLocally() && !isBridgeConnected()) {
       const note = document.createElement('p');
       note.className = 'outputs-note';
       note.textContent = hasSeenConnector()
@@ -904,7 +925,7 @@ export function mountOutputsPanel(opts: {
 
       const dl = document.createElement('a');
       dl.className = 'scene-action';
-      dl.href = RELEASES_URL;
+      dl.href = connectorDownloadUrl();
       dl.target = '_blank';
       dl.rel = 'noopener';
       dl.textContent = 'download the connector';

@@ -12,6 +12,9 @@
 import { EXAMPLES } from './examples.js';
 import { PANEL_OPEN_EVENT } from './panel.js';
 
+/** Raised by a docs link that opens another panel page; main.ts opens it. */
+export const OPEN_PANEL_EVENT = 'gobo:open-panel';
+
 /**
  * Where a fixture came from. The library panel tags every row with one of
  * these four, and the docs use the same four words for the same four things,
@@ -60,6 +63,8 @@ interface DocEntry {
    * each step links to its own tab instead of duplicating content here.
    */
   tabLink?: DocCategory;
+  /** Opens a panel page instead of a docs tab (the live outputs panel). */
+  panelLink?: string;
 }
 
 interface DocSection {
@@ -130,7 +135,8 @@ export const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'steps',
     entries: [
-      { name: 'pick an output',   signature: 'usb · td · artnet · sacn · osc · mock',  description: '', tabLink: 'output' },
+      { name: 'connect your lights', signature: 'usb · td · artnet · sacn · osc · mock', description: '', panelLink: 'outputs' },
+      { name: 'how each output works', signature: 'artnet() · sacn() · usb() · td()',   description: '', tabLink: 'output' },
       { name: 'define fixtures',  signature: 'fixture · rgbStrip · defineFixture',     description: '', tabLink: 'fixtures' },
       { name: 'write patterns',   signature: "sine · '1 - 1 -' · .slow · .every",       description: '', tabLink: 'patterns' },
       { name: 'chases and fades', signature: '.each · .fadeOut · .across · all',       description: '', tabLink: 'patterns' },
@@ -171,7 +177,7 @@ export const DOCS: DocSection[] = [
         name: 'td',
         signature: "td(host='localhost', port=9980)",
         description:
-          'Sends straight to a TouchDesigner WebSocket DAT from the browser, with no connector running. TouchDesigner puts the Art-Net on the wire. Over https a page can only reach localhost this way, because browsers block insecure WebSockets to any other host, so TouchDesigner has to be on this machine. The setup recipe is in docs/touchdesigner.md.',
+          'Sends straight to a TouchDesigner WebSocket DAT from the browser, with no connector running. TouchDesigner puts the Art-Net on the wire. Over https a page can only reach localhost this way, because browsers block insecure WebSockets to any other host, so TouchDesigner has to be on this machine. The setup recipe is in docs/touchdesigner.md in the repository (github.com/nicholaspjm/gobo-dmx-live-code).',
         example: "td('localhost', 9980)",
       },
       {
@@ -2082,10 +2088,13 @@ function renderSection(sec: DocSection): string {
       // A tab-link entry is a compact clickable row: name, signature-style
       // subtitle, arrow. Full descriptions live in the target tab's own
       // sections.
-      if (e.tabLink) {
-        const bag = [e.name, e.signature, e.tabLink].join(' ').toLowerCase();
+      if (e.tabLink || e.panelLink) {
+        const target = e.panelLink
+          ? `data-panel-link="${escapeHtml(e.panelLink)}"`
+          : `data-tab-link="${escapeHtml(e.tabLink!)}"`;
+        const bag = [e.name, e.signature, e.tabLink ?? e.panelLink].join(' ').toLowerCase();
         return `
-          <button type="button" class="doc-link" data-tab-link="${escapeHtml(e.tabLink)}" data-search="${escapeHtml(bag)}">
+          <button type="button" class="doc-link" ${target} data-search="${escapeHtml(bag)}">
             <span class="doc-link-label">
               <span class="doc-name">${escapeHtml(e.name)}</span>
               <span class="doc-signature">${escapeHtml(e.signature)}</span>
@@ -2442,6 +2451,11 @@ export function renderDocs(body: HTMLElement): void {
   // Welcome-page link rows. Delegate on the body since they're rebuilt
   // whenever tabs/search change visibility.
   body.addEventListener('click', (ev) => {
+    const panelLink = (ev.target as HTMLElement).closest<HTMLElement>('.doc-link[data-panel-link]');
+    if (panelLink) {
+      body.dispatchEvent(new CustomEvent(OPEN_PANEL_EVENT, { detail: panelLink.dataset.panelLink, bubbles: true }));
+      return;
+    }
     const link = (ev.target as HTMLElement).closest<HTMLElement>('.doc-link[data-tab-link]');
     if (!link) return;
     const next = link.dataset.tabLink as DocCategory | undefined;
