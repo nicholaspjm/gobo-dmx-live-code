@@ -799,8 +799,17 @@ describe('pattern values', () => {
     expect(calls).toHaveLength(1);
     const [begin, end] = calls[0];
     expect(begin).toBe(0.25);
-    expect(end).toBeCloseTo(0.2501, 10);
+    expect(end).toBe(0.25 + 1 / 8192);
     expect(end).toBeGreaterThan(begin);
+  });
+
+  it('rounds the frame time to an exact binary fraction, which Strudel reads cheaply', () => {
+    const calls: Array<[number, number]> = [];
+    uni(1, 1, stubPattern(1, calls));
+    tick(1.0500000000000003);
+    const [begin] = calls[0];
+    expect(begin * 65536).toBe(Math.round(begin * 65536));
+    expect(Math.abs(begin - 1.05)).toBeLessThan(1 / 65536);
   });
 
   it('reads 0 when the pattern yields no haps', () => {

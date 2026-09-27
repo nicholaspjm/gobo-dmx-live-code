@@ -4,6 +4,23 @@ All notable changes to gobo are recorded here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **A showcase scene**, `demos/showcase.js`: 16 pixel bars, 4 Atomics, 5 pars
+  and two screen lights, as a set of seven looks for a 124 BPM track, with
+  muted layers to bring in live and an autopilot arrangement.
+
+### Changed
+
+- **Large pixel rigs run inside a frame.** Each frame's time is rounded to an
+  exact binary fraction, which Strudel converts to its time format about ten
+  times faster than an arbitrary decimal, and a pattern that several channels
+  share (a pixel's level over its colour, the look a cue pattern chooses) is
+  read once per frame. A cue pattern over a full rig went from about 54 ms a
+  frame to 2 ms, and a 128-pixel chase over a colour stays under a few ms.
+
 ## [0.7.1] - 2026-09-27
 
 ### Added

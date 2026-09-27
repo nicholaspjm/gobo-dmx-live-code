@@ -3583,7 +3583,19 @@ function eachFunction<R>(arg: EachArg<R>, spread: number | undefined): (phase: n
   if (typeof amount !== 'number' || !Number.isFinite(amount)) {
     throw new Error('.each(pattern, spread): spread is how many cycles the steps add up to across the lights, as in rig.each(sine, 0.5).');
   }
-  return (phase) => (pattern.early as (t: number) => R).call(pattern, phase * amount);
+  return (phase) => shiftEarly<R>(pattern, phase * amount);
+}
+
+/**
+ * A pattern shifted earlier by a fixed amount of time, one light's step in a
+ * spread. Strudel's .early() takes a pattern as its amount and re-reads it on
+ * every query, which costs about half a millisecond per light per frame; its
+ * ._early() takes a plain number and costs next to nothing, so a spread over a
+ * few hundred pixels stays inside a frame.
+ */
+function shiftEarly<R>(pattern: unknown, t: number): R {
+  const p = pattern as { _early?: (t: number) => R; early: (t: number) => R };
+  return typeof p._early === 'function' ? p._early.call(pattern, t) : p.early.call(pattern, t);
 }
 
 /** What .eachXY() is handed: a pattern, or a function of the cell's position. */
@@ -3616,7 +3628,7 @@ function eachXYFunction<R>(
   if (!Number.isFinite(sx) || !Number.isFinite(sy)) {
     throw new Error('.eachXY(pattern, across, down): across and down are how many cycles the steps add up to, as in grid.eachXY(sine, 1, 1).');
   }
-  return (x, y, w, h) => (pattern.early as (t: number) => R).call(pattern, (x / w) * sx + (y / h) * sy);
+  return (x, y, w, h) => shiftEarly<R>(pattern, (x / w) * sx + (y / h) * sy);
 }
 
 /**
@@ -4056,7 +4068,7 @@ function chaseImpl(
     // Per-cell phase goes on before .slow(), so it is a fraction of one lap.
     // The scene's own offset goes on after, so `early: 1` is one cycle of real
     // time, which is what .early() means everywhere else.
-    const wave = sine().early(phase).slow(cycles);
+    const wave = shiftEarly<ReturnType<typeof sine>>(sine(), phase).slow(cycles);
     return (opts.early ? wave.early(opts.early) : wave).range(lo, 1);
   };
 
@@ -4147,14 +4159,14 @@ function rainbowChaseImpl(
   const packets = opts.waves ?? 1;
 
   const hueR = sine().slow(rainbowSpeed).range(0, 1);
-  const hueG = sine().early(1 / 3).slow(rainbowSpeed).range(0, 1);
-  const hueB = sine().early(2 / 3).slow(rainbowSpeed).range(0, 1);
+  const hueG = shiftEarly<ReturnType<typeof sine>>(sine(), 1 / 3).slow(rainbowSpeed).range(0, 1);
+  const hueB = shiftEarly<ReturnType<typeof sine>>(sine(), 2 / 3).slow(rainbowSpeed).range(0, 1);
 
   for (let i = 0; i < strip.pixelCount; i++) {
     // Negative for the same reason as .chase(): a pixel further along runs
     // later, so the packet travels left to right rather than back to front.
     const phase = -(i * packets) / strip.pixelCount;
-    const bright = cosine().early(phase).slow(speed).range(-narrow, 1);
+    const bright = shiftEarly<ReturnType<typeof cosine>>(cosine(), phase).slow(speed).range(-narrow, 1);
     // Three components on both strip kinds. A rainbow is a mix, and a mix has
     // no business touching a dedicated white emitter, the rule .fill(),
     // .pixel() and .chase() all follow.

@@ -40,6 +40,7 @@ import {
   hushDefs,
   levelOf,
   mapLightChannels,
+  queryOnce,
   type PatternLike,
   type PatternOrValue,
 } from './dmx.js';
@@ -1303,7 +1304,9 @@ function isQueryable(value: unknown): value is PatternLike {
 function selectedIndex(selector: unknown, names: string[], begin: number, end: number): number | null {
   let raw: unknown = selector;
   if (isQueryable(selector)) {
-    const haps = selector.queryArc(begin, end);
+    // Every channel a look drives asks which look is up; the answer is read
+    // once per frame and shared.
+    const haps = queryOnce(selector, begin, end);
     if (!haps || haps.length === 0) return null;
     raw = haps[haps.length - 1]?.value;
   }

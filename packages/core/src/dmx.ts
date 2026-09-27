@@ -272,10 +272,29 @@ export function uni(universe: number, channel: number, ...args: [PatternOrValue?
 // `strip.color(red); strip.each(chase)` would come out as a white chase.
 
 /** A value as a level from 0 to 1 at an instant, for multiplying. */
+/**
+ * A pattern's haps for an arc, read once per frame however many channels ask.
+ *
+ * A level over a colour is built per channel: an RGBW pixel is four channels
+ * that share one level pattern, and a strip of pixels shares one colour. Read
+ * separately, a 128-pixel chase queried the same two patterns hundreds of
+ * times a frame, which put it well past the frame budget. Cleared each tick,
+ * so a slider read live never answers with last frame's value.
+ */
+let _arcMemo = new Map<object, { begin: number; end: number; haps: ReturnType<PatternLike['queryArc']> }>();
+
+export function queryOnce(p: PatternLike, begin: number, end: number): ReturnType<PatternLike['queryArc']> {
+  const known = _arcMemo.get(p);
+  if (known !== undefined && known.begin === begin && known.end === end) return known.haps;
+  const haps = p.queryArc(begin, end);
+  _arcMemo.set(p, { begin, end, haps });
+  return haps;
+}
+
 function levelAt(v: PatternOrValue, begin: number, end: number): number {
   if (typeof v === 'number') return v > 1 ? v / 255 : v;
   let best = 0;
-  for (const h of v.queryArc(begin, end)) {
+  for (const h of queryOnce(v, begin, end)) {
     const l = levelOf(h.value);
     if (l !== null && l > best) best = l;
   }
@@ -289,7 +308,7 @@ export function scaledBy(held: PatternOrValue, level: PatternOrValue): PatternOr
     queryArc(begin: number, end: number) {
       const colour = levelAt(held, begin, end);
       if (typeof level === 'number') return [{ value: colour * levelAt(level, begin, end) }];
-      return level.queryArc(begin, end).map((h) => {
+      return queryOnce(level, begin, end).map((h) => {
         const l = levelOf(h.value);
         return { ...h, value: l === null ? 0 : l * colour };
       });
@@ -897,10 +916,22 @@ const _resolved = new Map<object, number>();
  * caller still ships it. If the frame never shipped, the rig would hold its last
  * look with no indication anything is wrong.
  */
-export function tick(cyclePos: number): void {
+/** Frame times are rounded to this: an exact binary fraction of a cycle. */
+const TIME_STEPS = 65536;
+/** How wide a slice of time a frame reads, also an exact binary fraction. */
+const FRAME_SLICE = 1 / 8192;
+
+export function tick(rawCyclePos: number): void {
+  // Strudel keeps time as exact fractions, and turning an arbitrary decimal
+  // like 1.0500000000000003 into one takes it up to 16µs; a binary fraction
+  // takes about 1µs. Every channel does it twice a frame, so a rig of a few
+  // thousand channels spent most of its frame here. One step is about 30µs of
+  // a bar at 124 BPM, far below what a light can show.
+  const cyclePos = Math.round(rawCyclePos * TIME_STEPS) / TIME_STEPS;
   // Zero all universe buffers
   for (const buf of _universes.values()) buf.fill(0);
   _resolved.clear();
+  _arcMemo = new Map();
   // Which tokens are live is a fact about this tick and no other.
   if (_collectLocations) _activeLocations.length = 0;
 
@@ -928,7 +959,7 @@ export function tick(cyclePos: number): void {
           floatVal = known;
         } else if (isPattern(value)) {
           // Query a thin arc so we get the instantaneous value
-          const haps = value.queryArc(cyclePos, cyclePos + 0.0001);
+          const haps = value.queryArc(cyclePos, cyclePos + FRAME_SLICE);
           // Highest takes precedence, the merge every lighting desk uses. A
           // channel can have several values at one instant: stack(), a comma
           // inside mini(), superimpose(), off(). Every hap is read, so every
