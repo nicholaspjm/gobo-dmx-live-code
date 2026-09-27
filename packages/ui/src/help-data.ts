@@ -16,7 +16,7 @@
  * `red` is a colour value and a channel setter, and so are green, blue, white,
  * strobe and flash. The bare dim(channel, value) writes a raw DMX channel and
  * .dim() is the brightness of a fixture with a dimmer. pick(name) is the colour
- * wheel and .pick(list) is strudel's choice between patterns. Both surfaces use
+ * wheel and .pick(list) is Strudel's choice between patterns. Both surfaces use
  * `context` to tell them apart: findHelp() at the bottom of this file picks by
  * whether a dot precedes the word, and autocomplete narrows its suggestions the
  * same way. Any other repeated label is a mistake, because a Map keyed by label
@@ -178,7 +178,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     kind: 'function',
   },
 
-  // ─── From strudel, spelled as strudel spells them ──────────────────────────
+  // ─── From Strudel, spelled as Strudel spells them ──────────────────────────
   {
     label: 'fadeIn',
     signature: '.fadeIn(beats)',
@@ -201,7 +201,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'clip',
     signature: '.clip(fraction)',
     description:
-      "How much of each step is lit, measured from its start: strudel's note length, applied to a light. '1*8'.clip(0.25) is eight short flashes. .legato() does the same.",
+      "How much of each step is lit, measured from its start: Strudel's note length, applied to a light. '1*8'.clip(0.25) is eight short flashes. .legato() does the same.",
     example: "strb.dim('1*8'.clip(0.25))",
     context: 'pattern-method',
     kind: 'method',
@@ -227,7 +227,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'palette',
     signature: '.palette(colours)',
     description:
-      "Turns numbers into colours from a palette: 0 is the first colour, 1 the next, wrapping past the end, and a number between two blends them. It works like strudel's .scale(), which turns numbers into notes. Pass the result to .color() or .fill(). The palette is a list, [red, amber, white], or a string of names, 'red amber white'.",
+      "Turns numbers into colours from a palette: 0 is the first colour, 1 the next, wrapping past the end, and a number between two blends them. It works like Strudel's .scale(), which turns numbers into notes. Pass the result to .color() or .fill(). The palette is a list, [red, amber, white], or a string of names, 'red amber white'.",
     example: "wash.color('<0 1 2>'.palette(warm))          // one colour a bar\nwash.color(saw.slow(8).mul(3).palette(warm))      // a slow sweep through them",
     context: 'pattern-method',
     kind: 'method',
@@ -294,7 +294,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'setcps',
     signature: 'setcps(cyclesPerSecond)',
-    description: 'Tempo in cycles per second, as strudel writes it, so pasted code runs. One cycle is one bar of four beats.',
+    description: 'Tempo in cycles per second, as Strudel writes it, so pasted code runs. One cycle is one bar of four beats.',
     example: "setcps(0.5)",
     context: 'command',
     kind: 'function',
@@ -447,7 +447,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     label: 'sine',
     signature: 'sine',
-    description: 'Sine waveform 0..1. One full cycle per pattern cycle, which is one bar of four beats, so .fast(4) gives one per beat. The bracket-free form strudel uses, sine.slow(4), works for every signal.',
+    description: 'Sine waveform 0..1. One full cycle per pattern cycle, which is one bar of four beats, so .fast(4) gives one per beat. The bracket-free form Strudel uses, sine.slow(4), works for every signal.',
     example: 'wash.red(sine.slow(4).range(0.2, 1))',
     context: 'command',
     kind: 'function',
@@ -607,7 +607,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'seq',
     signature: 'seq(a, b, c, …)',
     description:
-      "One cycle split evenly between the values, one after another: the same as sequence(), under the name strudel uses. seq(1, 0, 0.5, 0) is a four-step level pattern.",
+      "One cycle split evenly between the values, one after another: the same as sequence(), under the name Strudel uses. seq(1, 0, 0.5, 0) is a four-step level pattern.",
     example: 'wash.dim(seq(1, 0, 0.5, 0))',
     context: 'command',
     kind: 'function',
@@ -1095,7 +1095,7 @@ spot.white(mini('1 - - -').punch())`,
     label: 'slider',
     signature: 'slider(value, min, max, step) · slider(name, min, max)',
     description:
-      "A fader written in the code, drawn as a draggable handle at that point in the source. Moving it changes the light immediately, with nothing re-evaluated, and the position survives a re-run. Written strudel's way, slider(0.5), it starts at that value; given a name first, the name labels it and keeps its position however the code around it moves. It is a pattern, so it chains and can be handed to a method: .range(), .mul(), .fast(slider(1, 1, 8)).",
+      "A fader written in the code, drawn as a draggable handle at that point in the source. Moving it changes the light immediately, with nothing re-evaluated, and the position survives a re-run. Written Strudel's way, slider(0.5), it starts at that value; given a name first, the name labels it and keeps its position however the code around it moves. It is a pattern, so it chains and can be handed to a method: .range(), .mul(), .fast(slider(1, 1, 8)).",
     example: "wash.dim(sine.slow(2).mul(slider(0.8)))           // a master on the wave\nstrb.dim('1*4'.fast(slider(1, 1, 8, 1)))     // strobe rate on a fader\nconst level = slider('level')",
     context: 'command',
     kind: 'function',
@@ -1140,7 +1140,7 @@ spot.white(mini('1 - - -').punch())`,
     label: 'squeeze',
     signature: '.squeeze([a, b])',
     description:
-      'Fit a whole chosen pattern into each step of this one. The same join .pickSqueeze() uses, under its shorter strudel name.',
+      'Fit a whole chosen pattern into each step of this one. The same join .pickSqueeze() uses, under its shorter Strudel name.',
     example: "wash.red('<0 1>'.squeeze([sparse, busy]))",
     context: 'pattern-method',
     kind: 'method',

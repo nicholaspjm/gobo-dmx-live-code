@@ -19,7 +19,7 @@
  * In beats, because a lighting cue follows the music and the music's unit is
  * the beat: `.fadeOut(1)` is a one-beat tail at any tempo. Strudel's own names
  * (.attack .decay .sustain .release .adsr) do the same thing in seconds, the
- * units strudel uses, so a pattern pasted from its docs shapes the light the
+ * units Strudel uses, so a pattern pasted from its docs shapes the light the
  * way it shaped the note.
  *
  * The release cannot be computed per hap in the tick: a tail lives in the
@@ -32,7 +32,7 @@ import { levelOf } from './dmx.js';
 import { getBPM } from './scheduler.js';
 import { stringPattern } from './string-patterns.js';
 
-/** The strudel classes this needs, handed over by eval.ts once strudel loads. */
+/** The Strudel classes this needs, handed over by eval.ts once Strudel loads. */
 export interface StrudelKit {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Pattern: any;
@@ -44,11 +44,11 @@ export interface StrudelKit {
   Fraction: any;
 }
 
-/** One stage's length: in beats (gobo's names) or seconds (strudel's). */
+/** One stage's length: in beats (gobo's names) or seconds (Strudel's). */
 export interface Span {
   amount: number;
   unit: 'beats' | 'seconds';
-  /** A length that changes, as strudel writes .release('<0.1 0.5>'): read
+  /** A length that changes, as Strudel writes .release('<0.1 0.5>'): read
    *  at the start of each step. `amount` is unused when this is set. */
   pattern?: { queryArc(begin: number, end: number): Array<{ value: unknown }> };
 }
@@ -93,7 +93,7 @@ export function cyclesOf(span: Span | undefined, bpm: number): number {
  *
  * With no decay the step holds full after its attack. With a decay and no
  * sustain it falls to nothing, which turns every step into a flash: the
- * lighting reading of strudel's decay on a plucked note.
+ * lighting reading of Strudel's decay on a plucked note.
  */
 export function stepLevel(dt: number, a: number, d: number, sustain: number | undefined): number {
   if (a > 0 && dt < a) return dt / a;
@@ -124,7 +124,7 @@ export function shapedLevel(
   return stepLevel(off - on, a, d, sustain) * (1 - dt / r);
 }
 
-/** Parse strudel's "attack:decay:sustain:release" string. */
+/** Parse Strudel's "attack:decay:sustain:release" string. */
 export function parseAdsr(spec: unknown): Shape {
   const parts = String(spec).split(':').map((p) => Number(p.trim()));
   const [a, d, s, r] = parts;
@@ -318,11 +318,11 @@ function levelArg(v: unknown, what: string, example: string): number {
 }
 
 /**
- * Put the fade methods on strudel's Pattern prototype.
+ * Put the fade methods on Strudel's Pattern prototype.
  *
  * Strudel's attack, decay, sustain, release and adsr are replaced outright:
- * strudel's versions only attach a field that a light ignores. Nothing inside
- * strudel calls them; they exist for code a person writes.
+ * Strudel's versions only attach a field that a light ignores. Nothing inside
+ * Strudel calls them; they exist for code a person writes.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function installFades(kit: StrudelKit, proto: any): void {
@@ -333,7 +333,7 @@ export function installFades(kit: StrudelKit, proto: any): void {
       const amount = amountOf(v, `.${name}`, unit);
       return fade(kit, this, { [key]: { amount, unit } });
     };
-  // hold and drop would read well for light, but they are strudel's own
+  // hold and drop would read well for light, but they are Strudel's own
   // methods (a hold on the value, and dropping steps) and in use.
   proto.fadeIn = stage('attack', 'beats', 'fadeIn');
   proto.fadeOut = stage('release', 'beats', 'fadeOut');
@@ -352,11 +352,11 @@ export function installFades(kit: StrudelKit, proto: any): void {
   proto.adsr = function (this: unknown, spec: unknown) {
     return fade(kit, this, parseAdsr(spec));
   };
-  // How much of each step is lit. In strudel .clip() and .legato() say how
+  // How much of each step is lit. In Strudel .clip() and .legato() say how
   // long a note sounds against its step; for a light that is how long the
   // step stays on: '1*8'.clip(0.25) is eight short flashes, and a fade out
   // after it starts where the flash ends. Numbers only; a patterned length
-  // keeps strudel's own meaning.
+  // keeps Strudel's own meaning.
   for (const name of ['clip', 'legato'] as const) {
     const own = proto[name];
     proto[name] = function (this: unknown, v: unknown, ...rest: unknown[]) {
@@ -368,9 +368,9 @@ export function installFades(kit: StrudelKit, proto: any): void {
     };
   }
 
-  // Position across a group, in lighting words. It rides on strudel's pan
+  // Position across a group, in lighting words. It rides on Strudel's pan
   // control, which the group reads (fixtures.ts, placeAcross), so the two are
-  // one thing; pan keeps its strudel name for pasted code, and across is the
+  // one thing; pan keeps its Strudel name for pasted code, and across is the
   // one a lighting scene uses, since pan on a moving head means the head.
   if (typeof proto.pan === 'function') {
     const pan = proto.pan;

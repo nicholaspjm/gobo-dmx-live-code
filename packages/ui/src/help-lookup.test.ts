@@ -50,9 +50,9 @@ describe('findHelp', () => {
     // dim joined these: the bare dim(channel, value) writes a raw DMX channel
     // by number, and .dim(v) is the brightness of a fixture that has a dimmer.
     // pick joined them too, and is the one that is a collision rather than a
-    // coincidence: gobo took pick(name) for the colour wheel, and strudel uses
+    // coincidence: gobo took pick(name) for the colour wheel, and Strudel uses
     // .pick(list) for choosing between patterns. Both are kept because the
-    // method is the form strudel's own docs use and a scene copied from them
+    // method is the form Strudel's own docs use and a scene copied from them
     // should run — but unlike the others, this pair is worth revisiting rather
     // than settling into.
     const DELIBERATE = new Set(['red', 'green', 'blue', 'white', 'strobe', 'flash', 'dim', 'pick']);

@@ -43,8 +43,8 @@ A change that breaks one of these seven invariants is wrong, however useful it l
 7. **Warnings stay rare.** A guard that fires on the common case gets ignored, so
    no feature may make the overwrite note, or any other warning, routine.
 
-Keep strudel's vocabulary. gobo builds on `@strudel/core` and `@strudel/mini`, and a
-pattern copied out of the strudel docs should run here. Renaming one of their verbs
+Keep Strudel's vocabulary. gobo builds on `@strudel/core` and `@strudel/mini`, and a
+pattern copied out of the Strudel docs should run here. Renaming one of their verbs
 makes this a dialect; the passthrough list in `packages/core/src/eval.ts` enforces
 that.
 

@@ -62,7 +62,7 @@ export type EvalBlockHandler = (view: EditorView) => void;
 /**
  * The editor behaviours a user can turn off.
  *
- * The same list strudel offers, minus the ones that mean
+ * The same list Strudel offers, minus the ones that mean
  * something different here. Tab indentation is not offered because Tab is
  * already the second key that accepts a completion, and with the popup closed
  * it is how a keyboard user leaves the editor: taking it would cost an

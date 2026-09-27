@@ -215,7 +215,7 @@ describe('cases that cannot work say so', () => {
 // ─── pan ──────────────────────────────────────────────────────────────────────
 
 /**
- * A stand-in for a strudel pattern carrying a pan: one value, and fmap, which
+ * A stand-in for a Strudel pattern carrying a pan: one value, and fmap, which
  * is all the group reads.
  */
 function panned(value: Record<string, number>): PatternLike & { fmap(fn: (v: unknown) => unknown): PatternLike } {

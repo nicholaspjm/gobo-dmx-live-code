@@ -9,7 +9,7 @@
  * channel mapping is tested here too: fixtures are a naming layer over uni(),
  * and the offset arithmetic is where addressing bugs hide.
  *
- * No strudel dependency: patterns are stubbed as `{ queryArc() }`, which is
+ * No Strudel dependency: patterns are stubbed as `{ queryArc() }`, which is
  * the entire surface dmx.ts touches, and the eval tests drive scenes made of
  * plain numbers.
  */
@@ -223,7 +223,7 @@ describe('clamping', () => {
     expect(getUniverseBuffer(1)[0]).toBe(128);
   });
 
-  // Some strudel operators were built for sound and wrap the level in a
+  // Some Strudel operators were built for sound and wrap the level in a
   // control object. Reading only bare numbers left every one of them dark
   // with no error: echo, hurry and anything else carrying parameters.
   it('reads the level out of a control object', () => {
@@ -302,7 +302,7 @@ describe('invalid values', () => {
   });
 
   it('reads a quoted number as that number, raw DMX included', () => {
-    // A quoted string is mini-notation now, as in strudel, and a quoted
+    // A quoted string is mini-notation now, as in Strudel, and a quoted
     // number is the plainest case of it: the number it spells.
     uni(1, 1, bad('1'));
     uni(1, 2, bad('128'));
@@ -686,7 +686,7 @@ describe('staging', () => {
 // directly, because the ordering inside evalCode (compile first, stage, commit
 // last) is the part that has to hold.
 //
-// No strudel here: these scenes use plain numbers, which is all dmx.ts needs.
+// No Strudel here: these scenes use plain numbers, which is all dmx.ts needs.
 // Patterns are covered above.
 
 describe('transactional eval', () => {

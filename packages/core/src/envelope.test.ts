@@ -1,7 +1,7 @@
 /**
  * Per-step fades: the arithmetic, without the pattern engine.
  *
- * The engine end is checked where strudel loads (the scene tests); what is
+ * The engine end is checked where Strudel loads (the scene tests); what is
  * pinned here is the shape a step makes: up over the fade in, down to what it
  * holds, and out over the fade out after the step has ended.
  */
@@ -16,7 +16,7 @@ describe('stage lengths', () => {
     expect(cyclesOf({ amount: 1, unit: 'beats' }, 90)).toBe(0.25);
   });
 
-  it('reads seconds at the tempo, as strudel means them', () => {
+  it('reads seconds at the tempo, as Strudel means them', () => {
     // 120 BPM: a beat is half a second, so half a second is a quarter cycle.
     expect(cyclesOf({ amount: 0.5, unit: 'seconds' }, 120)).toBe(0.25);
     expect(cyclesOf({ amount: 0.5, unit: 'seconds' }, 60)).toBe(0.125);
@@ -69,7 +69,7 @@ describe('the tail after a step', () => {
   });
 });
 
-describe("strudel's adsr string", () => {
+describe("Strudel's adsr string", () => {
   it('reads attack:decay:sustain:release in seconds', () => {
     expect(parseAdsr('0.01:0.2:0.5:1')).toEqual({
       attack: { amount: 0.01, unit: 'seconds' },

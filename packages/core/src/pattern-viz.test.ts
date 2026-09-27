@@ -1,7 +1,7 @@
 /**
  * Tests for what the inline decorations are fed.
  *
- * These use stub haps rather than real strudel patterns, because the pattern
+ * These use stub haps rather than real Strudel patterns, because the pattern
  * engine will not load under Node. That is enough: the two things worth
  * pinning are how a hap's TIME is read and how its VALUE is read, and both
  * bit when the shapes were first drawn.
@@ -31,7 +31,7 @@ describe('reading a hap time', () => {
     expect(sampleCycle(p, 0)).toEqual([{ begin: 0.25, end: 0.5, value: 1 }]);
   });
 
-  it('accepts a rational, which is what strudel actually hands over', () => {
+  it('accepts a rational, which is what Strudel actually hands over', () => {
     // Testing these with `typeof === number` silently failed for every event,
     // collapsing each to zero width and drawing the shapes as hairlines.
     const p = haps({ whole: { begin: fraction(0.25), end: fraction(0.75) }, value: 1 });

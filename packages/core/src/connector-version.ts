@@ -8,7 +8,7 @@
  *
  * Kept apart from websocket.ts so it can be tested: websocket.ts reads
  * window.location on import, so it cannot load without a DOM, and every other
- * route from @gobo/core into the UI goes through it or through strudel, which
+ * route from @gobo/core into the UI goes through it or through Strudel, which
  * does not load under vitest either. Parsing, version comparison and the
  * notice text have no socket in them, so they live here where a test can
  * import them alone. osc.ts in the connector is split from index.ts for the

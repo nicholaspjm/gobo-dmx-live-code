@@ -104,7 +104,7 @@ let _patternProto: any = null;
 /**
  * Strudel's scales, ported to light: `.palette(colours)`.
  *
- * In strudel `n('0 2 4').scale('C:major')` turns numbers into the notes of a
+ * In Strudel `n('0 2 4').scale('C:major')` turns numbers into the notes of a
  * scale. A light has no notes, but it has colours, and a palette is the scale
  * a lighting designer picks from. So here the numbers pick colours: 0 is the
  * first in the palette, 1 the next, and past the end it wraps, as a scale
@@ -118,7 +118,7 @@ let _patternProto: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function installPalette(proto: any): void {
   proto.palette = function (this: { fmap(fn: (v: unknown) => unknown): unknown }, stops: unknown) {
-    // A string of colour names is a palette too, the way strudel names a
+    // A string of colour names is a palette too, the way Strudel names a
     // scale in a string: .palette('red amber white').
     const list0 = typeof stops === 'string'
       ? stops.split(/[\s,]+/).filter(Boolean).map((w) => colorFromToken(w, '.palette()'))
@@ -151,7 +151,7 @@ function installPalette(proto: any): void {
  * `rig.dim(mini('1 - 1 -').jux(rev))` mirrors a chase across the room. On a
  * single light both copies land on it and the brighter wins.
  *
- * Replaced, because strudel's jux copies the value into an object of sound
+ * Replaced, because Strudel's jux copies the value into an object of sound
  * controls and a plain level does not survive it.
  * juxBy's width has no meaning for two halves, so it is the same move.
  */
@@ -181,10 +181,10 @@ function installJux(proto: any, stack: (...pats: unknown[]) => unknown): void {
 }
 
 /**
- * all(change): strudel's global transform, ported to light as the grand
+ * all(change): Strudel's global transform, ported to light as the grand
  * master.
  *
- * In strudel all() applies a change to every pattern that is playing. Here it
+ * In Strudel all() applies a change to every pattern that is playing. Here it
  * applies to every channel that makes light, which is what a lighting desk's
  * grand master fader does: all(mul(slider(1))) puts the whole rig's
  * brightness on one handle. "Makes light" is decided by the patch (see
@@ -201,7 +201,7 @@ function all(change: unknown): void {
   _allChanges.push(change as (pattern: unknown) => unknown);
 }
 
-/** A channel's value as a strudel pattern a change can be applied to. */
+/** A channel's value as a Strudel pattern a change can be applied to. */
 function asStrudelPattern(value: unknown): unknown {
   if (typeof value === 'number') {
     const pure = _strudelCtx.pure as (v: number) => unknown;
@@ -211,7 +211,7 @@ function asStrudelPattern(value: unknown): unknown {
   }
   const v = value as { fmap?: unknown; queryArc?: (b: number, e: number) => Array<Record<string, unknown>> };
   if (typeof v.fmap === 'function') return value;
-  // A colour component is a value source rather than a strudel pattern; wrap
+  // A colour component is a value source rather than a Strudel pattern; wrap
   // it in one so the change has methods to call.
   const kit = _patternKit;
   if (kit === null || typeof v.queryArc !== 'function') return value;
@@ -239,12 +239,12 @@ export async function initStrudel(): Promise<void> {
   _strudelState = 'loading';
   _strudelError = null;
   try {
-    // Dynamic import keeps build working even if strudel isn't installed yet
+    // Dynamic import keeps build working even if Strudel isn't installed yet
     const core = await import('@strudel/core');
 
     // Strudel's signals are patterns, written bare: sine.slow(4). gobo scenes
     // and docs write them called: sine().slow(4). Both work, so a pattern
-    // pasted from strudel's docs does not fail on its first word ("sine.slow
+    // pasted from Strudel's docs does not fail on its first word ("sine.slow
     // is not a function").
     //
     // So each signal becomes a callable pattern: a function that returns the
@@ -274,7 +274,7 @@ export async function initStrudel(): Promise<void> {
 
     // ── Named moves ────────────────────────────────────────────────────
     //
-    // Four gestures a lighting desk has a button for, each a strudel
+    // Four gestures a lighting desk has a button for, each a Strudel
     // expression you would otherwise have to know to write. They are patterns
     // built from the primitives above, so they chain and stack like anything
     // else: `wash.dim(flash().mul(0.7))` and `stack(pulse(8), flash())` both
@@ -343,17 +343,17 @@ export async function initStrudel(): Promise<void> {
       };
       const ramp = core.saw as PatternLike & { fmap?(fn: (v: number) => number): PatternLike };
       if (typeof ramp.fmap === 'function') return ramp.fmap(at);
-      console.warn('[gobo] adsr(): this strudel build has no fmap, falling back to a plain ramp');
+      console.warn('[gobo] adsr(): this Strudel build has no fmap, falling back to a plain ramp');
       return ramp;
     };
 
-    // The rest of the pattern vocabulary, under the names strudel gives them.
+    // The rest of the pattern vocabulary, under the names Strudel gives them.
     //
     // Chain methods (.euclid, .degradeBy, .sometimesBy …) arrive on the
     // Pattern prototype; this list hands the sandbox the top-level functions
     // and the remaining signals from @strudel/core.
     //
-    // The names are strudel's, so a pattern copied out of the strudel docs
+    // The names are Strudel's, so a pattern copied out of the Strudel docs
     // runs.
     const passthrough = [
       // signals
@@ -370,15 +370,15 @@ export async function initStrudel(): Promise<void> {
       // says everything about what the rig will do.
       //
       // The method forms, mini('<0 1>').pick([verse, chorus]), come from
-      // strudel's register(), which puts them on the Pattern prototype that
+      // Strudel's register(), which puts them on the Pattern prototype that
       // gobo shares.
       //
       // 'pick' itself is not here: the bare pick() is gobo's colour-wheel
-      // picker, and the method .pick() is strudel's chooser, which is the form
-      // strudel's own docs use.
+      // picker, and the method .pick() is Strudel's chooser, which is the form
+      // Strudel's own docs use.
       'pickmod', 'pickF', 'pickmodF', 'pickOut', 'pickRestart', 'pickReset',
       'pickSqueeze', 'inhabit', 'squeeze',
-      // More of strudel's own vocabulary, so pasted code runs. seq is strudel's
+      // More of Strudel's own vocabulary, so pasted code runs. seq is Strudel's
       // usual spelling of sequence; arrange lays out a set; xfade crossfades
       // two patterns. The bipolar signals run -1..1, which a level channel
       // clamps at 0, and are here for paste rather than for dimmers. mouseX and
@@ -397,7 +397,7 @@ export async function initStrudel(): Promise<void> {
       // are passed bare, as in .every(4, rev).
       'fast', 'slow', 'early', 'late', 'rev', 'palindrome', 'iter', 'ply', 'linger',
       'degradeBy', 'segment', 'mul', 'add', 'sub', 'brak', 'press', 'fastGap', 'hurry', 'range',
-      // The rest of strudel's curried changes, so .every(2, struct('x ~'))
+      // The rest of Strudel's curried changes, so .every(2, struct('x ~'))
       // and .sometimes(chunk(4, rev)) read as they do there. Left out: names a
       // scene is likely to give a look or a light (off, when, layer, mask,
       // echo), since a binding would clash with its declaration.
@@ -410,7 +410,7 @@ export async function initStrudel(): Promise<void> {
     // scene code says tri() the way it says sine(). Everything else is already
     // a function, or is meant to be used bare.
     //
-    // silence is left out: strudel writes it without parens
+    // silence is left out: Strudel writes it without parens
     // (`wash.red(silence)`), and wrapping it would hand the channel a
     // function, which is a rejected value.
     const signals = new Set([
@@ -429,7 +429,7 @@ export async function initStrudel(): Promise<void> {
         if (exported === undefined) continue;
         _strudelCtx[name] = signals.has(name) ? wrap(exported) : exported;
       } catch {
-        // This strudel build does not have it; the rest still load.
+        // This Strudel build does not have it; the rest still load.
       }
     }
 
@@ -451,16 +451,16 @@ export async function initStrudel(): Promise<void> {
         if (p && typeof p === 'object' && typeof src === 'string') p._goboSource = src;
         return p;
       };
-      // Strudel's own switch: a string anywhere strudel takes a pattern is
+      // Strudel's own switch: a string anywhere Strudel takes a pattern is
       // mini-notation, so .fast('<1 2>') and stack('1 0', '0 1') read the way
       // they do in strudel. Only with the real parser; the shim below is not
-      // one strudel should hand every string to.
+      // one Strudel should hand every string to.
       try {
         (core.setStringParser as ((p: unknown) => void) | undefined)?.(miniMod.mini);
       } catch {
-        // An older strudel without the hook: strings stay plain values there.
+        // An older Strudel without the hook: strings stay plain values there.
       }
-      // Two that read their arguments before strudel reifies them: arrange
+      // Two that read their arguments before Strudel reifies them: arrange
       // calls .fast on each section, and polymeter counts steps, which a
       // plain string has none of. Strings are parsed first, as they would be
       // anywhere else.
@@ -540,7 +540,7 @@ export async function initStrudel(): Promise<void> {
       }
       // Stash the prototype for register() (further down) to extend on demand.
       _patternProto = proto;
-      // Per-step fades, and strudel's envelope names reading as light. See
+      // Per-step fades, and Strudel's envelope names reading as light. See
       // envelope.ts.
       if (proto) installFades({ Pattern: core.Pattern, Hap: core.Hap, TimeSpan: core.TimeSpan, Fraction: core.Fraction }, proto);
       if (proto) installPalette(proto);
@@ -553,12 +553,12 @@ export async function initStrudel(): Promise<void> {
 
     _strudelState = 'ready';
     // Hand the waveform factories to fixtures.ts so strip.rainbowChase()
-    // can build patterns at eval time without importing strudel itself.
+    // can build patterns at eval time without importing Strudel itself.
     setStripEffectWaveforms(
       _strudelCtx.sine as () => unknown,
       _strudelCtx.cosine as () => unknown,
     );
-    console.log('[gobo] strudel core loaded');
+    console.log('[gobo] Strudel core loaded');
   } catch (err) {
     // No fallback waveforms. A hand-rolled stand-in engine looks identical from
     // user code but resolves different values, so a show would run on the wrong
@@ -882,7 +882,7 @@ function register(name: string, fn: (pat: any) => any): (pat: any) => any {
   } else if (!_patternProto) {
     // Strudel hasn't initialised yet. Surface a hint rather than silently
     // swallowing the registration.
-    console.warn(`[gobo] register("${name}") called before strudel loaded; await initStrudel() first`);
+    console.warn(`[gobo] register("${name}") called before Strudel loaded; await initStrudel() first`);
   }
   return fn;
 }
@@ -1209,7 +1209,7 @@ function cueBySelector(
         if (value === undefined) return [{ value: 0 }];
         // A pattern's own haps are passed straight through, so anything
         // riding on them (the source locations the editor outlines, a gain
-        // from a strudel control object) survives the choice.
+        // from a Strudel control object) survives the choice.
         if (isQueryable(value)) return value.queryArc(begin, end);
         return [{ value }];
       },
@@ -1244,7 +1244,7 @@ function selectedIndex(selector: unknown, names: string[], begin: number, end: n
     if (!haps || haps.length === 0) return null;
     raw = haps[haps.length - 1]?.value;
   }
-  // A strudel control object carries its value under a key rather than bare.
+  // A Strudel control object carries its value under a key rather than bare.
   if (typeof raw === 'object' && raw !== null && 'value' in (raw as Record<string, unknown>)) {
     raw = (raw as Record<string, unknown>).value;
   }
@@ -1436,7 +1436,7 @@ export function methodHint(
   // level. Which setter takes it also depends on the light, so both are named
   // rather than one guessed at.
   if (new Set(globals).has(method)) {
-    // A signal is written bare, as strudel does (sine); a move is called (flash()).
+    // A signal is written bare, as Strudel does (sine); a move is called (flash()).
     const signal = typeof (_strudelCtx[method] as { queryArc?: unknown } | undefined)?.queryArc === 'function';
     const call = signal ? method : `${method}()`;
     const where = method in COLORS
@@ -1542,7 +1542,7 @@ function changeOf(method: string): (...args: unknown[]) => (pattern: unknown) =>
 }
 
 /**
- * `'1 0'.fast(2)` becomes `mini('1 0').fast(2)`: strudel's chain on a quoted
+ * `'1 0'.fast(2)` becomes `mini('1 0').fast(2)`: Strudel's chain on a quoted
  * pattern (see quotedReceivers in looks.ts). Only for names a pattern answers
  * to, and only within a line, so error line numbers are unchanged.
  */
@@ -1582,7 +1582,7 @@ export function locatedError(
     // Without the looks the hint is less specific; the error still goes out.
   }
   let message = methodHint(errorMessage(err), globals, methods, looks);
-  // strudel's one-line label, verse: wash.dim(1), runs that line and names
+  // Strudel's one-line label, verse: wash.dim(1), runs that line and names
   // nothing; a look is a block.
   const missing = /^(\w+) is not defined/.exec(message);
   if (missing && new RegExp(`^\\s*${missing[1]}\\s*:(?!\\s*\\{)`, 'm').test(code)) {
@@ -1635,7 +1635,7 @@ export function evalCode(code: string): EvalResult {
     /** Everything dark, from inside the scene. Strudel spells it this way. */
     hush: hushDefs,
     all,
-    // gobo's lighting changes as values, like strudel's fast(2), so they go
+    // gobo's lighting changes as values, like Strudel's fast(2), so they go
     // where a change goes: .every(2, fadeOut(2)), .sometimes(across(saw)),
     // all(fadeOut(1)). (fan and palette are left as methods: both are words a
     // scene is likely to name a light or a list with.)
@@ -1646,7 +1646,7 @@ export function evalCode(code: string): EvalResult {
     across: changeOf('across'),
     jux: changeOf('jux'),
     /**
-     * Tempo the way strudel writes it, so pasted code runs.
+     * Tempo the way Strudel writes it, so pasted code runs.
      *
      * One gobo cycle is one bar of four beats, so cycles per second times
      * four times sixty is the tempo setBPM already takes.
@@ -1805,7 +1805,7 @@ export function evalCode(code: string): EvalResult {
       // where the shared channels come out as the later one said and the
       // earlier look is gone.
       const overwriteNote = overwrittenNote();
-      // A pattern on a line of its own plays in strudel and does nothing here.
+      // A pattern on a line of its own plays in Strudel and does nothing here.
       const dangling = danglingPatternLines(code, PATTERN_VIZ_METHOD_NAMES);
       const danglingNote = dangling.length === 0
         ? null

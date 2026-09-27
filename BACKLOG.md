@@ -99,7 +99,7 @@ dimmer raises it at the end of the run, and says so. `dim(0)` and `dim(0.5)`
 stand exactly as written, wherever they appear.
 
 ### Chase on a picked colour
-`.mul()` does not scale a duck-typed component: strudel reifies it with
+`.mul()` does not scale a duck-typed component: Strudel reifies it with
 `pure()`, so the multiply became a union and the channel read the envelope
 alone. It failed silently, and the docs used that call as the example.
 

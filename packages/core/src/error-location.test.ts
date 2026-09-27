@@ -283,7 +283,7 @@ describe('a misspelt name', () => {
   });
 });
 
-describe("strudel's words for sound", () => {
+describe("Strudel's words for sound", () => {
   it('answers them in lighting terms rather than guessing a spelling', () => {
     const s = methodHint('s is not defined', ['m', 'mini', 'sine']);
     expect(s).toContain('a light has none to play');

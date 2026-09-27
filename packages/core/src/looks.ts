@@ -1,17 +1,17 @@
 /**
- * Looks and mutes, written the way strudel writes its blocks.
+ * Looks and mutes, written the way Strudel writes its blocks.
  *
  * A look is a state of the rig with a name: the verse is blue, the chorus is
  * red, and cue() switches between them. A look is a labelled block, the way
- * strudel names one (`name:`), so a scene needs no function syntax, which says
- * nothing about light. An underscore mutes, also as in strudel (`_name:` or
+ * Strudel names one (`name:`), so a scene needs no function syntax, which says
+ * nothing about light. An underscore mutes, also as in Strudel (`_name:` or
  * `name_:`):
  *
  *   verse: {                 a look called verse, run when cue() picks it
  *     wash.color(blue)
  *   }
  *   _chorus: { … }           muted: kept in view, not run
- *   _$: wash.red(sine)       one line muted, strudel's own spelling
+ *   _$: wash.red(sine)       one line muted, Strudel's own spelling
  *   cue(verse, chorus)
  *
  * This is a rewrite of the source just before it is compiled. A top-level
@@ -28,7 +28,7 @@
 const IDENT_START = /[A-Za-z_$]/;
 const IDENT = /[\w$]/;
 
-/** A label that mutes: strudel's _name and name_. */
+/** A label that mutes: Strudel's _name and name_. */
 export function isMuteLabel(name: string): boolean {
   return name.length > 1 && (name.startsWith('_') || name.endsWith('_'));
 }
@@ -329,7 +329,7 @@ export function rewriteLooks(code: string): LookRewrite {
 
 /**
  * String methods from the early web ('x'.sub() wraps it in <sub> tags) that
- * nobody calls today and strudel uses for its own: '1'.sub(0.3) is subtraction.
+ * nobody calls today and Strudel uses for its own: '1'.sub(0.3) is subtraction.
  */
 const HTML_STRING_METHODS = new Set([
   'sub', 'sup', 'anchor', 'big', 'blink', 'bold', 'fixed', 'fontcolor', 'fontsize', 'italics', 'link', 'small', 'strike',
@@ -338,7 +338,7 @@ const HTML_STRING_METHODS = new Set([
 /**
  * Quoted strings that are the start of a chain: `'1 0'.fast(2)`.
  *
- * In strudel a quoted string is mini-notation, so a chain can start on one.
+ * In Strudel a quoted string is mini-notation, so a chain can start on one.
  * JavaScript sees a string there, which has no .fast(), so these are found and
  * wrapped in mini() before a run. `isMethod` says which names count: a pattern
  * method, and never one a string already has (`'a b'.split(' ')` is left
@@ -390,9 +390,9 @@ const PATTERN_HEADS = /^((sine|cosine|saw|isaw|square|tri|rand|perlin|irand|cat|
 
 /**
  * Lines that make a pattern and hand it to nothing: `'1 0'.fast(2)` or
- * `sine.slow(4)` as a statement of its own. In strudel a line like that
+ * `sine.slow(4)` as a statement of its own. In Strudel a line like that
  * plays; here a pattern only reaches light through a light, so the line does
- * nothing, and a scene pasted from strudel is dark with no error. Returned as
+ * nothing, and a scene pasted from Strudel is dark with no error. Returned as
  * 1-based line numbers, for a warning. `skip` names method calls that do
  * something with a bare pattern (the inline pictures), which are left alone.
  */

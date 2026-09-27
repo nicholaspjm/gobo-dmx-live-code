@@ -1,11 +1,11 @@
 /**
  * A quoted string is a pattern.
  *
- * As in strudel, a string handed to anything that takes a level or a colour
+ * As in Strudel, a string handed to anything that takes a level or a colour
  * reads as mini-notation: wash.dim('1 - 1 -'), wash.color('<red blue>').
  *
- * The parser is strudel's own, handed over by eval.ts once it has loaded, so
- * this module stays free of strudel and the channel code can use it.
+ * The parser is Strudel's own, handed over by eval.ts once it has loaded, so
+ * this module stays free of Strudel and the channel code can use it.
  */
 
 import type { PatternLike } from './dmx.js';

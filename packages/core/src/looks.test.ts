@@ -30,12 +30,12 @@ describe('a named block is a look', () => {
 });
 
 describe('an underscore mutes', () => {
-  it("mutes a block, strudel's _name", () => {
+  it("mutes a block, Strudel's _name", () => {
     // Still declared, as nothing, so cue(verse, …) goes on working.
     expect(rewriteLooks('_verse: {\n  wash.red(1)\n}').code).toBe('const verse = null; if (0) {\n  wash.red(1)\n}');
   });
 
-  it("mutes one line, strudel's _$", () => {
+  it("mutes one line, Strudel's _$", () => {
     expect(rewriteLooks('_$: wash.red(sine)').code).toBe('if (0) wash.red(sine)');
   });
 
@@ -70,7 +70,7 @@ describe('what is left alone', () => {
     expect(rewriteLooks(src).code).toBe(src);
   });
 
-  it("strudel's $: on a single line, which runs as it always did", () => {
+  it("Strudel's $: on a single line, which runs as it always did", () => {
     expect(rewriteLooks('$: wash.red(sine)').code).toBe('$: wash.red(sine)');
   });
 
@@ -115,7 +115,7 @@ describe('a chain that starts on a quoted pattern', () => {
   const pattern = (name: string): boolean => ['fast', 'slow', 'fadeOut'].includes(name);
   const spots = (src: string) => quotedReceivers(src, pattern).map(({ from, to }) => src.slice(from, to));
 
-  it("finds strudel's \"1 0\".fast(2), in either quote", () => {
+  it("finds Strudel's \"1 0\".fast(2), in either quote", () => {
     expect(spots(`wash.dim("1 0".fast(2))`)).toEqual(['"1 0"']);
     expect(spots("wash.dim('1 - - -'.fadeOut(2))")).toEqual(["'1 - - -'"]);
   });

@@ -44,9 +44,9 @@ describe('formatArgs', () => {
 });
 
 describe('what the log leaves out', () => {
-  it("drops strudel's load banner, which gobo says again in its own words", () => {
+  it("drops Strudel's load banner, which gobo says again in its own words", () => {
     expect(isLogNoise('🌀 @strudel/core loaded 🌀')).toBe(true);
-    expect(isLogNoise('[gobo] strudel core loaded')).toBe(false);
+    expect(isLogNoise('[gobo] Strudel core loaded')).toBe(false);
     expect(isLogNoise('🌀 something else 🌀')).toBe(false);
   });
 });

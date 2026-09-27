@@ -109,7 +109,7 @@ type FakePattern = { queryArc(begin: number, end: number): FakeHap[] };
 /**
  * A pattern, as far as anything that takes a colour is concerned.
  *
- * strudel is never imported here. Its entry pulls in a browser-only module and
+ * Strudel is never imported here. Its entry pulls in a browser-only module and
  * will not load under this runner, and it is not needed: `pick()` builds this
  * exact shape, an object whose only member is queryArc handing back haps with a
  * value, so a fake of the same shape is the thing itself rather than a stand-in.

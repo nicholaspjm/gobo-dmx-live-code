@@ -43,18 +43,18 @@ const _values = new Map<string, number>();
 
 /**
  * Builds a live pattern from a reader, once the pattern engine has loaded:
- * strudel's own signal(), so a slider is a pattern like any other and
+ * Strudel's own signal(), so a slider is a pattern like any other and
  * .range(), .mul() and a slider passed to .fast() all work. Without it (a
  * headless test) a slider is a bare value source, which is all a channel needs.
  */
 let _live: ((read: () => number) => PatternLike) | null = null;
 
-/** Called by eval.ts once strudel is ready. */
+/** Called by eval.ts once Strudel is ready. */
 export function setLiveSource(make: ((read: () => number) => PatternLike) | null): void {
   _live = make;
 }
 
-/** How many sliders this run has declared strudel's way, for their names. */
+/** How many sliders this run has declared Strudel's way, for their names. */
 let _unnamed = 0;
 
 /** Where a declared control's position is stored: its key, or its name. */
@@ -126,7 +126,7 @@ export function slider(
     const step = typeof opts === 'number' ? opts : 0;
     _unnamed++;
     // Stored under the number written as well as the label: for these the
-    // number in the code is the position, as in strudel, so editing it moves
+    // number in the code is the position, as in Strudel, so editing it moves
     // the handle there, and a dragged position lasts until the number in the
     // code changes. Nothing is deleted, so if a run fails the scene still
     // playing reads the same values as before.

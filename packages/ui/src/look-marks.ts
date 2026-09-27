@@ -3,7 +3,7 @@
  *
  * A look's name is highlighted where it is declared, `verse:`, so a
  * performance file reads as its cues. A muted block or line (`_verse:`,
- * `_$:`) is dimmed, the way strudel greys a muted pattern: it is still there
+ * `_$:`) is dimmed, the way Strudel greys a muted pattern: it is still there
  * to read and unmute, and plainly not playing. Both come from the same
  * reading of the source that runs it (core looks.ts), so what is dimmed is
  * exactly what is skipped.

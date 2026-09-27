@@ -673,7 +673,7 @@ function recordQueryFailure(def: ChannelDef, err: unknown): void {
 /**
  * The level a hap carries, or null if it carries none.
  *
- * Most operators yield a bare number. Some yield one of strudel's control
+ * Most operators yield a bare number. Some yield one of Strudel's control
  * objects instead, because they were built for sound and carry its parameters
  * alongside the value:
  *
@@ -687,13 +687,13 @@ function recordQueryFailure(def: ChannelDef, err: unknown): void {
  */
 export function levelOf(v: unknown): number | null {
   if (typeof v === 'number') return v;
-  // strudel's struct and inv work in booleans: true is on.
+  // Strudel's struct and inv work in booleans: true is on.
   if (typeof v === 'boolean') return v ? 1 : 0;
   if (v === null || typeof v !== 'object') return null;
   const raw = (v as { value?: unknown }).value;
   const inner = typeof raw === 'boolean' ? (raw ? 1 : 0) : raw;
   if (typeof inner !== 'number') return null;
-  // velocity folds in the same way: strudel users reach for .velocity() to
+  // velocity folds in the same way: Strudel users reach for .velocity() to
   // accent a step, and it is a level by another name.
   const { gain, velocity } = v as { gain?: unknown; velocity?: unknown };
   let level = inner;

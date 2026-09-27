@@ -86,7 +86,7 @@ describe('tagMiniLocations', () => {
   });
 });
 
-describe("strudel's names for the inline visuals", () => {
+describe("Strudel's names for the inline visuals", () => {
   it('tags them with their offset the same way', () => {
     const src = "wash.dim(sine._scope())";
     const out = tagLocations(src).code;
@@ -111,7 +111,7 @@ describe('a bare string handed to a setter', () => {
   });
 });
 
-describe("strudel's unnamed slider", () => {
+describe("Strudel's unnamed slider", () => {
   it('is stamped with where it is written, so its handle lands on that call', () => {
     const src = 'wash.dim(slider(0.5))\nstrb.dim(slider(0.2, 0, 1))';
     const out = tagLocations(src).code;

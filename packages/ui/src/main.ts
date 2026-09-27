@@ -733,7 +733,7 @@ onCueChange((_name, previous) => {
 document.addEventListener('keydown', (e) => {
   // Literal Ctrl, matching the editor's 'Ctrl-' bindings rather than 'Mod-':
   // on a Mac these are ctrl, not cmd, and cmd+enter must stay free. Alt as
-  // well, for strudel's Alt+Enter and Alt+., but never both: Windows sends
+  // well, for Strudel's Alt+Enter and Alt+., but never both: Windows sends
   // ctrl+alt for AltGr, which types characters.
   const alt = e.altKey && !e.ctrlKey;
   if (e.metaKey || (!e.ctrlKey && !alt) || (e.ctrlKey && e.altKey)) return;
@@ -2337,7 +2337,7 @@ const _refreshLibraryAfterEval = (): void => libraryPanel.refresh();
 //
 // Strudel calls this zen mode; "minimal view" says what it is to someone who
 // has not met strudel. Three ways in: alt+m, the button in the bar, and
-// clicking the mark on the left (strudel's own gesture). What it hides is
+// clicking the mark on the left (Strudel's own gesture). What it hides is
 // tucked away and comes back on hover (the CSS in index.html), so nothing is
 // out of reach while it is on.
 //

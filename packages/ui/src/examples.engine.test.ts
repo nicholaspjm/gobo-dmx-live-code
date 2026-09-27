@@ -1,10 +1,10 @@
 /**
  * Scenes run through the real pattern engine.
  *
- * Every other test stubs strudel, which pins what gobo does with a pattern but
- * not that the pattern is the one strudel builds. These run whole scenes the
+ * Every other test stubs Strudel, which pins what gobo does with a pattern but
+ * not that the pattern is the one Strudel builds. These run whole scenes the
  * way the editor does, with @strudel/core and @strudel/mini loaded, and read
- * the DMX that comes out: every bundled example, and each place strudel's
+ * the DMX that comes out: every bundled example, and each place Strudel's
  * music vocabulary was ported to light.
  */
 
@@ -65,7 +65,7 @@ describe('the bundled examples', () => {
   });
 });
 
-describe('strudel written as strudel writes it', () => {
+describe('Strudel written as Strudel writes it', () => {
   it('a chain can start on a quoted pattern', () => {
     run("const w = fixture(1, 'dim')\nw.dim(\"1 0\".fast(2))");
     expect(at(0.1)).toBe(255);
@@ -73,7 +73,7 @@ describe('strudel written as strudel writes it', () => {
     expect(at(0.6)).toBe(255);
   });
 
-  it('a quoted pattern works where strudel takes one: .fast(\'<1 2>\'), stack()', () => {
+  it('a quoted pattern works where Strudel takes one: .fast(\'<1 2>\'), stack()', () => {
     run("const w = fixture(1, 'dim')\nw.dim(mini('1 0').fast('<1 2>'))");
     expect(at(0.3)).toBe(255);
     expect(at(1.3)).toBe(0);
@@ -112,7 +112,7 @@ describe('sound, ported to light', () => {
     expect(at(0.6)).toBe(0);
   });
 
-  it("strudel's release does the same in seconds", () => {
+  it("Strudel's release does the same in seconds", () => {
     run("const w = fixture(1, 'dim')\nw.dim(mini('1 - - -').release(0.5))");  // a beat at 120 BPM
     expect(at(0.375)).toBe(128);
   });
@@ -184,7 +184,7 @@ describe('all() is the grand master', () => {
 });
 
 describe('sliders', () => {
-  it("take strudel's form, slider(value, min, max), and are named in order", () => {
+  it("take Strudel's form, slider(value, min, max), and are named in order", () => {
     run("const w = fixture(1, 'dim')\nw.dim(slider(0.5))");
     expect(at(0.1)).toBe(128);
     expect(core.getControls().map((c) => c.name)).toEqual(['slider 1']);
@@ -329,7 +329,7 @@ describe('what the whole-project review found', () => {
   };
   const errorOf = (code: string): string => core.evalCode(code).error ?? '';
 
-  it("strudel's curried changes and gobo's lighting ones go where a change goes", () => {
+  it("Strudel's curried changes and gobo's lighting ones go where a change goes", () => {
     run("const w = fixture(1, 'dim')\nw.dim('1 - - -'.every(1, fadeOut(2)))");
     expect(at(0.1)).toBe(255);
     expect(at(0.4)).toBeGreaterThan(0);
@@ -423,7 +423,7 @@ describe('what the whole-project review found', () => {
   });
 });
 
-describe('step length, strudel clip and legato', () => {
+describe('step length, Strudel clip and legato', () => {
   it('.clip() lights each step for part of its length', () => {
     run("const w = fixture(1, 'dim')\nw.dim('1 1'.clip(0.25))");
     expect(at(0.05)).toBe(255);
@@ -448,14 +448,14 @@ describe('step length, strudel clip and legato', () => {
 });
 
 describe('a pattern handed to no light', () => {
-  it('is said, naming the line, since in strudel it would play', () => {
+  it('is said, naming the line, since in Strudel it would play', () => {
     const r = core.evalCode("const w = fixture(1, 'dim')\n'1 0'.fast(2)");
     expect(r.success).toBe(true);
     expect(r.warning).toContain('line 2: a pattern on its own reaches no light');
   });
 });
 
-describe("strudel's .color() on a pattern", () => {
+describe("Strudel's .color() on a pattern", () => {
   it('colours each step at its level', () => {
     run("const p = fixture(1, 'rgb')\np.color('1 0.5'.color('red blue'))");
     core.tick(0.1);
@@ -466,7 +466,7 @@ describe("strudel's .color() on a pattern", () => {
 });
 
 describe('a fade whose length is a pattern', () => {
-  it("reads each step's own length, as strudel's .release('<0.1 0.5>') does", () => {
+  it("reads each step's own length, as Strudel's .release('<0.1 0.5>') does", () => {
     run("const w = fixture(1, 'dim')\nw.dim('1 -'.fadeOut('<0 2>'))");
     expect(at(0.75)).toBe(0);
     const tail = at(1.75);

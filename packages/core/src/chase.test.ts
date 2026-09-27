@@ -3,7 +3,7 @@
  * These pin the geometry it generates: which cell gets which phase, and what
  * the options actually change.
  *
- * The waveform is stubbed rather than imported. `sine` comes from strudel,
+ * The waveform is stubbed rather than imported. `sine` comes from Strudel,
  * which does not load under this runner, and the thing worth testing here is
  * the phase per pixel, not the shape of a sine.
  */
@@ -100,7 +100,7 @@ describe('chase', () => {
    * The bug these pin ran silently for as long as `pick()` has existed.
    *
    * A component from `pick()` is a pattern, and `.mul()` looked like the verb
-   * that scales an envelope by one. It is not: strudel reifies a duck-typed
+   * that scales an envelope by one. It is not: Strudel reifies a duck-typed
    * object with `pure()`, so the multiply becomes a union of two control
    * objects rather than a product. The result carries the envelope's own level
    * with the colour hanging off it under a key nothing reads, so the channel

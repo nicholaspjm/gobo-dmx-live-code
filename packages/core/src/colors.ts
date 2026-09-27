@@ -401,7 +401,7 @@ function rgbOf(
 ): readonly [number, number, number] {
   const known = toColorValue(v);
   if (known !== null) {
-    // A colour that picked up a gain on the way (strudel's controls merge
+    // A colour that picked up a gain on the way (Strudel's controls merge
     // into an object value, so red.across(0) is red with a pan and, in a
     // group, a gain) is dimmed by it.
     const levels = levelsOf(known, begin, end);
@@ -415,7 +415,7 @@ function rgbOf(
   // dmx.ts already unwraps as a level, so a colour position reads it as the
   // grey of that level instead of refusing it as "not a colour".
   const level = levelOf(v);
-  // strudel's .color() on a pattern tags each step with a colour: here that
+  // Strudel's .color() on a pattern tags each step with a colour: here that
   // is the step's colour, at the step's level, so '1 0.5'.color('red blue')
   // is a full red then a half blue.
   if (level !== null && v !== null && typeof v === 'object' && 'color' in v) {
@@ -493,7 +493,7 @@ export function readColorStops(args: readonly unknown[], what: string): Color[] 
   }
 
   if (typeof first === 'string' && args.length === 1) {
-    // Any other single string is mini-notation, as in strudel: '<red blue>' is
+    // Any other single string is mini-notation, as in Strudel: '<red blue>' is
     // a colour that changes each bar, and 'red' is red. Every word in it is
     // checked now, so a misspelt colour is an error on the run instead of a
     // dark step later. colorFromToken throws the specific message for a word

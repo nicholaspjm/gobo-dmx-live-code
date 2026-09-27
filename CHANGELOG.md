@@ -4,6 +4,13 @@ All notable changes to gobo are recorded here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Strudel is written with a capital S everywhere: docs, hover help, messages
+  and comments.
+
 ## [0.7.0] - 2026-09-27
 
 ### Added
@@ -27,10 +34,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   Lights drawn on screen keep their own colours.
 - **Strudel's `.color()` on a pattern colours its steps.** `'1 0.5'.color('red blue')`
   handed to a light is a full red then a half blue, where it was white.
-- **Fade lengths can be patterns**, as strudel's envelope lengths are:
+- **Fade lengths can be patterns**, as Strudel's envelope lengths are:
   `.fadeOut('<0.5 2>')` gives a short tail one bar and a long one the next,
   each step reading its own.
-- **`.clip()` and `.legato()` set how long each step stays lit.** In strudel
+- **`.clip()` and `.legato()` set how long each step stays lit.** In Strudel
   they are how long a note sounds; for a light, `'1*8'.clip(0.25)` is eight
   short flashes, and a `.fadeOut()` after it starts where the flash ends.
 
@@ -43,7 +50,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   and the docs, hover help, messages, README and code comments were edited
   to state things directly. Lighting and live-coding terms are unchanged.
 
-- **A pattern on a line of its own is pointed out.** In strudel `'1 0'.fast(2)`
+- **A pattern on a line of its own is pointed out.** In Strudel `'1 0'.fast(2)`
   on its own line plays; here it reaches no light, so the status bar now says
   which line and how to hand it to one. The docs' examples that were bare
   fragments now show a light too.
@@ -56,34 +63,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Added
 
-gobo now reads the way strudel does, and strudel's ideas about sound are
+gobo now reads the way Strudel does, and Strudel's ideas about sound are
 ported to light rather than borrowed as words: a note's envelope is a step's
 fade, a stereo position is a place along the rig, a scale is a palette, the
 global transform is a grand master, and a labelled block is a look.
 
 - **A quoted string is a pattern everywhere, as in strudel.** A chain can
   start on one (`'1 0'.fast(2)`, `"1 - - -".fadeOut(2)`), and a string works
-  wherever strudel takes a pattern (`.fast('<1 2>')`, `stack('1 0', '0 1')`)
+  wherever Strudel takes a pattern (`.fast('<1 2>')`, `stack('1 0', '0 1')`)
   and anywhere a level or a colour is taken: `wash.dim('1 - 1 -')`,
   `wash.color('<red blue>')`, `sine.struct('1 - 1 1')`. `wash.color('red')`
   works where it used to be an error, and a word that is not a colour is
   still named on the run. A string's own methods (`'a b'.split(' ')`) are left
   alone.
 - **Strudel code runs as written in more places.** Signals work without
-  brackets (`sine.slow(4)`, as strudel writes them, as well as `sine()`),
-  Alt+Enter and Alt+. run and stop as they do in strudel, `.velocity()` folds
-  into the level like `gain`, strudel's underscore spellings of the visuals
+  brackets (`sine.slow(4)`, as Strudel writes them, as well as `sine()`),
+  Alt+Enter and Alt+. run and stop as they do in Strudel, `.velocity()` folds
+  into the level like `gain`, Strudel's underscore spellings of the visuals
   gobo shares with it (`._scope()`, `._punchcard()`, `._spiral()`) draw gobo's,
   and `seq`, `arrange`, `xfade`, `mouseX`/`mouseY` and the bipolar signals are
   bound. Strudel's words for sound (`s`, `note`, `n`, `._pianoroll()`) are
   answered in lighting terms rather than aliased: a light has levels, not
   notes, so the error says what the lighting form is.
-- **Changes as values**, the way strudel curries them: `.every(4, fast(2))`,
+- **Changes as values**, the way Strudel curries them: `.every(4, fast(2))`,
   `.chunk(4, mul(0.2))`, `.off(0.25, mul(0.4))`, `register('punch', range(-4,
   1))`. fast, slow, early, late, rev, mul, add, range and the rest are bound
   at the top level. gobo's lighting changes are values too
   (`.every(2, fadeOut(2))`, `all(fadeOut(1))`, `across`, `jux`, `settle`,
-  `adsr`), and more of strudel's curried changes are bound: every, struct,
+  `adsr`), and more of Strudel's curried changes are bound: every, struct,
   chunk, sometimes, often, rarely, euclid, swingBy, superimpose, inside,
   outside, firstOf, lastOf and others.
 - **Fades, `.jux()` and `.across()` work on colour patterns**:
@@ -94,7 +101,7 @@ global transform is a grand master, and a labelled block is a look.
   functions do.
 - **Hex colours** where a colour is taken: `wash.color('#ff8800')`.
 - **`true` reads as on**, where a level is taken.
-- **Looks are named blocks, and an underscore mutes**, as strudel writes them:
+- **Looks are named blocks, and an underscore mutes**, as Strudel writes them:
   `verse: { wash.color(blue) }`, `cue(verse, chorus)`, and `_verse:` or `_$:`
   keeps a block or a line in view without running it. The older object form
   still works.
@@ -102,8 +109,8 @@ global transform is a grand master, and a labelled block is a look.
   `.fadeOut(beats)` lets it keep glowing after the step ends, and
   `.settle(beats, level)` drops each hit to a held level, or to nothing, which
   makes every step a flash. A chase gets its tail: `rig.each('1 - - -'
-  .fadeOut(2))`. This is strudel's note envelope ported to light, so
-  strudel's own `.attack()`, `.decay()`, `.sustain()`, `.release()` and
+  .fadeOut(2))`. This is Strudel's note envelope ported to light, so
+  Strudel's own `.attack()`, `.decay()`, `.sustain()`, `.release()` and
   `.adsr('a:d:s:r')` now do the same thing in seconds, where they used to
   attach a setting no light read.
 - **`each(pattern)`**: every light in a group, or pixel on a strip, runs the
@@ -122,7 +129,7 @@ global transform is a grand master, and a labelled block is a look.
 - **`.across(position)` places a step across a group**: 0 is the first light
   in the group, 1 the last, and a position between two is shared between them.
   `rig.dim('1*8'.across(saw))` walks one light along the rig;
-  `.across(rand)` scatters. It is strudel's stereo `.pan()` with the lights as
+  `.across(rand)` scatters. It is Strudel's stereo `.pan()` with the lights as
   the speakers, and a pasted `.pan()` does the same (on a moving head, `.pan()`
   is still the head's pan channel).
 - **`.fan(width)` spreads a group out around a value**, as a desk fans a row
@@ -144,7 +151,7 @@ global transform is a grand master, and a labelled block is a look.
   fader. A fixture with a master dimmer has only that scaled, one without has
   its colour scaled, and pan, tilt and wheels are never touched. Raw `ch()`
   writes no fixture owns count as dimmers.
-- **Sliders are patterns, and take strudel's form.** `slider(0.8)` starts a
+- **Sliders are patterns, and take Strudel's form.** `slider(0.8)` starts a
   fader at 0.8 (min, max and step can follow), named "slider 1", "slider 2" in
   order, with its handle on its own line. Named sliders still work. Either
   kind now chains (`.range()`, `.mul()`) and can be handed to a method, so
@@ -175,7 +182,7 @@ global transform is a grand master, and a labelled block is a look.
 - In the desktop app and a local `npm start`, the outputs panel no longer
   talks about a connector beside the page: the sender is the gobo that served
   it, and the panel says so.
-- The log panel leaves out strudel's own load banner, which gobo repeats in
+- The log panel leaves out Strudel's own load banner, which gobo repeats in
   its own words a line later.
 - Borderless buttons get a focus ring when reached from the keyboard.
 - The widgets beside the code (colour swatches, meters, strips, waves and the
@@ -341,7 +348,7 @@ global transform is a grand master, and a labelled block is a look.
   carries the state instead, lit while there is something to stop, so the pair
   doubles as the answer to "is anything going out right now".
 
-- **Twelve editor settings, from strudel's list.** Line numbers, the
+- **Twelve editor settings, from Strudel's list.** Line numbers, the
   active-line tint, bracket matching, auto-closing brackets, line wrapping,
   autocomplete, hover help, event highlighting, multiple cursors, block
   evaluation, a flash when a run lands, and a kill switch for every animation
@@ -414,7 +421,7 @@ global transform is a grand master, and a labelled block is a look.
 - **The fixture library is the "fixtures" tab.** The old name said where the
   definitions were kept. The new one says what they are.
 
-- **The performance view is zen mode**, which is what strudel calls it, so
+- **The performance view is zen mode**, which is what Strudel calls it, so
   someone arriving from there does not have to discover gobo's own word for the
   same thing. Three ways in: `Alt+M`, the button, and clicking the mark at the
   top left. The five settings behind it were renamed with it and are adopted
@@ -520,9 +527,9 @@ global transform is a grand master, and a labelled block is a look.
   patterns using a pattern of indices — the live-coding way to move between looks,
   where the switch is written into the pattern rather than performed on a button.
   The methods were already on the prototype and simply undocumented; the standalone
-  forms are now passed through too, under strudel's own names. `pick` itself could
+  forms are now passed through too, under Strudel's own names. `pick` itself could
   not come through: gobo took it for the colour wheel first, so the bare function is
-  gobo's picker and the method is strudel's chooser.
+  gobo's picker and the method is Strudel's chooser.
 
 - **`cue({ verse, chorus })`: change which look is live without typing.** One
   file is one performance and a look inside it is a function you wrote, and the
@@ -934,7 +941,7 @@ First public release. There was never a published 0.1.0. Everything below landed
 
 ### Added
 
-- **Pattern engine.** `sine()`, `cosine()`, `square()`, `saw()`, `rand()` built on [@strudel/core](https://strudel.cc), with the usual chain methods (`.slow` / `.fast` / `.range` / `.add` / `.mul` / `.early` / `.late`). Patterns are sampled once per tick and written straight into DMX buffers. If strudel fails to load, evaluation is refused with a clear message rather than degrading to approximate waveforms.
+- **Pattern engine.** `sine()`, `cosine()`, `square()`, `saw()`, `rand()` built on [@strudel/core](https://strudel.cc), with the usual chain methods (`.slow` / `.fast` / `.range` / `.add` / `.mul` / `.early` / `.late`). Patterns are sampled once per tick and written straight into DMX buffers. If Strudel fails to load, evaluation is refused with a clear message rather than degrading to approximate waveforms.
 - **Mini-notation sequencing.** `mini()` / `m()` from `@strudel/mini`, plus `sequence()`, `cat()`, `stack()`. Write a drum grid per channel (`spot.white(mini('1 - - 1'))`) instead of hand-rolling envelopes.
 - **`register(name, fn)`.** Define custom chain methods from editor code. They attach to the Pattern prototype and survive `.slow()` / `.fast()` / `.add()` chains.
 - **Fixture system.** `fixture(startChannel, id, universe)` returns one setter per named channel. Built-in profiles: `dim`, `rgb`, `rgbw`, `rgba`, `dim-rgb`, `dim-rgbw`, `moving-head-basic`, `moving-head-spot`, `strobe`. `defineFixture(id, def)` declares custom profiles inline.

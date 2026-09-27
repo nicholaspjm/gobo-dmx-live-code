@@ -227,7 +227,7 @@ function setterStringEdits(source: string): Edit[] {
 }
 
 /**
- * `slider(0.5, …)` becomes `slider.at(offsetOfTheName)(0.5, …)`: strudel's
+ * `slider(0.5, …)` becomes `slider.at(offsetOfTheName)(0.5, …)`: Strudel's
  * unnamed slider, stamped with where it is written, so its handle lands on
  * this call and no other. A named slider, slider('level'), is left alone.
  */
@@ -248,7 +248,7 @@ function sliderEdits(source: string): Edit[] {
 }
 
 /**
- * `'1 0'.fast(2)` becomes `m('1 0', offsetOfTheQuote).fast(2)`: strudel's chain
+ * `'1 0'.fast(2)` becomes `m('1 0', offsetOfTheQuote).fast(2)`: Strudel's chain
  * on a quoted pattern, outlined live like any other. The editor does not know
  * the engine's method list, so anything a string itself lacks counts; the
  * engine makes the same rewrite with its own list for code run without it.

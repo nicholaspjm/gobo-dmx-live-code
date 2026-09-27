@@ -120,7 +120,7 @@ export const DOCS: DocSection[] = [
     category: 'welcome',
     title: 'gobo',
     blurb:
-      'Live DMX coding in the browser, in strudel\'s pattern language. Patterns drive fixtures through a USB DMX box, TouchDesigner, Art-Net or sACN hardware, or the simulation alone. Ctrl+Enter runs your code, Ctrl+. stops. Hover a fixture in the sim panel for its live channel values.',
+      'Live DMX coding in the browser, in Strudel\'s pattern language. Patterns drive fixtures through a USB DMX box, TouchDesigner, Art-Net or sACN hardware, or the simulation alone. Ctrl+Enter runs your code, Ctrl+. stops. Hover a fixture in the sim panel for its live channel values.',
     entries: [],
   },
   {
@@ -388,22 +388,22 @@ export const DOCS: DocSection[] = [
 
   {
     category: 'welcome',
-    title: 'coming from strudel',
+    title: 'coming from Strudel',
     blurb:
-      "gobo runs strudel's own pattern engine, so the language is the one you know: signals, mini-notation, method chains, curried changes. The output differs: a channel takes a level from 0 to 1 instead of a note, so strudel's ideas about sound map to lighting ones, listed here.",
+      "gobo runs Strudel's own pattern engine, so the language is the one you know: signals, mini-notation, method chains, curried changes. The output differs: a channel takes a level from 0 to 1 instead of a note, so Strudel's ideas about sound map to lighting ones, listed here.",
     entries: [
       {
         name: 'sounds → lights',
         signature: "s('bd')  →  fixture(1, 'rgb')",
         description:
-          "A strudel pattern plays a sound; a gobo pattern drives a light. Patch each light at the DMX address set on it, then give its channels patterns. There are no samples to load: fixtures are what a scene loads, from the fixtures tab or with defineFixture().",
+          "A Strudel pattern plays a sound; a gobo pattern drives a light. Patch each light at the DMX address set on it, then give its channels patterns. There are no samples to load: fixtures are what a scene loads, from the fixtures tab or with defineFixture().",
         example: "const wash = fixture(1, 'rgb')\nwash.color(blue)\nwash.dim('1 - 1 -')",
       },
       {
         name: 'notes → levels and colours',
         signature: "note('c e g')  →  '1 0.5 0'  ·  '<red blue>'",
         description:
-          "A step is a level from 0 to 1, or a colour name where a colour is taken. A quoted string is mini-notation, as in strudel, and - or ~ is a rest. It is a pattern wherever one is taken, .fast('<1 2>') included, and a chain can start on it: '1 - 1 -'.fadeOut(2).",
+          "A step is a level from 0 to 1, or a colour name where a colour is taken. A quoted string is mini-notation, as in Strudel, and - or ~ is a rest. It is a pattern wherever one is taken, .fast('<1 2>') included, and a chain can start on it: '1 - 1 -'.fadeOut(2).",
         example: "wash.dim('1 [1 1] - 0.5')\nwash.color('<red amber blue>')",
       },
       {
@@ -424,28 +424,28 @@ export const DOCS: DocSection[] = [
         name: 'attack, decay, release → fades',
         signature: '.fadeIn(beats)  ·  .settle(beats, level)  ·  .fadeOut(beats)',
         description:
-          "strudel shapes every note with an envelope; gobo shapes every step with a fade. fadeIn is attack, settle is decay to a sustain level, fadeOut is release: the tail a light keeps after its step. They take beats, so they follow the tempo. strudel's own names (.attack .decay .sustain .release .adsr) work too, in seconds as strudel means them.",
+          "Strudel shapes every note with an envelope; gobo shapes every step with a fade. fadeIn is attack, settle is decay to a sustain level, fadeOut is release: the tail a light keeps after its step. They take beats, so they follow the tempo. Strudel's own names (.attack .decay .sustain .release .adsr) work too, in seconds as Strudel means them.",
         example: "strb.dim('1 1 1 1'.settle(0.25))           // a flash per beat\npars.each('1 - - -'.fadeOut(2))            // a chase with tails",
       },
       {
         name: 'pan → across',
         signature: '.across(position)',
         description:
-          "strudel's stereo position, with the lights as the speakers: 0 is the first light in a group, 1 the last. A pasted .pan() does the same, except on a moving head, where .pan() is the head's own pan channel.",
+          "Strudel's stereo position, with the lights as the speakers: 0 is the first light in a group, 1 the last. A pasted .pan() does the same, except on a moving head, where .pan() is the head's own pan channel.",
         example: "pars.dim('1*8'.across(saw))   // one light walks the rig",
       },
       {
         name: 'all → the grand master',
         signature: 'all(mul(slider(1)))',
         description:
-          "strudel's all() changes every pattern that is playing. Here it changes every channel that makes light, which is a grand master: dimmers where a fixture has one, colour where it does not, and never pan, tilt or a wheel.",
+          "Strudel's all() changes every pattern that is playing. Here it changes every channel that makes light, which is a grand master: dimmers where a fixture has one, colour where it does not, and never pan, tilt or a wheel.",
         example: "all(mul(slider(1)))",
       },
       {
         name: 'jux → the two halves of a rig',
         signature: '.jux(change)',
         description:
-          "strudel's jux plays a changed copy in the right speaker. Across a group, the left half of the lights runs the pattern and the right half runs the change, so a chase can mirror across the room.",
+          "Strudel's jux plays a changed copy in the right speaker. Across a group, the left half of the lights runs the pattern and the right half runs the change, so a chase can mirror across the room.",
         example: "pars.dim('1 - - -'.jux(rev))",
       },
       {
@@ -466,7 +466,7 @@ export const DOCS: DocSection[] = [
         name: 'visuals',
         signature: '.roll()  ·  .wave()  ·  .punchcard()  ·  .spiral()',
         description:
-          "Drawn beside the line, as strudel's inline ones are, and spelled ._scope(), ._punchcard() and ._spiral() as well. There is no pianoroll, because a light has levels rather than notes: .roll() is the level drawn across the cycle.",
+          "Drawn beside the line, as Strudel's inline ones are, and spelled ._scope(), ._punchcard() and ._spiral() as well. There is no pianoroll, because a light has levels rather than notes: .roll() is the level drawn across the cycle.",
         example: "wash.dim(sine.slow(2).roll())",
       },
       {
@@ -542,7 +542,7 @@ export const DOCS: DocSection[] = [
         name: '.pickSqueeze · .squeeze',
         signature: '.pickSqueeze([sparse, busy])',
         description:
-          'Fits the whole chosen pattern into the step that chose it, so a whole pattern plays out inside one step rather than being sampled by it. Two names for one join, both strudel\'s.',
+          'Fits the whole chosen pattern into the step that chose it, so a whole pattern plays out inside one step rather than being sampled by it. Two names for one join, both Strudel\'s.',
         example: "wash.red('<0 1>'.pickSqueeze([sparse, busy]))",
       },
       {
@@ -556,7 +556,7 @@ export const DOCS: DocSection[] = [
         name: 'pick and .pick',
         signature: 'pick(name) vs .pick(list)',
         description:
-          "Two different things share the name. Bare pick('warm') is gobo's colour wheel, a control with a swatch beside it. Chained .pick([…]) is strudel's chooser, described above. The dot tells them apart, and the chained form is the one strudel's own documentation uses.",
+          "Two different things share the name. Bare pick('warm') is gobo's colour wheel, a control with a swatch beside it. Chained .pick([…]) is Strudel's chooser, described above. The dot tells them apart, and the chained form is the one Strudel's own documentation uses.",
       },
     ],
   },
@@ -578,7 +578,7 @@ export const DOCS: DocSection[] = [
         name: '.clip · .legato',
         signature: '.clip(fraction) · .legato(fraction)',
         description:
-          "How much of each step is lit, from its start: .clip(0.25) is a quarter. strudel uses these for how long a note sounds; here it is how long a step stays on, so '1*8'.clip(0.25) is eight short flashes rather than a solid bar. A fade out after it starts where the flash ends.",
+          "How much of each step is lit, from its start: .clip(0.25) is a quarter. Strudel uses these for how long a note sounds; here it is how long a step stays on, so '1*8'.clip(0.25) is eight short flashes rather than a solid bar. A fade out after it starts where the flash ends.",
         example: "strb.dim('1*8'.clip(0.25))              // eight short flashes\npars.each('1 - - -'.clip(0.5).fadeOut(2))   // a short hit with a tail",
       },
       {
@@ -648,7 +648,7 @@ export const DOCS: DocSection[] = [
         name: 'cue',
         signature: 'cue(verse, chorus, breakdown)',
         description:
-          "A look is a block with a name, the way a desk has a cue: everything inside it is what the rig does while that look is up. cue() offers the looks it is given and runs whichever one is selected, with a chip for each under the editor, alt+1…9, or a MIDI program change. The chip reads the block's name, so the label and the code cannot drift apart. An underscore in front of a name (_verse:) mutes the block, as in strudel, without commenting it out. Returns the name it ran.",
+          "A look is a block with a name, the way a desk has a cue: everything inside it is what the rig does while that look is up. cue() offers the looks it is given and runs whichever one is selected, with a chip for each under the editor, alt+1…9, or a MIDI program change. The chip reads the block's name, so the label and the code cannot drift apart. An underscore in front of a name (_verse:) mutes the block, as in Strudel, without commenting it out. Returns the name it ran.",
         example:
           "const wash = rgbStrip(1, 8)\n\nverse: {\n  wash.color(blue)\n}\nchorus: {\n  wash.color(red)\n}\nbreakdown: {\n  wash.mono(pulse(4))\n}\n\ncue(verse, chorus, breakdown)",
       },
@@ -1192,14 +1192,14 @@ export const DOCS: DocSection[] = [
         name: 'colours',
         signature: 'red · orange · amber · yellow · green · cyan · blue · purple · magenta · pink · white',
         description:
-          'A colour is a value. Two ways to say one: a predefined name from this list, or a mix of three numbers from 0 to 1. Both reach every call that takes a colour. In quotes a name is mini-notation, as in strudel, so \'red\' is red and \'<red blue>\' changes each bar; a word that is not a colour is named when the scene runs. White here is the r,g,b mix; on a fixture with a dedicated white emitter, use .full() to light every emitter. Slot names on a wheel stay quoted, because they are the manufacturer\'s labels for mechanical positions rather than colours you can mix.',
+          'A colour is a value. Two ways to say one: a predefined name from this list, or a mix of three numbers from 0 to 1. Both reach every call that takes a colour. In quotes a name is mini-notation, as in Strudel, so \'red\' is red and \'<red blue>\' changes each bar; a word that is not a colour is named when the scene runs. White here is the r,g,b mix; on a fixture with a dedicated white emitter, use .full() to light every emitter. Slot names on a wheel stay quoted, because they are the manufacturer\'s labels for mechanical positions rather than colours you can mix.',
         example: 'wash.pixels.chase(red)\nwash.color(1, 0.4, 0)\nwash.pixels.chase(1, 0.4, 0, { cycles: 2 })',
       },
       {
         name: '.stut · .linger · .when',
         signature: '.stut(n, feedback, time) · .linger(fraction) · .when(pattern, change)',
         description:
-          'Three methods from strudel\'s Pattern. .stut repeats n times, each dimmer than the last, which is an echo that decays. .linger repeats the first fraction of a cycle for the whole cycle, a hold or a stutter. .when applies a transformation only on cycles where its test passes, so a scene can change every fourth bar without a second pattern.',
+          'Three methods from Strudel\'s Pattern. .stut repeats n times, each dimmer than the last, which is an echo that decays. .linger repeats the first fraction of a cycle for the whole cycle, a hold or a stutter. .when applies a transformation only on cycles where its test passes, so a scene can change every fourth bar without a second pattern.',
         example:
           "wash.dim(flash().stut(4, 0.6, 0.125))\nwash.dim(mini('1 0 0 0').linger(0.25))\nwash.dim(sine.when(mini('<1 0 0 0>'), fast(4)))",
       },
@@ -1207,7 +1207,7 @@ export const DOCS: DocSection[] = [
         name: 'hush · setcps · setcpm',
         signature: 'hush() · setcps(cps) · setcpm(cpm)',
         description:
-          "hush() takes everything dark from inside the scene, dropping every channel it has driven. setcps and setcpm are the tempo as strudel writes it, so code pasted from strudel runs rather than stopping on an undefined name. One gobo cycle is one bar of four beats, so setcpm(30) is setBPM(120).",
+          "hush() takes everything dark from inside the scene, dropping every channel it has driven. setcps and setcpm are the tempo as Strudel writes it, so code pasted from Strudel runs rather than stopping on an undefined name. One gobo cycle is one bar of four beats, so setcpm(30) is setBPM(120).",
         example: 'setcpm(30)\nsetcps(0.5)\nhush()',
       },
       {
@@ -1460,7 +1460,7 @@ export const DOCS: DocSection[] = [
         name: 'mini',
         signature: "mini('1 - 0.5 -')",
         description:
-          "Parse mini-notation into a Pattern<number>. Each space-separated token is one step; tokens split one scheduler cycle equally. Numeric tokens ('1', '0.5', '0') are levels, which gives per-step brightness. A word is not a level: on a dimmer that step stays dark and the status bar names the word. Colour names go to .color(), as in wash.color(mini('<red blue>')). Aliased as m(). Returns a regular Pattern, so .slow / .fast / .range / .glow / .flash all chain afterwards. Anywhere a level or a colour is taken, a quoted string on its own reads as mini-notation too, as in strudel: wash.dim('1 - 1 -'), wash.color('<red blue>'). A chain can start on one, as in strudel: wash.dim('1 0'.fast(2)), in single or double quotes.",
+          "Parse mini-notation into a Pattern<number>. Each space-separated token is one step; tokens split one scheduler cycle equally. Numeric tokens ('1', '0.5', '0') are levels, which gives per-step brightness. A word is not a level: on a dimmer that step stays dark and the status bar names the word. Colour names go to .color(), as in wash.color(mini('<red blue>')). Aliased as m(). Returns a regular Pattern, so .slow / .fast / .range / .glow / .flash all chain afterwards. Anywhere a level or a colour is taken, a quoted string on its own reads as mini-notation too, as in Strudel: wash.dim('1 - 1 -'), wash.color('<red blue>'). A chain can start on one, as in Strudel: wash.dim('1 0'.fast(2)), in single or double quotes.",
         example:
           "spot.dim(mini('1 - 1 -'))\nwash.red(mini('1 0.5 0 0.5'))\nstrb.strobe(m('1 - 1 -').flash())",
       },
@@ -1855,13 +1855,13 @@ export const DOCS: DocSection[] = [
     category: 'patterns',
     title: 'choosing and shuffling',
     blurb:
-      'Ways to pick, reorder or vary, all with strudel\'s own names so a pattern copied from its docs runs here.',
+      'Ways to pick, reorder or vary, all with Strudel\'s own names so a pattern copied from its docs runs here.',
     entries: [
       {
         name: 'sound methods',
         signature: "sine.gain(0.5)  ·  .room(…)  ·  .s('bd')",
         description:
-          'Patterns copied from strudel mostly run, because gobo runs strudel\'s own engine under strudel\'s names; the coming from strudel page on the welcome tab has the differences. Many of those methods describe sound. What happens is decided where a value reaches a channel: a plain number is the level, and a wrapped value is unwrapped so the level underneath still drives the light instead of reading as nothing. gain is kept, because gain is amplitude and amplitude is level, and so is velocity, which is how strudel accents a step. Both multiply, which is what makes .stut() and .echo() decay instead of repeating at full. speed, pan, room, crush, note and the sample name are ignored. Nothing errors, so a pasted pattern runs.',
+          'Patterns copied from Strudel mostly run, because gobo runs Strudel\'s own engine under Strudel\'s names; the coming from Strudel page on the welcome tab has the differences. Many of those methods describe sound. What happens is decided where a value reaches a channel: a plain number is the level, and a wrapped value is unwrapped so the level underneath still drives the light instead of reading as nothing. gain is kept, because gain is amplitude and amplitude is level, and so is velocity, which is how Strudel accents a step. Both multiply, which is what makes .stut() and .echo() decay instead of repeating at full. speed, pan, room, crush, note and the sample name are ignored. Nothing errors, so a pasted pattern runs.',
         example: "wash.dim(flash().stut(4, 0.6, 0.125))   // gain folds in: the repeats decay\nwash.red(sine.gain(0.5))              // half level\nwash.red(sine.room(0.8))              // room ignored, sine drives it",
       },
       {
@@ -1919,7 +1919,7 @@ export const DOCS: DocSection[] = [
         name: 'polymeter · polyrhythm',
         signature: 'polymeter(a, b)  ·  polyrhythm(a, b)',
         description:
-          'The function forms of the {a, b} and [a, b] notations. polymeter steps every pattern at the same rate, so different lengths drift against each other; polyrhythm squeezes each into the same cycle, so they stay aligned but subdivide differently. pm and pr are strudel\'s short names for them.',
+          'The function forms of the {a, b} and [a, b] notations. polymeter steps every pattern at the same rate, so different lengths drift against each other; polyrhythm squeezes each into the same cycle, so they stay aligned but subdivide differently. pm and pr are Strudel\'s short names for them.',
         example: "wash.red(polymeter(mini('1 0'), mini('0.4 0.4 0.4')))",
       },
     ],

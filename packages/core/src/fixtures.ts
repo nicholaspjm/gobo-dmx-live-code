@@ -1556,7 +1556,7 @@ export function fixture(
       // reader's messages. The component path would complain about arity
       // ("needs all 3 of r, g, b (got 1)"), which is no help to someone who
       // has typed a colour.
-      // A quoted colour is mini-notation, as in strudel, so it reads the same as
+      // A quoted colour is mini-notation, as in Strudel, so it reads the same as
       // a pattern of colour names: `wash.color('red')`, `wash.color('<red blue>')`.
       // A pattern of colour names on a fixture with no wheel: one colour that
       // changes with the pattern, so `wash.color(mini('r - g - b'))` works.
@@ -3619,7 +3619,7 @@ function eachXYFunction<R>(
 /**
  * Strudel's pan, ported from a stereo field to a row of lights.
  *
- * In strudel `.pan(x)` puts a sound between the left speaker (0) and the right
+ * In Strudel `.pan(x)` puts a sound between the left speaker (0) and the right
  * (1). Across a group the lights are the speakers: a step panned to 0 lands on
  * the first, 1 on the last, and a position between two lights is shared
  * between them, so `rig.dim(mini('1*8').across(saw))` walks one light along the
@@ -3876,7 +3876,7 @@ export function group(...members: GroupMember[]): GroupInstance {
 // Higher-level scene recipes exposed as methods on the strip instances. They
 // need access to the waveform factories (sine / cosine), which live in the
 // eval sandbox, so eval.ts injects them here via setStripEffectWaveforms()
-// once strudel is loaded. rainbowChase() called before that is a no-op rather
+// once Strudel is loaded. rainbowChase() called before that is a no-op rather
 // than a thrown error, since the setup is otherwise automatic.
 
 /**
@@ -3896,7 +3896,7 @@ export interface RainbowChaseOptions {
 }
 
 // The waveform types are `any` because sine() / cosine() return values carry
-// chain methods added dynamically by strudel's prototype, which don't fit the
+// chain methods added dynamically by Strudel's prototype, which don't fit the
 // static PatternLike interface.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _sineFactory: (() => any) | null = null;
@@ -3904,7 +3904,7 @@ let _sineFactory: (() => any) | null = null;
 let _cosineFactory: (() => any) | null = null;
 
 /**
- * Inject the waveform factories. Called from eval.ts right after strudel
+ * Inject the waveform factories. Called from eval.ts right after Strudel
  * is set up.
  */
 export function setStripEffectWaveforms(
