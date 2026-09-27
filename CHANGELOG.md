@@ -41,6 +41,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   on its own line plays; here it reaches no light, so the status bar now says
   which line and how to hand it to one. The docs' examples that were bare
   fragments now show a light too.
+- Scrollbars and dropdown lists follow the theme, dark on a dark theme and
+  light on a light one, where they were always the browser's light default.
 - Fades are back to their earlier speed on long strips: the second look at
   a continuous signal is only taken when the pattern has one.
 

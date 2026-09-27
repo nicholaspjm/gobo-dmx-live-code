@@ -1028,6 +1028,9 @@ export function applyTheme(id: ThemeId, opts: { black?: boolean } = {}): void {
   // A boolean attribute on <html> lets CSS make tiny per-theme tweaks
   // without inventing a new variable for every nuance.
   root.setAttribute('data-theme', id);
+  // Native controls (scrollbars, the list a <select> drops) follow the
+  // theme's ground rather than the browser's default light.
+  root.style.colorScheme = luminance(vars.bg) < 0.18 ? 'dark' : 'light';
   // Re-sync the shared colour bag for canvas/JS consumers.
   Object.assign(COLORS, vars);
 }
