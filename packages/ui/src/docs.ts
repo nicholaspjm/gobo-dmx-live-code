@@ -156,21 +156,21 @@ export const DOCS: DocSection[] = [
         name: 'artnet',
         signature: "artnet(host='127.0.0.1', port=6454)",
         description:
-          'Needs the connector. Sends Art-Net DMX packets via the bridge. host is the destination, never your own machine: either the IP printed on your node, or the broadcast address of its subnet (192.168.0.255 reaches everything on 192.168.0.x). Your computer has to be on that subnet, which is the usual reason nothing arrives. Port defaults to 6454. One ArtDmx packet per universe per tick, so multi-universe works by putting fixtures on different universes.',
+          'Needs the connector. Sends Art-Net DMX packets through it. host is the destination, never your own machine: either the IP printed on your node, or the broadcast address of its subnet (192.168.0.255 reaches everything on 192.168.0.x). Your computer has to be on that subnet, which is the usual reason nothing arrives. Port defaults to 6454. One ArtDmx packet per universe per tick, so multi-universe works by putting fixtures on different universes.',
         example: "artnet('2.0.0.100')",
       },
       {
         name: 'osc',
         signature: "osc(host='127.0.0.1', port=9000)",
         description:
-          'Needs the connector: OSC travels as the same kind of network packet as Art-Net, so it is not an install-free option. Send every active channel as an OSC message via the bridge. host is the DESTINATION: the machine running the receiver, or 127.0.0.1 if that is this machine. Address format: /gobo/<universe>/<channel>, one float arg in [0,1]. Works with the TouchDesigner OSC In CHOP.',
+          'Needs the connector: OSC travels as the same kind of network packet as Art-Net, so it is not an install-free option. Send every active channel as an OSC message through it. host is the DESTINATION: the machine running the receiver, or 127.0.0.1 if that is this machine. Address format: /gobo/<universe>/<channel>, one float arg in [0,1]. Works with the TouchDesigner OSC In CHOP.',
         example: "osc('127.0.0.1', 9000)",
       },
       {
         name: 'sacn',
         signature: 'sacn(universe=1, priority=100)',
         description:
-          'Needs the connector, for the same reason as Art-Net. Multicast sACN (E1.31) packets via the bridge. Priority 1-200, universe 1-63999.',
+          'Needs the connector, for the same reason as Art-Net. Multicast sACN (E1.31) packets through it. Priority 1-200, universe 1-63999.',
         example: 'sacn(1, 100)',
       },
       {
@@ -191,7 +191,7 @@ export const DOCS: DocSection[] = [
         name: 'mock',
         signature: 'mock()',
         description:
-          "Needs the connector, because the printing happens inside it. Console-log mode: nothing goes out over UDP or WebSocket; the bridge prints active channels ~2x per second. Use it to verify patterns with the rig off.",
+          "Needs the connector, because the printing happens inside it. Console-log mode: nothing goes out over UDP or WebSocket; the connector prints active channels ~2x per second. Use it to verify patterns with the rig off.",
         example: 'mock()',
       },
     ],
@@ -313,7 +313,7 @@ export const DOCS: DocSection[] = [
     entries: [
       {
         name: 'fixture',
-        signature: "fixture(startChannel, id, universe=0)",
+        signature: "fixture(startChannel, id, universe = 0)",
         description:
           "Create a fixture instance. Returns an object with one setter per named channel (e.g. .red(), .dim(), .pan()) plus generic helpers .color(r,g,b[,w]), .off(), .full(). Built-in ids: dim, rgb, rgbw, rgba, dim-rgb, dim-rgbw, moving-head-basic, moving-head-spot, strobe. (The old `generic-*` ids still resolve via alias.) Universe defaults to 0 (matches Art-Net / TouchDesigner's first-universe convention).",
         example:
@@ -378,7 +378,7 @@ export const DOCS: DocSection[] = [
       },
       {
         name: 'press it again to black out',
-        signature: 'ctrl+. · ctrl+. ',
+        signature: 'ctrl+., then ctrl+. again',
         description:
           'Under freeze, pressing the key again clears everything, and the status line offers it while something is still lit. Freeze on its own leaves no key that can darken the rig, because the clock is stopped and hush() needs a scene to run.',
       },
@@ -413,31 +413,31 @@ export const DOCS: DocSection[] = [
       },
       {
         name: 'scales → palettes',
-        signature: "n('0 2 4').scale('C:major')  →  mini('0 1 2').palette(warm)",
+        signature: "n('0 2 4').scale('C:major')  →  '0 1 2'.palette(warm)",
         description:
           "A scale is the set of notes a melody picks from; a palette is the set of colours a look picks from. .palette() turns numbers into its colours, wrapping past the end as a scale wraps into the next octave, and blending between two for a number in between.",
-        example: "const warm = [amber, orange, red]\nwash.color(mini('<0 1 2>').palette(warm))\nwash.color(saw.slow(8).mul(3).palette('red amber white'))",
+        example: "const warm = [amber, orange, red]\nwash.color('<0 1 2>'.palette(warm))\nwash.color(saw.slow(8).mul(3).palette('red amber white'))",
       },
       {
         name: 'gain, velocity → level',
         signature: '.gain(x)  ·  .velocity(x)',
         description:
           'Both scale the level, which is what they mean for a light: .velocity() is how a step is accented, and .echo() and .stut() come back dimmer each time.',
-        example: "wash.dim(mini('1 1 1 1').velocity('1 0.5 0.7 0.3'))",
+        example: "wash.dim('1 1 1 1'.velocity('1 0.5 0.7 0.3'))",
       },
       {
         name: 'attack, decay, release → fades',
         signature: '.fadeIn(beats)  ·  .settle(beats, level)  ·  .fadeOut(beats)',
         description:
           "strudel shapes every note with an envelope; gobo shapes every step with a fade. fadeIn is attack, settle is decay to a sustain level, fadeOut is release: the tail a light keeps after its step. They take beats, so they follow the tempo. strudel's own names (.attack .decay .sustain .release .adsr) work too, in seconds as strudel means them.",
-        example: "strb.dim(mini('1 1 1 1').settle(0.25))           // a flash per beat\npars.each(mini('1 - - -').fadeOut(2))            // a chase with tails",
+        example: "strb.dim('1 1 1 1'.settle(0.25))           // a flash per beat\npars.each('1 - - -'.fadeOut(2))            // a chase with tails",
       },
       {
         name: 'pan → across',
         signature: '.across(position)',
         description:
           "strudel's stereo position, with the lights as the speakers: 0 is the first light in a group, 1 the last. A pasted .pan() does the same, except on a moving head, where .pan() is the head's own pan channel.",
-        example: "pars.dim(mini('1*8').across(saw))   // one light walks the rig",
+        example: "pars.dim('1*8'.across(saw))   // one light walks the rig",
       },
       {
         name: 'all → the grand master',
@@ -451,7 +451,7 @@ export const DOCS: DocSection[] = [
         signature: '.jux(change)',
         description:
           "strudel's jux plays a changed copy in the right speaker. Across a group, the left half of the lights runs the pattern and the right half runs the change, so a chase can mirror across the room.",
-        example: "pars.dim(mini('1 - - -').jux(rev))",
+        example: "pars.dim('1 - - -'.jux(rev))",
       },
       {
         name: '$: and labels → looks',
@@ -465,7 +465,7 @@ export const DOCS: DocSection[] = [
         signature: 'sine.slow(4)  ·  .every(4, fast(2))  ·  setcpm(30)',
         description:
           "Signals are written bare or called, both work. Changes are curried values, as in strudel. Tempo: one cycle is one bar of four beats, so setcpm(30) is 120 BPM, and setBPM(120) says the same in a lighting desk's words. hush() takes everything dark. Ctrl+Enter or Alt+Enter runs, Ctrl+. or Alt+. stops.",
-        example: "wash.dim(sine.slow(4))\nwash.dim(mini('1 - 1 -').every(4, fast(2)))",
+        example: "wash.dim(sine.slow(4))\nwash.dim('1 - 1 -'.every(4, fast(2)))",
       },
       {
         name: 'visuals',
@@ -476,9 +476,9 @@ export const DOCS: DocSection[] = [
       },
       {
         name: 'different on purpose',
-        signature: 'ctrl+space  ·  "…".fast(2)  ·  sound effects',
+        signature: 'ctrl+space  ·  sound effects',
         description:
-          "Ctrl+Space stops, because a performer asked for a panic key that does not need the full stop. A method on a bare string is not supported: start with mini('…') to chain. Effects that only make sense for sound (room, delay, crush, speed) are ignored rather than refused, so a pasted pattern still runs.",
+          "Ctrl+Space stops too: it is the same stop as Ctrl+., on a second key. Effects that only make sense for sound (room, delay, crush, speed) are ignored rather than refused, so a pasted pattern still runs.",
       },
     ],
   },
@@ -499,7 +499,7 @@ export const DOCS: DocSection[] = [
         name: 'why it exists',
         signature: 'ctrl+enter commits everything',
         description:
-          'Not for keeping other looks alive: a whole-document run already does that, invisibly. The clock is never reset by a run and every control keeps its position, so re-running unchanged code cannot be seen on the rig. This is about what a keypress commits. Nudge a level in the look that is lit and the half-written look you were drafting for the next song goes live with it, as long as it happens to parse.',
+          'Not for keeping other looks alive: a whole-document run already does that, invisibly. The clock is never reset by a run and every control keeps its position, so re-running unchanged code cannot be seen on the rig. This is about what a keypress commits. Nudge a level in the look that is lit and the half-written look you were drafting for the next part of the set goes live with it, as long as it happens to parse.',
       },
       {
         name: 'a broken line elsewhere stops blocking you',
@@ -524,38 +524,38 @@ export const DOCS: DocSection[] = [
 
   {
     category: 'patterns',
-    title: 'choosing between looks, in the pattern',
+    title: 'choosing between patterns',
     blurb:
-      "The live-coding way to move between looks: the switch is written into the pattern, so the document still says everything about what the rig will do and nobody has to press anything. A look here is just a pattern you named.",
+      "The live-coding way to move between patterns: the switch is written into the pattern, so the document still says everything about what the rig will do and nobody has to press anything. These choose between plain patterns you named; to switch between looks, use cue().",
     entries: [
       {
         name: '.pick',
-        signature: '.pick([verse, chorus])',
+        signature: '.pick([sparse, busy])',
         description:
-          "Chooses between whole patterns using a pattern of indices. The indices are a pattern like any other, so <0 1 1 2> alternates per cycle, '0 1' switches twice a bar, and rand.range(0, 3).floor() picks at random. An index past the end clamps to the last look.",
+          "Chooses between whole patterns using a pattern of indices. The indices are a pattern like any other, so <0 1 1 2> alternates per cycle, '0 1' switches twice a bar, and rand.range(0, 3).floor() picks at random. An index past the end clamps to the last pattern.",
         example:
-          "const verse  = mini('1 0 1 0')\nconst chorus = mini('1 1 1 1')\nwash.red(mini('<0 1 1 2>').pick([verse, chorus]))",
+          "const sparse = mini('1 0 1 0')\nconst busy   = mini('1 1 1 1')\nwash.red('<0 1 1 2>'.pick([sparse, busy]))",
       },
       {
         name: '.pickmod',
-        signature: '.pickmod([verse, chorus])',
+        signature: '.pickmod([sparse, busy])',
         description:
           'The same, except the index wraps instead of clamping, so counting past the end comes back round to the start. Useful when the index comes from a counter rather than from a written list.',
-        example: "wash.red(run(5).pickmod([verse, chorus]))",
+        example: "wash.red(run(5).pickmod([sparse, busy]))",
       },
       {
         name: '.pickSqueeze · .squeeze',
-        signature: '.pickSqueeze([verse, chorus])',
+        signature: '.pickSqueeze([sparse, busy])',
         description:
-          'Fits the whole chosen pattern into the step that chose it, so a look plays out inside one step rather than being sampled by it. Two names for one join, both strudel\'s.',
-        example: "wash.red(mini('<0 1>').pickSqueeze([verse, chorus]))",
+          'Fits the whole chosen pattern into the step that chose it, so a whole pattern plays out inside one step rather than being sampled by it. Two names for one join, both strudel\'s.',
+        example: "wash.red('<0 1>'.pickSqueeze([sparse, busy]))",
       },
       {
         name: '.pickRestart · .pickReset',
-        signature: '.pickRestart([verse, chorus])',
+        signature: '.pickRestart([sparse, busy])',
         description:
           'Starts the chosen pattern from its beginning each time it is picked, rather than letting it carry on from where it would have been. Restart moves the whole timeline; reset moves only this pattern.',
-        example: "wash.red(mini('<0 1>').pickRestart([verse, chorus]))",
+        example: "wash.red('<0 1>'.pickRestart([sparse, busy]))",
       },
       {
         name: 'pick is two things here',
@@ -577,21 +577,21 @@ export const DOCS: DocSection[] = [
         signature: '.fadeIn(beats) · .fadeOut(beats)',
         description:
           'How long each step takes to come up, and how long it keeps glowing after it ends. In beats, so they follow the tempo. A fade out is the tail that makes a chase look like one: the light the chase has left is still going out as the next comes up.',
-        example: "wash.dim(mini('1 - 1 -').fadeIn(0.5))       // swells in\nwash.dim(mini('1 - - -').fadeOut(2))        // glows after the hit",
+        example: "wash.dim('1 - 1 -'.fadeIn(0.5))       // swells in\nwash.dim('1 - - -'.fadeOut(2))        // glows after the hit",
       },
       {
         name: '.settle',
         signature: '.settle(beats, level = 0)',
         description:
           'Each step hits full and falls to a level over this many beats, then holds there while the step lasts. With no level every step is a flash, which is how a strobe that has no strobe channel is played.',
-        example: "strb.dim(mini('1 1 1 1').settle(0.25))          // a flash per beat\nwash.dim(mini('1 - 1 -').settle(0.5, 0.3))     // hit, then hold at 30%",
+        example: "strb.dim('1 1 1 1'.settle(0.25))          // a flash per beat\nwash.dim('1 - 1 -'.settle(0.5, 0.3))     // hit, then hold at 30%",
       },
       {
         name: 'a chase: .each(pattern)',
         signature: 'group.each(pattern, spread = 1)',
         description:
           "Every light in the group runs the pattern, each a step later than the one before: a phase spread. The steps add up to spread cycles across the group. Set a colour first and the chase runs in it.",
-        example: "pars.color(amber)\npars.each(mini('1 - - -').fadeOut(2))        // a chase with tails\npars.each(sine.slow(4), 4)                   // a slow wave",
+        example: "pars.color(amber)\npars.each('1 - - -'.fadeOut(2))        // a chase with tails\npars.each(sine.slow(4), 4)             // a slow wave",
       },
       {
         name: 'a colour chase',
@@ -605,26 +605,26 @@ export const DOCS: DocSection[] = [
         signature: '.across(position)',
         description:
           'Places each step at a position along a group, 0 the first light and 1 the last, shared between neighbours in between. A pattern of positions moves it.',
-        example: "pars.dim(mini('1*8').across(saw))               // one light walks the rig\npars.dim(mini('1*16').across(rand).fadeOut(1)) // sparkle with tails",
+        example: "pars.dim('1*8'.across(saw))               // one light walks the rig\npars.dim('1*16'.across(rand).fadeOut(1)) // sparkle with tails",
       },
       {
         name: 'fan the heads: .fan',
         signature: 'heads.pan(pattern.fan(width))',
         description: 'A group of heads spread out around a centre position, which can move. On a dimmer it grades the brightness along the rig instead.',
-        example: "const heads = group(head1, head2, head3, head4)\nheads.pan(sine.slow(8).range(0.3, 0.7).fan(0.4))\nheads.tilt(mini('0.5').fan(0.2))",
+        example: "const heads = group(head1, head2, head3, head4)\nheads.pan(sine.slow(8).range(0.3, 0.7).fan(0.4))\nheads.tilt('0.5'.fan(0.2))",
       },
       {
         name: 'split the rig: .jux',
         signature: '.jux(change)',
         description: 'The left half of a group runs the pattern and the right half runs it changed.',
-        example: "pars.dim(mini('1 - - -').jux(rev))              // mirrored across the room",
+        example: "pars.dim('1 - - -'.jux(rev))              // mirrored across the room",
       },
       {
         name: 'colours from a palette: .palette',
         signature: '.palette(colours)',
         description:
           'Numbers pick colours: 0 the first, wrapping past the end, blending between two. The result goes to .color().',
-        example: "const warm = [amber, orange, red]\nwash.color(mini('<0 1 2>').palette(warm))   // one colour a bar",
+        example: "const warm = [amber, orange, red]\nwash.color('<0 1 2>'.palette(warm))   // one colour a bar",
       },
       {
         name: 'the grand master: all',
@@ -654,9 +654,9 @@ export const DOCS: DocSection[] = [
         name: 'writing the choice instead',
         signature: 'cue(verse, chorus, selector)',
         description:
-          "Something after the looks makes the switch part of the scene. The selector is read every frame, so the look changes without the document being evaluated again, which is the difference between a cue you perform and a cue that is in the pattern. Give it a pattern of names or indices, or a live control. A number is an index and wraps, so a fader between looks is declared with a range: slider('look', 0, 2, { step: 1 }).",
+          "Something after the looks makes the switch part of the scene. The selector is read every frame, so the look changes without the document being evaluated again, which is the difference between a look you pick by hand and a look chosen by the pattern. Give it a pattern of names or indices, or a live control. A number is an index and wraps, so a fader between looks is declared with a range: slider('look', 0, 2, { step: 1 }).",
         example:
-          "const wash = rgbStrip(1, 8)\n\nverse: {\n  wash.color(blue)\n}\nchorus: {\n  wash.color(red)\n}\n\ncue(verse, chorus, mini('<verse chorus chorus verse>'))",
+          "const wash = rgbStrip(1, 8)\n\nverse: {\n  wash.color(blue)\n}\nchorus: {\n  wash.color(red)\n}\n\ncue(verse, chorus, '<verse chorus chorus verse>')",
       },
       {
         name: 'what a selector does to the bar',
@@ -674,13 +674,13 @@ export const DOCS: DocSection[] = [
         name: 'picking one',
         signature: 'a chip, alt+1..9, or a program change',
         description:
-          "Every look gets a chip on the cue bar under the editor, numbered. Click it, or press alt and its number, alt rather than a bare digit, because a bare digit is a number you are typing into a scene. A MIDI controller sends program change N for cue N+1, which is the message desks and pad controllers already send for 'recall', so a hardware button works with no mapping. The bar is hidden entirely in a file that does not call cue().",
+          "Every look gets a chip on the cue bar under the editor, numbered. Click it, or press alt and its number, alt rather than a bare digit, because a bare digit is a number you are typing into a scene. A MIDI controller sends program change N for look N+1, which is the message desks and pad controllers already send for 'recall', so a hardware button works with no mapping. The bar is hidden entirely in a file that does not call cue().",
       },
       {
         name: 'what happens when you pick',
         signature: 'the file runs again',
         description:
-          "Which function runs is decided when the file is evaluated, not while it plays, so a fader can ride a level inside the live look but cannot select the look. Picking a cue therefore runs the file again with that one selected. That is not a seam: a run stages the whole scene and swaps it in at a tick boundary, so the rig holds the old look right up to the moment the new one is complete. Your document is not touched and not reformatted.",
+          "Which look runs is decided when the file runs. A chip, key or program change runs the file again with that look selected; a selector in cue() switches without a re-run. Picking a look this way is not a seam: a run stages the whole scene and swaps it in at a tick boundary, so the rig holds the old look right up to the moment the new one is complete. Your document is not touched and not reformatted.",
       },
       {
         name: 'a look that fails changes nothing',
@@ -701,7 +701,7 @@ export const DOCS: DocSection[] = [
     category: 'viz',
     title: 'the token that is lighting something',
     blurb:
-      "The one decoration that is always on. Everything else in this tab you ask for; this outlines, on every tick, the mini-notation tokens that actually reached a channel. Nothing is changed about the output and nothing needs to be chained: run a scene with a mini() in it and watch the outline walk the string.",
+      "The one decoration that is always on. Everything else in this tab you ask for; this outlines, on every tick, the mini-notation tokens that actually reached a channel. Nothing is changed about the output and nothing needs to be chained: run a scene with a quoted pattern or mini() in it and watch the outline walk the string.",
     entries: [
       {
         name: 'why it exists',
@@ -709,21 +709,21 @@ export const DOCS: DocSection[] = [
         description:
           "With sound you hear which step is playing. With light your eyes are on the rig, so when something looks wrong you are left counting tokens in a long string to work out which one fired. The outline says which one, while it is firing.",
         example:
-          "const bar = rgbStrip(1, 8)\nbar.red(mini('1 - 1 - 0 0 1 -'))",
+          "const bar = rgbStrip(1, 8)\nbar.red('1 - 1 - 0 0 1 -')",
       },
       {
         name: 'what gets outlined',
-        signature: "tokens inside mini('…')",
+        signature: "tokens inside a quoted pattern or mini('…')",
         description:
           "A token is outlined when a value it produced was written to a channel above zero on that tick. A rest, a zero, and a token inside a pattern nothing is listening to stay plain, so a string that lights nothing looks like one, which is usually the answer you were after. Two channels driven by one token outline it once; several patterns running at once each outline their own step.",
         example:
-          "const bar = rgbStrip(1, 8)\nbar.red(mini('1 - 1 -'))\nbar.blue(mini('0 1 0 1'))",
+          "const bar = rgbStrip(1, 8)\nbar.red('1 - 1 -')\nbar.blue('0 1 0 1')",
       },
       {
-        name: 'only plain mini() calls',
-        signature: "mini('1 0 1 0'), not mini(someString)",
+        name: 'only plain quoted patterns',
+        signature: "'1 0 1 0' or mini('1 0 1 0'), not mini(someString)",
         description:
-          "The offsets are found by reading the source, and it is deliberately timid about what it will read: a single quoted literal written straight into the call. A string built from a variable, one carrying a backslash escape, or a call already given a second argument is left alone. Those scenes run exactly as before and simply get no outline, the scene is worth more than the decoration.",
+          "The offsets are found by reading the source, and it is deliberately timid about what it will read: a single quoted literal written straight into a setter, at the start of a chain, or into a mini() call. A string built from a variable, one carrying a backslash escape, or a call already given a second argument is left alone. Those scenes run exactly as before and simply get no outline, the scene is worth more than the decoration.",
       },
     ],
   },
@@ -757,38 +757,38 @@ export const DOCS: DocSection[] = [
       },
       {
         name: '.roll',
-        signature: "mini('1 - 1 -').roll()",
+        signature: "'1 - 1 -'.roll()",
         description:
           "The bar drawn as blocks: every event of the current cycle laid left to right, block height by level, with the playhead sweeping across. This is the one that shows STRUCTURE, including things the wire cannot: '1@3 0.2' draws as one long block and a short one, where the light just sees a level.",
-        example: "wash.red(mini('1 - - -  - - 1 -').roll())",
+        example: "wash.red('1 - - -  - - 1 -'.roll())",
       },
       {
         name: '.punchcard',
-        signature: "mini('1(3,8)').punchcard()",
+        signature: "'1(3,8)'.punchcard()",
         description:
           'The bar as a fixed grid of sixteen cells, filled where a hit covers them, with the current cell outlined. Reads rhythm at a glance, and holds its shape between patterns so two lines can be compared by eye. A held event fills every cell it spans, not just the one it starts in.',
-        example: "strb.strobe(mini('1(5,16)').punchcard())",
+        example: "strb.strobe('1(5,16)'.punchcard())",
       },
       {
         name: '.spiral',
-        signature: "mini('1 - 1 -').spiral()",
+        signature: "'1 - 1 -'.spiral()",
         description:
-          'The bar wound round twice, with the playhead sweeping it. Compact, and cyclical the way the music is: a pattern that lines up with the bar makes a shape that stays still, and one that drifts visibly turns.',
-        example: "wash.blue(mini('1(3,8)').spiral())",
+          'The bar wound round twice, with the playhead sweeping it. Compact, and cyclical the way the bar is: a pattern that lines up with the bar makes a shape that stays still, and one that drifts visibly turns.',
+        example: "wash.blue('1(3,8)'.spiral())",
       },
       {
         name: '.spectrum',
         signature: 'sine.fast(8).spectrum()',
         description:
           'Which rates the recent values are moving at: a fast strobe puts a peak on the right, a slow swell sits on the left. Useful for checking a strobe is running at the rate you meant. It analyses this CHANNEL, not audio; there is no sound in gobo to analyse.',
-        example: "strb.strobe(mini('1*16').spectrum())",
+        example: "strb.strobe('1*16'.spectrum())",
       },
       {
         name: 'layering them',
         signature: 'chain as many as you like',
         description:
           'Each call is matched to its own widget, so chaining several puts several views on the line in the order written. Nothing about the output changes: every one of these returns the pattern untouched.',
-        example: "wash.red(mini('1 - - -').roll().punchcard().spectrum())",
+        example: "wash.red('1 - - -'.roll().punchcard().spectrum())",
       },
     ],
   },
@@ -801,17 +801,17 @@ export const DOCS: DocSection[] = [
     entries: [
       {
         name: 'slider',
-        signature: "slider(name, min = 0, max = 1, opts?)",
+        signature: "slider(value, min = 0, max = 1, step?)  ·  slider(name, min, max, opts?)",
         description:
-          'Returns a pattern whose value is whatever the handle is at. Because it is read fresh on every tick, dragging is a read of a number rather than a rebuild of the scene, which matters during a show where a re-run is a visible seam.',
+          "Returns a pattern whose value is whatever the handle is at. Strudel's form, slider(0.8), starts at that value and puts its handle on that line; it is named slider 1, slider 2 and so on in order. The named form, slider('level'), labels the handle with the name. Because it is read fresh on every tick, dragging is a read of a number rather than a rebuild of the scene, which matters during a show where a re-run is a visible seam.",
         example:
-          "const level = slider('level')\nspot.dim(level)",
+          "spot.dim(slider(0.8))              // a handle on this line, starting at 0.8\nconst level = slider('level')\nwash.dim(level)",
       },
       {
         name: 'ranges and steps',
         signature: "slider(name, min, max, { step, start })",
         description:
-          'min and max set the range, step quantises it (omit for continuous), and start is the opening position. A slider feeds a channel directly; it is a pattern, not a number, so it cannot be used as an argument to .fast() or arithmetic. Two sliders sharing a name throw, because they would share one position and fight over it.',
+          "min and max set the range, step quantises it (omit for continuous), and start is the opening position. A slider is a pattern, so it chains (.range(), .mul()) and can be handed to a method: .fast(slider(1, 1, 8)) puts a rate on a fader. Two named sliders sharing a name throw, because they would share one position and fight over it.",
         example:
           "const level = slider('level', 0, 1, { step: 0.05, start: 0.3 })\nspot.dim(level)\n\nconst warmth = slider('warmth')\nwash.white(warmth)",
       },
@@ -1024,7 +1024,7 @@ export const DOCS: DocSection[] = [
     category: 'fixtures',
     title: 'the screen as a light',
     blurb:
-      'A fixture with no DMX address. It claims a strip of the page and runs from the same patterns as everything else, so a cue can be written and watched with no hardware in the room.',
+      'A fixture with no DMX address. It claims a strip of the page and runs from the same patterns as everything else, so a look can be written and watched with no hardware in the room.',
     entries: [
       {
         name: 'screen',
@@ -1197,7 +1197,7 @@ export const DOCS: DocSection[] = [
         name: '.stut · .linger · .when',
         signature: '.stut(n, feedback, time) · .linger(fraction) · .when(pattern, change)',
         description:
-          'Three that come from strudel\'s Pattern. .stut repeats n times, each quieter than the last, which is an echo that decays. .linger repeats the first fraction of a cycle for the whole cycle, a hold or a stutter. .when applies a transformation only on cycles where its test passes, so a scene can change every fourth bar without a second pattern.',
+          'Three that come from strudel\'s Pattern. .stut repeats n times, each dimmer than the last, which is an echo that decays. .linger repeats the first fraction of a cycle for the whole cycle, a hold or a stutter. .when applies a transformation only on cycles where its test passes, so a scene can change every fourth bar without a second pattern.',
         example:
           "wash.dim(flash().stut(4, 0.6, 0.125))\nwash.dim(mini('1 0 0 0').linger(0.25))\nwash.dim(sine.when(mini('<1 0 0 0>'), fast(4)))",
       },
@@ -1212,7 +1212,7 @@ export const DOCS: DocSection[] = [
         name: 'named moves',
         signature: 'pulse(cycles) · strobe(per) · flash(per, tail) · flicker(amount) · adsr(a, d, s, r)',
         description:
-          'Five gestures a desk has a button for. They are ordinary patterns, so they chain and stack. pulse is the slow swell. strobe is hard on and off, per times a cycle, for a fixture with no strobe channel. flash is the sharp hit on a kick, and tail is how much of each beat it stays lit: 0.3 for a snap, 0.9 for nearly a sawtooth. flicker wanders around full, for candles and failing lamps. adsr is an envelope to multiply onto any of them, in four fractions of a cycle. One thing inside flash and adsr is worth knowing: a channel clamps below zero, so pushing most of a wave under the line leaves only its tip above, which turns a linear ramp into a sharp hit.',
+          'Five gestures a desk has a button for. They are ordinary patterns, so they chain and stack. pulse is the slow swell. strobe is hard on and off, per times a cycle, for a fixture with no strobe channel. flash is a sharp hit with a short tail, on every beat, and tail is how much of each beat it stays lit: 0.3 for a snap, 0.9 for nearly a sawtooth. flicker wanders around full, for candles and failing lamps. adsr is an envelope to multiply onto any of them, in four fractions of a cycle. One thing inside flash and adsr is worth knowing: a channel clamps below zero, so pushing most of a wave under the line leaves only its tip above, which turns a linear ramp into a sharp hit.',
         example:
           'wash.dim(pulse(4))\nwash.dim(flash())                       // on every beat\nwash.dim(flash(1, 0.9))                 // longer tail\nstrb.dim(strobe(16))\nwash.dim(flicker(0.4))\nwash.dim(flicker().mul(adsr(0.1, 0.1, 0.7, 0.2)))\nwash.dim(stack(pulse(8), flash()))      // layered, brightest wins',
       },
@@ -1220,7 +1220,7 @@ export const DOCS: DocSection[] = [
         name: 'sparkle',
         signature: 'strip.each(rand.range(-3, 1), 3.7)',
         description:
-          'Random pixels lighting and dying. rand is one signal, so every pixel handed the same one twinkles in lockstep; a large spread gives each pixel its own place in that stream. .range(-3, 1) puts three quarters of the signal below zero, where the channel clamps it, so only the occasional peak shows. Raise the floor for more sparkle, lower it for less. On a group, mini(\'1*16\').across(rand) scatters hits instead, and .fadeOut() gives each one a tail.',
+          'Random pixels lighting and dying. rand is one signal, so every pixel handed the same one twinkles in lockstep; a large spread gives each pixel its own place in that stream. .range(-3, 1) puts three quarters of the signal below zero, where the channel clamps it, so only the occasional peak shows. Raise the floor for more sparkle, lower it for less. On a group, \'1*16\'.across(rand) scatters hits instead, and .fadeOut() gives each one a tail.',
         example:
           "strip.each(rand.range(-3, 1), 3.7)\n\n// sparser\nstrip.each(rand.range(-6, 1), 3.7)\n\n// hits scattered across a rig, each with a tail\nrig.mono(mini('1*16').across(rand).fadeOut(1))",
       },
@@ -1277,9 +1277,9 @@ export const DOCS: DocSection[] = [
         name: 'a palette is an array',
         signature: 'const warm = [amber, orange, red]',
         description:
-          'Several colours are a plain array, with no palette type to learn. Array operations work: warm[0] takes one stop, [...warm].reverse() turns it round, warm.slice(0, 2) shortens it, and cat(...warm) puts it in time. An array of numbers stays one colour, so [1, 0, 0.5] is a mix, not a palette.',
+          "Several colours are a plain array, with no palette type to learn. Array operations work: warm[0] takes one stop and warm.slice(0, 2) shortens it, and '<0 1 2>'.palette(warm) puts it in time, a stop a bar. An array of numbers stays one colour, so [1, 0, 0.5] is a mix, not a palette.",
         example:
-          "const warm = [amber, orange, red]\nstrip.fill(warm)\nstrip.fill([...warm].reverse())\nstrip.fill(warm.slice(0, 2))\nwash.color(warm[0])",
+          "const warm = [amber, orange, red]\nstrip.fill(warm)\nstrip.fill(warm.slice(0, 2))\nwash.color(warm[0])\nwash.color('<0 1 2>'.palette(warm))",
       },
       {
         name: '.fill',
@@ -1338,17 +1338,17 @@ export const DOCS: DocSection[] = [
         name: 'a run goes where there is room for it',
         signature: 'wash.color(warm) spreads · par.color(warm) is refused',
         description:
-          'How many positions a light has decides what a run of stops does on it. A fixture with pixels has one position per pixel, so .color(warm) spreads the palette across them, the same as .fill(warm) on the strip underneath. A par is one position and has nowhere to put a gradient, so it refuses the palette rather than painting the first stop and dropping the rest. The message names the two things you probably meant: warm[0] for one stop, or cat(...warm).slow(4) for the whole palette in time. The same refusal covers .pixel(), which is one position wherever it sits. A single-channel strip refuses a colour outright and points at a level or at .each().',
+          "How many positions a light has decides what a run of stops does on it. A fixture with pixels has one position per pixel, so .color(warm) spreads the palette across them, the same as .fill(warm) on the strip underneath. A par is one position and has nowhere to put a gradient, so it refuses the palette rather than painting the first stop and dropping the rest. The message names the two things you probably meant: warm[0] for one stop, or '<0 1 2>'.palette(warm) for the whole palette in time. The same refusal covers .pixel(), which is one position wherever it sits. A single-channel strip refuses a colour outright and points at a level or at .each().",
         example:
-          "wash.color(warm)                    // a wash with pixels: a gradient across them\nwash.color(red, blue)               // the same, written as two stops\npar.color(warm)                     // one position: refused, and told what to write\npar.color(warm[0])                  // one stop\npar.color(cat(...warm).slow(4))     // the palette, in time\n\nseg.fill(0.5)                       // mono strip: a level, not a colour",
+          "wash.color(warm)                    // a wash with pixels: a gradient across them\nwash.color(red, blue)               // the same, written as two stops\npar.color(warm)                     // one position: refused, and told what to write\npar.color(warm[0])                  // one stop\npar.color('<0 1 2>'.palette(warm))  // the palette, in time\n\nseg.fill(0.5)                       // mono strip: a level, not a colour",
       },
       {
-        name: 'cat',
-        signature: 'cat(warm, warm, …).slow(4)',
+        name: 'a palette in time',
+        signature: "'<0 1 2>'.palette(warm)",
         description:
-          "A palette across a strip is a gradient; the same palette across time is a cue list. cat() gives one stop per cycle and .slow(n) holds each for n cycles, which is how a single light works through a palette. The result is a pattern of colours, so it goes anywhere a colour goes, including the calls that refuse the array itself.",
+          "A palette across a strip is a gradient; the same palette across time is a sequence. '<0 1 2>' steps through one number a cycle, .palette(warm) turns each number into its colour, and .slow(n) holds each for n cycles, which is how a single light works through a palette. Colour names in the pattern do the same without a palette. The result is a pattern of colours, so it goes anywhere a colour goes, including the calls that refuse the array itself.",
         example:
-          "wash.color(cat(...warm).slow(4))   // four bars each\nwash.color(cat(red, blue))         // a bar each\nstrip.fill(cat(...warm))           // whole strip, one stop per cycle",
+          "wash.color('<0 1 2>'.palette(warm).slow(4))   // four bars each\nwash.color('<amber orange red>')             // by name, a bar each\nstrip.fill('<0 1 2>'.palette(warm))           // whole strip, one stop per cycle",
       },
       {
         name: 'mix',
@@ -1386,7 +1386,7 @@ export const DOCS: DocSection[] = [
         name: 'a rest is a gap',
         signature: "'-' writes nothing",
         description:
-          "A rest is silence, not black. On its own the two look identical, because nothing is written and the channel stays dark. They part company the moment something else is running: layers merge highest-takes-precedence, so a gap lets the layer underneath show through where a black would have held it down. Worth reading twice, since '-' looks like an off switch and is not one.",
+          "A rest writes nothing, which is not the same as black. On its own the two look identical, because nothing is written and the channel stays dark. They part company the moment something else is running: layers merge highest-takes-precedence, so a gap lets the layer underneath show through where a black would have held it down. Worth reading twice, since '-' looks like an off switch and is not one.",
         example:
           "wash.color(mini('r - g'))                       // dark on the rests\nwash.color(stack(mini('r - g'), mini('0.2')))   // the rests show the bed",
       },
@@ -1452,7 +1452,7 @@ export const DOCS: DocSection[] = [
     category: 'patterns',
     title: 'sequencing',
     blurb:
-      "Step sequencing via mini-notation. Each string plays through one scheduler cycle (= 4 beats at default BPM); tokens split the time equally. '-' and '~' are silence. Use one anywhere a channel setter expects a pattern; one mini call per channel gives a step grid, the way a chase is laid out on a desk. Supports subdivisions [a b], repeats *N, speed /N, and alternation <a b c>.",
+      "Step sequencing via mini-notation. Each string plays through one cycle (one bar, 4 beats); tokens split the time equally. '-' and '~' are rests, which write nothing. Use one anywhere a channel setter expects a pattern; one mini call per channel gives a step grid, the way a chase is laid out on a desk. Supports subdivisions [a b], repeats *N, speed /N, and alternation <a b c>.",
     entries: [
       {
         name: 'mini',
@@ -1509,17 +1509,17 @@ export const DOCS: DocSection[] = [
       },
       {
         name: 'speed',
-        signature: "a/N  ·  pattern.slow(N) / .fast(N)",
+        signature: "a/N  ·  a@N  ·  pattern.slow(N) / .fast(N)",
         description:
-          "'/N' inside the mini string holds a token for N slots (slows just that token). .slow(N) and .fast(N) chained on the Pattern scale the whole string. .slow(2) turns a 4-step pattern into an 8-beat pattern, so every token lasts twice as long.",
+          "'/N' inside the string slows just that step by N, so what is in it plays out across N cycles: '[0.2 0.6]/2' in one slot gives 0.2 on one bar and 0.6 on the next. To hold a step for longer, weight it with @: in '1 0.3@2 1' the second step lasts twice as long as the others. .slow(N) and .fast(N) chained on the pattern scale the whole string. .slow(2) turns a 4-step pattern into an 8-beat pattern, so every token lasts twice as long.",
         example:
-          "wash.red(mini('1 - 1 -').slow(2))      // half-time\nwash.red(mini('1 1/2 1 1'))            // second token held for two slots",
+          "wash.red('1 - 1 -'.slow(2))        // half-time\nwash.red('1 [0.2 0.6]/2 1 -')      // second step alternates bar by bar\nwash.red('1 0.3@2 1')              // second step held twice as long",
       },
       {
         name: 'alternation',
         signature: "<a b c>",
         description:
-          "Angle brackets pick ONE token per cycle, advancing each cycle. '<0 0.5 1 0.5>' gives brightness 0 on cycle 1, 0.5 on cycle 2, 1 on cycle 3, 0.5 on cycle 4, then loops. Useful for slowly-evolving motifs without writing a long string.",
+          "Angle brackets pick ONE token per cycle, advancing each cycle. '<0 0.5 1 0.5>' gives brightness 0 on cycle 1, 0.5 on cycle 2, 1 on cycle 3, 0.5 on cycle 4, then loops. Useful for slowly changing patterns without writing a long string.",
         example:
           "wash.red(mini('<0 0.5 1 0.5>'))        // brightness cycles each 4 beats",
       },
@@ -1535,7 +1535,7 @@ export const DOCS: DocSection[] = [
         name: 'cat',
         signature: 'cat(pat1, pat2, …)',
         description:
-          'Concatenate patterns so each pat takes one full cycle before the next starts. Great for building long arrangements out of short motifs.',
+          'Concatenate patterns so each pat takes one full cycle before the next starts. Great for building long sequences out of short patterns.',
         example:
           "wash.red(cat(mini('1 - 1 -'), mini('1 1 1 1')))",
       },
@@ -1576,7 +1576,7 @@ export const DOCS: DocSection[] = [
         name: '.slow(n)',
         signature: 'pat.slow(n)',
         description:
-          "Stretch the pattern to take n cycles instead of one. slow(4) = 4x slower, one full wave every 4 beats.",
+          "Stretch the pattern to take n cycles instead of one. slow(4) = 4x slower, one full wave every 4 bars.",
         example: 'sine.slow(4)',
       },
       {
@@ -1647,7 +1647,7 @@ export const DOCS: DocSection[] = [
         name: '.mask(pat)',
         signature: 'pat.mask(mini(…))',
         description:
-          'Gate a pattern: it plays where the mask is on and is silent where the mask is off. Unlike struct, the underlying pattern keeps running underneath, so it comes back mid-motion rather than restarting. Good for cutting a running effect in and out.',
+          'Gate a pattern: it plays where the mask is on and writes nothing where the mask is off. Unlike struct, the underlying pattern keeps running underneath, so it comes back mid-motion rather than restarting. Good for cutting a running effect in and out.',
         example: "wash.red(sine.slow(2).mask(mini('1 1 - -')))",
       },
       {
@@ -1658,10 +1658,10 @@ export const DOCS: DocSection[] = [
         example: 'spot.dim(sine.segment(8))         // 8 stepped levels per bar',
       },
       {
-        name: '.every(n, fn)',
+        name: '.every(n, change)',
         signature: 'pat.every(n, change)',
         description:
-          'Apply a transform on every nth cycle and leave the others alone. The standard way to make a repeating cue that varies without writing the variation out. firstOf and lastOf are the same idea with explicit ends.',
+          'Apply a transform on every nth cycle and leave the others alone. The standard way to make a repeating pattern that varies without writing the variation out. firstOf and lastOf are the same idea with explicit ends.',
         example:
           "wash.red(mini('1 - 1 -').every(4, fast(2)))\nwash.red(mini('1 1 1 1').lastOf(8, mul(0.2)))   // dip on bar 8",
       },
@@ -1669,11 +1669,11 @@ export const DOCS: DocSection[] = [
         name: '.iter(n)',
         signature: 'pat.iter(n)',
         description:
-          'Rotate the pattern one step to the left each cycle, back to the start after n. A four-step cue becomes four bars of the same material entering at a different point. Cheap way to turn one bar into a phrase.',
+          'Rotate the pattern one step to the left each cycle, back to the start after n. A four-step pattern becomes four bars of the same material entering at a different point. Cheap way to turn one bar into a phrase.',
         example: "bar.pixels.red(mini('1 0.6 0.3 0').iter(4))",
       },
       {
-        name: '.chunk(n, fn)',
+        name: '.chunk(n, change)',
         signature: 'pat.chunk(n, change)',
         description:
           'Split the cycle into n parts and apply the transform to a different part each cycle, walking across. Reads as an effect travelling through a static pattern.',
@@ -1717,15 +1717,15 @@ export const DOCS: DocSection[] = [
       'Several values on one channel at the same instant. gobo merges them highest-takes-precedence, the same as a lighting desk, so a layer can raise a channel but never darken one.',
     entries: [
       {
-        name: '.superimpose(fn)',
+        name: '.superimpose(change)',
         signature: 'pat.superimpose(change)',
         description:
-          'Play the pattern and a transformed copy of it together. The copy is layered on top, not substituted, so this is how you thicken a cue: the original stays exactly as it was.',
+          'Play the pattern and a transformed copy of it together. The copy is layered on top, not substituted, so this is how you thicken a pattern: the original stays exactly as it was.',
         example:
           "wash.red(mini('1 - - -').superimpose(late(0.125)))",
       },
       {
-        name: '.off(n, fn)',
+        name: '.off(n, change)',
         signature: 'pat.off(time, change)',
         description:
           'superimpose with the copy shifted n cycles later. The standard echo: one line gives you the hit and its dimmer repeat.',
@@ -1733,7 +1733,7 @@ export const DOCS: DocSection[] = [
           "wash.red(mini('1 - - -').off(0.25, mul(0.4)))",
       },
       {
-        name: '.echoWith(n, t, fn)',
+        name: '.echoWith(n, t, change)',
         signature: 'pat.echoWith(times, time, change)',
         description:
           'n copies, each a further t cycles later, with the change applied once more to each: mul(0.5) halves every repeat. A decaying tail in one line. The plain .echo(n, time, fade) and .stut() work too, for the simple case: each repeat comes back dimmer by the fade.',
@@ -1753,7 +1753,7 @@ export const DOCS: DocSection[] = [
 
   {
     category: 'patterns',
-    title: 'long cues',
+    title: 'long sequences',
     blurb:
       'Writing something longer than a bar. A mini string is always one cycle no matter how it is typed, so length comes from slowing it down or from joining bars together.',
     entries: [
@@ -1761,7 +1761,7 @@ export const DOCS: DocSection[] = [
         name: 'one string, many lines',
         signature: 'mini(`…`) with backticks',
         description:
-          'Backticks let a mini string run across lines, and a newline counts as ordinary whitespace. Nothing about the timing changes, so an eight-bar cue can be laid out eight tokens to a line. Line up the columns and the shape of the cue is visible in the source.',
+          'Backticks let a mini string run across lines, and a newline counts as ordinary whitespace. Nothing about the timing changes, so an eight-bar sequence can be laid out eight tokens to a line. Line up the columns and the shape of the sequence is visible in the source.',
         example:
           "wash.red(mini(`\n  1 - - -  - - 1 -\n  - - 1 -  1 - - -\n  0.5 - 0.5 -  - - - -\n  1 1 - -  - - 1 1\n`).slow(4))",
       },
@@ -1783,9 +1783,9 @@ export const DOCS: DocSection[] = [
       },
       {
         name: 'a section at a time',
-        signature: 'cat(verse, verse, chorus, …)',
+        signature: 'cat(hold, hold, hit, …)',
         description:
-          'cat() takes one cycle from each argument in turn, so naming your bars and listing them is a workable arrangement for a whole song. Repeat a name to repeat the bar.',
+          'cat() takes one cycle from each argument in turn, so naming your bars and listing them is a workable running order for a whole set. Repeat a name to repeat the bar.',
         example:
           "const hold = mini('0.3 0.3 0.3 0.3')\nconst hit  = mini('1 - - -')\nwash.red(cat(hold, hold, hit, hit))",
       },
@@ -1829,7 +1829,7 @@ export const DOCS: DocSection[] = [
         name: 'rand · perlin',
         signature: 'rand  ·  perlin',
         description:
-          'Two kinds of noise. rand jumps to an unrelated value constantly, which reads as sparkle or fault; perlin wanders smoothly, which reads as flicker, candlelight or drift. perlin is almost always the one you want for something meant to look alive.',
+          'Two kinds of noise. rand is a new random level every moment, which reads as sparkle or fault (add .segment(n) for steps); perlin wanders smoothly, which reads as flicker, candlelight or drift. perlin is almost always the one you want for something meant to look alive.',
         example: 'wash.red(perlin.slow(4).range(0.3, 1))\nstrb.strobe(rand.range(-6, 1))',
       },
       {
@@ -1910,7 +1910,7 @@ export const DOCS: DocSection[] = [
         name: 'timeCat · stepcat',
         signature: 'timeCat([2, a], [1, b])',
         description:
-          'cat with the shares written down: each pattern gets the weight you give it. [2, a] and [1, b] means a takes two thirds of the cycle and b takes one. For an arrangement where the sections are not equal.',
+          'cat with the shares written down: each pattern gets the weight you give it. [2, a] and [1, b] means a takes two thirds of the cycle and b takes one. For a sequence where the sections are not equal.',
         example: "wash.red(timeCat([3, mini('1 - - -')], [1, mini('1 1 1 1')]))",
       },
       {
@@ -1949,11 +1949,11 @@ export const DOCS: DocSection[] = [
         name: '? and .degradeBy(n)',
         signature: "mini('1? 1? 1?')  ·  pat.degradeBy(0.3)",
         description:
-          'Drop events at random. A ? after a token gives it a 50% chance of being silent; degradeBy(n) drops a fraction n of everything. Useful for taking the machine edge off a dense strobe or pixel pattern.',
+          'Drop events at random. A ? after a token gives it a 50% chance of being dropped; degradeBy(n) drops a fraction n of everything. Useful for taking the machine edge off a dense strobe or pixel pattern.',
         example: "strb.strobe(mini('1*16').degradeBy(0.3))",
       },
       {
-        name: '.sometimesBy(n, fn)',
+        name: '.sometimesBy(n, change)',
         signature: 'pat.sometimesBy(n, change)',
         description:
           'Apply a transform to a fraction n of events rather than dropping them. someCyclesBy does the same at whole-cycle scale, so an occasional bar plays differently.',
@@ -1964,7 +1964,7 @@ export const DOCS: DocSection[] = [
         name: '.swingBy(n, sub)',
         signature: 'pat.swingBy(amount, subdivision)',
         description:
-          'Push every other subdivision late, so straight sixteenths stop reading as a grid. On lights it comes out as a limp rather than a march.',
+          'Push every other subdivision late, so an even grid of steps stops reading as a grid. On lights it comes out as a limp rather than a march.',
         example: "strb.strobe(mini('1*8').swingBy(1/3, 2))",
       },
     ],
@@ -1999,7 +1999,7 @@ export const DOCS: DocSection[] = [
       },
       {
         name: 'anything else',
-        signature: "wash.red('1')",
+        signature: 'wash.red(flash)  ·  wash.red(NaN)',
         description:
           'Rejected, with the channel named. A function that was never called (flash rather than flash()), NaN and null each stop the evaluation, and the rig keeps running whatever it had. A quoted string is mini-notation, so \'1\' is simply full.',
       },
@@ -2023,12 +2023,12 @@ export const DOCS: DocSection[] = [
       {
         name: 'Ctrl+.',
         signature: 'Ctrl+.  ·  Alt+.',
-        description: 'Zero all channels and pause the scheduler. Alt+. does the same, as it does in strudel.',
+        description: 'Stop the clock. With the default stop action the rig blacks out; set it to freeze in settings and the last frame is held, and pressing the key again blacks out. Alt+. does the same, as it does in strudel.',
       },
       {
         name: 'Ctrl+Space',
         signature: 'Ctrl+Space',
-        description: 'Stop, as an alias that also preempts the autocomplete popup.',
+        description: 'The same stop as Ctrl+., as an alias that also preempts the autocomplete popup.',
       },
       {
         name: 'Alt+M',
@@ -2359,7 +2359,7 @@ export function renderDocs(body: HTMLElement): void {
   // depends on whether the search field has content.
   const searchBar = `
     <div class="doc-search">
-      <input type="text" id="doc-search-input" placeholder="search functions…" autocomplete="off" spellcheck="false" />
+      <input type="text" id="doc-search-input" placeholder="search the docs…" autocomplete="off" spellcheck="false" />
       <button type="button" id="doc-search-clear" class="doc-search-clear" title="clear" aria-label="clear search">×</button>
     </div>
     <div class="doc-tabs" id="doc-tabs" role="tablist">

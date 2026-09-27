@@ -9,10 +9,10 @@ Drive TouchDesigner from gobo patterns. Every DMX channel arrives as an OSC floa
 ## Route
 
 ```
-browser (gobo)   ──ws://localhost:3001──▶  bridge  ──UDP OSC──▶  TouchDesigner
+browser (gobo)   ──ws://localhost:3001──▶  connector  ──UDP OSC──▶  TouchDesigner
 ```
 
-The bridge is the only piece that speaks UDP, so it has to be running. TouchDesigner never talks to the browser directly.
+The connector is the only piece that speaks UDP, so it has to be running. TouchDesigner never talks to the browser directly.
 
 ## Setup
 
@@ -29,7 +29,7 @@ says the same, and lists the networks this computer is on.
 osc('127.0.0.1', 9000)   // host = the machine running TouchDesigner
 ```
 
-Host defaults to `127.0.0.1` and port to `9000`. If TD runs on another machine, pass its IP. The bridge sends the UDP, not the browser, so the address is relative to whatever machine the bridge is on.
+Host defaults to `127.0.0.1` and port to `9000`. If TD runs on another machine, pass its IP. The connector sends the UDP, not the browser, so the address is relative to whatever machine the connector is on.
 
 **3. Add an OSC In CHOP.** Create an `OSC In CHOP` and set its *Network Port* to the same port (`9000`). One channel appears per address that gobo has sent.
 
@@ -37,7 +37,7 @@ Host defaults to `127.0.0.1` and port to `9000`. If TD runs on another machine, 
 
 ```js
 const wash = fixture(1, 'rgbw')
-wash.red(sine().slow(4))
+wash.red(sine.slow(4))
 ```
 
 ## Wire format
@@ -58,7 +58,7 @@ Multiply by 255 in TD if you want the raw DMX byte back.
 
 - **Only active channels are sent.** A channel is transmitted when it is non-zero, or when it was non-zero on the previous frame; that trailing frame is what pushes a channel back to `0.0`. Channels your scene never touches never appear in the CHOP at all, so an empty OSC In CHOP usually means nothing is being driven yet rather than a broken link.
 - **The universe number comes from your scene, not from the output call.** `fixture()`, `rgbStrip()`, `rgbwStrip()`, `ch()` and `dim()` all default to universe `0`; `uni(n, ch, v)` writes whatever you ask for. That number lands in the OSC address.
-- **The bridge logs its first OSC packet and every hundredth after that**: `[bridge] OSC → 127.0.0.1:9000 uni0 (12 active ch, packet #100)`. If that line never appears, the browser is not reaching the bridge. If it appears and TD stays empty, the problem is between the bridge and TD (wrong host, wrong port, firewall).
+- **The connector logs its first OSC packet and every hundredth after that**: `[bridge] OSC → 127.0.0.1:9000 uni0 (12 active ch, packet #100)`. If that line never appears, the browser is not reaching the connector. If it appears and TD stays empty, the problem is between the connector and TD (wrong host, wrong port, firewall).
 - **Firewall.** Sending to another machine needs an inbound UDP allow on that port on the TD host. Loopback (`127.0.0.1`) needs nothing.
 - **Send rate** is capped by the `send rate` setting in gobo's settings: 25 / 30 / 40 / 44 Hz, default 40, since DMX itself carries about 44 frames a second. Drop it to 30 if you are pushing many channels over wireless.
 
@@ -70,14 +70,14 @@ TouchDesigner's `DMX In CHOP` can take Art-Net directly, which keeps values as 0
 artnet('127.0.0.1')   // or the IP of the machine running TD
 ```
 
-The bridge sends one 530-byte ArtDmx packet per universe per frame on port 6454. Match the universe number in the DMX In CHOP to the universe your fixtures are on.
+The connector sends one 530-byte ArtDmx packet per universe per frame on port 6454. Match the universe number in the DMX In CHOP to the universe your fixtures are on.
 
 ---
 
-## Direct mode: no bridge, works from the hosted site
+## Direct mode: no connector, works from the hosted site
 
 `td()` opens a WebSocket from the browser straight to a TouchDesigner WebSocket
-DAT. gobo's bridge is not involved, so this works from
+DAT. The connector is not involved, so this works from
 https://gobolive.cc/ on any machine that already
 has TouchDesigner open. TD receives the frames and puts Art-Net on the wire.
 
@@ -157,9 +157,9 @@ your node. That is the step that puts light on the rig.
 
 ### Which mode to use
 
-| | `td()` direct | `osc()` or `artnet()` via the bridge |
+| | `td()` direct | `osc()` or `artnet()` via the connector |
 |---|---|---|
-| gobo process needed | none | the bridge |
-| Works from the hosted site | yes, with TD on the same machine | yes, with a local bridge |
+| gobo process needed | none | the connector |
+| Works from the hosted site | yes, with TD on the same machine | yes, with a local connector |
 | Receiver | TouchDesigner only | TD, any OSC app, or Art-Net hardware |
 | Values arrive as | 0 to 1 floats in a Table DAT | OSC floats, or DMX on the wire |

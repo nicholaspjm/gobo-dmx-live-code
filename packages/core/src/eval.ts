@@ -1575,7 +1575,10 @@ function chainOnStrings(code: string): string {
   const pure = _strudelCtx.pure as ((v: unknown) => Record<string, unknown>) | undefined;
   if (typeof pure !== 'function' || typeof _strudelCtx.mini !== 'function') return code;
   const probe = pure(0);
-  const spots = quotedReceivers(code, (name) => typeof probe[name] === 'function');
+  // Methods the scene adds with register() do not exist until it runs, so
+  // their names are read out of the source.
+  const registered = new Set([...code.matchAll(/\bregister\s*\(\s*['"`]([\w$]+)['"`]/g)].map((m) => m[1]));
+  const spots = quotedReceivers(code, (name) => typeof probe[name] === 'function' || registered.has(name));
   let out = code;
   for (let k = spots.length - 1; k >= 0; k--) {
     const { from, to } = spots[k];

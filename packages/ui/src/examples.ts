@@ -72,20 +72,20 @@ const strb = fixture(21, 'strobe')
 const warm = [amber, orange, red]
 pars.color(warm)
 // pars.color(red, amber, red, amber)
-// pars.color(mini('<red blue>'))                // all change each bar
+// pars.color('<red blue>')                      // all change each bar
 
 // ── chase · every light runs it, each a step behind the last ───────
-pars.each(mini('1 - - -').fadeOut(2))
+pars.each('1 - - -'.fadeOut(2))
 // pars.each(sine.slow(4), 4)                     // a smooth wave
-// pars.dim(mini('1*8').across(saw))              // one light walks the rig
-// pars.dim(mini('1 1 1 1').settle(0.5))          // all flash on the beat
+// pars.dim('1*8'.across(saw))                    // one light walks the rig
+// pars.dim('1 1 1 1'.settle(0.5))                // all flash on the beat
 
 // ── strobe · a fill at the end of every bar, dark the rest of it ───
-strb.dim(mini('- - - [1 1 1 1]').flash())
+strb.dim('- - - [1 1 1 1]'.flash())
 
 // ── grand master · one fader for every light; drag the handle ───────
 all(mul(slider(1)))
-// strb.dim(mini('- - - -  - - - [1 1 1 1 1 1 1 1]').slow(2).flash()) // every other bar
+// strb.dim('- - - -  - - - [1 1 1 1 1 1 1 1]'.slow(2).flash()) // every other bar
 `,
   },
   {
@@ -103,7 +103,7 @@ all(mul(slider(1)))
 // artnet('2.0.0.100')   // or usb() · td() · sacn(1) · osc() · mock()
 setBPM(120)           // one cycle = one bar = 4 beats
 
-// ── patch · fixture(startCh, id, universe = 0) · .viz adds a widget ─
+// ── patch · fixture(startChannel, id, universe = 0) · .viz adds a widget
 const wash  = fixture(1, 'rgbw').viz('color')     // uni 0 · ch 1-4
 const strb  = fixture(5, 'strobe').viz('meter')   // ch 5-6
 const strip = rgbStrip(7, 10).viz('strip')        // ch 7-36, 3 per pixel
@@ -128,23 +128,23 @@ const bar = fixture(1, 'four-color-bar', 1)       // uni 1 · ch 1-38
 bar.pixels.viz('strip')
 bar.dim()                                         // no value at all = full
 
-// ── mini · one bar, split evenly by its tokens ─────────────────────
-wash.red(  mini('1 - - -  - - 1 -  - - 1 -  - - - -').glow())
-wash.green(mini('- - 1 -  1 - - -  - - - -  - 1 - -'))
-wash.blue( mini('- 1 - -  - - - 1  - <0 1> - -  1 - - 1'))
-wash.white(mini('- - - 1  - - - -  - - - 1  - - - -'))
+// ── patterns · a quoted string is one bar, split evenly by its tokens
+wash.red(  '1 - - -  - - 1 -  - - 1 -  - - - -'.glow())
+wash.green('- - 1 -  1 - - -  - - - -  - 1 - -')
+wash.blue( '- 1 - -  - - - 1  - <0 1> - -  1 - - 1')
+wash.white('- - - 1  - - - -  - - - 1  - - - -')
 
 // swap any of these into a channel above
-// wash.red(mini('1 [1 1] 1 -'))              // subdivide
-// wash.red(mini('1*16'))                     // repeat
-// wash.red(mini('1@3 0.2'))                  // hold three
-// wash.red(mini('1!3 0.2'))                  // same, spelled out
-// wash.red(mini('<0 0.5 1>'))                // one per bar
-// wash.red(mini('1? 1? 1? 1?'))              // coin flip each
-// wash.red(mini('1(5,16)'))                  // euclid
-// wash.red(mini('{1 0, 0.4 0.4 0.4}'))       // polymeter, 2 against 3
-// wash.red(mini('1*16').degradeBy(0.3))      // thinned at random
-// wash.red(mini('1 - - -, 0.25 0.25 0.25 0.25')) // layered, brightest wins
+// wash.red('1 [1 1] 1 -')                    // subdivide
+// wash.red('1*16')                           // repeat
+// wash.red('1@3 0.2')                        // hold three
+// wash.red('1!3 0.2')                        // same, spelled out
+// wash.red('<0 0.5 1>')                      // one per bar
+// wash.red('1? 1? 1? 1?')                    // coin flip each
+// wash.red('1(5,16)')                        // euclid
+// wash.red('{1 0, 0.4 0.4 0.4}')             // polymeter, 2 against 3
+// wash.red('1*16'.degradeBy(0.3))            // thinned at random
+// wash.red('1 - - -, 0.25 0.25 0.25 0.25')  // layered, brightest wins
 
 // ── longer than a bar · a string is ONE cycle, so .slow(n) ─────────
 strb.dim(0.9)
@@ -158,21 +158,21 @@ strb.strobe(mini(\`
 // strip.red(sine.slow(4).segment(8))               // stepped
 // strip.red(sine.slow(8).rangex(0.01, 1))          // a fade the eye sees evenly
 // strip.red(sine.slow(4).range(1, 0))              // inverted
-// strip.red(sine.slow(2).mask(mini('1 1 - -')))    // gated, keeps running
-// strip.red(sine.slow(4).struct(mini('1 - 1 -')))  // rhythm from elsewhere
-// strip.red(sine.mul(mini('1 0.25')))              // one pattern scales another
-// strip.red(mini('1 0.6 0.3 0').iter(4))           // rotates a step each bar
-// strip.red(mini('1 0.6 0.3 0').palindrome())      // there and back
-// strip.red(mini('1 0.6 0.3 0').linger(0.25))      // stutter on beat one
-// strip.red(mini('1 - 1 -').every(4, fast(2)))     // doubles every 4th bar
-// strip.red(mini('1 1 1 1').chunk(4, mul(0.2)))    // dip travels across
-// strip.red(mini('1 0.5').ply(mini('<1 2 4 8>')))  // subdivides per bar
-// strip.red(mini('1*8').swingBy(1/3, 2))           // stops marching
+// strip.red(sine.slow(2).mask('1 1 - -'))          // gated, keeps running
+// strip.red(sine.slow(4).struct('1 - 1 -'))        // rhythm from elsewhere
+// strip.red(sine.mul('1 0.25'))                    // one pattern scales another
+// strip.red('1 0.6 0.3 0'.iter(4))                 // rotates a step each bar
+// strip.red('1 0.6 0.3 0'.palindrome())            // there and back
+// strip.red('1 0.6 0.3 0'.linger(0.25))            // stutter on beat one
+// strip.red('1 - 1 -'.every(4, fast(2)))           // doubles every 4th bar
+// strip.red('1 1 1 1'.chunk(4, mul(0.2)))          // dip travels across
+// strip.red('1 0.5'.ply('<1 2 4 8>'))              // subdivides per bar
+// strip.red('1*8'.swingBy(1/3, 2))                 // stops marching
 
 // ── fades · every step comes up, settles and goes out ──────────────
-// strip.red(mini('1 - 1 -').fadeIn(0.5))           // swells in
-// strip.red(mini('1 - - -').fadeOut(2))            // glows after the hit
-// strip.red(mini('1 1 1 1').settle(0.25))          // a flash per beat
+// strip.red('1 - 1 -'.fadeIn(0.5))                 // swells in
+// strip.red('1 - - -'.fadeOut(2))                  // glows after the hit
+// strip.red('1 1 1 1'.settle(0.25))                // a flash per beat
 
 // ── per-pixel · .each(pattern): every pixel runs it, a step later ───
 strip.color(blue)
@@ -185,22 +185,22 @@ bar.pixels.rainbowChase()                         // colour along the pixels, pr
 // ── group · a fixture counts once, a strip once per pixel ──────────
 const rig = group(wash, strip, bar.pixels)
 // rig.each(cosine.slow(4).range(-6, 1), 4)       // one sweep, whole rig
-// rig.mono(mini('1*16').across(rand).fadeOut(1))  // sparkle with tails
+// rig.mono('1*16'.across(rand).fadeOut(1))        // sparkle with tails
 // rig.color(1, 0, 0)
 // rig.red()
 // rig.off()
 
 // ── layering · brightest wins, so a layer adds without erasing ─────
-bar.pixels.white(mini('1 - - -').range(-15, 1).off(0.25, mul(0.35)))
-// bar.pixels.white(mini('1 - - -').echo(4, 0.125, 0.5)) // repeats, each dimmer
-// bar.pixels.white(stack(mini('1 - - -'), sine.slow(8).mul(0.2)))
+bar.pixels.white('1 - - -'.range(-15, 1).off(0.25, mul(0.35)))
+// bar.pixels.white('1 - - -'.echo(4, 0.125, 0.5)) // repeats, each dimmer
+// bar.pixels.white(stack('1 - - -', sine.slow(8).mul(0.2)))
 
 // ── movement ───────────────────────────────────────────────────────
 bar.direction(sine.slow(8)); bar.speed(0.6)       // sweep
 // bar.direction(saw.slow(6)); bar.speed(0.8)     // spin
 
 // ── looks · a named block; alt+1 / alt+2 or the chips pick one ─────
-// swap these in for the wash lines at the top, where mini sets the colour
+// swap these in for the wash lines at the top, where the patterns set the colour
 // verse: { wash.color(blue) }
 // chorus: { wash.color(red) }
 // cue(verse, chorus)
@@ -212,7 +212,7 @@ bar.direction(sine.slow(8)); bar.speed(0.6)       // sweep
     label: 'four-colour bar demo',
     blurb: 'One custom fixture end to end: defineFixture, pixel effects, movement.',
     code: `// four-colour bar · live demo
-// every line at the bottom runs on ctrl+enter; comment one out to silence it.
+// every line at the bottom runs on ctrl+enter; comment one out to turn it off.
 
 // pick an output when you have one · the sim below needs none
 // artnet('2.0.0.100')   // or usb() · td() · sacn(1) · osc() · mock()

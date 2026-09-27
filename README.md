@@ -29,7 +29,7 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 - `Ctrl+Enter` runs the code, and it takes effect on the next tick
 - Strudel's language as Strudel writes it: bare signals (`sine.slow(4)`), quoted mini-notation (`wash.dim('1 - 1 -')`), curried changes (`.every(4, fast(2))`), labelled blocks, `_` to mute, with no JavaScript functions to write
 - Strudel's music ideas ported to light: per-step fades (`.fadeIn`, `.settle`, `.fadeOut`, and Strudel's `.attack`/`.release` reading the same), palettes where Strudel has scales (`.palette(warm)`), a position across a group where it has stereo pan (`.across(saw)`), and looks you switch between where it has labelled patterns (`verse: { … }`, `cue(verse, chorus)`)
-- Chases without code: `rig.each(mini('1 - - -').fadeOut(2))` runs a pattern on every light, each a step later
+- Chases without code: `rig.each('1 - - -'.fadeOut(2))` runs a pattern on every light, each a step later
 - 512 channels per universe, multiple universes via `uni()`
 - A 512-bar channel strip and a fixture simulation, drawn at 30 fps
 - Built-in fixture profiles for RGB, RGBW, moving heads and strobes, and custom definitions
@@ -99,7 +99,7 @@ nothing to forget. On an Intel Mac this is the route, since the downloads are Ap
 builds.
 
 Use `npm run dev` while working on gobo itself: Vite on http://localhost:3000 with hot reload,
-and the bridge alongside it.
+and the connector alongside it.
 
 ### The website and the connector
 
@@ -136,7 +136,7 @@ The connector listens on `localhost:3001` and answers only gobo's own pages, so 
 open in the same browser cannot drive your rig through it. A copy of gobo hosted somewhere else,
 a fork for instance, needs `--allow-origin https://that.site` when the connector starts.
 
-From a checkout, `npm run autostart` starts the bridge at login instead, so the hosted page just
+From a checkout, `npm run autostart` starts the connector at login instead, so the hosted page just
 works from then on. It is a per-user login item, needs no administrator rights, and
 `npm run autostart -- --remove` undoes it.
 
@@ -176,7 +176,7 @@ Run `npm run doctor`. It checks each link in the chain and reports what it measu
 the two mistakes that fail silently: sending to your own machine's IP, and the computer being
 on a different subnet from the node.
 
-`packages/bridge/bridge.config.json` sets the bridge's startup output. It ships in `artnet`
+`packages/bridge/bridge.config.json` sets the connector's startup output. It ships in `artnet`
 mode pointed at `127.0.0.1`, which only reaches software on the same machine. Edit the host
 to your subnet broadcast or a node's IP for real hardware:
 
@@ -233,9 +233,9 @@ A share link is the durable copy. **share** in the top bar copies a link carryin
 scene and shows you what it copied, described below. The same dialog will hand you the code
 as plain text instead, which is what to keep for a scene too long to paste as a link.
 
-The bundled demos live under the panel's **docs** tab, on its examples sub-tab: *start here* (the two
-lines a new browser opens on), *language tour* (everything the language does), and *four-colour
-bar demo* (one custom fixture end to end). Loading one replaces the editor, and asks first.
+The four bundled demos live under the panel's **docs** tab, on its examples sub-tab: *start here*
+(the two lines a new browser opens on), *four pars and a strobe* (a small real rig), *language
+tour* (everything the language does), and *four-colour bar demo* (one custom fixture end to end). Loading one replaces the editor, and asks first.
 
 **save** writes the scene to a `.js` file (`Ctrl+S`) and **open** reads one back. The file is
 the code and nothing else, so it opens with syntax highlighting in any editor and diffs line by
@@ -289,7 +289,7 @@ anything else in this version.
 | `Ctrl+Space` | Stop, as an alias that also preempts the autocomplete popup |
 | `Ctrl+Shift+Enter` | Evaluate only the edits inside the selection, or the block around the cursor |
 | `Ctrl+Shift+F` | Format the buffer |
-| `Alt+1`…`Alt+9` | Run that cue, when the scene calls `cue()` |
+| `Alt+1`…`Alt+9` | Pick that look, when the scene calls `cue()` |
 | `T` | Tap tempo (ignored while typing in the editor or any input) |
 | `Alt+M` | Minimal view: tuck away the top bar, sim panel and level strip. Hover the top edge for the bar, or the status bar for the sim. Clicking the mark does the same |
 
@@ -325,7 +325,7 @@ DMX.tick(cyclePos)
 Visualizer (rAF, 30 fps, read-only snapshot)   +   WS sender (wall-clock throttled)
                                                         │
                                                         ▼
-                                                      Bridge
+                                                     Connector
                                                         │
                                                         ▼
                                              UDP: Art-Net / sACN / OSC
@@ -335,7 +335,7 @@ Visualizer (rAF, 30 fps, read-only snapshot)   +   WS sender (wall-clock throttl
 
 - **Clock lives in a Web Worker.** A `setInterval(16)` in [clockWorker.ts](packages/core/src/clockWorker.ts) posts `"tick"` messages to the main thread. Chromium doesn't throttle worker timers, so the clock keeps firing at ~60 Hz even when the tab is backgrounded ([scheduler.ts](packages/core/src/scheduler.ts)).
 - **Cycle position** advances by `(bpm / 60) / 4` cycles per second (4 beats per cycle). `dt` is clamped at 100 ms so a machine sleep or long GC pause doesn't send the phase spinning ([scheduler.ts](packages/core/src/scheduler.ts)). An external clock provider (audio playhead) can override `cyclePos`; nothing installs one in this release.
-- **Pattern evaluation** uses [@strudel/core](https://strudel.cc) as the pattern engine. `sine`, `saw`, mini-notation, `.slow / .fast / .add / .range / .early / .late` are Strudel patterns. Each tick, every registered channel calls `pattern.queryArc(cyclePos, cyclePos + ε)` to sample the value at that moment ([dmx.ts](packages/core/src/dmx.ts)). The gobo-specific chain methods `.flash / .glow / .wave` are added by monkey-patching `Pattern.prototype`; user code can add its own with `register(name, fn)` ([eval.ts](packages/core/src/eval.ts)). If Strudel fails to load, evaluation is disabled outright and the status bar says why; reload the page to retry. There is no degraded waveform mode.
+- **Pattern evaluation** uses [@strudel/core](https://strudel.cc) as the pattern engine. `sine`, `saw`, mini-notation, `.slow / .fast / .add / .range / .early / .late` are Strudel patterns. Each tick, every registered channel calls `pattern.queryArc(cyclePos, cyclePos + ε)` to sample the value at that moment ([dmx.ts](packages/core/src/dmx.ts)). The gobo-specific chain methods `.flash / .glow / .wave` are added by monkey-patching `Pattern.prototype`; user code can add its own with `register(name, change)`, as in `register('punch', range(-4, 1))` ([eval.ts](packages/core/src/eval.ts)). If Strudel fails to load, evaluation is disabled outright and the status bar says why; reload the page to retry. There is no degraded waveform mode.
 - **Live eval is not sandboxed.** User code runs via `new Function(...)` in strict mode with a curated globals object (DMX API, fixture API, Strudel waveforms, `Math`, `console`). Those names shadow, they don't remove: the code runs in the page's own realm. Fast to hot-swap, not safe against hostile code ([eval.ts](packages/core/src/eval.ts), and [SECURITY.md](SECURITY.md)).
 - **Universe state is `Map<number, Uint8Array(512)>`.** Zeroed and rewritten from scratch every tick, so a scene swap is atomic at the tick boundary ([dmx.ts](packages/core/src/dmx.ts)).
 
@@ -346,24 +346,24 @@ Visualizer (rAF, 30 fps, read-only snapshot)   +   WS sender (wall-clock throttl
 - **Send rate.** The sender is throttled against the wall clock rather than the tick count, using `1000 / sendRate` ms as its interval (default 40 Hz; 25 / 30 / 40 / 44 in settings, since DMX itself carries about 44 frames a second). A slow render tick does not back up the send queue ([main.ts](packages/ui/src/main.ts), [settings.ts](packages/ui/src/settings.ts)).
 - **Going dark.** Idle all-zero universes are skipped to save UDP bandwidth. When a universe goes from live to all-zero, exactly one trailing zero-frame is sent so downstream fixtures latch off; Art-Net and sACN receivers otherwise hold the last value indefinitely ([websocket.ts](packages/core/src/websocket.ts)).
 - **Per-tick user errors are swallowed.** A broken pattern doesn't kill the clock; that channel outputs zero until you fix it ([scheduler.ts](packages/core/src/scheduler.ts)).
-- **Bridge reconnect.** Two seconds after a close, doubling to a thirty-second ceiling, and back to two the moment a scene picks an output that needs it. Sends are dropped while disconnected ([websocket.ts](packages/core/src/websocket.ts)).
-- **Latency floor.** One clock tick (~16 ms) + up to one send interval (25 ms at the default 40 Hz) + WS hop + UDP hop. The bridge is stateless: each incoming WS message triggers an immediate UDP send, with no coalescing ([bridge/index.ts](packages/bridge/src/index.ts)).
+- **Connector reconnect.** Two seconds after a close, doubling to a thirty-second ceiling, and back to two the moment a scene picks an output that needs it. Sends are dropped while disconnected ([websocket.ts](packages/core/src/websocket.ts)).
+- **Latency floor.** One clock tick (~16 ms) + up to one send interval (25 ms at the default 40 Hz) + WS hop + UDP hop. The connector is stateless: each incoming WS message triggers an immediate UDP send, with no coalescing ([bridge/index.ts](packages/bridge/src/index.ts)).
 - **Inline pattern widgets** hook the same `onTick` the DMX loop uses rather than a separate rAF, so their visuals stay phase-locked with the lights ([inline-viz.ts](packages/ui/src/inline-viz.ts)). The 512-bar visualizer runs its own rAF loop over a read-only snapshot with light exponential smoothing, so the on-screen strip never contends with the DMX path ([visualizer.ts](packages/ui/src/visualizer.ts)).
 
 ### Output protocols
 
-The bridge is stateless: one WebSocket frame in, one UDP send out. Wire cadence matches whatever the browser sends.
+The connector is stateless: one WebSocket frame in, one UDP send out. Wire cadence matches whatever the browser sends.
 
 | Mode | Packet | Transport | Notes |
 |------|--------|-----------|-------|
 | Art-Net | 530-byte ArtDmx (`OpOutput 0x5000`) | UDP to the configured host, port 6454; unicast or a broadcast address, your choice | Full 512-channel payload each frame |
-| sACN (E1.31) | 638-byte E1.31 packet | UDP multicast `239.255.<hi>.<lo>`, port 5568 | Random CID per bridge process, source name `gobo`; one sequence counter shared across universes |
+| sACN (E1.31) | 638-byte E1.31 packet | UDP multicast `239.255.<hi>.<lo>`, port 5568 | Random CID per connector process, source name `gobo`; one sequence counter shared across universes |
 | OSC | `/gobo/<uni>/<ch>` float | UDP unicast | Only channels that are non-zero, plus one zero per channel transitioning off |
 | Mock | n/a | n/a | Logs the non-zero channels about twice a second (`mock.logIntervalFrames`) |
 
 ### Fixtures
 
-A fixture profile is an ordered list of `{offset, name, type}` channel descriptors ([fixtures.ts](packages/core/src/fixtures.ts)). `fixture(start, id)` returns an object where each channel name becomes a setter that writes to `start + offset` on the target universe. Generic helpers `.color(…) / .off() / .full()` walk the light-emitting channels of whatever fixture you gave them, so the same call works on `rgb`, `rgbw`, `dim-rgbw`, or a moving head ([fixtures.ts](packages/core/src/fixtures.ts)). A channel counts as a colour when it is named `red`/`green`/`blue`/`white` in any case and with any trailing number, or spelled `r`/`g`/`b`/`w` and declared `type: 'color'`. `.color()` takes one colour, several, or an array of them: a run spreads across whatever pixels the fixture has, and a single-position fixture like a par says so rather than dropping the rest. Pixel strips (`rgbStrip`, `rgbwStrip`) lay out N × 3 or N × 4 contiguous channels and answer `.color(…)` and `.fill(…)` alike, plus `.pixel(i, …)`, `.pixelGrid([…])`, `.each(fn)`, `.rainbowChase(…)`. Roll your own with `defineFixture(id, def)`.
+A fixture profile is an ordered list of `{offset, name, type}` channel descriptors ([fixtures.ts](packages/core/src/fixtures.ts)). `fixture(start, id)` returns an object where each channel name becomes a setter that writes to `start + offset` on the target universe. Generic helpers `.color(…) / .off() / .full()` walk the light-emitting channels of whatever fixture you gave them, so the same call works on `rgb`, `rgbw`, `dim-rgbw`, or a moving head ([fixtures.ts](packages/core/src/fixtures.ts)). A channel counts as a colour when it is named `red`/`green`/`blue`/`white` in any case and with any trailing number, or spelled `r`/`g`/`b`/`w` and declared `type: 'color'`. `.color()` takes one colour, several, or an array of them: a run spreads across whatever pixels the fixture has, and a single-position fixture like a par says so rather than dropping the rest. Pixel strips (`rgbStrip`, `rgbwStrip`) lay out N × 3 or N × 4 contiguous channels and answer `.color(…)` and `.fill(…)` alike, plus `.pixel(i, …)`, `.pixelGrid([…])`, `.each(pattern)`, `.rainbowChase(…)`. Roll your own with `defineFixture(id, def)`.
 
 `group(...)` puts fixtures, strips and a fixture's `.pixels` behind the same setters, so one line covers a mixed rig. A fixture counts as one element however many channels it has and a strip counts one per pixel, which is what `.each(pattern)` walks: `group(washA, washB, bar.pixels).each(sine.slow(4), 4)` runs the wave on every element a step later than the last, one phase ramp across the lot, in the order written. A role only some members have is applied to those; a role no member has throws rather than doing nothing.
 
@@ -373,7 +373,7 @@ Every channel write goes through one function ([dmx.ts](packages/core/src/dmx.ts
 
 ## DMX output configuration
 
-Set the output from your code, at the top of the editor. Switching modes while running reconfigures the bridge:
+Set the output from your code, at the top of the editor. Switching modes while running reconfigures the connector:
 
 ```js
 usb()                      // USB DMX box on this computer, nothing installed
@@ -385,8 +385,8 @@ usb()                      // USB DMX box on this computer, nothing installed
 ```
 
 `usb()` and `td()` are driven by the page itself, so they work in a plain browser. `artnet()`,
-`sacn()`, `osc()` and `mock()` go through the bridge, the only part that speaks UDP, so they
-need it running: `npm start`, or the connector on its own. `npm run dev` starts the bridge with
+`sacn()`, `osc()` and `mock()` go through the connector, the only part that speaks UDP, so they
+need it running: `npm start`, or the connector on its own. `npm run dev` starts the connector with
 the UI, `npm run dev:bridge` alone. `bridge.config.json` sets the startup default; these calls
 override it at runtime.
 
@@ -410,18 +410,18 @@ Full setup for both: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Nothing on the rig, dot reads `disconnected` | Bridge not running, or the page can't reach `ws://<host>:3001` | `npm start`, or the connector. The page reconnects by itself |
+| Nothing on the rig, dot reads `disconnected` | Connector not running, or the page can't reach `ws://<host>:3001` | `npm start`, or the connector. The page reconnects by itself |
 | The outputs tab says the browser is blocking the connector | Chrome's local network access permission was refused for the hosted site | Allow it from the icon beside the address, or run gobo locally, where there is nothing to allow |
 | Connector running, a copy of gobo hosted elsewhere will not connect | The connector answers only its own pages and the official hosted site, and says so in its log | Start it with `--allow-origin https://that.site` |
-| Dot reads `bridge`, rig still dark | Bridge in the wrong mode. With no config file it starts in `mock` and only logs | Call `artnet(…)` / `sacn(…)` / `osc(…)` at the top of the scene and re-run; the bridge prints a `config updated` line naming the new mode |
-| Bridge logs Art-Net sends, fixtures dark | Wrong destination. `artnet()` with no argument targets `127.0.0.1`, loopback only | Unicast the node (`artnet('2.0.0.100')`) or broadcast the subnet (`artnet('2.255.255.255')`); the bridge logs the address it used |
+| Dot reads `connector`, rig still dark | Connector in the wrong mode. With no config file it starts in `mock` and only logs | Call `artnet(…)` / `sacn(…)` / `osc(…)` at the top of the scene and re-run; the connector prints a `config updated` line naming the new mode |
+| Connector logs Art-Net sends, fixtures dark | Wrong destination. `artnet()` with no argument targets `127.0.0.1`, loopback only | Unicast the node (`artnet('2.0.0.100')`) or broadcast the subnet (`artnet('2.255.255.255')`); the connector logs the address it used |
 | Visualizer flat but the rig responds, or the reverse | The scene is driving more than one universe. Every call defaults to universe 0, so something is naming another. The strip draws the lowest and says `(+1 more)` when there are others | Give the scene one universe, or point the interface at the one you want. On the connector every universe is sent, but a **USB** interface carries only one — the run says which universes are not reaching it |
-| Fixtures stay lit after `Ctrl+.` | Stop action is set to `freeze`, which holds the last frame by design (the default is `blackout`) | Set it back to `blackout` in settings. Blackout only reaches the rig while the bridge is connected; closing the tab sends nothing |
-| Rig stuck on its last colour after commenting a pattern out | The single zero-frame sent when a universe goes dark was lost, because the bridge was disconnected on that frame | Reconnect, then `Ctrl+.` to re-send zeros |
+| Fixtures stay lit after `Ctrl+.` | Stop action is set to `freeze`, which holds the last frame by design (the default is `blackout`) | Set it back to `blackout` in settings. Blackout only reaches the rig while the connector is connected; closing the tab sends nothing |
+| Rig stuck on its last colour after commenting a pattern out | The single zero-frame sent when a universe goes dark was lost, because the connector was disconnected on that frame | Reconnect, then `Ctrl+.` to re-send zeros |
 | Wrong fixtures respond, everything off by one | DMX is 1-based: `ch(1, …)` is channel 1, `fixture(start, id)` covers `start` … `start + channelCount - 1` | Check the fixture's address and channel count; address 1 is gobo's channel 1, not 0 |
-| sACN lands on the wrong universe | `sacn(universe, priority)`'s first arg doesn't steer output. The bridge multicasts every universe it receives to `239.255.<hi>.<lo>` | Set the universe with `uni()` or the fixture universe arg. Priority (default 100) is the arg that counts; receivers arbitrate by it |
-| Hosted https page can't reach a bridge on another machine | From `gobolive.cc` the page always dials `ws://localhost:3001`. Browsers allow loopback from https, but block `ws://` to any other host | Run the bridge on the browser's machine, or run gobo on that machine with `npm start -- --lan` and open it at `http://<its address>:3001` |
-| Nothing arrives in TouchDesigner | Bridge still in Art-Net or mock mode, or the `OSC In CHOP` port doesn't match `osc(host, port)` | See [docs/touchdesigner.md](docs/touchdesigner.md); only channels you drive are transmitted |
+| sACN lands on the wrong universe | `sacn(universe, priority)`'s first arg doesn't steer output. The connector multicasts every universe it receives to `239.255.<hi>.<lo>` | Set the universe with `uni()` or the fixture universe arg. Priority (default 100) is the arg that counts; receivers arbitrate by it |
+| Hosted https page can't reach a connector on another machine | From `gobolive.cc` the page always dials `ws://localhost:3001`. Browsers allow loopback from https, but block `ws://` to any other host | Run the connector on the browser's machine, or run gobo on that machine with `npm start -- --lan` and open it at `http://<its address>:3001` |
+| Nothing arrives in TouchDesigner | Connector still in Art-Net or mock mode, or the `OSC In CHOP` port doesn't match `osc(host, port)` | See [docs/touchdesigner.md](docs/touchdesigner.md); only channels you drive are transmitted |
 | Stutter, or a saturated network | Send rate too high for the link | Drop **send rate** to 30 Hz in settings |
 | A share link opens gobo but loads no scene | The link was truncated in transit. Chat apps and mail clients cut long URLs, and half a payload cannot be decoded | Re-send it as a link, not as text that wraps, or use **copy the code instead** in the share dialog and send the text |
 | Opened a shared scene and nothing happens | Shared scenes arrive stopped on purpose, because they are someone else's code | Read the code, then `Ctrl+Enter` |
@@ -433,7 +433,7 @@ Full setup for both: **[docs/touchdesigner.md](docs/touchdesigner.md)**.
 - [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/)
 - [@strudel/core](https://strudel.cc): cycle-based pattern engine
 - [CodeMirror 6](https://codemirror.net/): code editor
-- [ws](https://github.com/websockets/ws): WebSocket bridge (Node.js)
+- [ws](https://github.com/websockets/ws): WebSocket server in the connector (Node.js)
 - ArtNet 4 / sACN E1.31: DMX protocol output
 
 ---
