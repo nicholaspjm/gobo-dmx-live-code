@@ -412,7 +412,16 @@ function rgbOf(
   reported: Set<string>,
 ): readonly [number, number, number] {
   const known = toColorValue(v);
-  if (known !== null) return levelsOf(known, begin, end);
+  if (known !== null) {
+    // A colour that picked up a gain on the way (strudel's controls merge
+    // into an object value, so red.across(0) is red with a pan and, in a
+    // group, a gain) is dimmed by it.
+    const levels = levelsOf(known, begin, end);
+    const { gain, velocity } = v as { gain?: unknown; velocity?: unknown };
+    if (typeof gain !== 'number' && typeof velocity !== 'number') return levels;
+    const k = clamp01((typeof gain === 'number' ? gain : 1) * (typeof velocity === 'number' ? velocity : 1));
+    return [levels[0] * k, levels[1] * k, levels[2] * k];
+  }
   // A bare number is a grey, the same rule in every position. A control object
   // is read the same way: echo() and hurry() yield { value, gain }, which
   // dmx.ts already unwraps as a level, so a colour position reads it as the
@@ -421,6 +430,18 @@ function rgbOf(
   if (level !== null) {
     const grey = clamp01(level);
     return [grey, grey, grey];
+  }
+  // A colour carried in a control object: a faded step ({ value: red, gain }),
+  // a side from .jux() or a place from .across(), which a group turns into a
+  // gain for each light. The colour is read as usual and the gain dims it.
+  if (v !== null && typeof v === 'object' && 'value' in v) {
+    const { value, gain, velocity } = v as { value: unknown; gain?: unknown; velocity?: unknown };
+    const [r, g, b] = rgbOf(value, begin, end, what, reported);
+    let k = 1;
+    if (typeof gain === 'number') k *= gain;
+    if (typeof velocity === 'number') k *= velocity;
+    k = clamp01(k);
+    return [r * k, g * k, b * k];
   }
   if (typeof v === 'string') {
     try {

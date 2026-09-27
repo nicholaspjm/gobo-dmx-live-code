@@ -3665,6 +3665,17 @@ function eachXYFunction<R>(
  * as it comes, so a pattern of pans (`.pan(mini('0 1'))`, `.pan(rand)`)
  * places each step on its own.
  */
+/** Whether a pattern's first cycle carries a place along a group (side, pan or fan). */
+function carriesPlacement(p: unknown): boolean {
+  try {
+    const haps = (p as { queryArc: (b: number, e: number) => Array<{ value: unknown }> }).queryArc(0, 1);
+    return haps.some(({ value: v }) => v !== null && typeof v === 'object'
+      && ('side' in v || 'pan' in v || 'fan' in v));
+  } catch {
+    return false;
+  }
+}
+
 function placeAcross(value: PatternOrValue, index: number, count: number): PatternOrValue {
   if (typeof value === 'number' || count < 2) return value;
   const p = value as unknown as { fmap?: (fn: (v: unknown) => unknown) => PatternOrValue };
@@ -3675,9 +3686,10 @@ function placeAcross(value: PatternOrValue, index: number, count: number): Patte
     // first light width/2 below it and the last width/2 above, the way a desk
     // fans a row of heads out from a centre.
     const fan = (v as { fan?: unknown }).fan;
-    if (typeof fan === 'number' && Number.isFinite(fan)) {
-      const level = levelOf(v) ?? 0;
-      return level + (index / (count - 1) - 0.5) * fan;
+    // Only a level fans; a colour has no scale to spread along.
+    const fanLevel = levelOf(v);
+    if (typeof fan === 'number' && Number.isFinite(fan) && fanLevel !== null) {
+      return fanLevel + (index / (count - 1) - 0.5) * fan;
     }
     const pan = (v as { pan?: unknown }).pan;
     // A side from .jux(): the left half of the group takes side 0 and the
@@ -3792,7 +3804,14 @@ export function group(...members: GroupMember[]): GroupInstance {
         everyArgIsColour(given)
         || (given.length === 1 && (isPalette(given[0]) || isPatternLike(given[0]) || typeof given[0] === 'string'))
       ) {
-        const run = readColorRun(given, cells.length, 'group.color()');
+        // A colour pattern placed along the group, with .jux(), .across() or
+        // .fan(), is read once per light with that light's share applied, the
+        // way a level is. Anything else is read once and shared, which keeps
+        // the per-tick cost of one pattern on a long strip.
+        const placed = given.length === 1 && isPatternLike(given[0]) && carriesPlacement(given[0]);
+        const run = placed
+          ? cells.map((_, i) => readColorRun([placeAcross(given[0] as PatternOrValue, i, cells.length)], 1, 'group.color()')[0])
+          : readColorRun(given, cells.length, 'group.color()');
         let painted = 0;
         cells.forEach((cell, i) => {
           const c = run[i];

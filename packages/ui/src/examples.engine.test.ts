@@ -292,6 +292,35 @@ describe('a level over a colour', () => {
   });
 });
 
+describe('colour through the lighting ports', () => {
+  const rgb = (addr: number): number[] => Array.from(core.getUniverseBuffer(0).slice(addr - 1, addr + 2));
+
+  it('a colour step fades out with a tail', () => {
+    run("const p = fixture(1, 'rgb')\np.color('red - - -'.fadeOut(2))");
+    core.tick(0.1);
+    expect(rgb(1)).toEqual([255, 0, 0]);
+    core.tick(0.5);
+    const [r, g, b] = rgb(1);
+    expect(r).toBeGreaterThan(0);
+    expect(r).toBeLessThan(255);
+    expect(g + b).toBe(0);
+  });
+
+  it('jux puts each half of a colour pattern on its own side of a group', () => {
+    run("const a = fixture(1, 'rgb')\nconst b = fixture(4, 'rgb')\nconst g = group(a, b)\ng.color(seq(red, blue).jux(rev))");
+    core.tick(0.1);
+    expect(rgb(1)).toEqual([255, 0, 0]);
+    expect(rgb(4)).toEqual([0, 0, 255]);
+  });
+
+  it('across places a quoted colour on one light of a group', () => {
+    run("const a = fixture(1, 'rgb')\nconst b = fixture(4, 'rgb')\nconst g = group(a, b)\ng.color('red'.across(0))");
+    core.tick(0.1);
+    expect(rgb(1)).toEqual([255, 0, 0]);
+    expect(rgb(4)).toEqual([0, 0, 0]);
+  });
+});
+
 describe('a fan', () => {
   it('spreads a group of heads out around a centre', () => {
     run("const a = fixture(1, 'moving-head-basic')\nconst b = fixture(9, 'moving-head-basic')\nconst c = fixture(17, 'moving-head-basic')\ngroup(a, b, c).pan(mini('0.5').fan(0.4))");

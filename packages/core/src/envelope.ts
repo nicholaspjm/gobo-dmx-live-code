@@ -120,6 +120,13 @@ interface Faded {
   [SOURCE]?: { source: unknown; shape: Shape };
 }
 
+/** The gain a colour step carries (1 for a bare colour), which is its level. */
+function carriedGain(v: unknown): number {
+  if (v === null || typeof v !== 'object') return 1;
+  const { gain, velocity } = v as { gain?: unknown; velocity?: unknown };
+  return (typeof gain === 'number' ? gain : 1) * (typeof velocity === 'number' ? velocity : 1);
+}
+
 /** Longest look back for a tail, so a typo of 1000 beats cannot stall a tick. */
 const MAX_TAIL_CYCLES = 16;
 
@@ -153,8 +160,9 @@ export function fade(kit: StrudelKit, pattern: unknown, shape: Shape): unknown {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let bestHap: any = null;
     for (const hap of haps) {
-      const level = levelOf(hap.value);
-      if (level === null) continue;
+      // A colour step has no level of its own: it is full, and the fade
+      // becomes a gain on it (see rgbOf in colors.ts).
+      const level = levelOf(hap.value) ?? carriedGain(hap.value);
       let shaped: number | null;
       if (!hap.whole) {
         // A continuous signal has no steps to shape: it passes through while
@@ -175,7 +183,14 @@ export function fade(kit: StrudelKit, pattern: unknown, shape: Shape): unknown {
     // velocity are already folded into the level, so they go.
     const v = bestHap.value;
     let value: unknown = best;
-    if (v !== null && typeof v === 'object') {
+    if (levelOf(v) === null) {
+      // A colour, bare or carried: it keeps its fields, and the fade rides as
+      // the gain. Any gain it had is already in `best`.
+      const fields: Record<string, unknown> =
+        v !== null && typeof v === 'object' && 'value' in v ? (v as Record<string, unknown>) : { value: v };
+      const { gain: _gain, velocity: _velocity, ...rest } = fields;
+      value = { ...rest, gain: best };
+    } else if (v !== null && typeof v === 'object') {
       const { gain: _gain, velocity: _velocity, ...rest } = v as Record<string, unknown>;
       value = { ...rest, value: best };
     }
