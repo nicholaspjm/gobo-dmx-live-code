@@ -89,6 +89,8 @@ export interface Settings {
   zenHideSim: boolean;
   zenHideLevels: boolean;
   zenHideCues: boolean;
+  /** Minimal view hides the status bar along the bottom. Default true. */
+  zenHideStatus: boolean;
   /** Drop the page background to black behind the code. Default false. */
   zenBlackBackground: boolean;
   /** The page on true black under any dark theme, all the time. Default false. */
@@ -143,6 +145,7 @@ const DEFAULTS: Settings = {
   zenHideSim: true,
   zenHideLevels: true,
   zenHideCues: false,
+  zenHideStatus: true,
   zenBlackBackground: false,
   blackBackground: false,
   lineNumbers: true,
@@ -485,6 +488,12 @@ export function mountSettingsPanel(opts: {
           label: 'hide cue bar',
           hint: 'off by default. the cue chips show which look is up, which helps on a projector.',
           control: toggle('zenHideCues', s.zenHideCues),
+        })}
+        ${row({
+          key: 'zenHideStatus',
+          label: 'hide status bar',
+          hint: 'the line along the bottom. it comes back at the bottom edge, and by itself when a run fails.',
+          control: toggle('zenHideStatus', s.zenHideStatus),
         })}
         ${row({
           key: 'zenBlackBackground',

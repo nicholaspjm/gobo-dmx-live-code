@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Changed
+
+- **Minimal view hides the status bar and the editor's scrollbar too.** The
+  status bar comes back while the pointer is on the bottom edge, and by itself
+  when a run fails, so an error is never hidden. A new setting, hide status
+  bar, turns this off. The code still scrolls with the wheel and keys.
+
 ### Fixed
 
 - **A share link that cannot be read says so.** A link cut short or changed

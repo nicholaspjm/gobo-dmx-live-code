@@ -2393,6 +2393,7 @@ function setZenMode(on: boolean): void {
   document.body.classList.toggle('zen-hide-sim', on && s.zenHideSim);
   document.body.classList.toggle('zen-hide-levels', on && s.zenHideLevels);
   document.body.classList.toggle('zen-hide-cues', on && s.zenHideCues);
+  document.body.classList.toggle('zen-hide-status', on && s.zenHideStatus);
   document.body.classList.toggle('zen-black', on && s.zenBlackBackground);
   zenToggleEl.setAttribute('aria-pressed', String(on));
   wordmarkEl.setAttribute('aria-pressed', String(on));

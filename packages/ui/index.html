@@ -1023,6 +1023,41 @@
         z-index: 91;
       }
 
+      /* The status bar goes the same way as the top bar, and comes back while
+         the pointer is on the bottom edge or on the sim above it. A failed run
+         brings it back by itself, so an error is never hidden. */
+      body.zen-hide-status .statusbar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        transform: translateY(100%);
+        transition: transform 0.15s ease 0.3s;
+      }
+      body.zen-hide-status .statusbar::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 100%;
+        height: 8px;
+      }
+      body.zen-hide-status .statusbar:hover,
+      body.zen-hide-status .statusbar:focus-within,
+      body.zen-hide-status .statusbar:has(#eval-status.error),
+      body.zen-hide-status:has(.viz-wrap:hover) .statusbar {
+        transform: none;
+        transition-delay: 0s;
+      }
+
+      /* No scrollbar beside the code in minimal view; it still scrolls. */
+      body.zen-mode .cm-scroller {
+        scrollbar-width: none;
+      }
+      body.zen-mode .cm-scroller::-webkit-scrollbar {
+        display: none;
+      }
+
       /* For a projected screen: the code on black, with nothing behind it. */
       body.zen-black .editor-wrap,
       body.zen-black .cm-editor,
@@ -1031,10 +1066,9 @@
         background: #000 !important;
       }
 
-      /* The way out of minimal view, and the only thing on screen that says which
-         mode this is. It lives in the status bar because that is the one strip
-         minimal view keeps, and it is drawn in the accent so it is not mistaken for
-         status text. */
+      /* The way out of minimal view, and the one thing that names the mode. It
+         lives in the status bar, which minimal view keeps or tucks at the bottom
+         edge, and is drawn in the accent so it is not mistaken for status text. */
       .zen-exit {
         margin-left: auto;
         padding: 1px 8px;
@@ -2927,7 +2961,7 @@
         <!-- On screen only in minimal view, where the top bar is tucked away. It names
              the mode and the key, and clicking it is the way back, so
              forgetting the key cannot strand anyone in there. -->
-        <button type="button" class="zen-exit" id="zen-exit" title="the controls are still there: move to the top edge for the bar, or onto this line for the sim" hidden>minimal view · exit (alt+m)</button>
+        <button type="button" class="zen-exit" id="zen-exit" title="the controls are still there: the top edge brings back the bar, the bottom edge this line and the sim" hidden>minimal view · exit (alt+m)</button>
       </div>
     </div>
 
