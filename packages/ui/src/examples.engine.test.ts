@@ -447,6 +447,14 @@ describe('step length, strudel clip and legato', () => {
   });
 });
 
+describe('a pattern handed to no light', () => {
+  it('is said, naming the line, since in strudel it would play', () => {
+    const r = core.evalCode("const w = fixture(1, 'dim')\n'1 0'.fast(2)");
+    expect(r.success).toBe(true);
+    expect(r.warning).toContain('line 2: a pattern on its own reaches no light');
+  });
+});
+
 describe('a fan', () => {
   it('spreads a group of heads out around a centre', () => {
     run("const a = fixture(1, 'moving-head-basic')\nconst b = fixture(9, 'moving-head-basic')\nconst c = fixture(17, 'moving-head-basic')\ngroup(a, b, c).pan(mini('0.5').fan(0.4))");

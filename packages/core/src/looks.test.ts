@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { isMuteLabel, quotedReceivers, rewriteLooks } from './looks.js';
+import { danglingPatternLines, isMuteLabel, quotedReceivers, rewriteLooks } from './looks.js';
 
 describe('a named block is a look', () => {
   it('becomes a function with that name, on the same lines', () => {
@@ -148,5 +148,20 @@ describe('what the review found', () => {
 
   it('names the looks that are muted', () => {
     expect(rewriteLooks('_bridge: { a() }\n_$: b()').mutedLooks).toEqual(['bridge']);
+  });
+});
+
+describe('a pattern handed to no light', () => {
+  it('is found on a line of its own, quoted or from a signal', () => {
+    expect(danglingPatternLines("const w = fixture(1, 'dim')\n'1 0'.fast(2)\nsine.slow(4)\nw.dim(saw)")).toEqual([2, 3]);
+  });
+
+  it('finds the editor-tagged form too', () => {
+    expect(danglingPatternLines("m('1 0', 3).fast(2)")).toEqual([1]);
+  });
+
+  it('leaves lights, looks, mutes, assignments and inline pictures alone', () => {
+    const src = "const p = sine.slow(4)\nverse: {\n  sine.slow(2)\n}\n_$: '1 0'\nsine._scope()\nmaster.dim(1)";
+    expect(danglingPatternLines(src, ['_scope'])).toEqual([]);
   });
 });

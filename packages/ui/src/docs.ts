@@ -1473,8 +1473,8 @@ export const DOCS: DocSection[] = [
         name: 'rests',
         signature: "'-' or '~'",
         description:
-          "Silence. Nothing is emitted for that step. The two are interchangeable; most gobo examples use '-' for grid alignment.",
-        example: "mini('1 - 1 -')          // hits on beats 1 and 3",
+          "A rest: nothing is written for that step. The two are interchangeable; most gobo examples use '-' for grid alignment.",
+        example: "wash.dim('1 - 1 -')      // hits on beats 1 and 3",
       },
       {
         name: 'subdivisions',
@@ -1584,13 +1584,13 @@ export const DOCS: DocSection[] = [
         signature: 'pat.slow(n)',
         description:
           "Stretch the pattern to take n cycles instead of one. slow(4) = 4x slower, one full wave every 4 bars.",
-        example: 'sine.slow(4)',
+        example: 'wash.dim(sine.slow(4))',
       },
       {
         name: '.fast(n)',
         signature: 'pat.fast(n)',
         description: 'Squeeze pattern into 1/n of a cycle. fast(2) = twice as fast.',
-        example: 'square.fast(8)',
+        example: 'strb.dim(square.fast(8))',
       },
       {
         name: '.range(lo, hi)',
@@ -1603,13 +1603,13 @@ export const DOCS: DocSection[] = [
         name: '.add(n)',
         signature: 'pat.add(n)',
         description: 'Offset output by n. Often used to phase-shift: sine.add(0.5).',
-        example: 'sine.add(0.5).range(0, 0.8)',
+        example: 'wash.dim(sine.add(0.5).range(0, 0.8))',
       },
       {
         name: '.mul(n)',
         signature: 'pat.mul(n)',
         description: 'Multiply output by n.',
-        example: 'sine.mul(0.5)',
+        example: 'wash.dim(sine.mul(0.5))',
       },
       {
         name: '.range backwards',

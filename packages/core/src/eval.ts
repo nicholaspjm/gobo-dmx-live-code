@@ -46,7 +46,7 @@ import {
 import { COLORS, colorFromToken, mix, toColorValue, type Color } from './colors.js';
 import { setBPM } from './scheduler.js';
 import { installFades } from './envelope.js';
-import { quotedReceivers, rewriteLooks } from './looks.js';
+import { danglingPatternLines, quotedReceivers, rewriteLooks } from './looks.js';
 import { setStringPatternParser, stringPattern } from './string-patterns.js';
 import {
   fixture,
@@ -1826,7 +1826,12 @@ export function evalCode(code: string): EvalResult {
       // — verse(); chorus() — where the shared channels come out as whatever
       // the later one said and the earlier look is silently gone.
       const overwriteNote = overwrittenNote();
-      const warning = [outputWarning, impliedNote, impliedColourNote, overwriteNote, ..._cueNotes]
+      // A pattern on a line of its own plays in strudel and does nothing here.
+      const dangling = danglingPatternLines(code, PATTERN_VIZ_METHOD_NAMES);
+      const danglingNote = dangling.length === 0
+        ? null
+        : `line ${dangling.join(', ')}: a pattern on its own reaches no light. Hand it to one, as in wash.dim(…) or rig.each(…).`;
+      const warning = [outputWarning, impliedNote, impliedColourNote, overwriteNote, danglingNote, ..._cueNotes]
         .filter((w) => w !== null).join(' ') || null;
       if (warning !== null) {
         // The status line is the UI's to write, and it may be showing something

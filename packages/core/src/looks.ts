@@ -383,3 +383,35 @@ export function quotedReceivers(code: string, isMethod: (name: string) => boolea
   }
   return found;
 }
+
+/** Names that start a pattern and nothing else, as the head of a statement. */
+// m( is how the editor hands over a quoted pattern it has tagged for its
+// outlines, so it counts only as a call, never as a name a scene chose.
+const PATTERN_HEADS = /^((sine|cosine|saw|isaw|square|tri|rand|perlin|irand|cat|seq|stack|sequence|fastcat|slowcat|mini)\b|m\s*\()/;
+
+/**
+ * Lines that make a pattern and hand it to nothing: `'1 0'.fast(2)` or
+ * `sine.slow(4)` as a statement of its own. In strudel a line like that
+ * plays; here a pattern only reaches light through a light, so the line does
+ * nothing, and a scene pasted from strudel is dark with no error. Returned as
+ * 1-based line numbers, for a warning. `skip` names method calls that do
+ * something with a bare pattern (the inline pictures), which are left alone.
+ */
+export function danglingPatternLines(code: string, skip: readonly string[] = []): number[] {
+  const lines: number[] = [];
+  for (const start of topLevelStarts(code)) {
+    const rest = code.slice(start);
+    const quoted = /^['"`]/.test(rest);
+    if (!quoted && !PATTERN_HEADS.test(rest)) continue;
+    // The statement, as far as the end of its line and any chained lines
+    // after it (a line that starts with a dot carries on).
+    const end = rest.search(/\n(?!\s*\.)/);
+    const statement = end === -1 ? rest : rest.slice(0, end);
+    // `sine = …` would be an assignment (and an error of its own), and a
+    // statement that is not a chain or a call is not a pattern being made.
+    if (/^\w+\s*=[^=]/.test(statement)) continue;
+    if (skip.some((name) => statement.includes(`.${name}(`))) continue;
+    lines.push(code.slice(0, start).split('\n').length);
+  }
+  return lines;
+}

@@ -28,6 +28,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Changed
 
+- **A pattern on a line of its own is pointed out.** In strudel `'1 0'.fast(2)`
+  on its own line plays; here it reaches no light, so the status bar now says
+  which line and how to hand it to one. The docs' examples that were bare
+  fragments now show a light too.
 - Fades are back to their earlier speed on long strips: the second look at
   a continuous signal is only taken when the pattern has one.
 
