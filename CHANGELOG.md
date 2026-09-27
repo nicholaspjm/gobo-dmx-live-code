@@ -8,6 +8,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Added
 
+- **Three times the themes: 39, in five groups.** Alongside gobo's own
+  thirteen: basics (a plain light theme, solar dark and light, fjord,
+  lavender gel, sodium lamp, neon sign, haze), monochrome (grey, paper,
+  green and amber phosphor, cyanotype, sepia, and red night, which keeps a
+  booth's night vision), accessibility (high contrast dark and light at 7:1,
+  colour-blind safe dark, light and tritan, no blue light, low glare) and
+  performance (a dim booth theme for a dark room, pure black, projector,
+  daylight). The new ones are generated from a few choices each, with every
+  colour tuned to a contrast target, and a test holds every theme, old and
+  new, to 4.5:1. Two of the originals missed it on their muted text (glow
+  tape, safelight) and are fixed.
+- **A black background setting**, under the theme: the page on true black
+  under any dark theme, all the time rather than only in minimal view.
+  Lights drawn on screen keep their own colours.
 - **`.clip()` and `.legato()` set how long each step stays lit.** In strudel
   they are how long a note sounds; for a light, `'1*8'.clip(0.25)` is eight
   short flashes, and a `.fadeOut()` after it starts where the flash ends.

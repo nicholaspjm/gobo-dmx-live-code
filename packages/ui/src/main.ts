@@ -133,7 +133,7 @@ captureConsole();
 // to draw them, and the editor is that something.
 setLocationCollection(true);
 
-applyTheme(getSettings().theme);
+applyTheme(getSettings().theme, { black: getSettings().blackBackground });
 
 /**
  * Editor type size, as a variable the stylesheet reads.
@@ -2374,7 +2374,7 @@ evalStatusEl.addEventListener('click', () => {
 // the point of use and need no subscription; themes need one because they
 // write CSS variables onto :root to take effect.
 onSettingsChange((s) => {
-  applyTheme(s.theme);
+  applyTheme(s.theme, { black: s.blackBackground });
   applyFontSize(s.fontSize);
   goboEditor.setPrefs(editorPrefs());
   applyAnimations(s.animations);

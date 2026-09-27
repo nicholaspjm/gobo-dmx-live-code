@@ -13,7 +13,7 @@
  * current value at the point of decision rather than caching it.
  */
 
-import { THEMES, THEME_LIST, LEGACY_THEME_IDS, type ThemeId } from './themes.js';
+import { THEMES, THEME_LIST, THEME_GROUPS, LEGACY_THEME_IDS, type ThemeId } from './themes.js';
 import { PANEL_OPEN_EVENT } from './panel.js';
 import { migrateLegacyKey } from './storage-migration.js';
 
@@ -93,6 +93,8 @@ export interface Settings {
   zenHideCues: boolean;
   /** Drop the page background to black behind the code. Default false. */
   zenBlackBackground: boolean;
+  /** The page on true black under any dark theme, all the time. Default false. */
+  blackBackground: boolean;
 
   // ── The editor itself ──────────────────────────────────────────────────
   // The editor is the whole interface here, and an editor habit is personal:
@@ -148,6 +150,7 @@ const DEFAULTS: Settings = {
   zenHideLevels: true,
   zenHideCues: false,
   zenBlackBackground: false,
+  blackBackground: false,
   lineNumbers: true,
   activeLine: true,
   bracketMatching: true,
@@ -310,7 +313,13 @@ export function mountSettingsPanel(opts: {
           key: 'theme',
           label: 'theme',
           hint: 'colour scheme for the editor and ui chrome. takes effect immediately.',
-          control: select('theme', s.theme, THEME_LIST.map((t) => ({ value: t.id, label: t.label }))),
+          control: themeSelect(s.theme),
+        })}
+        ${row({
+          key: 'blackBackground',
+          label: 'black background',
+          hint: 'the page on true black under any dark theme. lights drawn on screen keep their own colours. a light theme stays as it is.',
+          control: toggle('blackBackground', s.blackBackground),
         })}
         ${row({
           key: 'fontSize',
@@ -548,6 +557,19 @@ function toggle(key: string, value: boolean): string {
       <input type="checkbox" id="setting-${key}" data-setting-key="${key}" ${value ? 'checked' : ''}>
       <span class="setting-toggle-thumb"></span>
     </label>
+  `;
+}
+
+/** The theme list, under a heading per group. */
+function themeSelect(value: string): string {
+  const groups = THEME_GROUPS.map((g) => {
+    const opts = THEME_LIST.filter((t) => (t.group ?? 'gobo') === g.id).map((t) =>
+      `<option value="${escapeHtml(t.id)}"${t.id === value ? ' selected' : ''}>${escapeHtml(t.label)}</option>`,
+    ).join('');
+    return opts ? `<optgroup label="${escapeHtml(g.label)}">${opts}</optgroup>` : '';
+  }).join('');
+  return `
+    <select class="setting-select" id="setting-theme" data-setting-key="theme">${groups}</select>
   `;
 }
 

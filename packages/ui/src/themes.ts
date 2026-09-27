@@ -20,6 +20,8 @@
  * into a fail.
  */
 
+import { CVD_HUES, STANDARD_HUES, TRITAN_HUES, WARM_HUES, generateTheme, luminance, monoHues } from './theme-gen.js';
+
 export type ThemeId =
   | 'tungsten'
   | 'moonbox'
@@ -33,7 +35,33 @@ export type ThemeId =
   | 'cyclorama'
   | 'surprisePink'
   | 'worklight'
-  | 'followspot';
+  | 'followspot'
+  | 'monoGrey'
+  | 'monoPaper'
+  | 'greenPhosphor'
+  | 'amberPhosphor'
+  | 'cyanotype'
+  | 'redNight'
+  | 'sepia'
+  | 'contrastDark'
+  | 'contrastLight'
+  | 'colourSafeDark'
+  | 'colourSafeLight'
+  | 'tritanSafe'
+  | 'noBlue'
+  | 'lowGlare'
+  | 'booth'
+  | 'pureBlack'
+  | 'projector'
+  | 'daylight'
+  | 'houseLights'
+  | 'haze'
+  | 'solarDark'
+  | 'solarLight'
+  | 'fjord'
+  | 'lavenderGel'
+  | 'sodium'
+  | 'neonSign';
 
 /** The variables each theme must supply. Every addition here means
  *  updating every theme, so a new variable has to name a distinction the
@@ -199,7 +227,20 @@ export interface ThemeDef {
   id: ThemeId;
   label: string;
   vars: ThemeBase;
+  /** Where it sits in the settings list. The hand-drawn set is 'gobo'. */
+  group?: ThemeGroup;
 }
+
+export type ThemeGroup = 'gobo' | 'basics' | 'monochrome' | 'accessible' | 'performance';
+
+/** The groups in the order the settings list shows them, with their headings. */
+export const THEME_GROUPS: Array<{ id: ThemeGroup; label: string }> = [
+  { id: 'gobo', label: 'gobo' },
+  { id: 'basics', label: 'basics' },
+  { id: 'monochrome', label: 'monochrome' },
+  { id: 'accessible', label: 'accessibility' },
+  { id: 'performance', label: 'performance & venue' },
+];
 
 export const THEMES: Record<ThemeId, ThemeDef> = {
   // An incandescent tungsten lamp at ~3200K: the warm brown-amber ground
@@ -505,7 +546,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     vars: {
       bg: '#000000',
       text: '#c8ffd0',
-      textMuted: '#4a7050',
+      textMuted: '#56825d',
       accent: '#00ff66',
       accent2: '#66ff99',
       sage: '#00cc88',
@@ -555,7 +596,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     vars: {
       bg: '#0a0500',
       text: '#ffb83d',
-      textMuted: '#886030',
+      textMuted: '#a07139',
       accent: '#ffc966',
       accent2: '#ff9933',
       sage: '#e8a548',
@@ -846,6 +887,35 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       synOperator: '#608096',
     },
   },
+
+  // ── Generated from a few decisions each (theme-gen.ts): every syntax colour
+  //    is tuned to a contrast target, so each clears 4.5:1 by construction. ──
+  monoGrey: { id: 'monoGrey', label: 'grey', group: 'monochrome', vars: generateTheme({ bg: '#121212', text: '#e6e6e6', accent: '#bdbdbd', hues: monoHues(0, 0) }) },
+  monoPaper: { id: 'monoPaper', label: 'paper (light)', group: 'monochrome', vars: generateTheme({ bg: '#f7f7f5', text: '#1a1a1a', accent: '#444444', hues: monoHues(0, 0) }) },
+  greenPhosphor: { id: 'greenPhosphor', label: 'green phosphor', group: 'monochrome', vars: generateTheme({ bg: '#07110a', text: '#9cf2a8', accent: '#4fd66a', hues: monoHues(130, 0.6) }) },
+  amberPhosphor: { id: 'amberPhosphor', label: 'amber phosphor', group: 'monochrome', vars: generateTheme({ bg: '#120c03', text: '#ffcf7a', accent: '#f0a030', hues: monoHues(38, 0.85) }) },
+  cyanotype: { id: 'cyanotype', label: 'cyanotype', group: 'monochrome', vars: generateTheme({ bg: '#0a1424', text: '#cfe2ff', accent: '#6fa8ff', hues: monoHues(212, 0.55) }) },
+  redNight: { id: 'redNight', label: 'red night · keeps night vision', group: 'monochrome', vars: generateTheme({ bg: '#0c0000', text: '#ff6a5a', accent: '#d8382a', hues: monoHues(3, 0.9), minContrast: 4.6, tierStep: 0.7 }) },
+  sepia: { id: 'sepia', label: 'sepia (light)', group: 'monochrome', vars: generateTheme({ bg: '#f2e8d5', text: '#3b2d1c', accent: '#8a5a2b', hues: monoHues(32, 0.4) }) },
+  contrastDark: { id: 'contrastDark', label: 'high contrast · dark', group: 'accessible', vars: generateTheme({ bg: '#000000', text: '#ffffff', accent: '#ffd400', hues: STANDARD_HUES, minContrast: 7.2, tierStep: 1.6, saturation: 1.3 }) },
+  contrastLight: { id: 'contrastLight', label: 'high contrast · light', group: 'accessible', vars: generateTheme({ bg: '#ffffff', text: '#000000', accent: '#0040c0', hues: STANDARD_HUES, minContrast: 7.2, tierStep: 1.6, saturation: 1.3 }) },
+  colourSafeDark: { id: 'colourSafeDark', label: 'colour-blind safe · dark', group: 'accessible', vars: generateTheme({ bg: '#15171a', text: '#e8e8e8', accent: '#e69f00', accent2: '#56b4e9', hues: CVD_HUES, minContrast: 5.2 }) },
+  colourSafeLight: { id: 'colourSafeLight', label: 'colour-blind safe · light', group: 'accessible', vars: generateTheme({ bg: '#fbfbfb', text: '#1b1b1b', accent: '#b35900', accent2: '#0072b2', hues: CVD_HUES, minContrast: 5.2 }) },
+  tritanSafe: { id: 'tritanSafe', label: 'colour-blind safe · tritan', group: 'accessible', vars: generateTheme({ bg: '#141414', text: '#ececec', accent: '#e0505a', accent2: '#3cc8c8', hues: TRITAN_HUES, minContrast: 5.2 }) },
+  noBlue: { id: 'noBlue', label: 'no blue light', group: 'accessible', vars: generateTheme({ bg: '#140d08', text: '#f0c8a0', accent: '#e07a3a', hues: WARM_HUES }) },
+  lowGlare: { id: 'lowGlare', label: 'low glare', group: 'accessible', vars: generateTheme({ bg: '#232323', text: '#bdbdbd', accent: '#a58a6a', hues: STANDARD_HUES, saturation: 0.6, minContrast: 4.7, tierStep: 0.5 }) },
+  booth: { id: 'booth', label: 'booth · dim, for a dark room', group: 'performance', vars: generateTheme({ bg: '#050505', text: '#8f8f8f', accent: '#8a5a3a', hues: STANDARD_HUES, saturation: 0.7, minContrast: 4.6, tierStep: 0.35 }) },
+  pureBlack: { id: 'pureBlack', label: 'pure black', group: 'performance', vars: generateTheme({ bg: '#000000', text: '#e6e6e6', accent: '#c4724a', hues: STANDARD_HUES }) },
+  projector: { id: 'projector', label: 'projector · big contrast', group: 'performance', vars: generateTheme({ bg: '#000000', text: '#ffffff', accent: '#ff9a3c', hues: STANDARD_HUES, minContrast: 6.5, tierStep: 1.8, saturation: 1.4 }) },
+  daylight: { id: 'daylight', label: 'daylight · outdoors (light)', group: 'performance', vars: generateTheme({ bg: '#ffffff', text: '#000000', accent: '#c04a00', hues: STANDARD_HUES, minContrast: 6.5, tierStep: 1.5, saturation: 1.3 }) },
+  houseLights: { id: 'houseLights', label: 'house lights (light)', group: 'basics', vars: generateTheme({ bg: '#fafaf7', text: '#1f1d1a', accent: '#b85c2e', hues: STANDARD_HUES }) },
+  haze: { id: 'haze', label: 'haze', group: 'basics', vars: generateTheme({ bg: '#1d2126', text: '#d2d8df', accent: '#88a4c0', hues: STANDARD_HUES, saturation: 0.75 }) },
+  solarDark: { id: 'solarDark', label: 'solar · dark', group: 'basics', vars: generateTheme({ bg: '#002b36', text: '#c8d2d2', accent: '#cb4b16', accent2: '#b58900', hues: STANDARD_HUES, saturation: 0.9 }) },
+  solarLight: { id: 'solarLight', label: 'solar · light', group: 'basics', vars: generateTheme({ bg: '#fdf6e3', text: '#3c4a50', accent: '#cb4b16', accent2: '#b58900', hues: STANDARD_HUES, saturation: 0.9 }) },
+  fjord: { id: 'fjord', label: 'fjord', group: 'basics', vars: generateTheme({ bg: '#2e3440', text: '#e5e9f0', accent: '#88c0d0', hues: STANDARD_HUES, saturation: 0.7 }) },
+  lavenderGel: { id: 'lavenderGel', label: 'lavender gel', group: 'basics', vars: generateTheme({ bg: '#282a36', text: '#f8f8f2', accent: '#bd93f9', accent2: '#ff79c6', hues: STANDARD_HUES, saturation: 1.1 }) },
+  sodium: { id: 'sodium', label: 'sodium lamp', group: 'basics', vars: generateTheme({ bg: '#282828', text: '#ebdbb2', accent: '#fe8019', accent2: '#fabd2f', hues: STANDARD_HUES, saturation: 0.95 }) },
+  neonSign: { id: 'neonSign', label: 'neon sign', group: 'basics', vars: generateTheme({ bg: '#1a1b26', text: '#c0caf5', accent: '#7aa2f7', accent2: '#bb9af7', hues: STANDARD_HUES, saturation: 1.1 }) },
 };
 
 /**
@@ -938,13 +1008,19 @@ function derived(vars: ThemeBase): Pick<ThemeVars, DerivedVar> {
   };
 }
 
-export function applyTheme(id: ThemeId): void {
+export function applyTheme(id: ThemeId, opts: { black?: boolean } = {}): void {
   const t = THEMES[id] ?? THEMES.tungsten;
   const root = document.documentElement;
+  // The black background setting: the page on true black under any dark
+  // theme. Every colour in a dark theme is lighter than its ground, so going
+  // darker only adds contrast. A light theme is left as it is, since its dark
+  // text would vanish on black. The screen lights draw their own colours and
+  // are not touched.
+  const base: ThemeBase = opts.black && luminance(t.vars.bg) < 0.18 ? { ...t.vars, bg: '#000000' } : t.vars;
   // Map camelCase → kebab-case so the CSS variable names stay readable
   // (--text-muted, not --textMuted; --syn-fixture-decl, not
   // --synFixtureDecl).
-  const vars: ThemeVars = { ...t.vars, ...derived(t.vars) };
+  const vars: ThemeVars = { ...base, ...derived(base) };
   for (const [key, value] of Object.entries(vars)) {
     const cssName = '--' + key.replace(/([A-Z])/g, '-$1').toLowerCase();
     root.style.setProperty(cssName, value);
