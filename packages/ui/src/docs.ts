@@ -1030,11 +1030,18 @@ export const DOCS: DocSection[] = [
     entries: [
       {
         name: 'screen',
-        signature: 'screen(pixels = 1, { columns, label })',
+        signature: 'screen(pixels = 1, { columns, label, background })',
         description:
           'With no arguments it is one colour wash: a rectangle that takes a colour. Give it a pixel count and it is a strip, add columns and it is a grid, addressable with pixelXY and eachXY like a physical pixel wash. It answers every strip method, so a chase written for hardware runs on it unchanged.',
         example:
           "const room = screen()\nroom.fill(sine.slow(4), 0, cosine.slow(4))\n\nconst wall = screen(48, { columns: 12, label: 'wall' })\nwall.eachXY(sine.slow(4))",
+      },
+      {
+        name: 'the page as a light',
+        signature: 'screen(1, { background: true })',
+        description:
+          'The page behind the code takes the colour, so in minimal view the whole screen is the light: a laptop on stage, or a projector pointed at a wall. It is one wash and one per scene, and it takes over from the black background setting while the scene runs. Code keeps a dark shadow so it stays readable over bright colours.',
+        example: "const page = screen(1, { background: true })\npage.color(blue)\npage.each('1 - - -'.fadeOut(2))",
       },
       {
         name: 'how it renders',

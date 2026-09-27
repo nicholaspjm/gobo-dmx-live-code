@@ -1559,12 +1559,19 @@ interface RenderedScreen {
   cells: HTMLElement[];
 }
 let _renderedScreens: RenderedScreen[] = [];
+/** The screen that lights the page behind the code, if the scene has one. */
+let _backdrop: ScreenPanel | null = null;
 
 /** Rebuild the screen panels from whatever the current scene declared. */
 function rebuildScreens(): void {
   _renderedScreens = [];
   screenLightsEl.innerHTML = '';
-  const panels = getScreens();
+  const all = getScreens();
+  // The background screen is painted onto the editor area, not into a panel.
+  _backdrop = all.find((p) => p.background) ?? null;
+  document.body.classList.toggle('screen-backdrop-on', _backdrop !== null);
+  if (_backdrop === null) editorWrapEl.style.removeProperty('--backdrop');
+  const panels = all.filter((p) => !p.background);
   // Hidden rather than empty, so a scene with no screen() costs no layout.
   screenWrapEl.hidden = panels.length === 0;
   if (panels.length === 0) return;
@@ -1595,6 +1602,10 @@ function rebuildScreens(): void {
 
 /** Paint every screen panel from the current buffer. */
 function paintScreens(): void {
+  if (_backdrop !== null) {
+    const [red, green, blue] = readScreen(_backdrop)[0] ?? [0, 0, 0];
+    editorWrapEl.style.setProperty('--backdrop', `rgb(${red}, ${green}, ${blue})`);
+  }
   for (const r of _renderedScreens) {
     const colours = readScreen(r.panel);
     for (let i = 0; i < r.cells.length; i++) {

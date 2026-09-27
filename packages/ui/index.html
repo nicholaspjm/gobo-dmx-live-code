@@ -387,6 +387,22 @@
 
       /* Editor. Takes whatever the panels below it do not need, which, since
          they are fixed-height, is almost all of it. */
+      /* A screen(1, { background: true }) in the scene: the editor area is
+         that light's colour, behind the code, and the editor's own grounds
+         step aside. Stronger than the black background setting, since here
+         the background is a light. The text shadow keeps code readable over
+         a bright colour. */
+      html body.screen-backdrop-on .editor-wrap {
+        background: var(--backdrop, #000) !important;
+      }
+      body.screen-backdrop-on .editor-wrap .cm-editor,
+      body.screen-backdrop-on .editor-wrap .cm-gutters {
+        background: transparent !important;
+      }
+      body.screen-backdrop-on .editor-wrap .cm-content {
+        text-shadow: 0 0 3px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 0.9);
+      }
+
       .editor-wrap {
         flex: 1;
         /* Never collapses entirely: on a short window the panels below yield

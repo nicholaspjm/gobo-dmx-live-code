@@ -4,6 +4,24 @@ All notable changes to gobo are recorded here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **The page as a light.** `screen(1, { background: true })` paints the area
+  behind the code in that light's colour, so in minimal view the laptop or a
+  projected screen is a fixture in the rig. It takes over from the black
+  background setting while the scene runs, and the code keeps a dark shadow
+  to stay readable.
+
+### Changed
+
+- **The showcase plays live by default.** `demos/showcase.js` now drives the
+  two Four-Colour Moving Bars (with movement), the Atomics, the pars and the
+  page background, as four layers muted and unmuted by hand, with each
+  section's lines written out to swap in. The seven looks are still there,
+  off, for anyone who prefers picking sections with keys.
+
 ## [0.7.2] - 2026-09-27
 
 ### Added

@@ -39,6 +39,8 @@ export interface ScreenPanel {
   readonly pixelCount: number;
   /** Label shown on the panel, so several are tellable apart. */
   readonly label: string;
+  /** Drawn as the page background behind the code, not as a panel. */
+  readonly background: boolean;
 }
 
 // Panels declared by the scene currently being evaluated. Rebuilt on every
@@ -72,23 +74,38 @@ export function getScreens(): readonly ScreenPanel[] {
  * is physically wired, and a screen has no wiring. Its pixel 0 is the top left
  * because that is where it is drawn.
  *
+ * With `background: true` it is the page itself: the colour fills the
+ * background behind the code, so the laptop or the projected screen becomes
+ * a light in the room. One background screen per scene, and it is one wash.
+ *
  * @param pixels  how many cells (default 1, a plain wash)
- * @param opts    columns for a grid, and a label for the panel
+ * @param opts    columns for a grid, a label for the panel, background to
+ *                light the page instead of a panel
  *
  * @example
  *   const room = screen()                        // one big colour wash
  *   room.fill(sine.slow(4), 0, cosine.slow(4))
+ *
+ *   const page = screen(1, { background: true }) // the page behind the code
+ *   page.color('<red blue>')
  *
  *   const wall = screen(48, { columns: 12 })     // a 12 x 4 video wall
  *   wall.eachXY(sine.slow(4), 4)
  */
 export function screen(
   pixels = 1,
-  opts: { label?: string; columns?: number } = {},
+  opts: { label?: string; columns?: number; background?: boolean } = {},
 ): StripInstance {
-  checkOptions(opts as Record<string, unknown>, ['label', 'columns'], 'screen()');
+  checkOptions(opts as Record<string, unknown>, ['label', 'columns', 'background'], 'screen()');
   if (!Number.isInteger(pixels) || pixels < 1) {
     throw new Error(`screen: pixel count must be an integer >= 1 (got ${pixels})`);
+  }
+  const background = opts.background === true;
+  if (background && pixels !== 1) {
+    throw new Error('screen(1, { background: true }): the page background is one wash, so it takes one pixel.');
+  }
+  if (background && _panels.some((p) => p.background)) {
+    throw new Error('screen(): only one screen can be the page background.');
   }
   const channelsNeeded = pixels * 3;
   if (_nextChannel + channelsNeeded - 1 > 512) {
@@ -113,7 +130,8 @@ export function screen(
     width: strip.width,
     height: strip.height,
     pixelCount: pixels,
-    label: opts.label ?? (pixels === 1 ? 'screen' : `screen ×${pixels}`),
+    label: opts.label ?? (background ? 'background' : pixels === 1 ? 'screen' : `screen ×${pixels}`),
+    background,
   });
 
   return strip;

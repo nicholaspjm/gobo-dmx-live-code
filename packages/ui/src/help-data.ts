@@ -572,9 +572,9 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     label: 'screen',
-    signature: 'screen(pixels?, { columns?, label? })',
+    signature: 'screen(pixels?, { columns?, label?, background? })',
     description:
-      'A light drawn on the page, with no DMX address. By default it is one colour wash; give it pixels and columns for a grid. It takes every strip method.',
+      'A light drawn on the page, with no DMX address. By default it is one colour wash; give it pixels and columns for a grid. With background: true it is the page behind the code, so the laptop or the projected screen lights the room. It takes every strip method.',
     example: "const room = screen()\nroom.fill(sine.slow(4), 0, cosine.slow(4))",
     context: 'command',
     kind: 'function',
