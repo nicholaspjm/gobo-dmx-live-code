@@ -190,7 +190,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     label: 'fadeOut',
     signature: '.fadeOut(beats)',
     description:
-      'Each step keeps glowing for this many beats after it ends, going out as the next one comes up: the tail that makes a chase look like one. Strudel calls it release, in seconds, and .release() does the same here.',
+      'Each step keeps glowing for this many beats after it ends, going out as the next one comes up: the tail that makes a chase look like one. Strudel calls it release, in seconds, and .release() does the same here. The length can be a pattern, read at each step: .fadeOut(\'<0.5 2>\').',
     example: "rig.each('1 - - -'.fadeOut(2))",
     context: 'pattern-method',
     kind: 'method',

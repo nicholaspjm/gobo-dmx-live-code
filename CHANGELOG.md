@@ -28,6 +28,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   Lights drawn on screen keep their own colours.
 - **Strudel's `.color()` on a pattern colours its steps.** `'1 0.5'.color('red blue')`
   handed to a light is a full red then a half blue, where it was white.
+- **Fade lengths can be patterns**, as strudel's envelope lengths are:
+  `.fadeOut('<0.5 2>')` gives a short tail one bar and a long one the next,
+  each step reading its own.
 - **`.clip()` and `.legato()` set how long each step stays lit.** In strudel
   they are how long a note sounds; for a light, `'1*8'.clip(0.25)` is eight
   short flashes, and a `.fadeOut()` after it starts where the flash ends.

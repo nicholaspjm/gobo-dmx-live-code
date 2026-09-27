@@ -465,6 +465,21 @@ describe("strudel's .color() on a pattern", () => {
   });
 });
 
+describe('a fade whose length is a pattern', () => {
+  it("reads each step's own length, as strudel's .release('<0.1 0.5>') does", () => {
+    run("const w = fixture(1, 'dim')\nw.dim('1 -'.fadeOut('<0 2>'))");
+    expect(at(0.75)).toBe(0);
+    const tail = at(1.75);
+    expect(tail).toBeGreaterThan(100);
+    expect(tail).toBeLessThan(160);
+  });
+
+  it('a plain number still works, quoted or not', () => {
+    run("const w = fixture(1, 'dim')\nw.dim('1 -'.fadeOut('2'))");
+    expect(at(0.75)).toBeGreaterThan(100);
+  });
+});
+
 describe('a fan', () => {
   it('spreads a group of heads out around a centre', () => {
     run("const a = fixture(1, 'moving-head-basic')\nconst b = fixture(9, 'moving-head-basic')\nconst c = fixture(17, 'moving-head-basic')\ngroup(a, b, c).pan(mini('0.5').fan(0.4))");

@@ -31,6 +31,7 @@
 
 import { levelOf } from './dmx.js';
 import { getBPM } from './scheduler.js';
+import { stringPattern } from './string-patterns.js';
 
 /** The strudel classes this needs, handed over by eval.ts once strudel loads. */
 export interface StrudelKit {
@@ -48,6 +49,29 @@ export interface StrudelKit {
 export interface Span {
   amount: number;
   unit: 'beats' | 'seconds';
+  /** A length that changes, as strudel writes .release('<0.1 0.5>'): read
+   *  at the start of each step. `amount` is unused when this is set. */
+  pattern?: { queryArc(begin: number, end: number): Array<{ value: unknown }> };
+}
+
+/** The length a span gives a step starting at `when`. */
+function spanAt(span: Span | undefined, when: number): Span | undefined {
+  if (!span?.pattern) return span;
+  return { amount: patternAmount(span.pattern, when, when + 1e-6), unit: span.unit };
+}
+
+/** The largest length a patterned span reaches over [from, to), for the look back. */
+function patternAmount(p: NonNullable<Span['pattern']>, from: number, to: number): number {
+  let most = 0;
+  try {
+    for (const hap of p.queryArc(from, to)) {
+      const n = levelOf(hap.value) ?? Number(hap.value);
+      if (Number.isFinite(n) && n > most) most = n;
+    }
+  } catch {
+    // A length that cannot be read is no length.
+  }
+  return most;
 }
 
 /** The shape of every step's fade. Absent stages are instant. */
@@ -149,9 +173,12 @@ export function fade(kit: StrudelKit, pattern: unknown, shape: Shape): unknown {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sampleAt = (state: any, t: number, span: any): unknown[] => {
     const bpm = getBPM();
-    const a = cyclesOf(merged.attack, bpm);
-    const d = cyclesOf(merged.decay, bpm);
-    const r = Math.min(cyclesOf(merged.release, bpm), MAX_TAIL_CYCLES);
+    // A patterned release looks back as far as the longest it reaches lately.
+    const release = merged.release?.pattern
+      ? { amount: patternAmount(merged.release.pattern, t - 2, t + 1e-6), unit: merged.release.unit }
+      : merged.release;
+    const r = Math.min(cyclesOf(release, bpm), MAX_TAIL_CYCLES);
+    const patterned = !!(merged.attack?.pattern || merged.decay?.pattern || merged.release?.pattern);
     const from = Fraction(t - r);
     const to = Fraction(t + 1e-6);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -177,7 +204,12 @@ export function fade(kit: StrudelKit, pattern: unknown, shape: Shape): unknown {
         // it is sounding, which is at t.
         shaped = hap.part.begin.valueOf() <= t && t < hap.part.end.valueOf() ? level : null;
       } else {
-        const f = shapedLevel(t, hap.whole.begin.valueOf(), hap.whole.end.valueOf(), a, d, merged.sustain, r);
+        const on = hap.whole.begin.valueOf();
+        // Each step reads its own lengths when they are patterned.
+        const a = cyclesOf(patterned ? spanAt(merged.attack, on) : merged.attack, bpm);
+        const d = cyclesOf(patterned ? spanAt(merged.decay, on) : merged.decay, bpm);
+        const rs = patterned ? Math.min(cyclesOf(spanAt(merged.release, on), bpm), MAX_TAIL_CYCLES) : r;
+        const f = shapedLevel(t, on, hap.whole.end.valueOf(), a, d, merged.sustain, rs);
         shaped = f === null ? null : level * f;
       }
       if (shaped !== null && (best === null || shaped > best)) {
@@ -257,6 +289,17 @@ function shorten(kit: StrudelKit, pattern: unknown, fraction: number): unknown {
   }));
 }
 
+/** A length written as a pattern ('<0.1 0.5>', or a pattern itself), or null for a plain number. */
+function lengthPattern(v: unknown, what: string): Span['pattern'] | null {
+  if (v !== null && typeof v === 'object' && typeof (v as { queryArc?: unknown }).queryArc === 'function') {
+    return v as Span['pattern'];
+  }
+  if (typeof v === 'string' && v.trim() !== '' && !Number.isFinite(Number(v))) {
+    return (stringPattern(v, what) as Span['pattern']) ?? null;
+  }
+  return null;
+}
+
 /** Read a stage length a scene wrote, or say what it should have been. */
 function amountOf(v: unknown, what: string, unit: string): number {
   const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
@@ -278,6 +321,8 @@ function amountOf(v: unknown, what: string, unit: string): number {
 export function installFades(kit: StrudelKit, proto: any): void {
   const stage = (key: 'attack' | 'decay' | 'release', unit: 'beats' | 'seconds', name: string) =>
     function (this: unknown, v: unknown) {
+      const pattern = lengthPattern(v, `.${name}`);
+      if (pattern) return fade(kit, this, { [key]: { amount: 0, unit, pattern } });
       const amount = amountOf(v, `.${name}`, unit);
       return fade(kit, this, { [key]: { amount, unit } });
     };
