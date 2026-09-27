@@ -26,6 +26,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - **A black background setting**, under the theme: the page on true black
   under any dark theme, all the time rather than only in minimal view.
   Lights drawn on screen keep their own colours.
+- **Strudel's `.color()` on a pattern colours its steps.** `'1 0.5'.color('red blue')`
+  handed to a light is a full red then a half blue, where it was white.
 - **`.clip()` and `.legato()` set how long each step stays lit.** In strudel
   they are how long a note sounds; for a light, `'1*8'.clip(0.25)` is eight
   short flashes, and a `.fadeOut()` after it starts where the flash ends.

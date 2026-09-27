@@ -427,6 +427,14 @@ function rgbOf(
   // dmx.ts already unwraps as a level, so a colour position reads it as the
   // grey of that level rather than refusing it as "not a colour".
   const level = levelOf(v);
+  // strudel's .color() on a pattern tags each step with a colour: here that
+  // is the step's colour, at the step's level, so '1 0.5'.color('red blue')
+  // is a full red then a half blue.
+  if (level !== null && v !== null && typeof v === 'object' && 'color' in v) {
+    const [r, g, b] = rgbOf((v as { color: unknown }).color, begin, end, what, reported);
+    const k = clamp01(level);
+    return [r * k, g * k, b * k];
+  }
   if (level !== null) {
     const grey = clamp01(level);
     return [grey, grey, grey];

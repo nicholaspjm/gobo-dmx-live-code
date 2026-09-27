@@ -455,6 +455,16 @@ describe('a pattern handed to no light', () => {
   });
 });
 
+describe("strudel's .color() on a pattern", () => {
+  it('colours each step at its level', () => {
+    run("const p = fixture(1, 'rgb')\np.color('1 0.5'.color('red blue'))");
+    core.tick(0.1);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 3))).toEqual([255, 0, 0]);
+    core.tick(0.6);
+    expect(Array.from(core.getUniverseBuffer(0).slice(0, 3))).toEqual([0, 0, 128]);
+  });
+});
+
 describe('a fan', () => {
   it('spreads a group of heads out around a centre', () => {
     run("const a = fixture(1, 'moving-head-basic')\nconst b = fixture(9, 'moving-head-basic')\nconst c = fixture(17, 'moving-head-basic')\ngroup(a, b, c).pan(mini('0.5').fan(0.4))");
