@@ -15,6 +15,10 @@
  * reference is one click away, and the full tour is its own entry.
  */
 
+// The showcase lives as a file of its own in demos/, where it is read and
+// edited as a scene; the app bundles the same text.
+import showcaseCode from '../../../demos/showcase.js?raw';
+
 export interface Example {
   /** Stable id, safe to persist in a menu or a URL. Never reuse an id for
    *  different code, or an old link resolves to the wrong scene. */
@@ -270,6 +274,12 @@ bar.pixels.fill(0, 0, 0, 1)                                          // solid wh
 // bar.direction(sine.slow(1).range(0.4, 0.6)); bar.speed(0.5)       // wobble
 // bar.speed(0)                                                      // freeze
 `,
+  },
+  {
+    id: 'showcase',
+    label: 'showcase',
+    blurb: 'A full set for a 124 BPM track: moving bars, Atomics, pars and the page as a light, played live.',
+    code: showcaseCode,
   },
 ];
 

@@ -50,8 +50,15 @@ function at(t: number, ch = 1): number {
 describe('the bundled examples', () => {
   it('every one runs clean, lights something, and no pattern fails as it plays', async () => {
     const { EXAMPLES } = await import('./examples.js');
+    // The app registers the public fixture library at startup; the showcase
+    // patches from it.
+    const { readdirSync, readFileSync } = await import('node:fs');
+    const dir = new URL('../../../fixtures/', import.meta.url);
+    const library = readdirSync(dir).filter((f) => f.endsWith('.json'))
+      .map((f) => JSON.parse(readFileSync(new URL(f, dir), 'utf8')) as { id: string; def: Parameters<typeof core.defineFixture>[1] });
     for (const ex of EXAMPLES) {
       core.clearDefs();
+      for (const f of library) core.defineFixture(f.id, f.def);
       const r = core.evalCode(ex.code);
       expect(r.success, `${ex.id}: ${r.error ?? ''}`).toBe(true);
       let lit = 0;

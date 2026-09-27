@@ -104,7 +104,7 @@ export const DOCS: DocSection[] = [
     category: 'examples',
     title: 'bundled scenes',
     blurb:
-      'Working scenes to read or take apart. Loading one replaces what is in the editor, and asks first if you have unsaved work. Take a share link or copy the code before you say yes.',
+      'Working scenes to read or take apart. Loading one replaces what is in the editor, and asks first if you have unsaved work. Take a share link or copy the code before you say yes. Each has a short link too: gobolive.cc/#example=showcase opens the showcase.',
     entries: EXAMPLES.map((ex) => ({
       name: ex.label,
       signature: `${ex.code.split('\n').length} lines`,

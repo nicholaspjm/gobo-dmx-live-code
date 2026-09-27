@@ -4,6 +4,22 @@ All notable changes to gobo are recorded here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.5] - 2026-09-27
+
+### Added
+
+- **Short links to the bundled scenes.** `gobolive.cc/#example=showcase` opens
+  the showcase, and the same works for every example (`hello`, `small-rig`,
+  `starter`, `four-color-bar`). It asks first if the editor holds unsaved work,
+  and an unknown name says so.
+- **The showcase is a bundled example**, on the docs panel's examples tab,
+  read from `demos/showcase.js` so there is one copy of it.
+
+### Removed
+
+- **The connector no longer accepts pages from `nicholaspjm.github.io`.** The
+  app moved to gobolive.cc in 0.5.3 and the old address redirects there.
+
 ## [0.7.4] - 2026-09-27
 
 ### Changed
@@ -1063,6 +1079,7 @@ First public release. There was never a published 0.1.0. Everything below landed
 - The sim panel was hard-coded to one scene's channel layout and showed ghost fixtures after a scene switch. It is now rebuilt from the fixtures registered during the last eval. Its "off" state also reads the theme background instead of a hardcoded colour, so blackout looks dark on every theme.
 - The `ultratronics 11` template called `spot.dim()` on an RGBW fixture that has no dimmer channel, throwing on every run. The instrument palette was remapped onto discrete colour channels. The fixed version is the one in the **examples** menu; a copy you saved under the old scene model still holds the broken call, so re-load the example if you kept one.
 
+[0.7.5]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.7.5
 [0.7.4]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.7.4
 [0.7.3]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.7.3
 [0.7.2]: https://github.com/nicholaspjm/gobo-dmx-live-code/releases/tag/v0.7.2

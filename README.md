@@ -37,7 +37,7 @@ The pattern engine is [@strudel/core](https://strudel.cc): the same waveform and
 - Output to Art-Net 4, sACN (E1.31), OSC, a USB DMX interface over WebSerial with nothing installed, TouchDesigner directly, or mock
 - One working scene, autosaved to the browser as you type
 - A share link that holds the whole scene, with no server involved
-- Four bundled demo scenes, on the examples tab of the docs, from two lines to a small working rig
+- Five bundled demo scenes, on the examples tab of the docs, from two lines to a full set on a real rig
 - Built-in, bundled public, saved and session fixtures on one fixtures tab, with JSON import/export. The add to rig button on any of them writes the `fixture()` lines for as many as you own, at the next free address
 - The outputs panel lists the networks your computer is on and writes the `artnet()` line that reaches them, and says when a scene sends somewhere the rig cannot hear
 - Errors name their line and tint it, and a misspelt name gets a "did you mean"
@@ -232,9 +232,13 @@ A share link is the durable copy. **share** in the top bar copies a link carryin
 scene and shows you what it copied (details below). The same dialog can give you the code as
 plain text instead, for a scene too long to paste as a link.
 
-The four bundled demos live under the panel's **docs** tab, on its examples sub-tab: *start here*
+The five bundled demos live under the panel's **docs** tab, on its examples sub-tab: *start here*
 (the two lines a new browser opens on), *four pars and a strobe* (a small real rig), *language
-tour* (everything the language does), and *four-colour bar demo* (one custom fixture end to end). Loading one replaces the editor, and asks first.
+tour* (everything the language does), *four-colour bar demo* (one custom fixture end to end), and
+*showcase* (a full set for a 124 BPM track on moving bars, Atomics, pars and the page as a light,
+kept in `demos/showcase.js`). Loading one replaces the editor, and asks first. Each also has a
+short link of its own: `https://gobolive.cc/#example=showcase` opens the showcase, and the same
+works for `hello`, `small-rig`, `starter` and `four-color-bar`.
 
 **save** writes the scene to a `.js` file (`Ctrl+S`) and **open** reads one back. The file is
 the code and nothing else, so it opens with syntax highlighting in any editor and diffs line by

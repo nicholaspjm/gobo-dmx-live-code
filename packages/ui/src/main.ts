@@ -2118,6 +2118,21 @@ let _openedFromLink = false;
  * Never auto-runs the code, and never replaces unsaved work without asking.
  */
 async function handleSharedScene(): Promise<void> {
+  // A short link to a bundled scene, gobolive.cc/#example=showcase: the same
+  // as picking it in the docs panel's examples tab.
+  const exampleId = /^#example=([\w-]+)$/.exec(globalThis.location?.hash ?? '')?.[1];
+  if (exampleId !== undefined) {
+    clearShareFromLocation();
+    const ex = getExample(exampleId);
+    if (!ex) {
+      setStatus('error', `no bundled example called "${exampleId}"`);
+      return;
+    }
+    _openedFromLink = true;
+    loadExample(ex);
+    return;
+  }
+
   const shared = await decodeShareFromLocation();
   if (shared === null) {
     // A link that is there but does not read is said out loud; otherwise the

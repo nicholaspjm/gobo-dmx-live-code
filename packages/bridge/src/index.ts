@@ -966,13 +966,6 @@ const PORT = 3001;
  */
 const HOSTED_APP = 'https://gobolive.cc/';
 
-/**
- * Where the app lived before gobolive.cc. It redirects there now, so no page
- * is served from it, but a copy of the app still open in a tab from before the
- * move is, and it is allowed until a later release drops it.
- */
-const FORMER_HOSTED_APP = 'https://nicholaspjm.github.io';
-
 // ─── Who may connect ─────────────────────────────────────────────────────────
 // Loopback only and gobo's own pages only, unless the operator says otherwise
 // with --lan or --allow-origin. The reasoning is at the top of access.ts.
@@ -1003,7 +996,7 @@ function ownHosts(): ReadonlySet<string> {
 const accessPolicy = createPolicy({
   lan: accessArgs.lan,
   hostedApp: HOSTED_APP,
-  extraOrigins: [FORMER_HOSTED_APP, ...accessArgs.extraOrigins],
+  extraOrigins: accessArgs.extraOrigins,
   ownHosts,
 });
 
